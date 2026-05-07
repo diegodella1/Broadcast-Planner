@@ -1,0 +1,75 @@
+import { decryptSecret, encryptSecret, maskSecret } from "./crypto"
+import { createServiceClient } from "./supabase/server"
+
+export type IntegrationSetting = {
+  provider: string
+  publicConfig: Record<string, unknown>
+  secret?: string | null
+  status: "unknown" | "connected" | "invalid" | "failed"
+  lastError?: string | null
+  lastCheckedAt?: string | null
+  hasSecret?: boolean
+}
+
+export async function saveVimeoSettings(input: { token?: string; folderUri?: string; timezone?: string }) {
+  const supabase = createServiceClient()
+  const publicConfig = {
+    folder_uri: input.folderUri || null,
+    timezone: input.timezone || "America/Argentina/Buenos_Aires"
+  }
+  const encrypted_secret = input.token ? encryptSecret(input.token) : null
+  const payload: Record<string, unknown> = {
+    provider: "vimeo",
+    public_config: publicConfig,
+    status: "unknown",
+    updated_at: new Date().toISOString()
+  }
+  if (encrypted_secret) payload.encrypted_secret = encrypted_secret
+  const { error } = await supabase.from("integration_settings").upsert(payload, { onConflict: "provider" })
+  if (error) throw error
+  await supabase.from("audit_log").insert({
+    actor: "admin",
+    action: "settings.vimeo.updated",
+    entity_type: "integration_settings",
+    entity_id: "vimeo",
+    metadata: { token: encrypted_secret ? maskSecret(input.token) : "unchanged", folder_uri: input.folderUri ?? null }
+  })
+}
+
+export async function getVimeoToken(): Promise<string | null> {
+  if (process.env.VIMEO_ACCESS_TOKEN) return process.env.VIMEO_ACCESS_TOKEN
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from("integration_settings")
+    .select("encrypted_secret")
+    .eq("provider", "vimeo")
+    .maybeSingle()
+  if (!data?.encrypted_secret) return null
+  return decryptSecret(data.encrypted_secret)
+}
+
+export async function getVimeoSettings(): Promise<IntegrationSetting | null> {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from("integration_settings")
+    .select("provider, public_config, encrypted_secret, status, last_error, last_checked_at")
+    .eq("provider", "vimeo")
+    .maybeSingle()
+  if (!data) return null
+  return {
+    provider: String(data.provider),
+    publicConfig: typeof data.public_config === "object" && data.public_config !== null ? data.public_config as Record<string, unknown> : {},
+    status: String(data.status) as IntegrationSetting["status"],
+    lastError: data.last_error ? String(data.last_error) : null,
+    lastCheckedAt: data.last_checked_at ? String(data.last_checked_at) : null,
+    hasSecret: Boolean(data.encrypted_secret)
+  }
+}
+
+export async function markVimeoStatus(status: "connected" | "invalid" | "failed", errorMessage?: string) {
+  const supabase = createServiceClient()
+  await supabase
+    .from("integration_settings")
+    .update({ status, last_checked_at: new Date().toISOString(), last_error: errorMessage ?? null })
+    .eq("provider", "vimeo")
+}

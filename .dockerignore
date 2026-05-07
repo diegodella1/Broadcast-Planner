@@ -1,0 +1,13 @@
+.next
+node_modules
+npm-debug.log
+.env
+.env.local
+.env.*.local
+.git
+.agents
+.codex
+coverage
+test-results
+playwright-report
+*.tsbuildinfo
