@@ -95,7 +95,7 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
   return (
     <AdminShell title={block.title}>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <Link href={`/admin/schedule/${date}`} className="text-sm font-semibold text-zinc-600 hover:text-ink">
+        <Link href={`/admin/schedule/${date}`} className="text-sm font-semibold text-white/60 hover:text-ink">
           Volver a agenda {date}
         </Link>
         <div className="flex flex-wrap gap-2">
@@ -116,7 +116,7 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
         <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-zinc-600">Bloque principal</p>
+              <p className="text-sm text-white/60">Bloque principal</p>
               <h2 className="text-2xl font-semibold">{block.title}</h2>
             </div>
             <StatusPill status={block.status} />
@@ -173,18 +173,18 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
           </form>
           <div className="mt-6 rounded-md bg-panel p-4">
             <p className="text-sm font-semibold">Asset</p>
-            <p className="mt-1 text-sm text-zinc-700">{asset?.title ?? "Sin asset asignado"}</p>
+            <p className="mt-1 text-sm text-white/70">{asset?.title ?? "Sin asset asignado"}</p>
             {asset ? <Readiness asset={asset} /> : null}
             {asset ? <AssignedAssetEditForm asset={asset} action={editAssignedAsset} /> : null}
           </div>
           <div className="mt-6 grid gap-2">
             {blockIssues.map((issue) => (
-              <p key={issue.id} className={issue.severity === "critical" ? "rounded-md bg-red-50 px-3 py-2 text-sm text-red-900" : "rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900"}>
+              <p key={issue.id} className={issue.severity === "critical" ? "rounded-md bg-negative-red/10 px-3 py-2 text-sm text-negative-red" : "rounded-md bg-warn-amber/10 px-3 py-2 text-sm text-warn-amber"}>
                 <span className="block font-semibold">{issue.title}</span>
                 {issue.detail}
               </p>
             ))}
-            {blockIssues.length === 0 && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900">Sin alertas para este bloque.</p>}
+            {blockIssues.length === 0 && <p className="rounded-md bg-accent-positive/10 px-3 py-2 text-sm text-accent-positive">Sin alertas para este bloque.</p>}
           </div>
         </section>
         <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
@@ -242,9 +242,9 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
               <div key={layer.id} className="rounded-md border border-line p-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">{layer.title}</span>
-                  <span className="text-zinc-500">z{layer.zIndex}</span>
+                  <span className="text-white/50">z{layer.zIndex}</span>
                 </div>
-                <p className="mt-1 text-zinc-600">
+                <p className="mt-1 text-white/60">
                   <Timecode seconds={layer.startTimeSeconds} /> · <Timecode seconds={layer.durationSeconds} /> · {layer.position}
                 </p>
                 <form action={toggleLayer} className="mt-3">
@@ -256,7 +256,7 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
                 </form>
               </div>
             ))}
-            {layers.length === 0 && <p className="text-sm text-zinc-600">Sin overlays.</p>}
+            {layers.length === 0 && <p className="text-sm text-white/60">Sin overlays.</p>}
           </div>
         </section>
       </div>
@@ -329,9 +329,9 @@ function AssignedAssetEditForm({
 function SignalCard({ title, primary, meta, status }: { title: string; primary: string; meta: string; status: string }) {
   return (
     <section className="rounded-lg border border-line bg-white p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase text-zinc-500">{title}</p>
+      <p className="text-xs font-semibold uppercase text-white/50">{title}</p>
       <p className="mt-2 truncate text-xl font-semibold">{primary}</p>
-      <p className="mt-1 text-sm text-zinc-600">{meta}</p>
+      <p className="mt-1 text-sm text-white/60">{meta}</p>
       <div className="mt-3"><StatusPill status={status} /></div>
     </section>
   )
@@ -340,7 +340,7 @@ function SignalCard({ title, primary, meta, status }: { title: string; primary: 
 function Readiness({ asset }: { asset: MediaAsset }) {
   const readiness = getAssetReadiness(asset)
   return (
-    <p className={readiness.ready ? "mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900" : "mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-900"}>
+    <p className={readiness.ready ? "mt-3 rounded-md bg-accent-positive/10 px-3 py-2 text-sm text-accent-positive" : "mt-3 rounded-md bg-negative-red/10 px-3 py-2 text-sm text-negative-red"}>
       {readiness.ready ? "Listo para render" : readiness.messages.join(", ")}
     </p>
   )
@@ -349,7 +349,7 @@ function Readiness({ asset }: { asset: MediaAsset }) {
 function Info({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase text-zinc-500">{label}</dt>
+      <dt className="text-xs font-semibold uppercase text-white/50">{label}</dt>
       <dd className="mt-1 text-lg font-semibold">{value}</dd>
     </div>
   )

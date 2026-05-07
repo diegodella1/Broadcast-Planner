@@ -3,11 +3,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
-  --background: oklch(96.5% 0.008 230);
-  --foreground: oklch(20% 0.014 230);
-  --surface: oklch(99% 0.004 230);
-  --surface-soft: oklch(98% 0.006 230);
+  color-scheme: dark;
 }
 
 * {
@@ -18,8 +14,8 @@ html,
 body {
   min-height: 100%;
   margin: 0;
-  background: var(--background);
-  color: var(--foreground);
+  @apply bg-surface-elevated-1;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 body {
@@ -60,8 +56,7 @@ summary:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid oklch(52% 0.105 190);
-  outline-offset: 2px;
+  @apply outline-2 outline-offset-2 outline-accent-positive;
 }
 
 input,
@@ -69,30 +64,26 @@ select,
 textarea {
   min-height: 2.5rem;
   border-radius: 0.375rem;
-  background: var(--surface);
+  @apply bg-surface-elevated-2;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: oklch(55% 0.016 230);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .surface-card {
-  border: 1px solid theme("colors.line");
-  border-radius: 0.5rem;
-  background: var(--surface);
-  box-shadow: 0 1px 2px rgb(17 24 39 / 6%);
+  @apply border border-white/10 rounded-lg bg-surface-elevated-2;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 40%);
 }
 
 .surface-panel {
-  border: 1px solid theme("colors.line");
-  border-radius: 0.5rem;
-  background: var(--surface);
-  box-shadow: 0 1px 2px rgb(17 24 39 / 6%);
+  @apply border border-white/10 rounded-lg bg-surface-elevated-2;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 40%);
 }
 
 .eyebrow {
-  color: theme("colors.muted");
+  @apply text-white/50;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0;
@@ -117,40 +108,32 @@ textarea::placeholder {
 }
 
 .btn-primary {
-  border: 1px solid theme("colors.ink");
-  background: theme("colors.ink");
-  color: oklch(98% 0.006 230);
+  @apply border border-accent-positive bg-accent-positive text-surface-elevated-1;
 }
 
 .btn-primary:hover {
-  background: oklch(25% 0.018 230);
+  @apply bg-accent-positive-hover border-accent-positive-hover;
 }
 
 .btn-secondary,
 .chip {
-  border: 1px solid theme("colors.line");
-  background: var(--surface);
-  color: theme("colors.ink");
+  @apply border border-white/15 bg-surface-elevated-2 text-white/90;
 }
 
 .btn-secondary:hover,
 .chip:hover {
-  border-color: theme("colors.line-strong");
-  background: theme("colors.panel-soft");
+  @apply border-white/25 bg-surface-elevated-2;
 }
 
 .chip-active {
-  border: 1px solid theme("colors.ink");
-  background: theme("colors.ink");
-  color: oklch(98% 0.006 230);
+  @apply border border-accent-positive bg-surface-selected-positive text-accent-positive;
 }
 
 .tv-output {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: oklch(14% 0.012 230);
-  color: oklch(97% 0.006 230);
+  @apply bg-surface-elevated-1 text-white/90;
 }
 
 .lower-third-card {
@@ -160,7 +143,7 @@ textarea::placeholder {
   min-width: 520px;
   max-width: 780px;
   padding: 18px 24px 20px;
-  border: 1px solid rgb(255 255 255 / 18%);
+  @apply border border-white/[0.18];
   background: linear-gradient(90deg, rgb(5 6 7 / 92%), rgb(16 18 22 / 82%));
   box-shadow: 0 18px 44px rgb(0 0 0 / 45%);
 }
@@ -168,7 +151,7 @@ textarea::placeholder {
 .lower-third-accent {
   width: 8px;
   min-height: 74px;
-  background: oklch(78% 0.16 170);
+  @apply bg-accent-positive;
 }
 
 .lower-third-primary {
@@ -179,7 +162,7 @@ textarea::placeholder {
 
 .lower-third-secondary {
   margin-top: 8px;
-  color: rgb(255 255 255 / 78%);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 19px;
   line-height: 1.25;
 }

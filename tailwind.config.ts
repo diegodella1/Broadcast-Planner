@@ -1,9 +1,13 @@
 import type { Config } from "tailwindcss"
+import defaultTheme from "tailwindcss/defaultTheme"
 
 const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-dm-sans)", ...defaultTheme.fontFamily.sans],
+      },
       colors: {
         ink: "oklch(20% 0.014 230)",
         muted: "oklch(46% 0.018 230)",
@@ -28,7 +32,24 @@ const config: Config = {
         info: "oklch(48% 0.09 230)",
         "info-soft": "oklch(96% 0.025 230)",
         "info-line": "oklch(84% 0.055 230)",
-        "info-strong": "oklch(34% 0.075 230)"
+        "info-strong": "oklch(34% 0.075 230)",
+        "surface-elevated-1": "#191919",
+        "surface-elevated-2": "#1e1e1e",
+        "surface-selected-positive": "#19241f",
+        "accent-positive": "#1ae784",
+        "accent-positive-hover": "#16cc74",
+        "accent-positive-glow": "rgba(26,231,132,0.25)",
+        "accent-positive-glow-strong": "rgba(26,231,132,0.60)",
+        "accent-live": "#e7000b",
+        "accent-live-text": "#ff4d4d",
+        "info-blue": "#60a5fa",
+        "warn-amber": "#fbbf24",
+        "info-violet": "#c084fc",
+        "negative-red": "#ef4444"
+      },
+      boxShadow: {
+        "accent-positive-glow": "0 0 24px 0 rgba(26,231,132,0.25)",
+        "accent-positive-glow-strong": "0 0 8px 0 rgba(26,231,132,0.60)"
       }
     }
   },

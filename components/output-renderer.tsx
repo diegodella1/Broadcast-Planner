@@ -128,8 +128,8 @@ function VideoAsset({ asset }: { asset: MediaAsset }) {
 
 function Slide({ slide, fullscreen = false }: { slide: SlideAsset; fullscreen?: boolean }) {
   const className = fullscreen
-    ? "grid h-full w-full place-items-center bg-zinc-950 px-20 text-center text-white"
-    : "rounded bg-zinc-950/92 px-8 py-5 text-white shadow-2xl"
+    ? "grid h-full w-full place-items-center bg-surface-elevated-1 px-20 text-center text-white"
+    : "rounded bg-surface-elevated-1/92 px-8 py-5 text-white shadow-2xl"
   if (slide.slideType === "image" && slide.imageUrl) {
     return (
       <div className={fullscreen ? "relative h-full w-full" : "relative h-80 w-[36rem] max-w-full"}>
@@ -154,7 +154,7 @@ function Fallback({ asset, reason }: { asset: MediaAsset | null; reason: string 
     <div className="grid h-full w-full place-items-center bg-black text-white">
       <div className="text-center">
         <p className="text-5xl font-semibold">ROXOM TV</p>
-        <p className="mt-4 text-xl text-zinc-400">{reason}</p>
+        <p className="mt-4 text-xl text-white/40">{reason}</p>
       </div>
     </div>
   )

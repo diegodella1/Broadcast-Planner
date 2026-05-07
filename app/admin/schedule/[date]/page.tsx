@@ -316,10 +316,10 @@ function DailyTimeline({
               <div className="relative">
                 {nowSeconds !== null && nowSeconds >= hourStart && nowSeconds < hourStart + 3600 ? (
                   <div
-                    className="absolute left-0 right-0 z-20 border-t-2 border-red-500"
+                    className="absolute left-0 right-0 z-20 border-t-2 border-accent-live"
                     style={{ top: `${((nowSeconds - hourStart) / 3600) * 100}%` }}
                   >
-                    <span className="absolute -top-3 right-2 rounded bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white">LIVE</span>
+                    <span className="absolute -top-3 right-2 rounded bg-accent-live px-2 py-0.5 text-[10px] font-semibold text-white">LIVE</span>
                   </div>
                 ) : null}
                 {segments.map(({ block, top, height }) => {
