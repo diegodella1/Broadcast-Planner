@@ -15,7 +15,11 @@
     "e2e": "playwright test",
     "i18n:check": "node scripts/i18n-check.mjs",
     "supabase:types": "supabase gen types typescript --local > lib/supabase/database.types.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:dev": "opennextjs-cloudflare build && wrangler dev",
+    "cf:deploy": "opennextjs-cloudflare build && wrangler deploy",
+    "cf:preview": "opennextjs-cloudflare build && wrangler versions upload"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,mjs,cjs,json,md,css}": [
@@ -32,6 +36,7 @@
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.4",
     "clsx": "^2.1.1",
+    "hls.js": "^1.6.16",
     "lucide-react": "^0.468.0",
     "next": "^15.3.1",
     "next-intl": "^4.11.0",
@@ -40,6 +45,8 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1",
+    "wrangler": "^4",
     "@eslint/eslintrc": "^3.3.5",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

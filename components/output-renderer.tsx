@@ -1,13 +1,19 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
-import { useState } from "react"
 import { useTranslations } from "next-intl"
 import Image from "next/image"
-import type { ActiveSchedule, MediaAsset, ScheduledLayer, SlideAsset } from "@/lib/types"
+import { useEffect, useMemo, useRef, useState } from "react"
+
 import { findActiveSchedule } from "@/lib/scheduler"
-import type { ScheduleBundle } from "@/lib/types"
 import { formatTimecode } from "@/lib/time"
+
+import type {
+  ActiveSchedule,
+  MediaAsset,
+  ScheduleBundle,
+  ScheduledLayer,
+  SlideAsset
+} from "@/lib/types"
 
 export function OutputRenderer({
   initialSchedule,
@@ -42,7 +48,10 @@ export function OutputRenderer({
     }
   }, [forcedBlockId, initialSchedule])
 
-  const active = findActiveSchedule(schedule, forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay)
+  const active = findActiveSchedule(
+    schedule,
+    forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay
+  )
   const renderAsset = active.asset ?? active.fallbackAsset
   const renderSlide = active.slide
 
@@ -52,7 +61,13 @@ export function OutputRenderer({
       {active.layers.map((layer) => (
         <Layer key={layer.id} layer={layer} schedule={schedule} />
       ))}
-      {debug && <DebugPanel active={active} secondsOfDay={forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay} t={t} />}
+      {debug && (
+        <DebugPanel
+          active={active}
+          secondsOfDay={forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay}
+          t={t}
+        />
+      )}
     </main>
   )
 }
@@ -72,25 +87,44 @@ function BaseContent({
     return <Fallback asset={asset} reason={t("fallback.noActiveBlock")} brand={t("brand")} />
   }
   if (slide) return <Slide slide={slide} fullscreen />
-  if (!asset) return <Fallback asset={active.fallbackAsset ?? null} reason={t("fallback.missingAsset")} brand={t("brand")} />
+  if (!asset)
+    return (
+      <Fallback
+        asset={active.fallbackAsset ?? null}
+        reason={t("fallback.missingAsset")}
+        brand={t("brand")}
+      />
+    )
   if (asset.mediaKind === "image") return <ImageAsset asset={asset} />
   if (asset.sourceType === "vimeo" && asset.vimeoId) return <VimeoEmbed asset={asset} />
   if (asset.sourceType === "remote_mp4" || asset.sourceType === "hls") {
     return <VideoAsset asset={asset} />
   }
-  // reuters: stub renderer — Phase 5/6 owns the proper Reuters widget.
-  // Falls back to remote_image rendering (url-based image) until then.
-  if (asset.sourceType === "reuters") return <ImageAsset asset={asset} />
-  return <Fallback asset={active.fallbackAsset ?? null} reason={t("fallback.unsupportedAsset")} brand={t("brand")} />
+  if (asset.sourceType === "reuters") return <ReutersPlayer asset={asset} />
+  return (
+    <Fallback
+      asset={active.fallbackAsset ?? null}
+      reason={t("fallback.unsupportedAsset")}
+      brand={t("brand")}
+    />
+  )
 }
 
 function Layer({ layer, schedule }: { layer: ScheduledLayer; schedule: ScheduleBundle }) {
-  const asset = layer.assetId ? schedule.mediaAssets.find((item) => item.id === layer.assetId) : null
-  const slide = layer.slideId ? schedule.slideAssets.find((item) => item.id === layer.slideId) : null
+  const asset = layer.assetId
+    ? schedule.mediaAssets.find((item) => item.id === layer.assetId)
+    : null
+  const slide = layer.slideId
+    ? schedule.slideAssets.find((item) => item.id === layer.slideId)
+    : null
   const position = positionClass(layer.position)
   return (
     <div className={`absolute ${position}`} style={{ zIndex: layer.zIndex }}>
-      {slide ? <Slide slide={slide} /> : asset?.mediaKind === "image" ? <ImageAsset asset={asset} contained /> : null}
+      {slide ? (
+        <Slide slide={slide} />
+      ) : asset?.mediaKind === "image" ? (
+        <ImageAsset asset={asset} contained />
+      ) : null}
     </div>
   )
 }
@@ -112,8 +146,18 @@ function ImageAsset({ asset, contained = false }: { asset: MediaAsset; contained
   const t = useTranslations("output")
   if (!asset.url) return <Fallback asset={null} reason={asset.title} brand={t("brand")} />
   return (
-    <div className={contained ? "relative h-80 w-[36rem] max-w-full rounded bg-black" : "relative h-full w-full"}>
-      <Image alt={asset.title} className={contained ? "object-contain" : "object-cover"} src={asset.url} fill sizes={contained ? "36rem" : "100vw"} />
+    <div
+      className={
+        contained ? "relative h-80 w-[36rem] max-w-full rounded bg-black" : "relative h-full w-full"
+      }
+    >
+      <Image
+        alt={asset.title}
+        className={contained ? "object-contain" : "object-cover"}
+        src={asset.url}
+        fill
+        sizes={contained ? "36rem" : "100vw"}
+      />
     </div>
   )
 }
@@ -124,7 +168,16 @@ function VideoAsset({ asset }: { asset: MediaAsset }) {
   const presentation = asset.metadata?.presentation
   const vertical = presentation === "vertical_blur" || asset.metadata?.orientation === "vertical"
   if (!vertical) {
-    return <video className="h-full w-full bg-black object-contain" src={asset.url} autoPlay muted playsInline controls={false} />
+    return (
+      <video
+        className="h-full w-full bg-black object-contain"
+        src={asset.url}
+        autoPlay
+        muted
+        playsInline
+        controls={false}
+      />
+    )
   }
   return (
     <div className="relative h-full w-full overflow-hidden bg-black">
@@ -139,8 +192,66 @@ function VideoAsset({ asset }: { asset: MediaAsset }) {
         />
       ) : null}
       <div className="absolute inset-0 bg-black/35" />
-      <video className="relative z-10 mx-auto h-full max-w-full object-contain" src={asset.url} autoPlay muted playsInline controls={false} />
+      <video
+        className="relative z-10 mx-auto h-full max-w-full object-contain"
+        src={asset.url}
+        autoPlay
+        muted
+        playsInline
+        controls={false}
+      />
     </div>
+  )
+}
+
+function ReutersPlayer({ asset }: { asset: MediaAsset }) {
+  const t = useTranslations("output")
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const src = asset.url ?? ""
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !src) return
+
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = src
+      return
+    }
+
+    let cancelled = false
+    let hlsInstance: { destroy: () => void } | null = null
+
+    void import("hls.js").then((mod) => {
+      if (cancelled || !video) return
+      const Hls = mod.default
+      if (!Hls.isSupported()) {
+        video.src = src
+        return
+      }
+      const instance = new Hls()
+      hlsInstance = instance
+      instance.loadSource(src)
+      instance.attachMedia(video)
+    })
+
+    return () => {
+      cancelled = true
+      if (hlsInstance) hlsInstance.destroy()
+    }
+  }, [src])
+
+  if (!src) return <Fallback asset={null} reason={asset.title} brand={t("brand")} />
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      muted
+      playsInline
+      controls={false}
+      className="absolute inset-0 h-full w-full bg-black object-cover"
+      aria-label={asset.title}
+    />
   )
 }
 
@@ -151,7 +262,13 @@ function Slide({ slide, fullscreen = false }: { slide: SlideAsset; fullscreen?: 
   if (slide.slideType === "image" && slide.imageUrl) {
     return (
       <div className={fullscreen ? "relative h-full w-full" : "relative h-80 w-[36rem] max-w-full"}>
-        <Image alt={slide.title} className="object-contain" src={slide.imageUrl} fill sizes={fullscreen ? "100vw" : "36rem"} />
+        <Image
+          alt={slide.title}
+          className="object-contain"
+          src={slide.imageUrl}
+          fill
+          sizes={fullscreen ? "100vw" : "36rem"}
+        />
       </div>
     )
   }
@@ -159,14 +276,24 @@ function Slide({ slide, fullscreen = false }: { slide: SlideAsset; fullscreen?: 
     <div className={className}>
       <div>
         <div className="text-5xl font-semibold">{slide.title}</div>
-        {slide.htmlContent && <div className="mt-4 text-2xl" dangerouslySetInnerHTML={{ __html: slide.htmlContent }} />}
+        {slide.htmlContent && (
+          <div className="mt-4 text-2xl" dangerouslySetInnerHTML={{ __html: slide.htmlContent }} />
+        )}
         {slide.content && <p className="mt-4 text-2xl">{slide.content}</p>}
       </div>
     </div>
   )
 }
 
-function Fallback({ asset, reason, brand }: { asset: MediaAsset | null; reason: string; brand: string }) {
+function Fallback({
+  asset,
+  reason,
+  brand
+}: {
+  asset: MediaAsset | null
+  reason: string
+  brand: string
+}) {
   if (asset?.mediaKind === "image" && asset.url) return <ImageAsset asset={asset} />
   return (
     <div className="grid h-full w-full place-items-center bg-black text-white">
@@ -189,13 +316,30 @@ function DebugPanel({
 }) {
   return (
     <aside className="absolute right-4 top-4 z-[9999] w-96 rounded bg-black/80 p-4 font-mono text-xs text-white">
-      <p>{t("debug.clock")}: {formatTimecode(secondsOfDay)}</p>
-      <p>{t("debug.day")}: {active.day?.airDate ?? t("debug.none")}</p>
-      <p>{t("debug.block")}: {active.block?.title ?? t("debug.fallback")}</p>
-      <p>{t("debug.elapsed")}: {formatTimecode(active.elapsedInBlock)}</p>
-      <p>{t("debug.asset")}: {active.asset?.title ?? active.fallbackAsset?.title ?? t("debug.none")}</p>
-      <p>{t("debug.layers")}: {active.layers.map((layer) => layer.title).join(", ") || t("debug.none")}</p>
-      {active.reason && <p>{t("debug.reason")}: {active.reason}</p>}
+      <p>
+        {t("debug.clock")}: {formatTimecode(secondsOfDay)}
+      </p>
+      <p>
+        {t("debug.day")}: {active.day?.airDate ?? t("debug.none")}
+      </p>
+      <p>
+        {t("debug.block")}: {active.block?.title ?? t("debug.fallback")}
+      </p>
+      <p>
+        {t("debug.elapsed")}: {formatTimecode(active.elapsedInBlock)}
+      </p>
+      <p>
+        {t("debug.asset")}: {active.asset?.title ?? active.fallbackAsset?.title ?? t("debug.none")}
+      </p>
+      <p>
+        {t("debug.layers")}:{" "}
+        {active.layers.map((layer) => layer.title).join(", ") || t("debug.none")}
+      </p>
+      {active.reason && (
+        <p>
+          {t("debug.reason")}: {active.reason}
+        </p>
+      )}
     </aside>
   )
 }

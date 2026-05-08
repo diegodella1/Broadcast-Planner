@@ -356,7 +356,16 @@
       "startAt": "Hora de inicio",
       "success": "Enviado al aire",
       "goLive": "Ir al aire ahora",
-      "schedule": "Programar"
+      "schedule": "Programar",
+      "sourceLabel": "Fuente",
+      "sourceVimeo": "Vimeo",
+      "sourceReuters": "Reuters Live",
+      "reutersChannels": "Canales Reuters",
+      "syncChannels": "Refrescar canales",
+      "noReutersConfigured": "Configurá las credenciales Reuters en settings."
+    },
+    "reuters": {
+      "empty": "No hay canales Reuters disponibles."
     },
     "lowerThird": {
       "title": "Lower third",
@@ -484,6 +493,23 @@
       "noEpisodes": "Ese show no tiene episodios visibles para este token.",
       "episodeLabel": "Episodio",
       "importEpisode": "Importar episodio como asset"
+    },
+    "reuters": {
+      "title": "Reuters",
+      "detail": "Credenciales OAuth2 para Reuters Connect. Los secretos se guardan cifrados server-side.",
+      "fixturesNotice": "Corriendo con fixtures. Configurá credenciales y poné REUTERS_PROVIDER=real para habilitar el feed real.",
+      "statusSaved": "Reuters: credenciales guardadas ({status})",
+      "statusMissing": "Reuters: sin credenciales guardadas",
+      "lastError": "Ultimo error: {error}",
+      "clientId": "Client ID",
+      "clientIdPlaceholder": "OAuth2 client_id",
+      "clientSecret": "Client secret",
+      "clientSecretPlaceholder": "OAuth2 client_secret",
+      "refreshToken": "Refresh token",
+      "refreshTokenPlaceholder": "OAuth2 refresh_token",
+      "save": "Guardar Reuters",
+      "refreshChannels": "Refrescar canales",
+      "status": "Estado"
     }
   },
   "login": {
@@ -528,6 +554,10 @@
   "errors": {
     "required": "Este campo es obligatorio.",
     "invalid": "Valor invalido.",
-    "networkFailed": "La solicitud de red fallo."
+    "networkFailed": "La solicitud de red fallo.",
+    "reuters": {
+      "noClient": "El cliente de Reuters no esta configurado.",
+      "notImplemented": "El proveedor real de Reuters no esta implementado. Ver lib/reuters-real.ts."
+    }
   }
 }

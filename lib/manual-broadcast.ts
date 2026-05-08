@@ -12,11 +12,17 @@ import {
   type VimeoVideo
 } from "./vimeo"
 
+import type {
+  GoLiveNowInput,
+  GoLiveReutersInput,
+  ScheduleReutersBlockInput,
+  ScheduleVimeoBlockInput
+} from "./schemas/manual-broadcast"
 import type { MediaAsset } from "./types"
-import type { GoLiveNowInput, ScheduleVimeoBlockInput } from "./schemas/manual-broadcast"
 
 const TZ = "America/Argentina/Buenos_Aires"
 const DEFAULT_DURATION_SECONDS = 1800
+const REUTERS_LIVE_DEFAULT_DURATION_SECONDS = 1800
 
 /**
  * Look up the cached `media_assets` row for a Vimeo URI. If absent, fetch the
@@ -184,4 +190,100 @@ async function logManualBroadcast(action: string, metadata: Record<string, unkno
   } catch (error) {
     console.error("[lib/manual-broadcast.ts:logManualBroadcast]", error)
   }
+}
+
+/**
+ * Insert a ProgramBlock for an already-cached Reuters channel asset starting
+ * at "now". Reuters assets are live (`durationSeconds === null`); the block
+ * defaults to {@link REUTERS_LIVE_DEFAULT_DURATION_SECONDS}.
+ */
+export async function goLiveWithReuters(
+  input: GoLiveReutersInput
+): Promise<{ programBlockId: string }> {
+  const asset = await getMediaAssetById(input.assetId)
+  if (!asset) throw new Error("manual-broadcast: reuters asset not found")
+  if (asset.sourceType !== "reuters") {
+    throw new Error("manual-broadcast: asset is not a reuters channel")
+  }
+
+  const now = new Date()
+  const airDate = isoDateInTimezone(now, TZ)
+  const startSeconds = secondsSinceLocalMidnight(now)
+  const startTime = formatTimecode(startSeconds)
+  const durationSeconds = resolveReutersDuration(asset)
+
+  await createProgramBlock({
+    date: airDate,
+    title: asset.title,
+    blockType: "video",
+    category: "reuters",
+    assetId: input.assetId,
+    startTime,
+    durationSeconds,
+    hideOverlays: false
+  })
+
+  const programBlockId = await fetchInsertedBlockId(airDate, startSeconds)
+  await logManualBroadcast("manual_broadcast.reuters_go_live", {
+    asset_id: input.assetId,
+    air_date: airDate,
+    start_time: startTime,
+    program_block_id: programBlockId
+  })
+
+  revalidatePath("/admin/output")
+  revalidatePath(`/admin/schedule/${airDate}`)
+
+  return { programBlockId: programBlockId ?? "" }
+}
+
+/**
+ * Insert a ProgramBlock for a Reuters channel at a specific HH:MM[:SS] time
+ * on the supplied air date (or today's local date in {@link TZ} when not
+ * supplied). Throws on overlap with an existing block.
+ */
+export async function scheduleReutersBlock(
+  input: ScheduleReutersBlockInput
+): Promise<{ programBlockId: string }> {
+  const asset = await getMediaAssetById(input.assetId)
+  if (!asset) throw new Error("manual-broadcast: reuters asset not found")
+  if (asset.sourceType !== "reuters") {
+    throw new Error("manual-broadcast: asset is not a reuters channel")
+  }
+
+  const airDate = input.airDate ?? isoDateInTimezone(new Date(), TZ)
+  const startTime = normalizeStartTime(input.startAt)
+  const startSeconds = startTimeToSeconds(startTime)
+  const durationSeconds = input.durationSeconds
+
+  await createProgramBlock({
+    date: airDate,
+    title: asset.title,
+    blockType: "video",
+    category: "reuters",
+    assetId: input.assetId,
+    startTime,
+    durationSeconds,
+    hideOverlays: false
+  })
+
+  const programBlockId = await fetchInsertedBlockId(airDate, startSeconds)
+  await logManualBroadcast("manual_broadcast.reuters_schedule", {
+    asset_id: input.assetId,
+    air_date: airDate,
+    start_time: startTime,
+    duration_seconds: durationSeconds,
+    program_block_id: programBlockId
+  })
+
+  revalidatePath("/admin/output")
+  revalidatePath(`/admin/schedule/${airDate}`)
+
+  return { programBlockId: programBlockId ?? "" }
+}
+
+function resolveReutersDuration(asset: MediaAsset): number {
+  const value = asset.durationSeconds
+  if (typeof value === "number" && value > 0) return Math.round(value)
+  return REUTERS_LIVE_DEFAULT_DURATION_SECONDS
 }

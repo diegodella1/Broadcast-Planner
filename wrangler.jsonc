@@ -1,0 +1,33 @@
+{
+  // ─── Required secrets (set out-of-band, NEVER commit) ───────────────────────
+  // wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+  // wrangler secret put APP_ENCRYPTION_KEY
+  // wrangler secret put ADMIN_BOOTSTRAP_TOKEN
+  // wrangler secret put VIMEO_ACCESS_TOKEN          (optional; falls back to encrypted DB value)
+  // wrangler secret put REUTERS_CLIENT_ID            (only when REUTERS_PROVIDER=real)
+  // wrangler secret put REUTERS_CLIENT_SECRET        (only when REUTERS_PROVIDER=real)
+  // wrangler secret put REUTERS_REFRESH_TOKEN        (only when REUTERS_PROVIDER=real)
+  //
+  // Per-environment dashboard env vars (NOT secrets, but per-env config):
+  //   Set these in the Cloudflare dashboard under Workers & Pages > roxom-playout-manager > Settings > Variables
+  //   NEXT_PUBLIC_SUPABASE_URL      (e.g. https://xxxxx.supabase.co)
+  //   NEXT_PUBLIC_SUPABASE_ANON_KEY (public anon key from Supabase dashboard)
+  //   NEXT_PUBLIC_APP_BASE_URL      (e.g. https://roxomtv.com/rtvtime)
+  // ────────────────────────────────────────────────────────────────────────────
+
+  "name": "roxom-playout-manager",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-04-15",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  "vars": {
+    // Safe, non-sensitive defaults. Override per environment via Cloudflare dashboard if needed.
+    "REUTERS_PROVIDER": "fixtures",
+    "SUPABASE_FETCH_TIMEOUT_MS": "4000"
+  }
+}
