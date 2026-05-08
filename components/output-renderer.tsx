@@ -78,6 +78,9 @@ function BaseContent({
   if (asset.sourceType === "remote_mp4" || asset.sourceType === "hls") {
     return <VideoAsset asset={asset} />
   }
+  // reuters: stub renderer — Phase 5/6 owns the proper Reuters widget.
+  // Falls back to remote_image rendering (url-based image) until then.
+  if (asset.sourceType === "reuters") return <ImageAsset asset={asset} />
   return <Fallback asset={active.fallbackAsset ?? null} reason={t("fallback.unsupportedAsset")} brand={t("brand")} />
 }
 

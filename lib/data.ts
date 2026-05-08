@@ -165,6 +165,7 @@ function mapBlock(row: Row): ProgramBlock {
     programDayId: text(row.program_day_id),
     title: text(row.title),
     blockType: text(row.block_type) as ProgramBlock["blockType"],
+    category: (text(row.category) || "mercados") as ProgramBlock["category"],
     assetId: nullableText(row.asset_id),
     slideId: nullableText(row.slide_id),
     startTime: text(row.start_time),

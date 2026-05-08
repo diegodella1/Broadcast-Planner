@@ -4,6 +4,7 @@ import { buildLongTestSchedule } from "./schedule-builder"
 import { analyzeSchedule } from "./schedule-health"
 import { parseTimecode } from "./time"
 import { createServiceClient } from "./supabase/server"
+import type { BlockCategory } from "./types"
 
 export async function ensureProgramDay(date: string) {
   const supabase = createServiceClient()
@@ -30,6 +31,7 @@ export async function createProgramBlock(input: {
   date: string
   title: string
   blockType: string
+  category?: BlockCategory
   assetId?: string
   slideId?: string
   startTime: string
@@ -70,6 +72,7 @@ export async function createProgramBlock(input: {
     program_day_id: dayId,
     title: input.title,
     block_type: input.blockType,
+    category: input.category ?? "mercados",
     asset_id: input.assetId || null,
     slide_id: input.slideId || null,
     start_time: input.startTime,
@@ -127,6 +130,7 @@ export async function updateProgramBlock(input: {
   blockId: string
   title: string
   blockType: string
+  category?: BlockCategory
   assetId?: string
   slideId?: string
   startTime: string
@@ -157,22 +161,26 @@ export async function updateProgramBlock(input: {
   })
   if (conflict) throw new Error("El bloque se solapa con otro bloque")
   const supabase = createServiceClient()
+  const updatePayload: Record<string, unknown> = {
+    title: input.title,
+    block_type: input.blockType,
+    asset_id: input.assetId || null,
+    slide_id: input.slideId || null,
+    start_time: input.startTime,
+    start_time_seconds: startTimeSeconds,
+    duration_seconds: input.durationSeconds,
+    status: input.status,
+    hide_overlays: input.hideOverlays,
+    fallback_asset_id: input.fallbackAssetId || null,
+    notes: input.notes || null,
+    updated_at: new Date().toISOString()
+  }
+  if (input.category !== undefined) {
+    updatePayload.category = input.category
+  }
   const { error } = await supabase
     .from("program_blocks")
-    .update({
-      title: input.title,
-      block_type: input.blockType,
-      asset_id: input.assetId || null,
-      slide_id: input.slideId || null,
-      start_time: input.startTime,
-      start_time_seconds: startTimeSeconds,
-      duration_seconds: input.durationSeconds,
-      status: input.status,
-      hide_overlays: input.hideOverlays,
-      fallback_asset_id: input.fallbackAssetId || null,
-      notes: input.notes || null,
-      updated_at: new Date().toISOString()
-    })
+    .update(updatePayload)
     .eq("id", input.blockId)
   if (error) throw error
   await supabase.from("audit_log").insert({
@@ -228,6 +236,7 @@ export async function createLongTestSchedule(input: {
       program_day_id: dayId,
       title: block.title,
       block_type: block.blockType,
+      category: "broadcast" satisfies BlockCategory,
       asset_id: block.assetId || null,
       slide_id: block.slideId || null,
       start_time: block.startTime,

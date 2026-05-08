@@ -59,7 +59,7 @@ export type ScheduleHealth = {
 }
 
 const SUPPORTED_VIDEO_SOURCES = new Set(["vimeo", "remote_mp4", "hls"])
-const SUPPORTED_IMAGE_SOURCES = new Set(["remote_image", "supabase_image"])
+const SUPPORTED_IMAGE_SOURCES = new Set(["remote_image", "supabase_image", "reuters"])
 
 export function analyzeSchedule(schedule: ScheduleBundle, inputBlocks = schedule.blocks): ScheduleHealth {
   const blocks = [...inputBlocks].sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
@@ -262,7 +262,7 @@ export function getAssetReadiness(asset: MediaAsset): AssetReadiness {
     messages.push("missing Vimeo ID")
     i18nMessages.push({ key: "health.readiness.missingVimeoId" })
   }
-  if ((asset.sourceType === "remote_mp4" || asset.sourceType === "hls" || asset.sourceType === "remote_image") && !asset.url) {
+  if ((asset.sourceType === "remote_mp4" || asset.sourceType === "hls" || asset.sourceType === "remote_image" || asset.sourceType === "reuters") && !asset.url) {
     severity = "critical"
     messages.push("missing URL")
     i18nMessages.push({ key: "health.readiness.missingUrl" })

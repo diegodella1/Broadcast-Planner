@@ -3,14 +3,17 @@ import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { EmptyState, FilterLink, FormHeader, MetricTile, Notice } from "@/components/ui"
 import { getAssets } from "@/lib/data"
+import { getDurationDisplay } from "@/lib/duration-display"
 import { createMediaAsset, updateMediaAsset } from "@/lib/mutations"
+import { formatTimecode } from "@/lib/time"
 import type { MediaAsset } from "@/lib/types"
 
 export default async function AssetsPage({ searchParams }: { searchParams: Promise<{ uploaded?: string; status?: string; kind?: string }> }) {
   const params = await searchParams
-  const [t, tAsset, assets] = await Promise.all([
+  const [t, tAsset, tBlock, assets] = await Promise.all([
     getTranslations("assets"),
     getTranslations("asset"),
+    getTranslations("block"),
     getAssets()
   ])
   const filteredAssets = assets.filter((asset) => {
@@ -132,7 +135,8 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
                 <p className="font-semibold">{asset.title}</p>
                 <p className="text-sm text-muted">{asset.sourceType} · {asset.mediaKind} · {asset.assetType}{asset.metadata?.presentation === "vertical_blur" ? ` · ${t("verticalBlur")}` : ""}</p>
               </div>
-              <span className="text-sm text-muted">{asset.durationSeconds ? `${asset.durationSeconds}${t("secondsShort")}` : tAsset("noDuration")}</span>
+              <AssetDurationCell asset={asset} liveLabel={tBlock("live")} />
+
               <span className={assetNeedsAttention(asset) ? "text-sm font-semibold text-warn" : "text-sm font-semibold text-success"}>
                 {assetNeedsAttention(asset) ? tAsset("review") : tAsset("playable")}
               </span>
@@ -203,6 +207,17 @@ function AssetEditForm({
       <button className="btn-primary lg:col-span-4">{saveLabel}</button>
     </form>
   )
+}
+
+function AssetDurationCell({ asset, liveLabel }: { asset: MediaAsset; liveLabel: string }) {
+  const display = getDurationDisplay({
+    durationSeconds: asset.durationSeconds ?? null,
+    sourceType: asset.sourceType
+  })
+  if (display.kind === "live") {
+    return <span className="text-sm text-muted">{liveLabel}</span>
+  }
+  return <span className="text-sm text-muted">{formatTimecode(display.seconds)}</span>
 }
 
 function assetNeedsAttention(asset: MediaAsset) {
