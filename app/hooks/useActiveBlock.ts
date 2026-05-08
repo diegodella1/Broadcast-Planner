@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+
 import type { BlockCategory, ProgramStatus } from "@/lib/types"
+
 import { nextPollState } from "./use-active-block-backoff"
 
 export type ActiveBlockSnapshot = {
@@ -30,7 +32,10 @@ export function useActiveBlock(intervalMs = 5000): UseActiveBlockResult {
   const [isLoading, setIsLoading] = useState(true)
 
   const baseIntervalMsRef = useRef(intervalMs)
-  baseIntervalMsRef.current = intervalMs
+
+  useEffect(() => {
+    baseIntervalMsRef.current = intervalMs
+  }, [intervalMs])
 
   useEffect(() => {
     let unmounted = false

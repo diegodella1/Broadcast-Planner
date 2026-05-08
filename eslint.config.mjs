@@ -14,13 +14,16 @@ export default [
     ignores: [
       "node_modules/**",
       ".next/**",
+      ".open-next/**",
+      ".wrangler/**",
       "coverage/**",
       "messages/**",
       "supabase/migrations/**",
       "playwright-report/**",
       "test-results/**",
       "out/**",
-      "*.tsbuildinfo"
+      "*.tsbuildinfo",
+      "next-env.d.ts"
     ]
   },
   ...compat.extends(
