@@ -187,3 +187,52 @@ Private GitHub repository:
 ```txt
 roxom-tv/RTV-TL-MANAGER
 ```
+
+## Cloudflare Deployment
+
+The app deploys to Cloudflare Workers via the `@opennextjs/cloudflare` adapter. Static assets are served via the Workers Assets binding. The `nodejs_compat` compatibility flag enables Node.js built-ins (Buffer, crypto, streams) required by `@supabase/ssr` and `next-intl`.
+
+> **Note on `output: "standalone"`**: `next.config.mjs` keeps `output: "standalone"` for Docker builds. The OpenNext adapter runs its own bundler and ignores that option — both deployment paths coexist without conflict.
+
+### One-time setup
+
+Authenticate with Cloudflare:
+
+```bash
+wrangler login
+```
+
+Set all required secrets (do this once per environment; values are never stored in code):
+
+```bash
+wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+wrangler secret put APP_ENCRYPTION_KEY
+wrangler secret put ADMIN_BOOTSTRAP_TOKEN
+wrangler secret put VIMEO_ACCESS_TOKEN          # optional; falls back to encrypted DB value
+wrangler secret put REUTERS_CLIENT_ID            # only when REUTERS_PROVIDER=real
+wrangler secret put REUTERS_CLIENT_SECRET        # only when REUTERS_PROVIDER=real
+wrangler secret put REUTERS_REFRESH_TOKEN        # only when REUTERS_PROVIDER=real
+```
+
+### Per-environment dashboard configuration
+
+These are not secrets but differ between staging and production. Set them in the Cloudflare dashboard under **Workers & Pages > roxom-playout-manager > Settings > Variables**:
+
+| Variable | Example |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://xxxxx.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project anon key |
+| `NEXT_PUBLIC_APP_BASE_URL` | `https://roxomtv.com/rtvtime` |
+
+### Build and deploy commands
+
+```bash
+npm run cf:build    # Build for Cloudflare Workers (outputs to .open-next/)
+npm run cf:dev      # Build then start local emulator via wrangler dev
+npm run cf:deploy   # Build then deploy to production
+npm run cf:preview  # Build then upload as a version preview (no traffic shift)
+```
+
+### Incremental static regeneration (ISR) with R2
+
+By default the adapter uses an in-memory cache (no persistence between Worker invocations). To enable durable ISR caching backed by Cloudflare R2, see the upgrade path documented in `open-next.config.ts`.
