@@ -3,6 +3,7 @@ import { StatusPill } from "@/components/status-pill"
 import { EmptyState, FormHeader } from "@/components/ui"
 import { getSlides } from "@/lib/data"
 import { createSlideAsset } from "@/lib/mutations"
+import { SLIDE_TEMPLATES } from "@/lib/slides/registry"
 
 export const dynamic = "force-dynamic"
 
@@ -13,14 +14,16 @@ export default async function SlidesPage() {
     const slideType = String(formData.get("slide_type"))
     const defaultDurationSeconds =
       Number(formData.get("default_duration_seconds") || 0) || undefined
+    const templateId =
+      slideType === "template" ? String(formData.get("template_id") || "") : undefined
     await createSlideAsset({
       title: String(formData.get("title")),
       slideType,
       content: String(formData.get("content") || ""),
       imageUrl: String(formData.get("image_url") || ""),
       htmlContent: String(formData.get("html_content") || ""),
-      templateId: String(formData.get("template_id") || ""),
       ...(defaultDurationSeconds !== undefined ? { defaultDurationSeconds } : {}),
+      ...(templateId !== undefined && templateId !== "" ? { templateId } : {}),
       status: String(formData.get("status") || "ready")
     })
   }
@@ -79,11 +82,18 @@ export default async function SlidesPage() {
             placeholder="Image URL"
             className="border border-line px-3 py-2 text-sm lg:col-span-2"
           />
-          <input
+          <select
             name="template_id"
-            placeholder="Template id"
             className="border border-line px-3 py-2 text-sm lg:col-span-2"
-          />
+            aria-label="Template (required when type is Template)"
+          >
+            <option value="">Choose template</option>
+            {SLIDE_TEMPLATES.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
           <textarea
             name="content"
             placeholder="Visible text"

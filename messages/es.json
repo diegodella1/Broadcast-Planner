@@ -464,7 +464,65 @@
       "title": "No hay slides creados",
       "body": "Creá una placa para usarla como contenido base o overlay programado."
     },
-    "add": "Agregar slide"
+    "add": "Agregar slide",
+    "template": {
+      "calendar": {
+        "label": "Calendario",
+        "description": "Lista de próximos eventos"
+      },
+      "debt": {
+        "label": "Reloj de deuda",
+        "description": "Deuda nacional EE.UU. en vivo"
+      },
+      "event": {
+        "label": "Destacado de evento",
+        "description": "Foco en un evento"
+      },
+      "event-modern": {
+        "label": "Destacado de evento (moderno)",
+        "description": "Foco en un evento, estilo moderno"
+      },
+      "fx": {
+        "label": "Tipos de cambio",
+        "description": "Pizarra de divisas en vivo"
+      },
+      "gold": {
+        "label": "Oro",
+        "description": "Precio spot del oro"
+      },
+      "metals": {
+        "label": "Metales",
+        "description": "Pizarra multi-metales"
+      },
+      "news": {
+        "label": "Noticias",
+        "description": "Titulares principales"
+      },
+      "oil": {
+        "label": "Petróleo",
+        "description": "Petróleo crudo spot"
+      },
+      "sata": {
+        "label": "Satélite",
+        "description": "Imagen satelital"
+      },
+      "show": {
+        "label": "Tarjeta de programa",
+        "description": "Metadatos del programa"
+      },
+      "silver": {
+        "label": "Plata",
+        "description": "Plata spot"
+      },
+      "strc": {
+        "label": "STRC",
+        "description": "Servicio STRC"
+      },
+      "video": {
+        "label": "Video",
+        "description": "Reproductor de video"
+      }
+    }
   },
   "settings": {
     "title": "Settings",

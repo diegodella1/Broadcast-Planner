@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { findActiveSchedule } from "@/lib/scheduler"
 import { formatTimecode } from "@/lib/time"
+import { SlideTemplateRenderer } from "@/components/slides/index"
+import type { SlideTemplateId } from "@/lib/slides/registry"
 
 import type { ActiveSchedule, MediaAsset, ScheduledLayer, SlideAsset } from "@/lib/types"
 import type { ScheduleBundle } from "@/lib/types"
@@ -448,6 +450,27 @@ function Slide({ slide, fullscreen = false }: { slide: SlideAsset; fullscreen?: 
   const className = fullscreen
     ? "grid h-full w-full place-items-center bg-zinc-950 px-20 text-center text-white"
     : "rounded bg-zinc-950/92 px-8 py-5 text-white shadow-2xl"
+  if (slide.slideType === "template") {
+    if (!slide.templateId) {
+      return (
+        <div className={className}>
+          <p className="text-2xl text-zinc-400">Loading template…</p>
+        </div>
+      )
+    }
+    const slideData = (slide as SlideAsset & { metadata?: { slideData?: unknown } }).metadata
+      ?.slideData
+    if (slideData === undefined || slideData === null) {
+      return (
+        <div className={className}>
+          <p className="text-2xl text-zinc-400">Loading template…</p>
+        </div>
+      )
+    }
+    return (
+      <SlideTemplateRenderer templateId={slide.templateId as SlideTemplateId} data={slideData} />
+    )
+  }
   if (slide.slideType === "image" && slide.imageUrl) {
     return (
       <div className={fullscreen ? "relative h-full w-full" : "relative h-80 w-[36rem] max-w-full"}>
@@ -498,22 +521,36 @@ function MarketSlide({ slide, fullscreen }: { slide: SlideAsset; fullscreen: boo
   }, [])
 
   return (
-    <section className={fullscreen ? "h-full w-full bg-zinc-950 px-20 py-16 text-white" : "rounded bg-zinc-950/92 px-8 py-5 text-white shadow-2xl"}>
+    <section
+      className={
+        fullscreen
+          ? "h-full w-full bg-zinc-950 px-20 py-16 text-white"
+          : "rounded bg-zinc-950/92 px-8 py-5 text-white shadow-2xl"
+      }
+    >
       <div className="flex items-end justify-between gap-8">
         <div>
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-emerald-300">Markets</p>
-          <h1 className={fullscreen ? "mt-3 text-6xl font-semibold" : "mt-2 text-3xl font-semibold"}>{slide.title}</h1>
+          <h1
+            className={fullscreen ? "mt-3 text-6xl font-semibold" : "mt-2 text-3xl font-semibold"}
+          >
+            {slide.title}
+          </h1>
           {slide.content ? <p className="mt-2 text-xl text-zinc-300">{slide.content}</p> : null}
         </div>
         <p className="text-right text-sm text-zinc-400">
-          Updated {markets[0]?.updatedAt ? new Date(markets[0].updatedAt).toLocaleTimeString() : "--:--"}
+          Updated{" "}
+          {markets[0]?.updatedAt ? new Date(markets[0].updatedAt).toLocaleTimeString() : "--:--"}
         </p>
       </div>
       <div className={fullscreen ? "mt-12 grid grid-cols-2 gap-5" : "mt-6 grid gap-3"}>
         {markets.map((item) => {
           const positive = !item.change.trim().startsWith("-")
           return (
-            <article key={item.symbol} className="rounded-md border border-white/10 bg-white/[0.06] p-5">
+            <article
+              key={item.symbol}
+              className="rounded-md border border-white/10 bg-white/[0.06] p-5"
+            >
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-2xl font-semibold">{item.symbol}</p>
@@ -521,7 +558,13 @@ function MarketSlide({ slide, fullscreen }: { slide: SlideAsset; fullscreen: boo
                 </div>
                 <p className="text-right text-2xl font-semibold">{item.value}</p>
               </div>
-              <p className={positive ? "mt-5 text-xl font-semibold text-emerald-300" : "mt-5 text-xl font-semibold text-red-300"}>
+              <p
+                className={
+                  positive
+                    ? "mt-5 text-xl font-semibold text-emerald-300"
+                    : "mt-5 text-xl font-semibold text-red-300"
+                }
+              >
                 {item.change} / {item.changePercent}
               </p>
             </article>
