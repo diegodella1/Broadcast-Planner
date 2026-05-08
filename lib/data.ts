@@ -11,7 +11,6 @@ import type {
   SlideAsset
 } from "./types"
 
-
 type Row = Record<string, unknown>
 
 export type ReadResult<T> = { data: T | null; outage: boolean }

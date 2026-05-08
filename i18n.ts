@@ -1,4 +1,3 @@
-import { cookies } from "next/headers"
 import { getRequestConfig } from "next-intl/server"
 
 export const locales = ["en", "es"] as const
@@ -10,6 +9,7 @@ function isLocale(value: string | undefined): value is Locale {
 }
 
 export default getRequestConfig(async () => {
+  const { cookies } = await import("next/headers")
   const cookieStore = await cookies()
   const cookieLocale = cookieStore.get("NEXT_LOCALE")?.value
   const locale: Locale = isLocale(cookieLocale) ? cookieLocale : defaultLocale

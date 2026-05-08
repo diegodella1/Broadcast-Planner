@@ -6,7 +6,6 @@ import { useActiveBlock } from "./useActiveBlock"
 
 import type { ActiveBlockSnapshot } from "./useActiveBlock"
 
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

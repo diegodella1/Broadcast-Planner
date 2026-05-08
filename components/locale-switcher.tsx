@@ -1,8 +1,9 @@
 "use client"
 
-import { useLocale } from "next-intl"
-import { useRouter } from "next/navigation"
 import clsx from "clsx"
+import { useRouter } from "next/navigation"
+import { useLocale } from "next-intl"
+
 import { locales, type Locale } from "@/i18n"
 
 export function LocaleSwitcher() {
