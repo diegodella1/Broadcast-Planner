@@ -1,9 +1,11 @@
 import { revalidatePath } from "next/cache"
+
 import { getScheduleForDate } from "./data"
 import { buildLongTestSchedule } from "./schedule-builder"
 import { analyzeSchedule } from "./schedule-health"
-import { parseTimecode } from "./time"
 import { createServiceClient } from "./supabase/server"
+import { parseTimecode } from "./time"
+
 import type { BlockCategory, ProgramBlock } from "./types"
 
 export async function ensureProgramDay(date: string) {
@@ -99,10 +101,18 @@ export async function createProgramBlock(input: {
   revalidatePath(`/admin/schedule/${input.date}`)
 }
 
-function getKnownContentDuration(schedule: Awaited<ReturnType<typeof getScheduleForDate>>, assetId?: string, slideId?: string) {
-  const assetDuration = assetId ? schedule.mediaAssets.find((asset) => asset.id === assetId)?.durationSeconds : null
+function getKnownContentDuration(
+  schedule: Awaited<ReturnType<typeof getScheduleForDate>>,
+  assetId?: string,
+  slideId?: string
+) {
+  const assetDuration = assetId
+    ? schedule.mediaAssets.find((asset) => asset.id === assetId)?.durationSeconds
+    : null
   if (assetDuration) return assetDuration
-  const slideDuration = slideId ? schedule.slideAssets.find((slide) => slide.id === slideId)?.defaultDurationSeconds : null
+  const slideDuration = slideId
+    ? schedule.slideAssets.find((slide) => slide.id === slideId)?.defaultDurationSeconds
+    : null
   return slideDuration ?? 0
 }
 
@@ -120,7 +130,11 @@ export async function updateProgramDayStatus(input: {
   if ((input.status === "ready" || input.status === "active") && health.criticalCount > 0) {
     throw new Error("No se puede publicar con alertas criticas")
   }
-  if ((input.status === "ready" || input.status === "active") && health.warnCount > 0 && !input.allowWarnings) {
+  if (
+    (input.status === "ready" || input.status === "active") &&
+    health.warnCount > 0 &&
+    !input.allowWarnings
+  ) {
     throw new Error("Hay advertencias pendientes")
   }
   const supabase = createServiceClient()
@@ -208,10 +222,7 @@ export async function updateProgramBlock(input: {
   revalidatePath(`/admin/schedule/${input.date}/blocks/${input.blockId}`)
 }
 
-export async function deleteProgramBlock(input: {
-  date: string
-  blockId: string
-}) {
+export async function deleteProgramBlock(input: { date: string; blockId: string }) {
   const schedule = await getScheduleForDate(input.date)
   const block = schedule.blocks.find((item) => item.id === input.blockId)
   if (!block) throw new Error("Bloque no encontrado")
@@ -221,10 +232,7 @@ export async function deleteProgramBlock(input: {
     .delete()
     .eq("program_block_id", input.blockId)
   if (layerError) throw layerError
-  const { error } = await supabase
-    .from("program_blocks")
-    .delete()
-    .eq("id", input.blockId)
+  const { error } = await supabase.from("program_blocks").delete().eq("id", input.blockId)
   if (error) throw error
   await supabase.from("audit_log").insert({
     actor: "admin",
