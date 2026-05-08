@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server"
+
 import { appUrl } from "@/lib/app-url"
 import { createMediaAsset } from "@/lib/mutations"
 import { createServiceClient } from "@/lib/supabase/server"
 
 const VIDEO_BUCKET = "video-assets"
-const VIDEO_MIME_TYPES = ["video/mp4", "video/webm", "application/vnd.apple.mpegurl", "application/x-mpegURL"]
+const VIDEO_MIME_TYPES = [
+  "video/mp4",
+  "video/webm",
+  "application/vnd.apple.mpegurl",
+  "application/x-mpegURL"
+]
 
 export async function POST(request: Request) {
   try {

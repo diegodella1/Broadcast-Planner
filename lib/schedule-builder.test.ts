@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
+
 import { buildLongTestSchedule } from "./schedule-builder"
+
 import type { MediaAsset } from "./types"
 
 const baseAsset = {
@@ -18,7 +20,11 @@ describe("buildLongTestSchedule", () => {
       mediaAssets: [
         asset("program-1", "Morning", "video", 3600),
         asset("ad-1", "Sponsor", "ad", 30),
-        { ...asset("image-1", "Plate", "image", 20), mediaKind: "image", sourceType: "remote_image" }
+        {
+          ...asset("image-1", "Plate", "image", 20),
+          mediaKind: "image",
+          sourceType: "remote_image"
+        }
       ],
       slideAssets: [],
       startTime: "00:00:00",
@@ -52,7 +58,11 @@ describe("buildLongTestSchedule", () => {
       imageBumperSeconds: 0
     })
 
-    expect(blocks.filter((block) => block.blockType === "ad").every((block) => block.durationSeconds <= 300)).toBe(true)
+    expect(
+      blocks
+        .filter((block) => block.blockType === "ad")
+        .every((block) => block.durationSeconds <= 300)
+    ).toBe(true)
   })
 })
 

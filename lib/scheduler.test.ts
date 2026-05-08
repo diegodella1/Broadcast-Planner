@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest"
+
 import { mockSchedule } from "./mock-data"
-import { findActiveLayers, findActiveSchedule, hasBaseBlockConflict, validateBlock } from "./scheduler"
+import {
+  findActiveLayers,
+  findActiveSchedule,
+  hasBaseBlockConflict,
+  validateBlock
+} from "./scheduler"
+
 import type { ProgramBlock } from "./types"
 
 describe("scheduler", () => {
@@ -29,7 +36,9 @@ describe("scheduler", () => {
   })
 
   it("rejects ads longer than five minutes", () => {
-    expect(validateBlock({ blockType: "ad", durationSeconds: 301 })).toContain("Ads cannot be longer than 300 seconds")
+    expect(validateBlock({ blockType: "ad", durationSeconds: 301 })).toContain(
+      "Ads cannot be longer than 300 seconds"
+    )
   })
 
   it("detects overlapping base blocks", () => {

@@ -1,21 +1,19 @@
 "use client"
 
 import { useLocale } from "next-intl"
-import { useRouter, usePathname } from "next/navigation"
+import { useRouter } from "next/navigation"
 import clsx from "clsx"
 import { locales, type Locale } from "@/i18n"
 
 export function LocaleSwitcher() {
   const current = useLocale() as Locale
   const router = useRouter()
-  const pathname = usePathname()
 
   function switchTo(next: Locale) {
     if (next === current) return
+    // Browser cookie setter; not a React-controlled value.
+    // eslint-disable-next-line react-hooks/immutability
     document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`
-    const stripped = pathname.replace(/^\/es(?=\/|$)/, "") || "/"
-    const target = next === "en" ? stripped : `/es${stripped === "/" ? "" : stripped}`
-    router.push(target)
     router.refresh()
   }
 

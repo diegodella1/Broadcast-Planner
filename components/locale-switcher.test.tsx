@@ -1,14 +1,14 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { describe, expect, it, vi, beforeEach } from "vitest"
+
 import { LocaleSwitcher } from "./locale-switcher"
 
 const mockPush = vi.fn()
 const mockRefresh = vi.fn()
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush, refresh: mockRefresh }),
-  usePathname: () => "/admin/calendar"
+  useRouter: () => ({ push: mockPush, refresh: mockRefresh })
 }))
 
 // next-intl's useLocale — start with "en" as current locale
@@ -48,21 +48,6 @@ describe("LocaleSwitcher", () => {
     expect(screen.getByRole("group", { name: "Language" })).toBeInTheDocument()
   })
 
-  it("calls router.push with the target path when switching to es", async () => {
-    const user = userEvent.setup()
-    render(<LocaleSwitcher />)
-    await user.click(screen.getByRole("button", { name: /es/i }))
-    expect(mockPush).toHaveBeenCalledWith("/es/admin/calendar")
-  })
-
-  it("calls router.push with stripped path when switching back to en", async () => {
-    mockLocale = "es"
-    const user = userEvent.setup()
-    render(<LocaleSwitcher />)
-    await user.click(screen.getByRole("button", { name: /en/i }))
-    expect(mockPush).toHaveBeenCalledWith("/admin/calendar")
-  })
-
   it("calls router.refresh after switching locale", async () => {
     const user = userEvent.setup()
     render(<LocaleSwitcher />)
@@ -81,7 +66,7 @@ describe("LocaleSwitcher", () => {
 
     Object.defineProperty(Document.prototype, "cookie", {
       configurable: true,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       get:
         desc.get ??
         (function (this: Document) {
@@ -104,10 +89,10 @@ describe("LocaleSwitcher", () => {
     }
   })
 
-  it("does not call router.push when clicking the already-active locale", async () => {
+  it("does not call router.refresh when clicking the already-active locale", async () => {
     const user = userEvent.setup()
     render(<LocaleSwitcher />)
     await user.click(screen.getByRole("button", { name: /en/i }))
-    expect(mockPush).not.toHaveBeenCalled()
+    expect(mockRefresh).not.toHaveBeenCalled()
   })
 })

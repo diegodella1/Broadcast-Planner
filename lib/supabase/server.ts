@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs"
+
 import { createClient } from "@supabase/supabase-js"
 
 const DEFAULT_FETCH_TIMEOUT_MS = 2000

@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest"
 import { render, screen } from "@testing-library/react"
+import { describe, expect, it } from "vitest"
+
 import { BlockBadge } from "./block-badge"
+
 import type { BlockCategory } from "@/lib/types"
 
 describe("BlockBadge", () => {

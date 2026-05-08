@@ -1,7 +1,10 @@
-import { describe, expect, it, vi, afterEach } from "vitest"
 import { render, screen, act } from "@testing-library/react"
+import { describe, expect, it, vi, afterEach } from "vitest"
+
 import { renderWithIntl } from "@/vitest.intl-helper"
+
 import { OutputRenderer } from "./output-renderer"
+
 import type { ScheduleBundle } from "@/lib/types"
 
 // next/image is not available in jsdom — replace with a plain <img>

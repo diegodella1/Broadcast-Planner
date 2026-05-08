@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
+
 import { mockSchedule } from "./mock-data"
 import { analyzeSchedule, getAssetReadiness } from "./schedule-health"
+
 import type { MediaAsset, ProgramBlock, ScheduledLayer } from "./types"
 
 const firstBlock = mockSchedule.blocks[0] as ProgramBlock
@@ -12,10 +14,7 @@ describe("schedule health", () => {
   it("detects block overlaps as critical", () => {
     const schedule = {
       ...mockSchedule,
-      blocks: [
-        firstBlock,
-        { ...secondBlock, startTimeSeconds: 30, startTime: "00:00:30" }
-      ]
+      blocks: [firstBlock, { ...secondBlock, startTimeSeconds: 30, startTime: "00:00:30" }]
     }
     const health = analyzeSchedule(schedule)
     expect(health.overlaps).toHaveLength(1)

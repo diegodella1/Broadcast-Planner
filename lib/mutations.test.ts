@@ -59,7 +59,6 @@ vi.mock("@/lib/supabase/server", () => ({
 // ---------------------------------------------------------------------------
 // Mock lib/data (getScheduleForDate)
 // ---------------------------------------------------------------------------
-import type { ScheduleBundle } from "./types"
 
 const mockSchedule: ScheduleBundle = {
   day: {
@@ -84,7 +83,6 @@ vi.mock("@/lib/data", () => ({
 // ---------------------------------------------------------------------------
 // Mock lib/schedule-builder
 // ---------------------------------------------------------------------------
-import type { GeneratedBlock } from "./schedule-builder"
 
 const fakeGeneratedBlocks: GeneratedBlock[] = [
   {
@@ -142,8 +140,10 @@ const healthClean: ScheduleHealth = {
 // Now import the module under test + mocked peer modules (static, for reset)
 // ---------------------------------------------------------------------------
 import { revalidatePath } from "next/cache"
+
 import { getScheduleForDate } from "@/lib/data"
 import { buildLongTestSchedule } from "@/lib/schedule-builder"
+
 import {
   ensureProgramDay,
   createProgramBlock,
@@ -157,6 +157,9 @@ import {
   createMediaAsset,
   updateMediaAsset
 } from "./mutations"
+
+import type { GeneratedBlock } from "./schedule-builder"
+import type { ScheduleBundle } from "./types"
 
 // Typed references to the mocked functions for easy use in tests
 const getScheduleForDateMock = vi.mocked(getScheduleForDate)

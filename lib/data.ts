@@ -1,7 +1,16 @@
 import { mockSchedule } from "./mock-data"
-import type { MediaAsset, ProgramBlock, ProgramDay, ScheduleBundle, ScheduledLayer, SlideAsset } from "./types"
-import { isoDateInTimezone } from "./time"
 import { createServiceClient } from "./supabase/server"
+import { isoDateInTimezone } from "./time"
+
+import type {
+  MediaAsset,
+  ProgramBlock,
+  ProgramDay,
+  ScheduleBundle,
+  ScheduledLayer,
+  SlideAsset
+} from "./types"
+
 
 type Row = Record<string, unknown>
 
@@ -22,11 +31,19 @@ function devFallback<T>(value: T, error: unknown, tag: string): T {
 export async function getScheduleForDate(date: string): Promise<ScheduleBundle> {
   try {
     const supabase = createServiceClient()
-    const { data: day } = await supabase.from("program_days").select("*").eq("air_date", date).maybeSingle()
+    const { data: day } = await supabase
+      .from("program_days")
+      .select("*")
+      .eq("air_date", date)
+      .maybeSingle()
     if (!day) return mockSchedule
 
     const [{ data: blocks }, { data: mediaAssets }, { data: slideAssets }] = await Promise.all([
-      supabase.from("program_blocks").select("*").eq("program_day_id", day.id).order("start_time_seconds"),
+      supabase
+        .from("program_blocks")
+        .select("*")
+        .eq("program_day_id", day.id)
+        .order("start_time_seconds"),
       supabase.from("media_assets").select("*").order("title"),
       supabase.from("slide_assets").select("*").order("title")
     ])
@@ -51,7 +68,11 @@ export async function getScheduleForDate(date: string): Promise<ScheduleBundle> 
 export async function getPlaybackScheduleForDate(date: string): Promise<ScheduleBundle> {
   try {
     const supabase = createServiceClient()
-    const { data: day } = await supabase.from("program_days").select("*").eq("air_date", date).maybeSingle()
+    const { data: day } = await supabase
+      .from("program_days")
+      .select("*")
+      .eq("air_date", date)
+      .maybeSingle()
     if (!day) return mockSchedule
 
     const { data: blocks, error: blocksError } = await supabase
@@ -80,12 +101,19 @@ export async function getPlaybackScheduleForDate(date: string): Promise<Schedule
       ...layerRows.map((row) => nullableText(row.slide_id))
     ])
 
-    const [{ data: referencedMedia, error: mediaError }, { data: fallbackMedia, error: fallbackError }, { data: referencedSlides, error: slidesError }] =
-      await Promise.all([
-        mediaIds.length ? supabase.from("media_assets").select("*").in("id", mediaIds) : { data: [], error: null },
-        supabase.from("media_assets").select("*").eq("asset_type", "fallback").eq("status", "ready"),
-        slideIds.length ? supabase.from("slide_assets").select("*").in("id", slideIds) : { data: [], error: null }
-      ])
+    const [
+      { data: referencedMedia, error: mediaError },
+      { data: fallbackMedia, error: fallbackError },
+      { data: referencedSlides, error: slidesError }
+    ] = await Promise.all([
+      mediaIds.length
+        ? supabase.from("media_assets").select("*").in("id", mediaIds)
+        : { data: [], error: null },
+      supabase.from("media_assets").select("*").eq("asset_type", "fallback").eq("status", "ready"),
+      slideIds.length
+        ? supabase.from("slide_assets").select("*").in("id", slideIds)
+        : { data: [], error: null }
+    ])
     if (mediaError) throw mediaError
     if (fallbackError) throw fallbackError
     if (slidesError) throw slidesError
@@ -94,7 +122,9 @@ export async function getPlaybackScheduleForDate(date: string): Promise<Schedule
       day: mapDay(day),
       blocks: blockRows.map(mapBlock),
       layers: layerRows.map(mapLayer),
-      mediaAssets: uniqueRows([...(referencedMedia ?? []), ...(fallbackMedia ?? [])]).map(mapMediaAsset),
+      mediaAssets: uniqueRows([...(referencedMedia ?? []), ...(fallbackMedia ?? [])]).map(
+        mapMediaAsset
+      ),
       slideAssets: (referencedSlides ?? []).map(mapSlide)
     }
   } catch (error) {
@@ -112,8 +142,13 @@ export async function getPlaybackScheduleForBlock(blockId: string): Promise<Sche
       .eq("id", blockId)
       .single()
     if (error) throw error
-    const programDay = Array.isArray(block.program_days) ? block.program_days[0] : block.program_days
-    const date = typeof programDay === "object" && programDay !== null ? text((programDay as Row).air_date) : ""
+    const programDay = Array.isArray(block.program_days)
+      ? block.program_days[0]
+      : block.program_days
+    const date =
+      typeof programDay === "object" && programDay !== null
+        ? text((programDay as Row).air_date)
+        : ""
     return date ? getPlaybackScheduleForDate(date) : mockSchedule
   } catch (error) {
     console.error("[lib/data.ts:getPlaybackScheduleForBlock]", error)
@@ -121,18 +156,27 @@ export async function getPlaybackScheduleForBlock(blockId: string): Promise<Sche
   }
 }
 
-export async function getLiveSchedule(now = new Date(), timezone = "America/Argentina/Buenos_Aires") {
+export async function getLiveSchedule(
+  now = new Date(),
+  timezone = "America/Argentina/Buenos_Aires"
+) {
   return getScheduleForDate(isoDateInTimezone(now, timezone))
 }
 
-export async function getLivePlaybackSchedule(now = new Date(), timezone = "America/Argentina/Buenos_Aires") {
+export async function getLivePlaybackSchedule(
+  now = new Date(),
+  timezone = "America/Argentina/Buenos_Aires"
+) {
   return getPlaybackScheduleForDate(isoDateInTimezone(now, timezone))
 }
 
 export async function getAssets(): Promise<MediaAsset[]> {
   try {
     const supabase = createServiceClient()
-    const { data, error } = await supabase.from("media_assets").select("*").order("updated_at", { ascending: false })
+    const { data, error } = await supabase
+      .from("media_assets")
+      .select("*")
+      .order("updated_at", { ascending: false })
     if (error) throw error
     return (data ?? []).map(mapMediaAsset)
   } catch (error) {
@@ -144,7 +188,10 @@ export async function getAssets(): Promise<MediaAsset[]> {
 export async function getSlides(): Promise<SlideAsset[]> {
   try {
     const supabase = createServiceClient()
-    const { data, error } = await supabase.from("slide_assets").select("*").order("updated_at", { ascending: false })
+    const { data, error } = await supabase
+      .from("slide_assets")
+      .select("*")
+      .order("updated_at", { ascending: false })
     if (error) throw error
     return (data ?? []).map(mapSlide)
   } catch (error) {
@@ -156,7 +203,10 @@ export async function getSlides(): Promise<SlideAsset[]> {
 export async function getDays(): Promise<ProgramDay[]> {
   try {
     const supabase = createServiceClient()
-    const { data, error } = await supabase.from("program_days").select("*").order("air_date", { ascending: false })
+    const { data, error } = await supabase
+      .from("program_days")
+      .select("*")
+      .order("air_date", { ascending: false })
     if (error) throw error
     return (data ?? []).map(mapDay)
   } catch (error) {
@@ -256,7 +306,10 @@ function mapMediaAsset(row: Row): MediaAsset {
     vimeoUri: nullableText(row.vimeo_uri),
     vimeoPrivacy: nullableText(row.vimeo_privacy),
     vimeoEmbedStatus: nullableText(row.vimeo_embed_status),
-    metadata: typeof row.metadata === "object" && row.metadata !== null ? (row.metadata as Record<string, unknown>) : null,
+    metadata:
+      typeof row.metadata === "object" && row.metadata !== null
+        ? (row.metadata as Record<string, unknown>)
+        : null,
     createdAt: text(row.created_at),
     updatedAt: text(row.updated_at)
   }

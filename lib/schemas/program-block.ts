@@ -1,4 +1,5 @@
 import { z } from "zod"
+
 import { BLOCK_CATEGORIES } from "@/lib/types"
 
 const timeRegex = /^\d{2}:\d{2}(:\d{2})?$/

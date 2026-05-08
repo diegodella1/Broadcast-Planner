@@ -1,15 +1,15 @@
 "use client"
 
+import { CalendarDays, Clapperboard, MonitorPlay, Settings, Video } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { CalendarDays, Clapperboard, MonitorPlay, Settings, Video } from "lucide-react"
 
 const navLinks = [
   { key: "calendar", href: "/admin/calendar", icon: CalendarDays },
   { key: "assets", href: "/admin/assets", icon: Video },
   { key: "slides", href: "/admin/slides", icon: Clapperboard },
   { key: "settings", href: "/admin/settings", icon: Settings },
-  { key: "output", href: "/output/live?debug=true", icon: MonitorPlay },
+  { key: "output", href: "/output/live?debug=true", icon: MonitorPlay }
 ] as const
 
 type NavKey = (typeof navLinks)[number]["key"]
@@ -38,7 +38,7 @@ export function AdminNav({ labels }: AdminNavProps) {
               "border-l-2 transition-colors",
               isActive
                 ? "border-accent-positive bg-surface-selected-positive text-accent-positive"
-                : "border-transparent text-white/60 hover:bg-surface-elevated-2 hover:text-white/90",
+                : "border-transparent text-white/60 hover:bg-surface-elevated-2 hover:text-white/90"
             ].join(" ")}
           >
             <Icon size={20} aria-hidden="true" />

@@ -1,8 +1,11 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
 import { renderHook, act } from "@testing-library/react"
-import { useActiveBlock } from "./useActiveBlock"
-import type { ActiveBlockSnapshot } from "./useActiveBlock"
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
+
 import { ACTIVE_BLOCK_BACKOFF_THRESHOLD } from "./use-active-block-backoff"
+import { useActiveBlock } from "./useActiveBlock"
+
+import type { ActiveBlockSnapshot } from "./useActiveBlock"
+
 
 // ---------------------------------------------------------------------------
 // Helpers

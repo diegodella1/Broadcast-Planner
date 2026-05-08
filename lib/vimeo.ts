@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache"
+
 import { createServiceClient } from "./supabase/server"
 
 const VIMEO_API = "https://api.vimeo.com"
@@ -27,13 +28,15 @@ type VimeoPage<T> = {
 }
 
 export async function listVimeoShows(token: string): Promise<VimeoShow[]> {
-  const page = await vimeoFetch<VimeoPage<{
-    uri: string
-    name: string
-    link?: string
-    description?: string
-    metadata?: { connections?: { videos?: { total?: number } } }
-  }>>(
+  const page = await vimeoFetch<
+    VimeoPage<{
+      uri: string
+      name: string
+      link?: string
+      description?: string
+      metadata?: { connections?: { videos?: { total?: number } } }
+    }>
+  >(
     "/me/albums?per_page=100&fields=uri,name,link,description,metadata.connections.videos.total",
     token
   )

@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
+import { describe, expect, it, vi } from "vitest"
+
 import { RundownRow } from "./rundown-row"
+
 import type { ProgramBlock, ScheduleBundle } from "@/lib/types"
 
 // next/link renders an <a> in jsdom without needing a router

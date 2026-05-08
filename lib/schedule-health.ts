@@ -1,5 +1,6 @@
-import type { MediaAsset, ProgramBlock, ScheduleBundle, ScheduledLayer, SlideAsset } from "./types"
 import { formatTimecode } from "./time"
+
+import type { MediaAsset, ProgramBlock, ScheduleBundle, ScheduledLayer, SlideAsset } from "./types"
 
 export type ScheduleIssueSeverity = "warning" | "critical"
 export type ScheduleIssueKind =

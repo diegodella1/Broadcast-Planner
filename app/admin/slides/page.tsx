@@ -1,12 +1,14 @@
-import Link from "next/link"
 import { Cloud, CloudRain, Sun } from "lucide-react"
+import Link from "next/link"
 import { getTranslations } from "next-intl/server"
+
 import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { EmptyState, FormHeader } from "@/components/ui"
 import { getSlides } from "@/lib/data"
 import { createSlideAsset } from "@/lib/mutations"
 import { createSlideAssetSchema, parseFormData } from "@/lib/schemas"
+
 import type { SlideAsset } from "@/lib/types"
 
 // ---------------------------------------------------------------------------

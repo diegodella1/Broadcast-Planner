@@ -1,7 +1,10 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
 import { render, screen } from "@testing-library/react"
+import { describe, expect, it, vi, beforeEach } from "vitest"
+
 import { renderWithIntl } from "@/vitest.intl-helper"
+
 import { OperationsPanelOnAir } from "./on-air"
+
 import type { UseActiveBlockResult } from "@/app/hooks/useActiveBlock"
 
 vi.mock("@/app/hooks/useActiveBlock", () => ({

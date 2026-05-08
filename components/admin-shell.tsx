@@ -1,19 +1,30 @@
+import {
+  Activity,
+  AlertOctagon,
+  CalendarDays,
+  Clapperboard,
+  MonitorPlay,
+  Settings,
+  Tv,
+  Video
+} from "lucide-react"
 import Link from "next/link"
-import type { ReactNode } from "react"
-import { Activity, AlertOctagon, CalendarDays, Clapperboard, MonitorPlay, Settings, Tv, Video } from "lucide-react"
 import { getTranslations } from "next-intl/server"
+
 import { AdminNav } from "@/components/admin-nav"
 import { LocaleSwitcher } from "@/components/locale-switcher"
 import { getLiveScheduleSafe } from "@/lib/data"
 import { findActiveSchedule } from "@/lib/scheduler"
 import { secondsSinceLocalMidnight } from "@/lib/time"
 
+import type { ReactNode } from "react"
+
 const mobileNavLinks = [
   { key: "calendar", href: "/admin/calendar", icon: CalendarDays },
   { key: "assets", href: "/admin/assets", icon: Video },
   { key: "slides", href: "/admin/slides", icon: Clapperboard },
   { key: "settings", href: "/admin/settings", icon: Settings },
-  { key: "output", href: "/output/live?debug=true", icon: MonitorPlay },
+  { key: "output", href: "/output/live?debug=true", icon: MonitorPlay }
 ] as const
 
 type NavKey = (typeof mobileNavLinks)[number]["key"]
@@ -22,31 +33,27 @@ export async function AdminShell({
   title,
   description,
   actions,
-  children,
+  children
 }: {
   title: string
   description?: string
   actions?: ReactNode
   children: ReactNode
 }) {
-  const [t, liveResult] = await Promise.all([
-    getTranslations(),
-    getLiveScheduleSafe(),
-  ])
+  const [t, liveResult] = await Promise.all([getTranslations(), getLiveScheduleSafe()])
 
   const outage = liveResult.outage
   const liveBundle = liveResult.data
   const nowSeconds = secondsSinceLocalMidnight(new Date())
   const activeSchedule = liveBundle ? findActiveSchedule(liveBundle, nowSeconds) : null
-  const isLive =
-    liveBundle?.day?.status === "active" && activeSchedule?.block != null
+  const isLive = liveBundle?.day?.status === "active" && activeSchedule?.block != null
 
   const navLabels: Record<NavKey, string> = {
     calendar: t("nav.calendar"),
     assets: t("nav.assets"),
     slides: t("nav.slides"),
     settings: t("nav.settings"),
-    output: t("nav.output"),
+    output: t("nav.output")
   }
 
   return (
@@ -90,7 +97,8 @@ export async function AdminShell({
           >
             <AlertOctagon size={14} aria-hidden="true" />
             <span>
-              {t("chrome.outage")}: <span className="text-white/70">{t("chrome.outageMessage")}</span>
+              {t("chrome.outage")}:{" "}
+              <span className="text-white/70">{t("chrome.outageMessage")}</span>
             </span>
           </div>
         ) : null}
@@ -101,7 +109,9 @@ export async function AdminShell({
           <span className="text-xs font-semibold uppercase tracking-widest text-white/40 hidden sm:inline">
             {t("chrome.brand")}
           </span>
-          <span className="text-white/20 hidden sm:inline" aria-hidden="true">/</span>
+          <span className="text-white/20 hidden sm:inline" aria-hidden="true">
+            /
+          </span>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-sm font-semibold text-white/90 leading-none">{title}</h1>
             {description ? (
