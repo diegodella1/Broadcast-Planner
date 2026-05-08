@@ -1,10 +1,23 @@
 export type ProgramStatus = "draft" | "ready" | "active" | "archived"
 export type AssetStatus = "draft" | "syncing" | "ready" | "failed" | "archived"
-export type SourceType = "vimeo" | "supabase_image" | "supabase_audio" | "remote_image" | "remote_mp4" | "hls" | "reuters"
+export type SourceType =
+  | "vimeo"
+  | "supabase_image"
+  | "supabase_audio"
+  | "remote_image"
+  | "remote_mp4"
+  | "hls"
+  | "reuters"
 export type MediaKind = "video" | "image" | "audio" | "graphic"
 export type BlockType = "video" | "image" | "slide" | "ad" | "promo" | "fallback"
 export type LayerType = "overlay" | "image" | "slide" | "logo_bug" | "lower_third" | "promo"
-export type Position = "fullscreen" | "lower_third" | "sidebar" | "top_right" | "bottom_bar" | "custom"
+export type Position =
+  | "fullscreen"
+  | "lower_third"
+  | "sidebar"
+  | "top_right"
+  | "bottom_bar"
+  | "custom"
 
 export type BlockCategory =
   | "mercados"
@@ -59,6 +72,8 @@ export type SlideAsset = {
   templateId?: string | null
   defaultDurationSeconds?: number | null
   status: "draft" | "ready" | "archived"
+  /** Server-prefetched data bag. slideData is populated at render time for template slides. */
+  metadata?: { slideData?: unknown } | null
   createdAt: string
   updatedAt: string
 }

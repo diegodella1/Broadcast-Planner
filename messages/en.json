@@ -464,7 +464,65 @@
       "title": "No slides created",
       "body": "Create a slate to use as base content or scheduled overlay."
     },
-    "add": "Add slide"
+    "add": "Add slide",
+    "template": {
+      "calendar": {
+        "label": "Calendar",
+        "description": "Upcoming events list"
+      },
+      "debt": {
+        "label": "Debt clock",
+        "description": "Live US national debt"
+      },
+      "event": {
+        "label": "Event highlight",
+        "description": "Single event spotlight"
+      },
+      "event-modern": {
+        "label": "Event highlight (modern)",
+        "description": "Single event modern"
+      },
+      "fx": {
+        "label": "FX rates",
+        "description": "Live currency board"
+      },
+      "gold": {
+        "label": "Gold",
+        "description": "Gold spot price"
+      },
+      "metals": {
+        "label": "Metals",
+        "description": "Multi-metal price board"
+      },
+      "news": {
+        "label": "News",
+        "description": "Top headlines"
+      },
+      "oil": {
+        "label": "Oil",
+        "description": "Crude oil spot"
+      },
+      "sata": {
+        "label": "Satellite",
+        "description": "Satellite imagery"
+      },
+      "show": {
+        "label": "Show card",
+        "description": "Show metadata"
+      },
+      "silver": {
+        "label": "Silver",
+        "description": "Silver spot"
+      },
+      "strc": {
+        "label": "STRC",
+        "description": "STRC service"
+      },
+      "video": {
+        "label": "Video",
+        "description": "Embedded video player"
+      }
+    }
   },
   "settings": {
     "title": "Settings",

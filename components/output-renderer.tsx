@@ -6,8 +6,18 @@ import type { ActiveSchedule, MediaAsset, ScheduledLayer, SlideAsset } from "@/l
 import { findActiveSchedule } from "@/lib/scheduler"
 import type { ScheduleBundle } from "@/lib/types"
 import { formatTimecode } from "@/lib/time"
+import { SlideTemplateRenderer } from "@/components/slides/index"
+import type { SlideTemplateId } from "@/lib/slides/registry"
 
-type MediaState = "idle" | "loading" | "playing" | "waiting" | "stalled" | "errored" | "ended" | "fallback"
+type MediaState =
+  | "idle"
+  | "loading"
+  | "playing"
+  | "waiting"
+  | "stalled"
+  | "errored"
+  | "ended"
+  | "fallback"
 
 export function OutputRenderer({
   initialSchedule,
@@ -46,34 +56,64 @@ export function OutputRenderer({
     }
   }, [forcedBlockId, initialSchedule])
 
-  const active = findActiveSchedule(schedule, forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay)
+  const active = findActiveSchedule(
+    schedule,
+    forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay
+  )
   const activeAssetId = active.asset?.id ?? active.fallbackAsset?.id ?? null
-  const mediaFailed = mediaState.assetId === active.asset?.id && ["stalled", "errored", "ended", "fallback"].includes(mediaState.state)
-  const renderAsset = mediaFailed ? active.fallbackAsset : active.asset ?? active.fallbackAsset
+  const mediaFailed =
+    mediaState.assetId === active.asset?.id &&
+    ["stalled", "errored", "ended", "fallback"].includes(mediaState.state)
+  const renderAsset = mediaFailed ? active.fallbackAsset : (active.asset ?? active.fallbackAsset)
   const renderSlide = active.slide
-  const musicAssets = schedule.mediaAssets.filter((asset) => asset.assetType === "music" && asset.status === "ready" && asset.url)
+  const musicAssets = schedule.mediaAssets.filter(
+    (asset) => asset.assetType === "music" && asset.status === "ready" && asset.url
+  )
   const playMusic = shouldPlayBackgroundMusic(active, renderAsset ?? null, renderSlide ?? null)
 
   useEffect(() => {
-    setMediaState({ assetId: activeAssetId, state: activeAssetId ? "loading" : "idle", lastError: null })
-  }, [active.block?.id, activeAssetId])
-
-  const updateMediaState = useCallback((state: MediaState, error?: string) => {
+    // Reset media state when block / asset changes — intentional sync of
+    // local UI state to external prop change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMediaState({
       assetId: activeAssetId,
-      state,
-      lastError: error ?? null
+      state: activeAssetId ? "loading" : "idle",
+      lastError: null
     })
-  }, [activeAssetId])
+  }, [active.block?.id, activeAssetId])
+
+  const updateMediaState = useCallback(
+    (state: MediaState, error?: string) => {
+      setMediaState({
+        assetId: activeAssetId,
+        state,
+        lastError: error ?? null
+      })
+    },
+    [activeAssetId]
+  )
 
   return (
     <main className="tv-output relative">
-      <BaseContent active={active} asset={renderAsset ?? null} slide={renderSlide ?? null} onMediaState={updateMediaState} />
+      <BaseContent
+        active={active}
+        asset={renderAsset ?? null}
+        slide={renderSlide ?? null}
+        onMediaState={updateMediaState}
+      />
       {active.layers.map((layer) => (
         <Layer key={layer.id} layer={layer} schedule={schedule} />
       ))}
       <BackgroundMusic assets={musicAssets} enabled={playMusic} />
-      {debug && <DebugPanel active={active} secondsOfDay={forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay} mediaState={mediaState} musicEnabled={playMusic} musicCount={musicAssets.length} />}
+      {debug && (
+        <DebugPanel
+          active={active}
+          secondsOfDay={forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay}
+          mediaState={mediaState}
+          musicEnabled={playMusic}
+          musicCount={musicAssets.length}
+        />
+      )}
     </main>
   )
 }
@@ -104,7 +144,8 @@ function BaseContent({
   if (!asset) return <Fallback asset={active.fallbackAsset ?? null} reason="Missing asset" />
   if (asset.mediaKind === "image") return <ImageAsset asset={asset} />
   if (asset.sourceType === "vimeo" && asset.vimeoId) return <VimeoEmbed asset={asset} />
-  if (asset.sourceType === "reuters") return <ReutersPlayer asset={asset} onMediaState={onMediaState} />
+  if (asset.sourceType === "reuters")
+    return <ReutersPlayer asset={asset} onMediaState={onMediaState} />
   if (asset.sourceType === "remote_mp4" || asset.sourceType === "hls") {
     return <VideoAsset asset={asset} onMediaState={onMediaState} />
   }
@@ -112,12 +153,20 @@ function BaseContent({
 }
 
 function Layer({ layer, schedule }: { layer: ScheduledLayer; schedule: ScheduleBundle }) {
-  const asset = layer.assetId ? schedule.mediaAssets.find((item) => item.id === layer.assetId) : null
-  const slide = layer.slideId ? schedule.slideAssets.find((item) => item.id === layer.slideId) : null
+  const asset = layer.assetId
+    ? schedule.mediaAssets.find((item) => item.id === layer.assetId)
+    : null
+  const slide = layer.slideId
+    ? schedule.slideAssets.find((item) => item.id === layer.slideId)
+    : null
   const position = positionClass(layer.position)
   return (
     <div className={`absolute ${position}`} style={{ zIndex: layer.zIndex }}>
-      {slide ? <Slide slide={slide} /> : asset?.mediaKind === "image" ? <ImageAsset asset={asset} contained /> : null}
+      {slide ? (
+        <Slide slide={slide} />
+      ) : asset?.mediaKind === "image" ? (
+        <ImageAsset asset={asset} contained />
+      ) : null}
     </div>
   )
 }
@@ -138,13 +187,29 @@ function VimeoEmbed({ asset }: { asset: MediaAsset }) {
 function ImageAsset({ asset, contained = false }: { asset: MediaAsset; contained?: boolean }) {
   if (!asset.url) return <Fallback asset={null} reason={asset.title} />
   return (
-    <div className={contained ? "relative h-80 w-[36rem] max-w-full rounded bg-black" : "relative h-full w-full"}>
-      <Image alt={asset.title} className={contained ? "object-contain" : "object-cover"} src={asset.url} fill sizes={contained ? "36rem" : "100vw"} />
+    <div
+      className={
+        contained ? "relative h-80 w-[36rem] max-w-full rounded bg-black" : "relative h-full w-full"
+      }
+    >
+      <Image
+        alt={asset.title}
+        className={contained ? "object-contain" : "object-cover"}
+        src={asset.url}
+        fill
+        sizes={contained ? "36rem" : "100vw"}
+      />
     </div>
   )
 }
 
-function VideoAsset({ asset, onMediaState }: { asset: MediaAsset; onMediaState: (state: MediaState, error?: string) => void }) {
+function VideoAsset({
+  asset,
+  onMediaState
+}: {
+  asset: MediaAsset
+  onMediaState: (state: MediaState, error?: string) => void
+}) {
   useEffect(() => {
     onMediaState("loading")
     const timeout = window.setTimeout(() => {
@@ -165,7 +230,17 @@ function VideoAsset({ asset, onMediaState }: { asset: MediaAsset; onMediaState: 
     onEnded: () => onMediaState("ended", "Media ended")
   }
   if (!vertical) {
-    return <video className="h-full w-full bg-black object-contain" src={asset.url} autoPlay muted playsInline controls={false} {...handlers} />
+    return (
+      <video
+        className="h-full w-full bg-black object-contain"
+        src={asset.url}
+        autoPlay
+        muted
+        playsInline
+        controls={false}
+        {...handlers}
+      />
+    )
   }
   return (
     <div className="relative h-full w-full overflow-hidden bg-black">
@@ -180,12 +255,26 @@ function VideoAsset({ asset, onMediaState }: { asset: MediaAsset; onMediaState: 
         />
       ) : null}
       <div className="absolute inset-0 bg-black/35" />
-      <video className="relative z-10 mx-auto h-full max-w-full object-contain" src={asset.url} autoPlay muted playsInline controls={false} {...handlers} />
+      <video
+        className="relative z-10 mx-auto h-full max-w-full object-contain"
+        src={asset.url}
+        autoPlay
+        muted
+        playsInline
+        controls={false}
+        {...handlers}
+      />
     </div>
   )
 }
 
-function ReutersPlayer({ asset, onMediaState }: { asset: MediaAsset; onMediaState: (state: MediaState, error?: string) => void }) {
+function ReutersPlayer({
+  asset,
+  onMediaState
+}: {
+  asset: MediaAsset
+  onMediaState: (state: MediaState, error?: string) => void
+}) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const src = asset.url ?? ""
 
@@ -202,20 +291,22 @@ function ReutersPlayer({ asset, onMediaState }: { asset: MediaAsset; onMediaStat
     let cancelled = false
     let hlsInstance: { destroy: () => void } | null = null
 
-    void import("hls.js").then((mod) => {
-      if (cancelled || !video) return
-      const Hls = mod.default
-      if (!Hls.isSupported()) {
-        video.src = src
-        return
-      }
-      const instance = new Hls()
-      hlsInstance = instance
-      instance.loadSource(src)
-      instance.attachMedia(video)
-    }).catch(() => {
-      onMediaState("errored", "Reuters HLS load error")
-    })
+    void import("hls.js")
+      .then((mod) => {
+        if (cancelled || !video) return
+        const Hls = mod.default
+        if (!Hls.isSupported()) {
+          video.src = src
+          return
+        }
+        const instance = new Hls()
+        hlsInstance = instance
+        instance.loadSource(src)
+        instance.attachMedia(video)
+      })
+      .catch(() => {
+        onMediaState("errored", "Reuters HLS load error")
+      })
 
     return () => {
       cancelled = true
@@ -248,12 +339,16 @@ function BackgroundMusic({ assets, enabled }: { assets: MediaAsset[]; enabled: b
   const current = assets[index % Math.max(assets.length, 1)]
 
   useEffect(() => {
+    // Reset playlist index when playlistKey identity changes (new block / new track set).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIndex(0)
   }, [playlistKey])
 
   if (!enabled || !current?.url) return null
 
   return (
+    // Background music has no captions track by design (ambient broadcast audio).
+    // eslint-disable-next-line jsx-a11y/media-has-caption
     <audio
       key={current.id}
       src={current.url}
@@ -270,10 +365,37 @@ function Slide({ slide, fullscreen = false }: { slide: SlideAsset; fullscreen?: 
   const className = fullscreen
     ? "grid h-full w-full place-items-center bg-zinc-950 px-20 text-center text-white"
     : "rounded bg-zinc-950/92 px-8 py-5 text-white shadow-2xl"
+  if (slide.slideType === "template") {
+    if (!slide.templateId) {
+      return (
+        <div className={className}>
+          <p className="text-2xl text-zinc-400">Loading template…</p>
+        </div>
+      )
+    }
+    const slideData = (slide as SlideAsset & { metadata?: { slideData?: unknown } }).metadata
+      ?.slideData
+    if (slideData === undefined || slideData === null) {
+      return (
+        <div className={className}>
+          <p className="text-2xl text-zinc-400">Loading template…</p>
+        </div>
+      )
+    }
+    return (
+      <SlideTemplateRenderer templateId={slide.templateId as SlideTemplateId} data={slideData} />
+    )
+  }
   if (slide.slideType === "image" && slide.imageUrl) {
     return (
       <div className={fullscreen ? "relative h-full w-full" : "relative h-80 w-[36rem] max-w-full"}>
-        <Image alt={slide.title} className="object-contain" src={slide.imageUrl} fill sizes={fullscreen ? "100vw" : "36rem"} />
+        <Image
+          alt={slide.title}
+          className="object-contain"
+          src={slide.imageUrl}
+          fill
+          sizes={fullscreen ? "100vw" : "36rem"}
+        />
       </div>
     )
   }
@@ -281,7 +403,9 @@ function Slide({ slide, fullscreen = false }: { slide: SlideAsset; fullscreen?: 
     <div className={className}>
       <div>
         <div className="text-5xl font-semibold">{slide.title}</div>
-        {slide.htmlContent && <div className="mt-4 text-2xl" dangerouslySetInnerHTML={{ __html: slide.htmlContent }} />}
+        {slide.htmlContent && (
+          <div className="mt-4 text-2xl" dangerouslySetInnerHTML={{ __html: slide.htmlContent }} />
+        )}
         {slide.content && <p className="mt-4 text-2xl">{slide.content}</p>}
       </div>
     </div>
@@ -323,7 +447,9 @@ function DebugPanel({
       <p>mediaState: {mediaState.state}</p>
       <p>mediaAssetId: {mediaState.assetId ?? "none"}</p>
       <p>fallback: {active.fallbackAsset?.title ?? "none"}</p>
-      <p>music: {musicEnabled ? "on" : "off"} ({musicCount})</p>
+      <p>
+        music: {musicEnabled ? "on" : "off"} ({musicCount})
+      </p>
       {mediaState.lastError && <p>mediaError: {mediaState.lastError}</p>}
       <p>layers: {active.layers.map((layer) => layer.title).join(", ") || "none"}</p>
       {active.reason && <p>reason: {active.reason}</p>}
@@ -331,7 +457,11 @@ function DebugPanel({
   )
 }
 
-function shouldPlayBackgroundMusic(active: ActiveSchedule, renderAsset: MediaAsset | null, renderSlide: SlideAsset | null) {
+function shouldPlayBackgroundMusic(
+  active: ActiveSchedule,
+  renderAsset: MediaAsset | null,
+  renderSlide: SlideAsset | null
+) {
   if (renderSlide) return true
   if (!active.block) return true
   if (!renderAsset) return true

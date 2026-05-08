@@ -321,6 +321,7 @@ export async function createSlideAsset(input: {
   imageUrl?: string
   htmlContent?: string
   defaultDurationSeconds?: number
+  templateId?: string
   status?: string
 }) {
   const supabase = createServiceClient()
@@ -331,6 +332,7 @@ export async function createSlideAsset(input: {
     image_url: input.imageUrl || null,
     html_content: input.htmlContent || null,
     default_duration_seconds: input.defaultDurationSeconds || null,
+    template_id: input.templateId || null,
     status: input.status || "ready"
   })
   if (error) throw error
