@@ -166,3 +166,63 @@ textarea::placeholder {
   font-size: 19px;
   line-height: 1.25;
 }
+
+/* ---------------------------------------------------------------------------
+   Animation helper classes (P5 / P6 chyron primitives)
+   Keyframe definitions (@keyframes blink, pd, bar-grow, …) live alongside the
+   components that first use them (P5.4 for blink/now-line, P6.3 for slide
+   previews, P6.x for tickers). Browsers silently ignore animation-name when
+   the referenced @keyframes block is absent, so pre-declaring the classes here
+   is safe and lets the reduced-motion guard below take effect the moment any
+   keyframe is added.
+   --------------------------------------------------------------------------- */
+.anim-blink {
+  animation: var(--motion-blink-duration, 1.4s) infinite blink;
+}
+.anim-pd {
+  animation: var(--motion-pd-duration, 2s) infinite pd;
+}
+.anim-bar-grow {
+  animation: var(--motion-bar-grow-duration, 1.2s) ease-out bar-grow;
+}
+.anim-flash-up {
+  animation: var(--motion-flash-duration, 0.4s) ease-out flash-up;
+}
+.anim-flash-down {
+  animation: var(--motion-flash-duration, 0.4s) ease-out flash-down;
+}
+.anim-ticker-scroll-news {
+  animation: var(--motion-ticker-news-duration, 80s) linear infinite ticker-scroll-news;
+}
+.anim-ticker-scroll-stocks {
+  animation: var(--motion-ticker-stocks-duration, 28s) linear infinite ticker-scroll-stocks;
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced-motion guard
+   Zeros out the custom-property durations used by every .anim-* class above,
+   and adds an animation: none !important catch-all for any class that may be
+   applied before this file is re-read (e.g. SSR-injected classes).
+   Tailwind's animate-* utilities are independent; use the motion-reduce: prefix
+   variant on a per-element basis for those.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-blink-duration: 0s;
+    --motion-pd-duration: 0s;
+    --motion-bar-grow-duration: 0s;
+    --motion-flash-duration: 0s;
+    --motion-ticker-news-duration: 0s;
+    --motion-ticker-stocks-duration: 0s;
+  }
+
+  .anim-blink,
+  .anim-pd,
+  .anim-bar-grow,
+  .anim-flash-up,
+  .anim-flash-down,
+  .anim-ticker-scroll-news,
+  .anim-ticker-scroll-stocks {
+    animation: none !important;
+  }
+}

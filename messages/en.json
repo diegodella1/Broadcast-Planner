@@ -344,13 +344,22 @@
       "title": "Manual broadcast"
     },
     "lowerThird": {
-      "title": "Lower third"
+      "title": "Lower third",
+      "titleLabel": "Title",
+      "titlePlaceholder": "e.g. Jerome Powell — Fed Chair",
+      "subtitleLabel": "Subtitle",
+      "subtitlePlaceholder": "e.g. FOMC Press Conference · May 2026",
+      "visible": "Visible on screen"
     },
     "health": {
-      "title": "Schedule health"
+      "title": "Schedule health",
+      "allGood": "All clear — no issues detected",
+      "idle": "No schedule loaded for today"
     },
     "music": {
-      "title": "Background music"
+      "title": "Background music",
+      "enabled": "Enable music",
+      "volume": "Volume"
     },
     "stopBroadcast": "Stop broadcast"
   },
