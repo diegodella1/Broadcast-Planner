@@ -74,7 +74,7 @@ export const mockSchedule: ScheduleBundle = {
       id: "slide-market-open",
       title: "Market Open",
       slideType: "html",
-      htmlContent: "<strong>Market Open</strong><span>Agenda del dia</span>",
+      htmlContent: "<strong>Market Open</strong><span>Daily agenda</span>",
       defaultDurationSeconds: 30,
       status: "ready",
       createdAt: now,
@@ -85,7 +85,7 @@ export const mockSchedule: ScheduleBundle = {
     {
       id: "block-main",
       programDayId: "day-today",
-      title: "Programa central",
+      title: "Main program",
       blockType: "video",
       category: "mercados",
       assetId: "asset-vimeo-demo",

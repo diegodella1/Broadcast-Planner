@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server"
 
 import { appUrl } from "@/lib/app-url"
+import { requireAdmin } from "@/lib/auth"
 import { saveVimeoSettings } from "@/lib/settings"
 
 export async function POST(request: Request) {
   try {
+    await requireAdmin()
     const form = await request.formData()
     const token = String(form.get("vimeo_token") ?? "") || undefined
     const folderUri = String(form.get("vimeo_folder_uri") ?? "") || undefined
@@ -16,6 +18,9 @@ export async function POST(request: Request) {
     })
     return NextResponse.redirect(appUrl("/admin/settings?saved=1"), 303)
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
+    }
     return NextResponse.json({ ok: false, error: String(error) }, { status: 500 })
   }
 }
