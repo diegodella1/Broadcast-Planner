@@ -49,7 +49,8 @@ function normalizeLocalSupabaseUrl(url: string | undefined) {
       parsed.hostname = "127.0.0.1"
       return parsed.toString()
     }
-  } catch {
+  } catch (error) {
+    console.error("[lib/supabase/server.ts:normalizeLocalSupabaseUrl]", error)
     return url
   }
   return url

@@ -1,0 +1,10 @@
+node_modules
+.next
+coverage
+messages
+supabase/migrations
+package-lock.json
+out
+playwright-report
+test-results
+*.tsbuildinfo

@@ -4,10 +4,12 @@ export function parseTimecode(value: string): number {
     throw new Error(`Invalid timecode: ${value}`)
   }
   if (parts.length === 2) {
-    return parts[0] * 60 + parts[1]
+    const [minutes, seconds] = parts as [number, number]
+    return minutes * 60 + seconds
   }
   if (parts.length === 3) {
-    return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    const [hours, minutes, seconds] = parts as [number, number, number]
+    return hours * 3600 + minutes * 60 + seconds
   }
   throw new Error(`Invalid timecode: ${value}`)
 }

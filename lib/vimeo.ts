@@ -37,13 +37,16 @@ export async function listVimeoShows(token: string): Promise<VimeoShow[]> {
     "/me/albums?per_page=100&fields=uri,name,link,description,metadata.connections.videos.total",
     token
   )
-  return (page.data ?? []).map((show) => ({
-    uri: show.uri,
-    name: show.name,
-    link: show.link,
-    description: show.description,
-    videoCount: show.metadata?.connections?.videos?.total
-  }))
+  return (page.data ?? []).map((show) => {
+    const videoCount = show.metadata?.connections?.videos?.total
+    return {
+      uri: show.uri,
+      name: show.name,
+      ...(show.link !== undefined ? { link: show.link } : {}),
+      ...(show.description !== undefined ? { description: show.description } : {}),
+      ...(videoCount !== undefined ? { videoCount } : {})
+    }
+  })
 }
 
 export async function listVimeoEpisodes(token: string, showUri: string): Promise<VimeoVideo[]> {

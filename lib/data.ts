@@ -5,6 +5,20 @@ import { createServiceClient } from "./supabase/server"
 
 type Row = Record<string, unknown>
 
+export type ReadResult<T> = { data: T | null; outage: boolean }
+
+function isProduction(): boolean {
+  return process.env.NODE_ENV === "production"
+}
+
+function devFallback<T>(value: T, error: unknown, tag: string): T {
+  if (isProduction()) {
+    throw error instanceof Error ? error : new Error(`[${tag}] ${String(error)}`)
+  }
+  console.error(`[${tag}] falling back to mock data in non-production`, error)
+  return value
+}
+
 export async function getScheduleForDate(date: string): Promise<ScheduleBundle> {
   try {
     const supabase = createServiceClient()
@@ -28,8 +42,9 @@ export async function getScheduleForDate(date: string): Promise<ScheduleBundle> 
       mediaAssets: (mediaAssets ?? []).map(mapMediaAsset),
       slideAssets: (slideAssets ?? []).map(mapSlide)
     }
-  } catch {
-    return mockSchedule
+  } catch (error) {
+    console.error("[lib/data.ts:getScheduleForDate]", error)
+    return devFallback(mockSchedule, error, "lib/data.ts:getScheduleForDate")
   }
 }
 
@@ -82,8 +97,9 @@ export async function getPlaybackScheduleForDate(date: string): Promise<Schedule
       mediaAssets: uniqueRows([...(referencedMedia ?? []), ...(fallbackMedia ?? [])]).map(mapMediaAsset),
       slideAssets: (referencedSlides ?? []).map(mapSlide)
     }
-  } catch {
-    return mockSchedule
+  } catch (error) {
+    console.error("[lib/data.ts:getPlaybackScheduleForDate]", error)
+    return devFallback(mockSchedule, error, "lib/data.ts:getPlaybackScheduleForDate")
   }
 }
 
@@ -99,8 +115,9 @@ export async function getPlaybackScheduleForBlock(blockId: string): Promise<Sche
     const programDay = Array.isArray(block.program_days) ? block.program_days[0] : block.program_days
     const date = typeof programDay === "object" && programDay !== null ? text((programDay as Row).air_date) : ""
     return date ? getPlaybackScheduleForDate(date) : mockSchedule
-  } catch {
-    return mockSchedule
+  } catch (error) {
+    console.error("[lib/data.ts:getPlaybackScheduleForBlock]", error)
+    return devFallback(mockSchedule, error, "lib/data.ts:getPlaybackScheduleForBlock")
   }
 }
 
@@ -118,8 +135,9 @@ export async function getAssets(): Promise<MediaAsset[]> {
     const { data, error } = await supabase.from("media_assets").select("*").order("updated_at", { ascending: false })
     if (error) throw error
     return (data ?? []).map(mapMediaAsset)
-  } catch {
-    return mockSchedule.mediaAssets
+  } catch (error) {
+    console.error("[lib/data.ts:getAssets]", error)
+    return devFallback(mockSchedule.mediaAssets, error, "lib/data.ts:getAssets")
   }
 }
 
@@ -129,8 +147,9 @@ export async function getSlides(): Promise<SlideAsset[]> {
     const { data, error } = await supabase.from("slide_assets").select("*").order("updated_at", { ascending: false })
     if (error) throw error
     return (data ?? []).map(mapSlide)
-  } catch {
-    return mockSchedule.slideAssets
+  } catch (error) {
+    console.error("[lib/data.ts:getSlides]", error)
+    return devFallback(mockSchedule.slideAssets, error, "lib/data.ts:getSlides")
   }
 }
 
@@ -140,8 +159,28 @@ export async function getDays(): Promise<ProgramDay[]> {
     const { data, error } = await supabase.from("program_days").select("*").order("air_date", { ascending: false })
     if (error) throw error
     return (data ?? []).map(mapDay)
-  } catch {
-    return mockSchedule.day ? [mockSchedule.day] : []
+  } catch (error) {
+    console.error("[lib/data.ts:getDays]", error)
+    return devFallback(mockSchedule.day ? [mockSchedule.day] : [], error, "lib/data.ts:getDays")
+  }
+}
+
+/**
+ * Wrapper that surfaces an outage flag for read-side callers (e.g. AdminShell).
+ * Catches errors thrown by `getLiveSchedule` in production and returns
+ * `{ data: null, outage: true }`. In non-production, errors propagate from
+ * the underlying call (which already returns the dev fallback).
+ */
+export async function getLiveScheduleSafe(
+  now = new Date(),
+  timezone = "America/Argentina/Buenos_Aires"
+): Promise<ReadResult<ScheduleBundle>> {
+  try {
+    const data = await getLiveSchedule(now, timezone)
+    return { data, outage: false }
+  } catch (error) {
+    console.error("[lib/data.ts:getLiveScheduleSafe]", error)
+    return { data: null, outage: true }
   }
 }
 

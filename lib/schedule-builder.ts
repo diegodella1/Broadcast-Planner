@@ -72,7 +72,8 @@ export function buildLongTestSchedule(input: BuildInput): GeneratedBlock[] {
     if (ads.length && adBreakSeconds > 0) {
       const adBreakEnd = Math.min(endSeconds, cursor + adBreakSeconds)
       while (cursor < adBreakEnd) {
-        const ad = ads[adIndex % ads.length]
+        // Safe: modulo over non-empty array (ads.length > 0 checked above) always yields a valid index.
+        const ad = ads[adIndex % ads.length]!
         const adDuration = clampDuration(Math.min(ad.durationSeconds ?? 30, 300), cursor, adBreakEnd)
         blocks.push({
           title: `Ad: ${ad.title}`,
@@ -90,7 +91,8 @@ export function buildLongTestSchedule(input: BuildInput): GeneratedBlock[] {
     }
 
     if (images.length && imageBumperSeconds > 0 && cursor < endSeconds) {
-      const image = images[imageIndex % images.length]
+      // Safe: modulo over non-empty array (images.length > 0 checked above) always yields a valid index.
+      const image = images[imageIndex % images.length]!
       const imageDuration = clampDuration(imageBumperSeconds, cursor, endSeconds)
       blocks.push({
         title: `Imagen: ${image.title}`,

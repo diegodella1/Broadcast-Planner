@@ -4,6 +4,7 @@ import { OperationsPanelLowerThird } from "@/components/operations-panel/lower-t
 import { StopBroadcastButton } from "@/components/stop-broadcast-button"
 import { getLiveSchedule } from "@/lib/data"
 import { updateProgramDayStatus } from "@/lib/mutations"
+import { createDaySchema } from "@/lib/schemas"
 import { findActiveSchedule } from "@/lib/scheduler"
 import { secondsSinceLocalMidnight, isoDateInTimezone } from "@/lib/time"
 
@@ -11,7 +12,7 @@ export default async function AdminOutputPage() {
   const [t, tOps, liveBundle] = await Promise.all([
     getTranslations(),
     getTranslations("ops"),
-    getLiveSchedule(),
+    getLiveSchedule()
   ])
 
   const nowSeconds = secondsSinceLocalMidnight(new Date())
@@ -32,7 +33,7 @@ export default async function AdminOutputPage() {
 
   // Source label for active block
   const activeSourceLabel = active.block
-    ? active.asset?.sourceType ?? active.slide?.slideType ?? "—"
+    ? (active.asset?.sourceType ?? active.slide?.slideType ?? "—")
     : "—"
   const activeBlockLabel = active.block?.title ?? t("output.fallback.noActiveBlock")
 
@@ -40,26 +41,25 @@ export default async function AdminOutputPage() {
   async function stopBroadcast() {
     "use server"
     if (!dayDate) return
-    console.log("[audit] stopBroadcast triggered", { dayId, dayDate })
+    const parsed = createDaySchema.safeParse({ date: dayDate })
+    if (!parsed.success) return
+    console.log("[audit] stopBroadcast triggered", { dayId, dayDate: parsed.data.date })
     // TODO: if a manual override block concept is introduced, clear it here
     await updateProgramDayStatus({
-      date: dayDate,
+      date: parsed.data.date,
       status: "ready",
-      allowWarnings: true,
+      allowWarnings: true
     })
   }
 
   return (
-    <AdminShell
-      title={t("chrome.output")}
-      description={t("schedule.broadcast")}
-    >
+    <AdminShell title={t("chrome.output")} description={t("schedule.broadcast")}>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-
         {/* ── Broadcast preview pane ────────────────────────────────────── */}
         <div className="min-w-0 flex-1">
           {/* 16:9 frame */}
-          <div className="relative w-full overflow-hidden rounded-md border border-white/10 bg-surface-elevated-1"
+          <div
+            className="relative w-full overflow-hidden rounded-md border border-white/10 bg-surface-elevated-1"
             style={{ aspectRatio: "16 / 9" }}
           >
             {active.block ? (
@@ -109,7 +109,10 @@ export default async function AdminOutputPage() {
           <div className="mt-2 flex items-center gap-2">
             {isLive ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-live px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-accent-live-text">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-live-text" aria-hidden="true" />
+                <span
+                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-live-text"
+                  aria-hidden="true"
+                />
                 {t("chrome.onAir")}
               </span>
             ) : (
@@ -138,7 +141,9 @@ export default async function AdminOutputPage() {
                 }
                 aria-hidden="true"
               />
-              <span className={`text-xs font-semibold ${isLive ? "text-accent-live-text" : "text-white/50"}`}>
+              <span
+                className={`text-xs font-semibold ${isLive ? "text-accent-live-text" : "text-white/50"}`}
+              >
                 {broadcastStatusLabel}
               </span>
             </div>

@@ -28,10 +28,10 @@ describe("buildLongTestSchedule", () => {
       imageBumperSeconds: 30
     })
 
-    expect(blocks[0].startTimeSeconds).toBe(0)
+    expect(blocks[0]?.startTimeSeconds).toBe(0)
     expect(blocks.at(-1)!.startTimeSeconds + blocks.at(-1)!.durationSeconds).toBe(43200)
     blocks.slice(1).forEach((block, index) => {
-      const previous = blocks[index]
+      const previous = blocks[index]!
       expect(block.startTimeSeconds).toBe(previous.startTimeSeconds + previous.durationSeconds)
     })
     expect(blocks.some((block) => block.blockType === "ad")).toBe(true)

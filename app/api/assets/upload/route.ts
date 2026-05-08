@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       url: publicUrl.publicUrl,
       storageBucket: VIDEO_BUCKET,
       storagePath,
-      durationSeconds,
+      ...(durationSeconds !== undefined ? { durationSeconds } : {}),
       metadata: {
         presentation: orientation === "vertical" ? "vertical_blur" : "fit",
         orientation,

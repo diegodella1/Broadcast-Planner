@@ -35,7 +35,8 @@
     "offAir": "FUERA DE AIRE",
     "health": "Health del schedule",
     "output": "Output",
-    "outage": "Outage"
+    "outage": "Outage",
+    "outageMessage": "Servicio degradado. Algunos datos pueden estar desactualizados o no disponibles."
   },
   "block": {
     "status": {

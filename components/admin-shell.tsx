@@ -1,10 +1,10 @@
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { Activity, CalendarDays, Clapperboard, MonitorPlay, Settings, Tv, Video } from "lucide-react"
+import { Activity, AlertOctagon, CalendarDays, Clapperboard, MonitorPlay, Settings, Tv, Video } from "lucide-react"
 import { getTranslations } from "next-intl/server"
 import { AdminNav } from "@/components/admin-nav"
 import { LocaleSwitcher } from "@/components/locale-switcher"
-import { getLiveSchedule } from "@/lib/data"
+import { getLiveScheduleSafe } from "@/lib/data"
 import { findActiveSchedule } from "@/lib/scheduler"
 import { secondsSinceLocalMidnight } from "@/lib/time"
 
@@ -29,15 +29,17 @@ export async function AdminShell({
   actions?: ReactNode
   children: ReactNode
 }) {
-  const [t, liveBundle] = await Promise.all([
+  const [t, liveResult] = await Promise.all([
     getTranslations(),
-    getLiveSchedule(),
+    getLiveScheduleSafe(),
   ])
 
+  const outage = liveResult.outage
+  const liveBundle = liveResult.data
   const nowSeconds = secondsSinceLocalMidnight(new Date())
-  const activeSchedule = findActiveSchedule(liveBundle, nowSeconds)
+  const activeSchedule = liveBundle ? findActiveSchedule(liveBundle, nowSeconds) : null
   const isLive =
-    liveBundle.day?.status === "active" && activeSchedule.block !== null
+    liveBundle?.day?.status === "active" && activeSchedule?.block != null
 
   const navLabels: Record<NavKey, string> = {
     calendar: t("nav.calendar"),
@@ -79,6 +81,20 @@ export async function AdminShell({
 
       {/* ── Main column ──────────────────────────────────────────────── */}
       <main className="flex-1 md:pl-14">
+        {/* ── Outage banner (P7.1) ─────────────────────────────────── */}
+        {outage ? (
+          <div
+            role="alert"
+            data-testid="outage-banner"
+            className="flex items-center gap-2 border-b border-negative-red/30 bg-negative-red/10 px-4 py-2 text-xs text-negative-red"
+          >
+            <AlertOctagon size={14} aria-hidden="true" />
+            <span>
+              {t("chrome.outage")}: <span className="text-white/70">{t("chrome.outageMessage")}</span>
+            </span>
+          </div>
+        ) : null}
+
         {/* ── Topbar (P4.2) ────────────────────────────────────────── */}
         <header className="sticky top-0 z-10 flex h-12 items-center gap-3 border-b border-white/10 bg-surface-elevated-1 px-4">
           {/* Left slot: brand mark + page title / subtitle */}

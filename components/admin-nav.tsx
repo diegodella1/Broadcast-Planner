@@ -24,7 +24,9 @@ export function AdminNav({ labels }: AdminNavProps) {
   return (
     <nav className="flex flex-col">
       {navLinks.map(({ key, href, icon: Icon }) => {
-        const isActive = pathname === href || pathname.startsWith(href.split("?")[0])
+        // Safe: String.prototype.split always returns a non-empty array.
+        const basePath = href.split("?")[0]!
+        const isActive = pathname === href || pathname.startsWith(basePath)
         return (
           <Link
             key={href}

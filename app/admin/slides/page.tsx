@@ -6,6 +6,7 @@ import { StatusPill } from "@/components/status-pill"
 import { EmptyState, FormHeader } from "@/components/ui"
 import { getSlides } from "@/lib/data"
 import { createSlideAsset } from "@/lib/mutations"
+import { createSlideAssetSchema, parseFormData } from "@/lib/schemas"
 import type { SlideAsset } from "@/lib/types"
 
 // ---------------------------------------------------------------------------
@@ -33,14 +34,14 @@ const KIND_PILL_CLASSES: Record<SlideKind, string> = {
   earthcam: "bg-accent-positive/10 text-accent-positive",
   market: "bg-info-blue/10 text-info-blue",
   weather: "bg-warn-amber/10 text-warn-amber",
-  generic: "bg-white/5 text-white/40",
+  generic: "bg-white/5 text-white/40"
 }
 
 const KIND_LABELS: Record<SlideKind, string> = {
   earthcam: "Earthcam",
   market: "Market",
   weather: "Weather",
-  generic: "Generic",
+  generic: "Generic"
 }
 
 function TypePill({ kind }: { kind: SlideKind }) {
@@ -73,17 +74,79 @@ function EarthcamPreview() {
         {/* Globe circle */}
         <circle cx="40" cy="40" r="28" fill="none" stroke="currentColor" strokeWidth="1.5" />
         {/* Latitude lines */}
-        <ellipse cx="40" cy="40" rx="28" ry="10" fill="none" stroke="currentColor" strokeWidth="0.75" opacity="0.4" />
-        <ellipse cx="40" cy="30" rx="22" ry="6" fill="none" stroke="currentColor" strokeWidth="0.75" opacity="0.3" />
-        <ellipse cx="40" cy="50" rx="22" ry="6" fill="none" stroke="currentColor" strokeWidth="0.75" opacity="0.3" />
+        <ellipse
+          cx="40"
+          cy="40"
+          rx="28"
+          ry="10"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="0.75"
+          opacity="0.4"
+        />
+        <ellipse
+          cx="40"
+          cy="30"
+          rx="22"
+          ry="6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="0.75"
+          opacity="0.3"
+        />
+        <ellipse
+          cx="40"
+          cy="50"
+          rx="22"
+          ry="6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="0.75"
+          opacity="0.3"
+        />
         {/* Vertical meridian */}
-        <line x1="40" y1="12" x2="40" y2="68" stroke="currentColor" strokeWidth="0.75" opacity="0.4" />
+        <line
+          x1="40"
+          y1="12"
+          x2="40"
+          y2="68"
+          stroke="currentColor"
+          strokeWidth="0.75"
+          opacity="0.4"
+        />
         {/* Animated pulse dots */}
-        <circle cx="40" cy="40" r="4" fill="currentColor" className="anim-pd" style={{ animationDelay: "0s" }} />
-        <circle cx="40" cy="40" r="8" fill="none" stroke="currentColor" strokeWidth="1" className="anim-pd" style={{ animationDelay: "0.4s", opacity: 0.6 }} />
-        <circle cx="40" cy="40" r="13" fill="none" stroke="currentColor" strokeWidth="1" className="anim-pd" style={{ animationDelay: "0.8s", opacity: 0.3 }} />
+        <circle
+          cx="40"
+          cy="40"
+          r="4"
+          fill="currentColor"
+          className="anim-pd"
+          style={{ animationDelay: "0s" }}
+        />
+        <circle
+          cx="40"
+          cy="40"
+          r="8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1"
+          className="anim-pd"
+          style={{ animationDelay: "0.4s", opacity: 0.6 }}
+        />
+        <circle
+          cx="40"
+          cy="40"
+          r="13"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1"
+          className="anim-pd"
+          style={{ animationDelay: "0.8s", opacity: 0.3 }}
+        />
       </svg>
-      <p className="text-sm font-semibold tracking-wide">EarthCam {/* [i18n-missing: slides.preview.earthcam] */}</p>
+      <p className="text-sm font-semibold tracking-wide">
+        EarthCam {/* [i18n-missing: slides.preview.earthcam] */}
+      </p>
       <p className="text-xs text-white/40">Live global camera feed</p>
     </div>
   )
@@ -118,7 +181,9 @@ function MarketPreview() {
         {/* Baseline */}
         <line x1="0" y1="80" x2="160" y2="80" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
       </svg>
-      <p className="text-sm font-semibold text-info-blue tracking-wide">Market Data {/* [i18n-missing: slides.preview.market] */}</p>
+      <p className="text-sm font-semibold text-info-blue tracking-wide">
+        Market Data {/* [i18n-missing: slides.preview.market] */}
+      </p>
       <p className="text-xs text-white/40">Bloomberg / financial feed</p>
     </div>
   )
@@ -128,11 +193,13 @@ function WeatherPreview() {
   const cities = [
     { city: "New York", temp: "18°C", Icon: Sun },
     { city: "London", temp: "12°C", Icon: Cloud },
-    { city: "Tokyo", temp: "22°C", Icon: CloudRain },
+    { city: "Tokyo", temp: "22°C", Icon: CloudRain }
   ] as const
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-6">
-      <p className="text-sm font-semibold text-warn-amber tracking-wide">Weather {/* [i18n-missing: slides.preview.weather] */}</p>
+      <p className="text-sm font-semibold text-warn-amber tracking-wide">
+        Weather {/* [i18n-missing: slides.preview.weather] */}
+      </p>
       <div className="flex w-full gap-2">
         {cities.map(({ city, temp, Icon }) => (
           <div
@@ -154,9 +221,7 @@ function GenericPreview({ slide }: { slide: SlideAsset }) {
     <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-6 text-center">
       <p className="text-sm font-semibold text-white/90 line-clamp-2">{slide.title}</p>
       <p className="text-xs text-white/40 capitalize">{slide.slideType}</p>
-      {slide.content && (
-        <p className="mt-1 text-xs text-white/50 line-clamp-3">{slide.content}</p>
-      )}
+      {slide.content && <p className="mt-1 text-xs text-white/50 line-clamp-3">{slide.content}</p>}
     </div>
   )
 }
@@ -180,12 +245,15 @@ const KIND_THUMB_BG: Record<SlideKind, string> = {
   earthcam: "bg-accent-positive/20",
   market: "bg-info-blue/20",
   weather: "bg-warn-amber/20",
-  generic: "bg-white/5",
+  generic: "bg-white/5"
 }
 
 function SlideThumbnail({ kind }: { kind: SlideKind }) {
   return (
-    <div className={`aspect-video w-12 shrink-0 rounded-sm ${KIND_THUMB_BG[kind]}`} aria-hidden="true" />
+    <div
+      className={`aspect-video w-12 shrink-0 rounded-sm ${KIND_THUMB_BG[kind]}`}
+      aria-hidden="true"
+    />
   )
 }
 
@@ -193,14 +261,14 @@ function SlideThumbnail({ kind }: { kind: SlideKind }) {
 // Page
 // ---------------------------------------------------------------------------
 export default async function SlidesPage({
-  searchParams,
+  searchParams
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const [t, slides, resolvedParams] = await Promise.all([
     getTranslations("slides"),
     getSlides(),
-    searchParams,
+    searchParams
   ])
 
   const rawSlideParam = resolvedParams["slide"]
@@ -209,40 +277,76 @@ export default async function SlidesPage({
 
   async function addSlide(formData: FormData) {
     "use server"
-    const slideType = String(formData.get("slide_type"))
+    const data = parseFormData(createSlideAssetSchema, {
+      title: formData.get("title"),
+      slideType: formData.get("slide_type"),
+      content: formData.get("content") ?? "",
+      imageUrl: formData.get("image_url") ?? "",
+      htmlContent: formData.get("html_content") ?? "",
+      defaultDurationSeconds: formData.get("default_duration_seconds") ?? "",
+      status: formData.get("status") ?? "ready"
+    })
     await createSlideAsset({
-      title: String(formData.get("title")),
-      slideType,
-      content: String(formData.get("content") || ""),
-      imageUrl: String(formData.get("image_url") || ""),
-      htmlContent: String(formData.get("html_content") || ""),
-      defaultDurationSeconds: Number(formData.get("default_duration_seconds") || 0) || undefined,
-      status: String(formData.get("status") || "ready")
+      title: data.title,
+      slideType: data.slideType,
+      status: data.status,
+      ...(data.content !== undefined ? { content: data.content } : {}),
+      ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl } : {}),
+      ...(data.htmlContent !== undefined ? { htmlContent: data.htmlContent } : {}),
+      ...(data.defaultDurationSeconds !== undefined
+        ? { defaultDurationSeconds: data.defaultDurationSeconds }
+        : {})
     })
   }
 
   return (
     <AdminShell title={t("title")} description={t("description")}>
       {/* Create form */}
-      <form action={addSlide} className="surface-panel mb-5 grid gap-3 p-4 lg:grid-cols-[1fr_150px_120px_120px]">
+      <form
+        action={addSlide}
+        className="surface-panel mb-5 grid gap-3 p-4 lg:grid-cols-[1fr_150px_120px_120px]"
+      >
         <div className="lg:col-span-4">
           <FormHeader title={t("create.title")} detail={t("create.detail")} />
         </div>
-        <input name="title" required placeholder={t("create.titleField")} className="border border-line px-3 py-2 text-sm" />
+        <input
+          name="title"
+          required
+          placeholder={t("create.titleField")}
+          className="border border-line px-3 py-2 text-sm"
+        />
         <select name="slide_type" className="border border-line px-3 py-2 text-sm">
           <option value="html">{t("type.html")}</option>
           <option value="image">{t("type.image")}</option>
           <option value="markdown">{t("type.markdown")}</option>
           <option value="template">{t("type.template")}</option>
         </select>
-        <input name="default_duration_seconds" type="number" min="1" placeholder="Seg" className="border border-line px-3 py-2 text-sm" />
+        <input
+          name="default_duration_seconds"
+          type="number"
+          min="1"
+          placeholder="Seg"
+          className="border border-line px-3 py-2 text-sm"
+        />
         <select name="status" className="border border-line px-3 py-2 text-sm">
           <option value="ready">{t("status.ready")}</option>
           <option value="draft">{t("status.draft")}</option>
         </select>
-        <input name="image_url" placeholder={t("create.imageUrl")} className="border border-line px-3 py-2 text-sm lg:col-span-2" />
-        <textarea name="content" placeholder={t("create.visibleText")} className="min-h-24 border border-line px-3 py-2 text-sm lg:col-span-2" />
-        <textarea name="html_content" placeholder={t("create.optionalHtml")} className="min-h-24 border border-line px-3 py-2 text-sm lg:col-span-4" />
+        <input
+          name="image_url"
+          placeholder={t("create.imageUrl")}
+          className="border border-line px-3 py-2 text-sm lg:col-span-2"
+        />
+        <textarea
+          name="content"
+          placeholder={t("create.visibleText")}
+          className="min-h-24 border border-line px-3 py-2 text-sm lg:col-span-2"
+        />
+        <textarea
+          name="html_content"
+          placeholder={t("create.optionalHtml")}
+          className="min-h-24 border border-line px-3 py-2 text-sm lg:col-span-4"
+        />
         <button className="btn-primary lg:col-span-4">{t("create.submit")}</button>
       </form>
 
@@ -254,10 +358,7 @@ export default async function SlidesPage({
       ) : (
         <div className="flex gap-6 items-start">
           {/* ── Slide list (260px) ─────────────────────────────────────── */}
-          <nav
-            aria-label={t("title")}
-            className="w-[260px] shrink-0 overflow-y-auto surface-panel"
-          >
+          <nav aria-label={t("title")} className="w-[260px] shrink-0 overflow-y-auto surface-panel">
             {slides.map((slide) => {
               const kind = detectKind(slide)
               const isActive = slide.id === selectedSlide?.id
@@ -269,7 +370,7 @@ export default async function SlidesPage({
                     "flex items-center gap-3 px-3 py-2.5 border-l-2 transition-colors",
                     isActive
                       ? "bg-surface-selected-positive border-accent-positive"
-                      : "border-transparent hover:bg-surface-elevated-2",
+                      : "border-transparent hover:bg-surface-elevated-2"
                   ].join(" ")}
                   aria-current={isActive ? "page" : undefined}
                 >
@@ -278,7 +379,7 @@ export default async function SlidesPage({
                     <p
                       className={[
                         "truncate text-sm font-semibold",
-                        isActive ? "text-accent-positive" : "text-white/80",
+                        isActive ? "text-accent-positive" : "text-white/80"
                       ].join(" ")}
                     >
                       {slide.title}
@@ -286,7 +387,10 @@ export default async function SlidesPage({
                     <div className="mt-0.5 flex items-center gap-1.5">
                       <TypePill kind={kind} />
                       {isActive && (
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-positive" aria-hidden="true" />
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-positive"
+                          aria-hidden="true"
+                        />
                       )}
                     </div>
                   </div>
@@ -303,20 +407,16 @@ export default async function SlidesPage({
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <TypePill kind={detectKind(selectedSlide)} />
-                    <span className="text-sm font-semibold text-white/90">{selectedSlide.title}</span>
+                    <span className="text-sm font-semibold text-white/90">
+                      {selectedSlide.title}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <StatusPill status={selectedSlide.status} />
-                    <button
-                      type="button"
-                      className="btn-secondary text-xs px-3 min-h-8"
-                    >
+                    <button type="button" className="btn-secondary text-xs px-3 min-h-8">
                       Edit
                     </button>
-                    <button
-                      type="button"
-                      className="btn-primary text-xs px-3 min-h-8"
-                    >
+                    <button type="button" className="btn-primary text-xs px-3 min-h-8">
                       {t("add")}
                     </button>
                   </div>

@@ -35,7 +35,8 @@
     "offAir": "OFF AIR",
     "health": "Schedule health",
     "output": "Output",
-    "outage": "Outage"
+    "outage": "Outage",
+    "outageMessage": "Service degraded. Some data may be stale or unavailable."
   },
   "block": {
     "status": {
