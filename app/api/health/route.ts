@@ -17,15 +17,18 @@ export async function GET() {
     vimeo: checkOptionalEnv("VIMEO_ACCESS_TOKEN", "Vimeo token configured")
   }
   const requiredKeys = ["env", "supabase"] as const
-  const ok = requiredKeys.every((key) => checks[key].ok)
+  const ok = requiredKeys.every((key) => checks[key]?.ok === true)
   const degraded = ok && Object.values(checks).some((check) => check.status === "degraded")
-  return NextResponse.json({
-    ok,
-    status: ok ? (degraded ? "degraded" : "ok") : "fail",
-    service: "roxom-playout-manager",
-    uptime: Math.round(process.uptime()),
-    checks
-  }, { status: ok ? 200 : 503 })
+  return NextResponse.json(
+    {
+      ok,
+      status: ok ? (degraded ? "degraded" : "ok") : "fail",
+      service: "roxom-playout-manager",
+      uptime: Math.round(process.uptime()),
+      checks
+    },
+    { status: ok ? 200 : 503 }
+  )
 }
 
 function checkEnv(): HealthCheck {
@@ -58,12 +61,22 @@ async function checkStorage(): Promise<HealthCheck> {
     if (error) throw error
     const buckets = new Set((data ?? []).map((bucket) => bucket.id))
     const missingRequired = ["slide-assets", "graphics"].filter((bucket) => !buckets.has(bucket))
-    const missingOptional = ["video-assets", "small-media-assets"].filter((bucket) => !buckets.has(bucket))
+    const missingOptional = ["video-assets", "small-media-assets"].filter(
+      (bucket) => !buckets.has(bucket)
+    )
     if (missingRequired.length) {
-      return { ok: false, status: "fail", message: `Missing required buckets: ${missingRequired.join(", ")}` }
+      return {
+        ok: false,
+        status: "fail",
+        message: `Missing required buckets: ${missingRequired.join(", ")}`
+      }
     }
     if (missingOptional.length) {
-      return { ok: true, status: "degraded", message: `Missing optional buckets: ${missingOptional.join(", ")}` }
+      return {
+        ok: true,
+        status: "degraded",
+        message: `Missing optional buckets: ${missingOptional.join(", ")}`
+      }
     }
     return { ok: true, status: "ok", message: "Storage buckets present" }
   } catch (error) {

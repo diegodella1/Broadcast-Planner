@@ -13,6 +13,13 @@ export type ScheduleIssueKind =
   | "layer_timing"
   | "hidden_layer"
 
+export type ScheduleIssueI18n = {
+  titleKey: string
+  titleValues?: Record<string, string | number>
+  detailKey?: string
+  detailValues?: Record<string, string | number>
+}
+
 export type ScheduleIssue = {
   id: string
   blockId?: string
@@ -23,6 +30,7 @@ export type ScheduleIssue = {
   detail: string
   severity: ScheduleIssueSeverity
   kind: ScheduleIssueKind
+  i18n: ScheduleIssueI18n
 }
 
 export type AssetReadiness = {
@@ -48,7 +56,10 @@ const SUPPORTED_VIDEO_SOURCES = new Set(["vimeo", "remote_mp4", "hls"])
 const SUPPORTED_IMAGE_SOURCES = new Set(["remote_image", "supabase_image"])
 const SUPPORTED_AUDIO_SOURCES = new Set(["supabase_audio"])
 
-export function analyzeSchedule(schedule: ScheduleBundle, inputBlocks = schedule.blocks): ScheduleHealth {
+export function analyzeSchedule(
+  schedule: ScheduleBundle,
+  inputBlocks = schedule.blocks
+): ScheduleHealth {
   const blocks = [...inputBlocks].sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
   const gaps: ScheduleIssue[] = []
   const overlaps: ScheduleIssue[] = []
@@ -57,19 +68,29 @@ export function analyzeSchedule(schedule: ScheduleBundle, inputBlocks = schedule
   const unsupportedAssets: ScheduleIssue[] = []
   const fallbackIssues: ScheduleIssue[] = []
   const layerIssues: ScheduleIssue[] = []
-  const readyFallback = schedule.mediaAssets.some((asset) => asset.assetType === "fallback" && asset.status === "ready")
+  const readyFallback = schedule.mediaAssets.some(
+    (asset) => asset.assetType === "fallback" && asset.status === "ready"
+  )
 
   for (let index = 0; index < blocks.length - 1; index += 1) {
     const current = blocks[index]
     const next = blocks[index + 1]
+    if (!current || !next) continue
     const currentEnd = current.startTimeSeconds + current.durationSeconds
     if (next.startTimeSeconds > currentEnd) {
+      const fromTc = formatTimecode(currentEnd)
+      const toTc = formatTimecode(next.startTimeSeconds)
       gaps.push({
         id: `gap-${current.id}-${next.id}`,
         title: "Programming gap",
-        detail: `${formatTimecode(currentEnd)} a ${formatTimecode(next.startTimeSeconds)}`,
+        detail: `${fromTc} a ${toTc}`,
         severity: "warning",
-        kind: "gap"
+        kind: "gap",
+        i18n: {
+          titleKey: "health.issues.gap.title",
+          detailKey: "health.issues.gap.description",
+          detailValues: { from: fromTc, to: toTc }
+        }
       })
     }
     if (next.startTimeSeconds < currentEnd) {
@@ -79,7 +100,12 @@ export function analyzeSchedule(schedule: ScheduleBundle, inputBlocks = schedule
         title: "Overlapping blocks",
         detail: `${current.title} overlaps ${next.title}`,
         severity: "critical",
-        kind: "overlap"
+        kind: "overlap",
+        i18n: {
+          titleKey: "health.issues.overlap.title",
+          detailKey: "health.issues.overlap.description",
+          detailValues: { current: current.title, next: next.title }
+        }
       })
     }
   }
@@ -90,13 +116,19 @@ export function analyzeSchedule(schedule: ScheduleBundle, inputBlocks = schedule
     const expectsSlide = block.blockType === "slide"
     const missing = expectsSlide ? !slide : !asset
     if (missing) {
+      const kindLabel = expectsSlide ? "slide" : "media"
       missingAssets.push({
         id: `missing-${block.id}`,
         blockId: block.id,
         title: "Block missing asset",
-        detail: `${block.title} has no assigned ${expectsSlide ? "slide" : "media"}`,
+        detail: `${block.title} has no assigned ${kindLabel}`,
         severity: "critical",
-        kind: "missing_asset"
+        kind: "missing_asset",
+        i18n: {
+          titleKey: "health.issues.missingAsset.title",
+          detailKey: "health.issues.missingAsset.blockDescription",
+          detailValues: { block: block.title, kind: kindLabel }
+        }
       })
       continue
     }
@@ -104,14 +136,25 @@ export function analyzeSchedule(schedule: ScheduleBundle, inputBlocks = schedule
     if (asset) {
       const readiness = getAssetReadiness(asset)
       if (!readiness.ready) {
+        const messagesJoined = readiness.messages.join(", ")
+        const isCritical = readiness.severity === "critical"
         const issue = {
           id: `asset-readiness-${block.id}`,
           blockId: block.id,
           assetId: asset.id,
-          title: readiness.severity === "critical" ? "Asset cannot play" : "Asset not ready",
-          detail: `${asset.title}: ${readiness.messages.join(", ")}`,
+          title: isCritical ? "Asset cannot play" : "Asset not ready",
+          detail: `${asset.title}: ${messagesJoined}`,
           severity: readiness.severity,
-          kind: readiness.severity === "critical" ? "unsupported_asset" : "unready_asset"
+          kind: isCritical ? "unsupported_asset" : "unready_asset",
+          i18n: {
+            titleKey: isCritical
+              ? "health.issues.unsupportedAsset.title"
+              : "health.issues.unreadyAsset.title",
+            detailKey: isCritical
+              ? "health.issues.unsupportedAsset.description"
+              : "health.issues.unreadyAsset.description",
+            detailValues: { title: asset.title, messages: messagesJoined }
+          }
         } satisfies ScheduleIssue
         if (issue.kind === "unsupported_asset") unsupportedAssets.push(issue)
         else unreadyAssets.push(issue)
@@ -125,17 +168,28 @@ export function analyzeSchedule(schedule: ScheduleBundle, inputBlocks = schedule
         title: "Slide not ready",
         detail: `${slide.title} is ${slide.status}`,
         severity: "warning",
-        kind: "unready_asset"
+        kind: "unready_asset",
+        i18n: {
+          titleKey: "health.issues.unreadySlide.title",
+          detailKey: "health.issues.unreadySlide.description",
+          detailValues: { title: slide.title, status: slide.status }
+        }
       })
     }
     if (block.blockType === "ad" && block.durationSeconds > 300) {
+      const durationTc = formatTimecode(block.durationSeconds)
       unsupportedAssets.push({
         id: `ad-duration-${block.id}`,
         blockId: block.id,
         title: "Ad too long",
-        detail: `${block.title} runs ${formatTimecode(block.durationSeconds)} and the maximum is 00:05:00`,
+        detail: `${block.title} runs ${durationTc} and the maximum is 00:05:00`,
         severity: "critical",
-        kind: "ad_duration"
+        kind: "ad_duration",
+        i18n: {
+          titleKey: "health.issues.adDuration.title",
+          detailKey: "health.issues.adDuration.description",
+          detailValues: { title: block.title, duration: durationTc }
+        }
       })
     }
 
@@ -150,7 +204,12 @@ export function analyzeSchedule(schedule: ScheduleBundle, inputBlocks = schedule
           title: "Overlay hidden by block",
           detail: `${layer.title} is enabled but the block hides overlays`,
           severity: "warning",
-          kind: "hidden_layer"
+          kind: "hidden_layer",
+          i18n: {
+            titleKey: "health.issues.hiddenLayer.title",
+            detailKey: "health.issues.hiddenLayer.description",
+            detailValues: { title: layer.title }
+          }
         })
       }
     }
@@ -162,11 +221,23 @@ export function analyzeSchedule(schedule: ScheduleBundle, inputBlocks = schedule
       title: "No ready fallback",
       detail: "No fallback asset is ready to cover output errors",
       severity: "warning",
-      kind: "fallback"
+      kind: "fallback",
+      i18n: {
+        titleKey: "health.issues.fallbackMissing.title",
+        detailKey: "health.issues.fallbackMissing.description"
+      }
     })
   }
 
-  const issues = [...overlaps, ...missingAssets, ...unsupportedAssets, ...unreadyAssets, ...layerIssues, ...gaps, ...fallbackIssues]
+  const issues = [
+    ...overlaps,
+    ...missingAssets,
+    ...unsupportedAssets,
+    ...unreadyAssets,
+    ...layerIssues,
+    ...gaps,
+    ...fallbackIssues
+  ]
   return {
     gaps,
     overlaps,
@@ -202,7 +273,12 @@ export function getAssetReadiness(asset: MediaAsset): AssetReadiness {
     severity = "critical"
     messages.push("missing Vimeo ID")
   }
-  if ((asset.sourceType === "remote_mp4" || asset.sourceType === "hls" || asset.sourceType === "remote_image") && !asset.url) {
+  if (
+    (asset.sourceType === "remote_mp4" ||
+      asset.sourceType === "hls" ||
+      asset.sourceType === "remote_image") &&
+    !asset.url
+  ) {
     severity = "critical"
     messages.push("missing URL")
   }
@@ -221,17 +297,27 @@ export function getAssetReadiness(asset: MediaAsset): AssetReadiness {
   }
 }
 
-function analyzeLayer(schedule: ScheduleBundle, block: ProgramBlock, layer: ScheduledLayer): ScheduleIssue[] {
+function analyzeLayer(
+  schedule: ScheduleBundle,
+  block: ProgramBlock,
+  layer: ScheduledLayer
+): ScheduleIssue[] {
   const issues: ScheduleIssue[] = []
   if (layer.startTimeSeconds + layer.durationSeconds > block.durationSeconds) {
+    const durationTc = formatTimecode(block.durationSeconds)
     issues.push({
       id: `layer-window-${layer.id}`,
       blockId: block.id,
       layerId: layer.id,
       title: "Overlay outside block",
-      detail: `${layer.title} ends after ${formatTimecode(block.durationSeconds)}`,
+      detail: `${layer.title} ends after ${durationTc}`,
       severity: "critical",
-      kind: "layer_timing"
+      kind: "layer_timing",
+      i18n: {
+        titleKey: "health.issues.layerOutOfRange.title",
+        detailKey: "health.issues.layerOutOfRange.description",
+        detailValues: { title: layer.title, duration: durationTc }
+      }
     })
   }
   const asset = layer.assetId ? findAsset(schedule.mediaAssets, layer.assetId) : null
@@ -244,21 +330,33 @@ function analyzeLayer(schedule: ScheduleBundle, block: ProgramBlock, layer: Sche
       title: "Overlay missing asset",
       detail: `${layer.title} has no assigned media or slide`,
       severity: "critical",
-      kind: "missing_asset"
+      kind: "missing_asset",
+      i18n: {
+        titleKey: "health.issues.layerMissing.title",
+        detailKey: "health.issues.layerMissing.description",
+        detailValues: { title: layer.title }
+      }
     })
   }
   if (asset) {
     const readiness = getAssetReadiness(asset)
     if (!readiness.ready) {
+      const messagesJoined = readiness.messages.join(", ")
+      const isCritical = readiness.severity === "critical"
       issues.push({
         id: `layer-asset-${layer.id}`,
         blockId: block.id,
         layerId: layer.id,
         assetId: asset.id,
         title: "Overlay not ready",
-        detail: `${asset.title}: ${readiness.messages.join(", ")}`,
+        detail: `${asset.title}: ${messagesJoined}`,
         severity: readiness.severity,
-        kind: readiness.severity === "critical" ? "unsupported_asset" : "unready_asset"
+        kind: isCritical ? "unsupported_asset" : "unready_asset",
+        i18n: {
+          titleKey: "health.issues.layerUnready.title",
+          detailKey: "health.issues.layerUnready.description",
+          detailValues: { title: asset.title, messages: messagesJoined }
+        }
       })
     }
   }
@@ -271,7 +369,12 @@ function analyzeLayer(schedule: ScheduleBundle, block: ProgramBlock, layer: Sche
       title: "Overlay slide not ready",
       detail: `${slide.title} is ${slide.status}`,
       severity: "warning",
-      kind: "unready_asset"
+      kind: "unready_asset",
+      i18n: {
+        titleKey: "health.issues.layerUnreadySlide.title",
+        detailKey: "health.issues.layerUnreadySlide.description",
+        detailValues: { title: slide.title, status: slide.status }
+      }
     })
   }
   return issues

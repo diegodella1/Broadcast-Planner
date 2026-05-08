@@ -29,18 +29,17 @@ export function buildLongTestSchedule(input: BuildInput): GeneratedBlock[] {
   const adBreakSeconds = Math.max(0, Math.round(input.adBreakMinutes * 60))
   const imageBumperSeconds = Math.max(0, Math.round(input.imageBumperSeconds))
 
-  const programs = input.mediaAssets.filter((asset) =>
-    asset.status === "ready" &&
-    asset.mediaKind === "video" &&
-    (asset.assetType === "video" || asset.assetType === "promo" || asset.assetType === "fallback")
+  const programs = input.mediaAssets.filter(
+    (asset) =>
+      asset.status === "ready" &&
+      asset.mediaKind === "video" &&
+      (asset.assetType === "video" || asset.assetType === "promo" || asset.assetType === "fallback")
   )
-  const ads = input.mediaAssets.filter((asset) =>
-    asset.status === "ready" &&
-    asset.assetType === "ad"
+  const ads = input.mediaAssets.filter(
+    (asset) => asset.status === "ready" && asset.assetType === "ad"
   )
-  const images = input.mediaAssets.filter((asset) =>
-    asset.status === "ready" &&
-    asset.mediaKind === "image"
+  const images = input.mediaAssets.filter(
+    (asset) => asset.status === "ready" && asset.mediaKind === "image"
   )
   const slides = input.slideAssets.filter((slide) => slide.status === "ready")
 
@@ -56,7 +55,9 @@ export function buildLongTestSchedule(input: BuildInput): GeneratedBlock[] {
     const slide = !programAsset ? slides[slideIndex % Math.max(slides.length, 1)] : null
     const programDuration = clampDuration(programSeconds, cursor, endSeconds)
     blocks.push({
-      title: programAsset ? `Program: ${programAsset.title}` : `Program: ${slide?.title ?? "block without asset"}`,
+      title: programAsset
+        ? `Program: ${programAsset.title}`
+        : `Program: ${slide?.title ?? "block without asset"}`,
       blockType: programAsset ? normalizedBlockType(programAsset.assetType) : "slide",
       assetId: programAsset?.id ?? null,
       slideId: slide?.id ?? null,
@@ -73,7 +74,12 @@ export function buildLongTestSchedule(input: BuildInput): GeneratedBlock[] {
       const adBreakEnd = Math.min(endSeconds, cursor + adBreakSeconds)
       while (cursor < adBreakEnd) {
         const ad = ads[adIndex % ads.length]
-        const adDuration = clampDuration(Math.min(ad.durationSeconds ?? 30, 300), cursor, adBreakEnd)
+        if (!ad) break
+        const adDuration = clampDuration(
+          Math.min(ad.durationSeconds ?? 30, 300),
+          cursor,
+          adBreakEnd
+        )
         blocks.push({
           title: `Ad: ${ad.title}`,
           blockType: "ad",
@@ -91,18 +97,20 @@ export function buildLongTestSchedule(input: BuildInput): GeneratedBlock[] {
 
     if (images.length && imageBumperSeconds > 0 && cursor < endSeconds) {
       const image = images[imageIndex % images.length]
-      const imageDuration = clampDuration(imageBumperSeconds, cursor, endSeconds)
-      blocks.push({
-        title: `Image: ${image.title}`,
-        blockType: "image",
-        assetId: image.id,
-        slideId: null,
-        startTime: formatTime(cursor),
-        startTimeSeconds: cursor,
-        durationSeconds: imageDuration
-      })
-      cursor += imageDuration
-      imageIndex += 1
+      if (image) {
+        const imageDuration = clampDuration(imageBumperSeconds, cursor, endSeconds)
+        blocks.push({
+          title: `Image: ${image.title}`,
+          blockType: "image",
+          assetId: image.id,
+          slideId: null,
+          startTime: formatTime(cursor),
+          startTimeSeconds: cursor,
+          durationSeconds: imageDuration
+        })
+        cursor += imageDuration
+        imageIndex += 1
+      }
     }
   }
 

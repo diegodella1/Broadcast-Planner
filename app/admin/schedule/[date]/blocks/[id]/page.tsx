@@ -6,12 +6,23 @@ import { ConfirmSubmitButton } from "@/components/confirm-submit-button"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
 import { getScheduleForDate } from "@/lib/data"
-import { createLowerThirdLayer, createScheduledLayer, deleteProgramBlock, setScheduledLayerEnabled, updateMediaAsset, updateProgramBlock } from "@/lib/mutations"
+import {
+  createLowerThirdLayer,
+  createScheduledLayer,
+  deleteProgramBlock,
+  setScheduledLayerEnabled,
+  updateMediaAsset,
+  updateProgramBlock
+} from "@/lib/mutations"
 import { analyzeSchedule, getAssetReadiness } from "@/lib/schedule-health"
 import { formatTimecode } from "@/lib/time"
 import type { MediaAsset } from "@/lib/types"
 
-export default async function BlockPage({ params }: { params: Promise<{ date: string; id: string }> }) {
+export default async function BlockPage({
+  params
+}: {
+  params: Promise<{ date: string; id: string }>
+}) {
   const { date, id } = await params
   const schedule = await getScheduleForDate(date)
   const block = schedule.blocks.find((item) => item.id === id)
@@ -19,7 +30,9 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
     return <AdminShell title="Block not found">This block does not exist.</AdminShell>
   }
 
-  const layers = schedule.layers.filter((layer) => layer.programBlockId === block.id).sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.zIndex - b.zIndex)
+  const layers = schedule.layers
+    .filter((layer) => layer.programBlockId === block.id)
+    .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.zIndex - b.zIndex)
   const asset = schedule.mediaAssets.find((item) => item.id === block.assetId)
   const slide = schedule.slideAssets.find((item) => item.id === block.slideId)
   const fallback = schedule.mediaAssets.find((item) => item.id === block.fallbackAssetId)
@@ -77,6 +90,7 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
 
   async function editAssignedAsset(formData: FormData) {
     "use server"
+    const durationSeconds = Number(formData.get("duration_seconds") || 0) || undefined
     await updateMediaAsset({
       id: String(formData.get("id")),
       title: String(formData.get("title")),
@@ -86,10 +100,15 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
       assetType: String(formData.get("asset_type")),
       url: String(formData.get("url") || ""),
       thumbnailUrl: String(formData.get("thumbnail_url") || ""),
-      durationSeconds: Number(formData.get("duration_seconds") || 0) || undefined,
+      ...(durationSeconds !== undefined ? { durationSeconds } : {}),
       status: String(formData.get("status")),
       orientation: String(formData.get("orientation") || "auto"),
-      revalidatePaths: [`/admin/schedule/${date}`, `/admin/schedule/${date}/blocks/${id}`, `/output/preview/${id}`, "/output/live"]
+      revalidatePaths: [
+        `/admin/schedule/${date}`,
+        `/admin/schedule/${date}/blocks/${id}`,
+        `/output/preview/${id}`,
+        "/output/live"
+      ]
     })
   }
 
@@ -115,7 +134,10 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
       description="Block control room for base content, timing, fallback, overlays, graphics and background music behavior."
     >
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <Link href={`/admin/schedule/${date}`} className="text-sm font-semibold text-zinc-600 hover:text-ink">
+        <Link
+          href={`/admin/schedule/${date}`}
+          className="text-sm font-semibold text-zinc-600 hover:text-ink"
+        >
           Back to programming day {date}
         </Link>
         <div className="flex flex-wrap gap-2">
@@ -129,9 +151,32 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
       </div>
 
       <section className="mb-5 grid gap-3 lg:grid-cols-3">
-        <SignalCard title="Base content" primary={asset?.title ?? slide?.title ?? "No asset"} meta={asset ? `${asset.sourceType} · ${asset.mediaKind}` : slide ? slide.slideType : "Assign content"} status={asset?.status ?? slide?.status ?? "missing"} />
-        <SignalCard title="Fallback" primary={fallback?.title ?? "Global fallback"} meta={fallback ? `${fallback.sourceType} · ${fallback.mediaKind}` : "Uses day/system fallback"} status={fallback?.status ?? "inherit"} />
-        <SignalCard title="Health" primary={`${health.criticalCount} critical`} meta={`${health.warnCount} warnings · ${layers.length} overlays`} status={health.criticalCount ? "failed" : "ready"} />
+        <SignalCard
+          title="Base content"
+          primary={asset?.title ?? slide?.title ?? "No asset"}
+          meta={
+            asset
+              ? `${asset.sourceType} · ${asset.mediaKind}`
+              : slide
+                ? slide.slideType
+                : "Assign content"
+          }
+          status={asset?.status ?? slide?.status ?? "missing"}
+        />
+        <SignalCard
+          title="Fallback"
+          primary={fallback?.title ?? "Global fallback"}
+          meta={
+            fallback ? `${fallback.sourceType} · ${fallback.mediaKind}` : "Uses day/system fallback"
+          }
+          status={fallback?.status ?? "inherit"}
+        />
+        <SignalCard
+          title="Health"
+          primary={`${health.criticalCount} critical`}
+          meta={`${health.warnCount} warnings · ${layers.length} overlays`}
+          status={health.criticalCount ? "failed" : "ready"}
+        />
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -150,17 +195,46 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
             <Info label="Type" value={block.blockType} />
           </dl>
 
-          <form action={saveBlock} className="mt-6 grid gap-3 rounded-md border border-line bg-panel p-4 lg:grid-cols-2">
-            <input name="title" required defaultValue={block.title} placeholder="Title" className="border border-line px-3 py-2 text-sm" />
-            <select name="status" defaultValue={block.status} className="border border-line px-3 py-2 text-sm">
+          <form
+            action={saveBlock}
+            className="mt-6 grid gap-3 rounded-md border border-line bg-panel p-4 lg:grid-cols-2"
+          >
+            <input
+              name="title"
+              required
+              defaultValue={block.title}
+              placeholder="Title"
+              className="border border-line px-3 py-2 text-sm"
+            />
+            <select
+              name="status"
+              defaultValue={block.status}
+              className="border border-line px-3 py-2 text-sm"
+            >
               <option value="draft">Draft</option>
               <option value="ready">Ready</option>
               <option value="active">Active</option>
               <option value="archived">Archived</option>
             </select>
-            <input name="start_time" required defaultValue={block.startTime} className="border border-line px-3 py-2 text-sm" />
-            <input name="duration_seconds" required type="number" min="1" defaultValue={block.durationSeconds} className="border border-line px-3 py-2 text-sm" />
-            <select name="block_type" defaultValue={block.blockType} className="border border-line px-3 py-2 text-sm">
+            <input
+              name="start_time"
+              required
+              defaultValue={block.startTime}
+              className="border border-line px-3 py-2 text-sm"
+            />
+            <input
+              name="duration_seconds"
+              required
+              type="number"
+              min="1"
+              defaultValue={block.durationSeconds}
+              className="border border-line px-3 py-2 text-sm"
+            />
+            <select
+              name="block_type"
+              defaultValue={block.blockType}
+              className="border border-line px-3 py-2 text-sm"
+            >
               <option value="video">Video</option>
               <option value="image">Image</option>
               <option value="slide">Slide</option>
@@ -168,31 +242,55 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
               <option value="promo">Promo</option>
               <option value="fallback">Fallback</option>
             </select>
-            <select name="fallback_asset_id" defaultValue={block.fallbackAssetId ?? ""} className="border border-line px-3 py-2 text-sm">
+            <select
+              name="fallback_asset_id"
+              defaultValue={block.fallbackAssetId ?? ""}
+              className="border border-line px-3 py-2 text-sm"
+            >
               <option value="">Global fallback</option>
-              {schedule.mediaAssets.filter((item) => item.assetType === "fallback").map((item) => (
-                <option key={item.id} value={item.id}>{item.title} · {item.status}</option>
-              ))}
+              {schedule.mediaAssets
+                .filter((item) => item.assetType === "fallback")
+                .map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title} · {item.status}
+                  </option>
+                ))}
             </select>
-            <select name="asset_id" defaultValue={block.assetId ?? ""} className="border border-line px-3 py-2 text-sm">
+            <select
+              name="asset_id"
+              defaultValue={block.assetId ?? ""}
+              className="border border-line px-3 py-2 text-sm"
+            >
               <option value="">No asset</option>
               {schedule.mediaAssets.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.title} · {item.status}{item.durationSeconds ? ` · ${formatTimecode(item.durationSeconds)}` : ""}
+                  {item.title} · {item.status}
+                  {item.durationSeconds ? ` · ${formatTimecode(item.durationSeconds)}` : ""}
                 </option>
               ))}
             </select>
-            <select name="slide_id" defaultValue={block.slideId ?? ""} className="border border-line px-3 py-2 text-sm">
+            <select
+              name="slide_id"
+              defaultValue={block.slideId ?? ""}
+              className="border border-line px-3 py-2 text-sm"
+            >
               <option value="">No slide</option>
               {schedule.slideAssets.map((item) => (
-                <option key={item.id} value={item.id}>{item.title} · {item.status}</option>
+                <option key={item.id} value={item.id}>
+                  {item.title} · {item.status}
+                </option>
               ))}
             </select>
             <label className="flex min-h-10 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm lg:col-span-2">
               <input name="hide_overlays" type="checkbox" defaultChecked={block.hideOverlays} />
               Hide overlays during this block
             </label>
-            <textarea name="notes" defaultValue={block.notes ?? ""} placeholder="Operator notes" className="min-h-20 border border-line px-3 py-2 text-sm lg:col-span-2" />
+            <textarea
+              name="notes"
+              defaultValue={block.notes ?? ""}
+              placeholder="Operator notes"
+              className="min-h-20 border border-line px-3 py-2 text-sm lg:col-span-2"
+            />
             <button className="btn-primary lg:col-span-2">Save block</button>
           </form>
 
@@ -207,32 +305,60 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold">Music behavior</p>
-                <p className="mt-1 text-sm text-muted">Ready music tracks play during image and slide blocks. Video, ad and promo media suppress the playlist.</p>
+                <p className="mt-1 text-sm text-muted">
+                  Ready music tracks play during image and slide blocks. Video, ad and promo media
+                  suppress the playlist.
+                </p>
               </div>
-              <Link href="/admin/music" className="btn-secondary">Manage music</Link>
+              <Link href="/admin/music" className="btn-secondary">
+                Manage music
+              </Link>
             </div>
             <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-              <Info label="Playlist" value={`${readyMusicAssets.length}/${musicAssets.length} ready`} />
-              <Info label="This block" value={block.blockType === "image" || block.blockType === "slide" ? "Music enabled" : "Music suppressed"} />
+              <Info
+                label="Playlist"
+                value={`${readyMusicAssets.length}/${musicAssets.length} ready`}
+              />
+              <Info
+                label="This block"
+                value={
+                  block.blockType === "image" || block.blockType === "slide"
+                    ? "Music enabled"
+                    : "Music suppressed"
+                }
+              />
               <Info label="Rule" value="Automatic" />
             </dl>
           </section>
 
           <div className="mt-6 grid gap-2">
             {blockIssues.map((issue) => (
-              <p key={issue.id} className={issue.severity === "critical" ? "rounded-md bg-red-50 px-3 py-2 text-sm text-red-900" : "rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900"}>
+              <p
+                key={issue.id}
+                className={
+                  issue.severity === "critical"
+                    ? "rounded-md bg-red-50 px-3 py-2 text-sm text-red-900"
+                    : "rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900"
+                }
+              >
                 <span className="block font-semibold">{issue.title}</span>
                 {issue.detail}
               </p>
             ))}
-            {blockIssues.length === 0 ? <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900">No alerts for this block.</p> : null}
+            {blockIssues.length === 0 ? (
+              <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                No alerts for this block.
+              </p>
+            ) : null}
           </div>
 
           <section className="mt-6 rounded-md border border-danger-line bg-danger-soft p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-danger-strong">Delete block</p>
-                <p className="mt-1 text-sm text-danger-strong">Deletes this block and its scheduled overlays. This cannot be undone.</p>
+                <p className="mt-1 text-sm text-danger-strong">
+                  Deletes this block and its scheduled overlays. This cannot be undone.
+                </p>
               </div>
               <form action={deleteBlock}>
                 <ConfirmSubmitButton
@@ -248,23 +374,68 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
 
         <section className="surface-panel p-5">
           <h3 className="font-semibold">Overlays</h3>
-          <form action={addLowerThird} className="mt-4 grid gap-3 rounded-md border border-line bg-surface p-3">
+          <form
+            action={addLowerThird}
+            className="mt-4 grid gap-3 rounded-md border border-line bg-surface p-3"
+          >
             <p className="text-sm font-semibold">Quick lower third</p>
-            <input name="title" placeholder="Internal name" className="border border-line px-3 py-2 text-sm" />
-            <input name="primary_text" required placeholder="Primary text" className="border border-line px-3 py-2 text-sm" />
-            <input name="secondary_text" placeholder="Secondary text" className="border border-line px-3 py-2 text-sm" />
+            <input
+              name="title"
+              placeholder="Internal name"
+              className="border border-line px-3 py-2 text-sm"
+            />
+            <input
+              name="primary_text"
+              required
+              placeholder="Primary text"
+              className="border border-line px-3 py-2 text-sm"
+            />
+            <input
+              name="secondary_text"
+              placeholder="Secondary text"
+              className="border border-line px-3 py-2 text-sm"
+            />
             <div className="grid gap-3 sm:grid-cols-2">
-              <input name="start_time" required defaultValue="00:00:05" className="border border-line px-3 py-2 text-sm" />
-              <input name="duration_seconds" required type="number" min="1" defaultValue="12" className="border border-line px-3 py-2 text-sm" />
+              <input
+                name="start_time"
+                required
+                defaultValue="00:00:05"
+                className="border border-line px-3 py-2 text-sm"
+              />
+              <input
+                name="duration_seconds"
+                required
+                type="number"
+                min="1"
+                defaultValue="12"
+                className="border border-line px-3 py-2 text-sm"
+              />
             </div>
             <button className="btn-primary">Add lower third</button>
           </form>
 
           <form action={addLayer} className="mt-4 grid gap-3 rounded-md bg-panel p-3">
-            <input name="title" required placeholder="Overlay title" className="border border-line px-3 py-2 text-sm" />
+            <input
+              name="title"
+              required
+              placeholder="Overlay title"
+              className="border border-line px-3 py-2 text-sm"
+            />
             <div className="grid gap-3 sm:grid-cols-2">
-              <input name="start_time" required defaultValue="00:02:00" className="border border-line px-3 py-2 text-sm" />
-              <input name="duration_seconds" required type="number" min="1" defaultValue="30" className="border border-line px-3 py-2 text-sm" />
+              <input
+                name="start_time"
+                required
+                defaultValue="00:02:00"
+                className="border border-line px-3 py-2 text-sm"
+              />
+              <input
+                name="duration_seconds"
+                required
+                type="number"
+                min="1"
+                defaultValue="30"
+                className="border border-line px-3 py-2 text-sm"
+              />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <select name="layer_type" className="border border-line px-3 py-2 text-sm">
@@ -285,16 +456,25 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
             <select name="slide_id" className="border border-line px-3 py-2 text-sm">
               <option value="">No slide</option>
               {schedule.slideAssets.map((item) => (
-                <option key={item.id} value={item.id}>{item.title}</option>
+                <option key={item.id} value={item.id}>
+                  {item.title}
+                </option>
               ))}
             </select>
             <select name="asset_id" className="border border-line px-3 py-2 text-sm">
               <option value="">No asset</option>
               {schedule.mediaAssets.map((item) => (
-                <option key={item.id} value={item.id}>{item.title}</option>
+                <option key={item.id} value={item.id}>
+                  {item.title}
+                </option>
               ))}
             </select>
-            <input name="z_index" type="number" defaultValue="10" className="border border-line px-3 py-2 text-sm" />
+            <input
+              name="z_index"
+              type="number"
+              defaultValue="10"
+              className="border border-line px-3 py-2 text-sm"
+            />
             <button className="btn-secondary">Add overlay</button>
           </form>
 
@@ -306,7 +486,8 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
                   <span className="text-zinc-500">z{layer.zIndex}</span>
                 </div>
                 <p className="mt-1 text-zinc-600">
-                  <Timecode seconds={layer.startTimeSeconds} /> · <Timecode seconds={layer.durationSeconds} /> · {layer.position}
+                  <Timecode seconds={layer.startTimeSeconds} /> ·{" "}
+                  <Timecode seconds={layer.durationSeconds} /> · {layer.position}
                 </p>
                 <form action={toggleLayer} className="mt-3">
                   <input type="hidden" name="layer_id" value={layer.id} />
@@ -317,7 +498,9 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
                 </form>
               </div>
             ))}
-            {layers.length === 0 ? <p className="text-sm text-muted">No overlays scheduled.</p> : null}
+            {layers.length === 0 ? (
+              <p className="text-sm text-muted">No overlays scheduled.</p>
+            ) : null}
           </div>
         </section>
       </div>
@@ -332,16 +515,36 @@ function AssignedAssetEditForm({
   asset: MediaAsset
   action: (formData: FormData) => Promise<void>
 }) {
-  const orientation = String(asset.metadata?.orientation || (asset.metadata?.presentation === "vertical_blur" ? "vertical" : "auto"))
+  const orientation = String(
+    asset.metadata?.orientation ||
+      (asset.metadata?.presentation === "vertical_blur" ? "vertical" : "auto")
+  )
   return (
     <details className="mt-4">
-      <summary className="cursor-pointer text-sm font-semibold text-ink">Edit assigned asset</summary>
+      <summary className="cursor-pointer text-sm font-semibold text-ink">
+        Edit assigned asset
+      </summary>
       <form action={action} className="mt-3 grid gap-3">
         <input type="hidden" name="id" value={asset.id} />
-        <input name="title" required defaultValue={asset.title} placeholder="Title" className="border border-line px-3 py-2 text-sm" />
-        <input name="url" defaultValue={asset.url ?? ""} placeholder="URL" className="border border-line px-3 py-2 text-sm" />
+        <input
+          name="title"
+          required
+          defaultValue={asset.title}
+          placeholder="Title"
+          className="border border-line px-3 py-2 text-sm"
+        />
+        <input
+          name="url"
+          defaultValue={asset.url ?? ""}
+          placeholder="URL"
+          className="border border-line px-3 py-2 text-sm"
+        />
         <div className="grid gap-3 sm:grid-cols-2">
-          <select name="source_type" defaultValue={asset.sourceType} className="border border-line px-3 py-2 text-sm">
+          <select
+            name="source_type"
+            defaultValue={asset.sourceType}
+            className="border border-line px-3 py-2 text-sm"
+          >
             <option value="remote_image">Remote image</option>
             <option value="remote_mp4">Remote MP4</option>
             <option value="hls">HLS</option>
@@ -349,7 +552,11 @@ function AssignedAssetEditForm({
             <option value="supabase_image">Supabase image</option>
             <option value="supabase_audio">Supabase audio</option>
           </select>
-          <select name="media_kind" defaultValue={asset.mediaKind} className="border border-line px-3 py-2 text-sm">
+          <select
+            name="media_kind"
+            defaultValue={asset.mediaKind}
+            className="border border-line px-3 py-2 text-sm"
+          >
             <option value="image">Image</option>
             <option value="video">Video</option>
             <option value="graphic">Graphic</option>
@@ -357,7 +564,11 @@ function AssignedAssetEditForm({
           </select>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <select name="asset_type" defaultValue={asset.assetType} className="border border-line px-3 py-2 text-sm">
+          <select
+            name="asset_type"
+            defaultValue={asset.assetType}
+            className="border border-line px-3 py-2 text-sm"
+          >
             <option value="image">Image</option>
             <option value="video">Video</option>
             <option value="ad">Ad</option>
@@ -366,7 +577,11 @@ function AssignedAssetEditForm({
             <option value="overlay">Overlay</option>
             <option value="music">Music</option>
           </select>
-          <select name="status" defaultValue={asset.status} className="border border-line px-3 py-2 text-sm">
+          <select
+            name="status"
+            defaultValue={asset.status}
+            className="border border-line px-3 py-2 text-sm"
+          >
             <option value="draft">Draft</option>
             <option value="syncing">Syncing</option>
             <option value="ready">Ready</option>
@@ -375,28 +590,61 @@ function AssignedAssetEditForm({
           </select>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <select name="orientation" defaultValue={orientation} className="border border-line px-3 py-2 text-sm">
+          <select
+            name="orientation"
+            defaultValue={orientation}
+            className="border border-line px-3 py-2 text-sm"
+          >
             <option value="auto">Auto</option>
             <option value="horizontal">Horizontal</option>
             <option value="vertical">Vertical blur</option>
           </select>
-          <input name="duration_seconds" type="number" min="1" defaultValue={asset.durationSeconds ?? ""} placeholder="Sec" className="border border-line px-3 py-2 text-sm" />
+          <input
+            name="duration_seconds"
+            type="number"
+            min="1"
+            defaultValue={asset.durationSeconds ?? ""}
+            placeholder="Sec"
+            className="border border-line px-3 py-2 text-sm"
+          />
         </div>
-        <input name="thumbnail_url" defaultValue={asset.thumbnailUrl ?? ""} placeholder="Thumbnail URL" className="border border-line px-3 py-2 text-sm" />
-        <input name="description" defaultValue={asset.description ?? ""} placeholder="Description" className="border border-line px-3 py-2 text-sm" />
+        <input
+          name="thumbnail_url"
+          defaultValue={asset.thumbnailUrl ?? ""}
+          placeholder="Thumbnail URL"
+          className="border border-line px-3 py-2 text-sm"
+        />
+        <input
+          name="description"
+          defaultValue={asset.description ?? ""}
+          placeholder="Description"
+          className="border border-line px-3 py-2 text-sm"
+        />
         <button className="btn-primary">Save asset</button>
       </form>
     </details>
   )
 }
 
-function SignalCard({ title, primary, meta, status }: { title: string; primary: string; meta: string; status: string }) {
+function SignalCard({
+  title,
+  primary,
+  meta,
+  status
+}: {
+  title: string
+  primary: string
+  meta: string
+  status: string
+}) {
   return (
     <section className="surface-card p-4">
       <p className="eyebrow">{title}</p>
       <p className="mt-2 truncate text-xl font-semibold">{primary}</p>
       <p className="mt-1 text-sm text-muted">{meta}</p>
-      <div className="mt-3"><StatusPill status={status} /></div>
+      <div className="mt-3">
+        <StatusPill status={status} />
+      </div>
     </section>
   )
 }
@@ -404,7 +652,13 @@ function SignalCard({ title, primary, meta, status }: { title: string; primary: 
 function Readiness({ asset }: { asset: MediaAsset }) {
   const readiness = getAssetReadiness(asset)
   return (
-    <p className={readiness.ready ? "mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900" : "mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-900"}>
+    <p
+      className={
+        readiness.ready
+          ? "mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+          : "mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-900"
+      }
+    >
       {readiness.ready ? "Ready to render" : readiness.messages.join(", ")}
     </p>
   )

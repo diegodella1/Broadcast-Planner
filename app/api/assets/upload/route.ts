@@ -37,9 +37,21 @@ export async function POST(request: Request) {
     const rawAssetType = String(form.get("asset_type") || "video")
     const durationSeconds = Number(form.get("duration_seconds") || 0) || undefined
     const orientation = String(form.get("orientation") || "auto")
-    const mediaKind = file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") ? "audio" : "video"
-    const assetType = mediaKind === "audio" && !["ad", "promo", "fallback", "music"].includes(rawAssetType) ? "music" : rawAssetType
-    const sourceType = mediaKind === "image" ? "supabase_image" : mediaKind === "audio" ? "supabase_audio" : "remote_mp4"
+    const mediaKind = file.type.startsWith("image/")
+      ? "image"
+      : file.type.startsWith("audio/")
+        ? "audio"
+        : "video"
+    const assetType =
+      mediaKind === "audio" && !["ad", "promo", "fallback", "music"].includes(rawAssetType)
+        ? "music"
+        : rawAssetType
+    const sourceType =
+      mediaKind === "image"
+        ? "supabase_image"
+        : mediaKind === "audio"
+          ? "supabase_audio"
+          : "remote_mp4"
     if (!title) throw new Error("Title is required")
     if (assetType === "ad" && durationSeconds && durationSeconds > 300) {
       throw new Error("Ads cannot be longer than 300 seconds")
@@ -65,7 +77,7 @@ export async function POST(request: Request) {
       url: publicUrl.publicUrl,
       storageBucket: SMALL_MEDIA_BUCKET,
       storagePath,
-      durationSeconds,
+      ...(durationSeconds !== undefined ? { durationSeconds } : {}),
       metadata: {
         presentation: mediaKind === "video" && orientation === "vertical" ? "vertical_blur" : "fit",
         orientation,
