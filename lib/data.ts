@@ -1,6 +1,6 @@
 import { mockSchedule } from "./mock-data"
 import { createServiceClient } from "./supabase/server"
-import { isoDateInTimezone } from "./time"
+import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "./time"
 
 import type {
   MediaAsset,
@@ -186,14 +186,14 @@ export async function getPlaybackScheduleForBlock(blockId: string): Promise<Sche
 
 export async function getLiveSchedule(
   now = new Date(),
-  timezone = "America/Argentina/Buenos_Aires"
+  timezone = PLAYOUT_TIMEZONE
 ) {
   return getScheduleForDate(isoDateInTimezone(now, timezone))
 }
 
 export async function getLivePlaybackSchedule(
   now = new Date(),
-  timezone = "America/Argentina/Buenos_Aires"
+  timezone = PLAYOUT_TIMEZONE
 ) {
   return getPlaybackScheduleForDate(isoDateInTimezone(now, timezone))
 }

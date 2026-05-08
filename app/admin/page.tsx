@@ -4,16 +4,23 @@ import { AlertTriangle, CalendarDays, CheckCircle2, Library, MonitorPlay, Music,
 import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
+import { PlayoutTime } from "@/components/playout-time"
 import { ButtonLink, EmptyState, MetricTile } from "@/components/ui"
 import { getAssets, getDays, getScheduleForDate, getSlides } from "@/lib/data"
 import { analyzeSchedule } from "@/lib/schedule-health"
 import { findActiveSchedule } from "@/lib/scheduler"
-import { formatTimecode, isoDateInTimezone, secondsSinceLocalMidnight } from "@/lib/time"
+import {
+  formatTimecode,
+  formatPlayoutTimeLabel,
+  isoDateInTimezone,
+  PLAYOUT_TIMEZONE,
+  secondsSinceMidnightInTimezone
+} from "@/lib/time"
 
 export const dynamic = "force-dynamic"
 
 export default async function AdminDashboardPage() {
-  const today = isoDateInTimezone(new Date(), "America/Argentina/Buenos_Aires")
+  const today = isoDateInTimezone(new Date(), PLAYOUT_TIMEZONE)
   const [days, schedule, assets, slides] = await Promise.all([
     getDays(),
     getScheduleForDate(today),
@@ -22,11 +29,17 @@ export default async function AdminDashboardPage() {
   ])
   const blocks = [...schedule.blocks].sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
   const health = analyzeSchedule(schedule, blocks)
-  const active = findActiveSchedule(schedule, secondsSinceLocalMidnight(new Date()))
-  const nextBlock = blocks.find((block) => (block.status === "ready" || block.status === "active") && block.startTimeSeconds > secondsSinceLocalMidnight(new Date())) ?? null
+  const nowSeconds = secondsSinceMidnightInTimezone(new Date())
+  const active = findActiveSchedule(schedule, nowSeconds)
+  const nextBlock = blocks.find((block) => (block.status === "ready" || block.status === "active") && block.startTimeSeconds > nowSeconds) ?? null
   const readyAssets = assets.filter((asset) => asset.status === "ready").length
   const reviewAssets = assets.filter((asset) => asset.status !== "ready" || (asset.mediaKind === "video" && !asset.durationSeconds)).length
   const musicReady = assets.filter((asset) => asset.assetType === "music" && asset.status === "ready" && asset.url).length
+  const videoAssets = assets.filter((asset) => asset.mediaKind === "video" && asset.assetType !== "ad").length
+  const imageAssets = assets.filter((asset) => asset.mediaKind === "image").length
+  const adAssets = assets.filter((asset) => asset.assetType === "ad").length
+  const audioAssets = assets.filter((asset) => asset.mediaKind === "audio" || asset.assetType === "music").length
+  const scheduledHours = blocks.reduce((total, block) => total + block.durationSeconds, 0) / 3600
 
   return (
     <AdminShell
@@ -45,7 +58,7 @@ export default async function AdminDashboardPage() {
             <div>
               <p className="eyebrow">Today</p>
               <h2 className="mt-2 text-2xl font-semibold">{schedule.day?.title ?? `Programming ${today}`}</h2>
-              <p className="mt-1 text-sm text-muted">{today} · {schedule.day?.timezone ?? "America/Argentina/Buenos_Aires"}</p>
+              <p className="mt-1 text-sm text-muted">{today} · {schedule.day?.timezone ?? PLAYOUT_TIMEZONE}</p>
             </div>
             {schedule.day ? <StatusPill status={schedule.day.status} /> : <StatusPill status="missing" />}
           </div>
@@ -62,7 +75,7 @@ export default async function AdminDashboardPage() {
               icon={<CalendarDays size={18} />}
               label="Next"
               title={nextBlock?.title ?? "No next block"}
-              detail={nextBlock ? `Starts ${formatTimecode(nextBlock.startTimeSeconds)}` : "Add or generate blocks"}
+              detail={nextBlock ? `Starts ${formatPlayoutTimeLabel(nextBlock.startTimeSeconds)}` : "Add or generate blocks"}
               tone={nextBlock ? "neutral" : "warn"}
             />
             <SignalTile
@@ -90,6 +103,14 @@ export default async function AdminDashboardPage() {
         <MetricTile label="Days" value={String(days.length)} detail="Programming days" />
         <MetricTile label="Blocks today" value={String(blocks.length)} detail="Scheduled blocks" tone={blocks.length ? "ok" : "warn"} />
         <MetricTile label="Ready assets" value={`${readyAssets}/${assets.length}`} detail="Playable media" tone={reviewAssets ? "warn" : "ok"} />
+        <MetricTile label="Hours" value={scheduledHours.toFixed(1)} detail="Scheduled today" tone={blocks.length ? "info" : "warn"} />
+      </section>
+
+      <section className="mb-5 grid gap-3 md:grid-cols-5">
+        <MetricTile label="Video" value={String(videoAssets)} detail="Program sources" />
+        <MetricTile label="Audio" value={String(audioAssets)} detail="Music and audio" />
+        <MetricTile label="Images" value={String(imageAssets)} detail="Still plates" />
+        <MetricTile label="Ads" value={String(adAssets)} detail="Commercial assets" />
         <MetricTile label="Graphics" value={String(slides.length)} detail="Slides and overlays" tone="info" />
       </section>
 
@@ -103,7 +124,7 @@ export default async function AdminDashboardPage() {
             <div className="divide-y divide-line">
               {blocks.slice(0, 8).map((block) => (
                 <Link key={block.id} href={`/admin/schedule/${today}/blocks/${block.id}`} className="grid gap-3 px-4 py-3 text-sm hover:bg-panel-soft md:grid-cols-[90px_1fr_110px_90px] md:items-center">
-                  <Timecode seconds={block.startTimeSeconds} />
+                  <PlayoutTime airDate={today} seconds={block.startTimeSeconds} />
                   <span>
                     <span className="block font-semibold">{block.title}</span>
                     <span className="text-muted">{block.blockType}</span>

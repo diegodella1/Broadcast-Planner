@@ -3,12 +3,12 @@ import { getTranslations } from "next-intl/server"
 
 import { getLiveSchedule } from "@/lib/data"
 import { analyzeSchedule } from "@/lib/schedule-health"
-import { isoDateInTimezone } from "@/lib/time"
+import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
 
 export async function OperationsPanelHealth() {
   const t = await getTranslations()
   const now = new Date()
-  const tz = "America/Argentina/Buenos_Aires"
+  const tz = PLAYOUT_TIMEZONE
   const isoDate = isoDateInTimezone(now, tz)
   const bundle = await getLiveSchedule(now)
   const isToday = bundle.day?.airDate === isoDate

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getLiveSchedule } from "@/lib/data"
 import { findActiveSchedule } from "@/lib/scheduler"
-import { secondsSinceLocalMidnight } from "@/lib/time"
+import { secondsSinceMidnightInTimezone } from "@/lib/time"
 import type { ProgramStatus, BlockCategory } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -24,7 +24,7 @@ export async function GET() {
   try {
     const now = new Date()
     const bundle = await getLiveSchedule(now)
-    const active = findActiveSchedule(bundle, secondsSinceLocalMidnight(now))
+    const active = findActiveSchedule(bundle, secondsSinceMidnightInTimezone(now))
 
     const dayStatus: ProgramStatus = bundle.day?.status ?? "draft"
 

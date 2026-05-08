@@ -19,6 +19,15 @@ type MediaState =
   | "ended"
   | "fallback"
 
+type MarketItem = {
+  symbol: string
+  label: string
+  value: string
+  change: string
+  changePercent: string
+  updatedAt: string
+}
+
 export function OutputRenderer({
   initialSchedule,
   initialSeconds,
@@ -30,7 +39,9 @@ export function OutputRenderer({
   debug?: boolean
   forcedBlockId?: string
 }) {
+  const [liveSchedule, setLiveSchedule] = useState(initialSchedule)
   const [secondsOfDay, setSecondsOfDay] = useState(initialSeconds)
+  const clockRef = useRef({ startedAt: 0, initialSeconds })
   const [mediaState, setMediaState] = useState<{
     assetId: string | null
     state: MediaState
@@ -38,23 +49,52 @@ export function OutputRenderer({
   }>({ assetId: null, state: "idle", lastError: null })
 
   useEffect(() => {
-    const startedAt = Date.now()
-    const timer = window.setInterval(() => {
-      const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000)
-      setSecondsOfDay(initialSeconds + elapsedSeconds)
-    }, 1000)
-    return () => window.clearInterval(timer)
+    clockRef.current = { startedAt: Date.now(), initialSeconds }
   }, [initialSeconds])
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const elapsedSeconds = Math.floor((Date.now() - clockRef.current.startedAt) / 1000)
+      setSecondsOfDay(clockRef.current.initialSeconds + elapsedSeconds)
+    }, 250)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (forcedBlockId) return
+    let cancelled = false
+    const refresh = async () => {
+      try {
+        const response = await fetch("/api/playout/schedule", { cache: "no-store" })
+        if (!response.ok) return
+        const payload = (await response.json()) as {
+          schedule: ScheduleBundle
+          secondsOfDay: number
+        }
+        if (cancelled) return
+        setLiveSchedule(payload.schedule)
+        clockRef.current = { startedAt: Date.now(), initialSeconds: payload.secondsOfDay }
+        setSecondsOfDay(payload.secondsOfDay)
+      } catch {
+        // Keep the last known schedule on transient network failures.
+      }
+    }
+    const timer = window.setInterval(refresh, 1000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [forcedBlockId])
+
   const schedule = useMemo(() => {
-    if (!forcedBlockId) return initialSchedule
-    const block = initialSchedule.blocks.find((item) => item.id === forcedBlockId)
-    if (!block) return initialSchedule
+    if (!forcedBlockId) return liveSchedule
+    const block = liveSchedule.blocks.find((item) => item.id === forcedBlockId)
+    if (!block) return liveSchedule
     return {
-      ...initialSchedule,
+      ...liveSchedule,
       blocks: [{ ...block, startTimeSeconds: 0, status: "active" as const }]
     }
-  }, [forcedBlockId, initialSchedule])
+  }, [forcedBlockId, liveSchedule])
 
   const active = findActiveSchedule(
     schedule,
@@ -74,9 +114,9 @@ export function OutputRenderer({
     ["stalled", "errored", "ended", "fallback"].includes(currentMediaState.state)
   const renderAsset = mediaFailed ? active.fallbackAsset : (active.asset ?? active.fallbackAsset)
   const renderSlide = active.slide
-  const musicAssets = schedule.mediaAssets.filter(
-    (asset) => asset.assetType === "music" && asset.status === "ready" && asset.url
-  )
+  const musicAssets = schedule.mediaAssets
+    .filter((asset) => asset.assetType === "music" && asset.status === "ready" && asset.url)
+    .sort((a, b) => playlistOrder(a) - playlistOrder(b) || a.title.localeCompare(b.title))
   const playMusic = shouldPlayBackgroundMusic(active, renderAsset ?? null, renderSlide ?? null)
 
   const updateMediaState = useCallback(
@@ -143,6 +183,7 @@ function BaseContent({
   if (asset.sourceType === "vimeo" && asset.vimeoId) return <VimeoEmbed asset={asset} />
   if (asset.sourceType === "reuters")
     return <ReutersPlayer asset={asset} onMediaState={onMediaState} />
+  if (asset.sourceType === "rtmp") return <RtmpNotice asset={asset} />
   if (asset.sourceType === "remote_mp4" || asset.sourceType === "hls") {
     return <VideoAsset asset={asset} onMediaState={onMediaState} />
   }
@@ -169,7 +210,7 @@ function Layer({ layer, schedule }: { layer: ScheduledLayer; schedule: ScheduleB
 }
 
 function VimeoEmbed({ asset }: { asset: MediaAsset }) {
-  const src = `https://player.vimeo.com/video/${asset.vimeoId}?autoplay=1&muted=1&controls=0&background=0&dnt=1`
+  const src = `https://player.vimeo.com/video/${asset.vimeoId}?autoplay=1&muted=0&controls=0&background=0&autopause=0&dnt=1`
   return (
     <iframe
       title={asset.title}
@@ -207,6 +248,9 @@ function VideoAsset({
   asset: MediaAsset
   onMediaState: (state: MediaState, error?: string) => void
 }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const src = asset.url ?? ""
+
   useEffect(() => {
     onMediaState("loading")
     const timeout = window.setTimeout(() => {
@@ -215,7 +259,38 @@ function VideoAsset({
     return () => window.clearTimeout(timeout)
   }, [asset.id, onMediaState])
 
-  if (!asset.url) return <Fallback asset={null} reason={asset.title} />
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !src || asset.sourceType !== "hls") return
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = src
+      return
+    }
+
+    let cancelled = false
+    let hlsInstance: { destroy: () => void } | null = null
+    void import("hls.js")
+      .then((mod) => {
+        if (cancelled || !video) return
+        const Hls = mod.default
+        if (!Hls.isSupported()) {
+          video.src = src
+          return
+        }
+        const instance = new Hls({ lowLatencyMode: true })
+        hlsInstance = instance
+        instance.loadSource(src)
+        instance.attachMedia(video)
+      })
+      .catch(() => onMediaState("errored", "HLS load error"))
+
+    return () => {
+      cancelled = true
+      hlsInstance?.destroy()
+    }
+  }, [asset.id, asset.sourceType, onMediaState, src])
+
+  if (!src) return <Fallback asset={null} reason={asset.title} />
   const presentation = asset.metadata?.presentation
   const vertical = presentation === "vertical_blur" || asset.metadata?.orientation === "vertical"
   const handlers = {
@@ -228,11 +303,13 @@ function VideoAsset({
   }
   if (!vertical) {
     return (
+      // eslint-disable-next-line jsx-a11y/media-has-caption
       <video
+        ref={videoRef}
         className="h-full w-full bg-black object-contain"
-        src={asset.url}
+        src={asset.sourceType === "hls" ? undefined : src}
         autoPlay
-        muted
+        muted={false}
         playsInline
         controls={false}
         {...handlers}
@@ -252,15 +329,30 @@ function VideoAsset({
         />
       ) : null}
       <div className="absolute inset-0 bg-black/35" />
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <video
+        ref={videoRef}
         className="relative z-10 mx-auto h-full max-w-full object-contain"
-        src={asset.url}
+        src={asset.sourceType === "hls" ? undefined : src}
         autoPlay
-        muted
+        muted={false}
         playsInline
         controls={false}
         {...handlers}
       />
+    </div>
+  )
+}
+
+function RtmpNotice({ asset }: { asset: MediaAsset }) {
+  return (
+    <div className="grid h-full w-full place-items-center bg-black text-white">
+      <div className="max-w-3xl px-10 text-center">
+        <p className="text-5xl font-semibold">{asset.title}</p>
+        <p className="mt-4 text-xl text-zinc-400">
+          RTMP source registered. Browser output requires an RTMP to HLS/WebRTC bridge.
+        </p>
+      </div>
     </div>
   )
 }
@@ -314,10 +406,11 @@ function ReutersPlayer({
   if (!src) return <Fallback asset={null} reason={asset.title} />
 
   return (
+    // eslint-disable-next-line jsx-a11y/media-has-caption
     <video
       ref={videoRef}
       autoPlay
-      muted
+      muted={false}
       playsInline
       controls={false}
       className="absolute inset-0 h-full w-full bg-black object-cover"
@@ -351,6 +444,7 @@ function BackgroundMusic({ assets, enabled }: { assets: MediaAsset[]; enabled: b
 }
 
 function Slide({ slide, fullscreen = false }: { slide: SlideAsset; fullscreen?: boolean }) {
+  if (slide.templateId === "market") return <MarketSlide slide={slide} fullscreen={fullscreen} />
   const className = fullscreen
     ? "grid h-full w-full place-items-center bg-zinc-950 px-20 text-center text-white"
     : "rounded bg-zinc-950/92 px-8 py-5 text-white shadow-2xl"
@@ -377,6 +471,64 @@ function Slide({ slide, fullscreen = false }: { slide: SlideAsset; fullscreen?: 
         {slide.content && <p className="mt-4 text-2xl">{slide.content}</p>}
       </div>
     </div>
+  )
+}
+
+function MarketSlide({ slide, fullscreen }: { slide: SlideAsset; fullscreen: boolean }) {
+  const [markets, setMarkets] = useState<MarketItem[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const response = await fetch("/api/markets", { cache: "no-store" })
+        if (!response.ok) return
+        const payload = (await response.json()) as { markets: MarketItem[] }
+        if (!cancelled) setMarkets(payload.markets)
+      } catch {
+        if (!cancelled) setMarkets([])
+      }
+    }
+    void load()
+    const timer = window.setInterval(load, 15000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [])
+
+  return (
+    <section className={fullscreen ? "h-full w-full bg-zinc-950 px-20 py-16 text-white" : "rounded bg-zinc-950/92 px-8 py-5 text-white shadow-2xl"}>
+      <div className="flex items-end justify-between gap-8">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-emerald-300">Markets</p>
+          <h1 className={fullscreen ? "mt-3 text-6xl font-semibold" : "mt-2 text-3xl font-semibold"}>{slide.title}</h1>
+          {slide.content ? <p className="mt-2 text-xl text-zinc-300">{slide.content}</p> : null}
+        </div>
+        <p className="text-right text-sm text-zinc-400">
+          Updated {markets[0]?.updatedAt ? new Date(markets[0].updatedAt).toLocaleTimeString() : "--:--"}
+        </p>
+      </div>
+      <div className={fullscreen ? "mt-12 grid grid-cols-2 gap-5" : "mt-6 grid gap-3"}>
+        {markets.map((item) => {
+          const positive = !item.change.trim().startsWith("-")
+          return (
+            <article key={item.symbol} className="rounded-md border border-white/10 bg-white/[0.06] p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-2xl font-semibold">{item.symbol}</p>
+                  <p className="mt-1 text-sm text-zinc-400">{item.label}</p>
+                </div>
+                <p className="text-right text-2xl font-semibold">{item.value}</p>
+              </div>
+              <p className={positive ? "mt-5 text-xl font-semibold text-emerald-300" : "mt-5 text-xl font-semibold text-red-300"}>
+                {item.change} / {item.changePercent}
+              </p>
+            </article>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -433,7 +585,12 @@ function shouldPlayBackgroundMusic(
   if (renderSlide) return true
   if (!active.block) return true
   if (!renderAsset) return true
-  return renderAsset.mediaKind === "image"
+  return renderAsset.mediaKind === "image" || renderAsset.mediaKind === "graphic"
+}
+
+function playlistOrder(asset: MediaAsset) {
+  const value = Number(asset.metadata?.playlist_order ?? 999)
+  return Number.isFinite(value) ? value : 999
 }
 
 function positionClass(position: string) {

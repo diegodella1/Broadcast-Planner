@@ -1,6 +1,6 @@
 import { EmergencySlate, OutputRenderer } from "@/components/output-renderer"
 import { getPlaybackScheduleForBlock } from "@/lib/data"
-import { secondsSinceLocalMidnight } from "@/lib/time"
+import { secondsSinceMidnightInTimezone } from "@/lib/time"
 
 export default async function OutputPreviewPage({
   params,
@@ -12,7 +12,7 @@ export default async function OutputPreviewPage({
   const [{ blockId }, query] = await Promise.all([params, searchParams])
   const schedule = await getScheduleOrEmergency(blockId)
   if (!schedule) return <EmergencySlate reason="Preview data unavailable" />
-  return <OutputRenderer initialSchedule={schedule} initialSeconds={secondsSinceLocalMidnight()} debug={query.debug === "true"} forcedBlockId={blockId} />
+  return <OutputRenderer initialSchedule={schedule} initialSeconds={secondsSinceMidnightInTimezone()} debug={query.debug === "true"} forcedBlockId={blockId} />
 }
 
 async function getScheduleOrEmergency(blockId: string) {

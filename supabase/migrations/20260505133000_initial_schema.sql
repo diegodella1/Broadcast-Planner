@@ -61,7 +61,7 @@ create table slide_assets (
 create table program_days (
   id uuid primary key default gen_random_uuid(),
   air_date date not null unique,
-  timezone text not null default 'America/Argentina/Buenos_Aires',
+  timezone text not null default 'America/Los_Angeles',
   status program_status not null default 'draft',
   title text,
   notes text,
