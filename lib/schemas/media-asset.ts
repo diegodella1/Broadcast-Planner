@@ -6,10 +6,12 @@ const sourceTypeEnum = z.enum([
   "remote_image",
   "remote_mp4",
   "hls",
+  "rtmp",
+  "supabase_audio",
   "reuters"
 ])
-const mediaKindEnum = z.enum(["video", "image", "graphic"])
-const assetTypeEnum = z.enum(["video", "image", "slide", "ad", "promo", "fallback", "overlay"])
+const mediaKindEnum = z.enum(["video", "image", "audio", "graphic"])
+const assetTypeEnum = z.enum(["video", "image", "slide", "ad", "promo", "fallback", "overlay", "music"])
 const assetStatusEnum = z.enum(["draft", "syncing", "ready", "failed", "archived"])
 const orientationEnum = z.enum(["auto", "horizontal", "vertical"])
 

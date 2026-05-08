@@ -1,24 +1,32 @@
 import { AdminShell } from "@/components/admin-shell"
 import { FormHeader, Notice } from "@/components/ui"
 import { getVimeoSettings, getVimeoToken } from "@/lib/settings"
-import { listVimeoEpisodes, listVimeoShows, type VimeoShow, type VimeoVideo } from "@/lib/vimeo"
+import { PLAYOUT_TIMEZONE } from "@/lib/time"
+import {
+  listVimeoEpisodes,
+  listVimeoShows,
+  searchVimeoAccountVideos,
+  type VimeoShow,
+  type VimeoVideo
+} from "@/lib/vimeo"
 
 export const dynamic = "force-dynamic"
 
 export default async function SettingsPage({
   searchParams
 }: {
-  searchParams: Promise<{ saved?: string; imported?: string; show_uri?: string }>
+  searchParams: Promise<{ saved?: string; imported?: string; show_uri?: string; vimeo_q?: string }>
 }) {
   const params = await searchParams
   const [settings, token] = await Promise.all([getVimeoSettings(), getVimeoToken()])
   const selectedShowUri = params.show_uri ?? ""
+  const searchQuery = params.vimeo_q ?? ""
   const vimeoState = token
     ? await loadVimeoState(token, selectedShowUri)
     : { shows: [], episodes: [], error: null }
-  const currentTimezone = String(
-    settings?.publicConfig.timezone ?? "America/Argentina/Buenos_Aires"
-  )
+  const vimeoSearch =
+    token && searchQuery ? await loadVimeoSearch(token, searchQuery) : { videos: [], error: null }
+  const currentTimezone = String(settings?.publicConfig.timezone ?? PLAYOUT_TIMEZONE)
 
   return (
     <AdminShell
@@ -61,6 +69,9 @@ export default async function SettingsPage({
             className="mt-2 w-full border border-line px-3 py-2"
             defaultValue={currentTimezone}
           />
+          <span className="mt-1 block text-xs text-muted">
+            Operational scheduling reference: San Francisco ({PLAYOUT_TIMEZONE}).
+          </span>
         </label>
         <button className="btn-primary mt-5">Save settings</button>
       </form>
@@ -70,9 +81,7 @@ export default async function SettingsPage({
           title="Vimeo shows and episodes"
           detail="Pick a show and convert visible episodes into reviewable assets."
         />
-        {!token ? (
-          <p className="mt-3 text-sm text-muted">Save a Vimeo API token to list shows.</p>
-        ) : null}
+        {!token ? <p className="mt-3 text-sm text-muted">Save a Vimeo API token to list shows.</p> : null}
         {vimeoState.error ? (
           <p className="mt-3 rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger-strong">
             {vimeoState.error}
@@ -100,7 +109,44 @@ export default async function SettingsPage({
               <button className="btn-secondary w-fit">View episodes</button>
             </form>
             {selectedShowUri ? (
-              <EpisodePicker episodes={vimeoState.episodes} showUri={selectedShowUri} />
+              <ShowEpisodePicker episodes={vimeoState.episodes} showUri={selectedShowUri} />
+            ) : null}
+          </>
+        ) : null}
+      </section>
+
+      <section className="surface-panel mt-6 max-w-2xl p-5">
+        <FormHeader
+          title="Search Vimeo programs"
+          detail="Search your Vimeo account via API and import the selected program as a playable asset."
+        />
+        {!token ? (
+          <p className="mt-3 text-sm text-muted">Save a Vimeo API token to search programs.</p>
+        ) : null}
+        {token ? (
+          <>
+            <form
+              action="/rtvtime/admin/settings"
+              className="mt-4 grid gap-3 sm:grid-cols-[1fr_120px]"
+            >
+              <input
+                name="vimeo_q"
+                defaultValue={searchQuery}
+                placeholder="Program title"
+                className="border border-line px-3 py-2 text-sm"
+              />
+              <button className="btn-secondary">Search</button>
+            </form>
+            {vimeoSearch.error ? (
+              <p className="mt-3 rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger-strong">
+                {vimeoSearch.error}
+              </p>
+            ) : null}
+            {searchQuery && !vimeoSearch.error ? (
+              <EpisodePicker
+                episodes={vimeoSearch.videos}
+                returnTo={`/admin/settings?vimeo_q=${encodeURIComponent(searchQuery)}&imported=1`}
+              />
             ) : null}
           </>
         ) : null}
@@ -122,11 +168,9 @@ async function loadVimeoState(
   }
 }
 
-function EpisodePicker({ episodes, showUri }: { episodes: VimeoVideo[]; showUri: string }) {
+function ShowEpisodePicker({ episodes, showUri }: { episodes: VimeoVideo[]; showUri: string }) {
   if (!episodes.length) {
-    return (
-      <p className="mt-4 text-sm text-muted">This show has no visible episodes for this token.</p>
-    )
+    return <p className="mt-4 text-sm text-muted">This show has no visible episodes for this token.</p>
   }
   return (
     <form
@@ -152,6 +196,43 @@ function EpisodePicker({ episodes, showUri }: { episodes: VimeoVideo[]; showUri:
       <button className="btn-primary w-fit">Import episode as asset</button>
     </form>
   )
+}
+
+function EpisodePicker({ episodes, returnTo }: { episodes: VimeoVideo[]; returnTo: string }) {
+  if (!episodes.length) {
+    return <p className="mt-4 text-sm text-muted">No visible Vimeo programs matched this search.</p>
+  }
+  return (
+    <form
+      action="/rtvtime/api/vimeo/import"
+      method="post"
+      className="mt-5 grid gap-3 rounded-md bg-panel-soft p-4"
+    >
+      <input type="hidden" name="return_to" value={returnTo} />
+      <label className="block text-sm font-medium">
+        Program
+        <select name="video_uri" className="mt-2 w-full border border-line px-3 py-2">
+          {episodes.map((episode) => (
+            <option key={episode.uri} value={episode.uri}>
+              {episode.name} - {formatDuration(episode.duration)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button className="btn-primary w-fit">Import program as asset</button>
+    </form>
+  )
+}
+
+async function loadVimeoSearch(
+  token: string,
+  query: string
+): Promise<{ videos: VimeoVideo[]; error: string | null }> {
+  try {
+    return { videos: await searchVimeoAccountVideos(token, query), error: null }
+  } catch (error) {
+    return { videos: [], error: String(error) }
+  }
 }
 
 function formatDuration(seconds: number) {

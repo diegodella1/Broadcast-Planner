@@ -1,8 +1,9 @@
 import { AdminShell } from "@/components/admin-shell"
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button"
 import { StatusPill } from "@/components/status-pill"
 import { EmptyState, FilterLink, FormHeader, MetricTile, Notice } from "@/components/ui"
 import { getAssets } from "@/lib/data"
-import { createMediaAsset, updateMediaAsset } from "@/lib/mutations"
+import { createMediaAsset, deleteMediaAsset, updateMediaAsset } from "@/lib/mutations"
 import type { MediaAsset } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -64,6 +65,10 @@ export default async function AssetsPage({
       status: String(formData.get("status")),
       orientation: String(formData.get("orientation") || "auto")
     })
+  }
+  async function deleteAsset(formData: FormData) {
+    "use server"
+    await deleteMediaAsset({ id: String(formData.get("id")) })
   }
   return (
     <AdminShell
@@ -169,6 +174,7 @@ export default async function AssetsPage({
               <option value="remote_image">Remote image</option>
               <option value="remote_mp4">Remote MP4</option>
               <option value="hls">HLS</option>
+              <option value="rtmp">RTMP</option>
               <option value="vimeo">Vimeo</option>
             </select>
             <select name="media_kind" className="border border-line px-3 py-2 text-sm">
@@ -254,6 +260,18 @@ export default async function AssetsPage({
               </span>
             </summary>
             <AssetEditForm asset={asset} action={editAsset} />
+            <form action={deleteAsset} className="mt-3 rounded-md border border-danger-line bg-danger-soft p-4">
+              <input type="hidden" name="id" value={asset.id} />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-danger-strong">Delete this asset from the library</p>
+                <ConfirmSubmitButton
+                  message={`Delete "${asset.title}" from the library? Scheduled blocks using it will show missing asset warnings.`}
+                  className="rounded-md border border-danger-line bg-surface px-4 py-2 text-sm font-semibold text-danger-strong hover:bg-danger-soft"
+                >
+                  Delete asset
+                </ConfirmSubmitButton>
+              </div>
+            </form>
           </details>
         ))}
         {filteredAssets.length === 0 && (
@@ -306,9 +324,11 @@ function AssetEditForm({
         <option value="remote_image">Remote image</option>
         <option value="remote_mp4">Remote MP4</option>
         <option value="hls">HLS</option>
+        <option value="rtmp">RTMP</option>
         <option value="vimeo">Vimeo</option>
         <option value="supabase_image">Supabase image</option>
         <option value="supabase_audio">Supabase audio</option>
+        <option value="reuters">Reuters</option>
       </select>
       <select
         name="media_kind"
@@ -384,6 +404,7 @@ function assetNeedsAttention(asset: MediaAsset) {
     (asset.sourceType === "remote_image" ||
       asset.sourceType === "remote_mp4" ||
       asset.sourceType === "hls" ||
+      asset.sourceType === "rtmp" ||
       asset.sourceType === "supabase_audio") &&
     !asset.url
   )

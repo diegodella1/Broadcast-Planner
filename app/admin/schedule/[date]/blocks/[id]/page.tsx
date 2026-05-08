@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import type { ReactNode } from "react"
 import { AdminShell } from "@/components/admin-shell"
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button"
+import { PlayoutTime } from "@/components/playout-time"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
 import { getScheduleForDate } from "@/lib/data"
@@ -190,7 +191,7 @@ export default async function BlockPage({
           </div>
 
           <dl className="mt-6 grid gap-4 sm:grid-cols-3">
-            <Info label="Start" value={<Timecode seconds={block.startTimeSeconds} />} />
+            <Info label="Start" value={<PlayoutTime airDate={date} seconds={block.startTimeSeconds} />} />
             <Info label="Duration" value={<Timecode seconds={block.durationSeconds} />} />
             <Info label="Type" value={block.blockType} />
           </dl>
@@ -220,6 +221,7 @@ export default async function BlockPage({
               name="start_time"
               required
               defaultValue={block.startTime}
+              title="San Francisco time"
               className="border border-line px-3 py-2 text-sm"
             />
             <input
@@ -230,11 +232,7 @@ export default async function BlockPage({
               defaultValue={block.durationSeconds}
               className="border border-line px-3 py-2 text-sm"
             />
-            <select
-              name="block_type"
-              defaultValue={block.blockType}
-              className="border border-line px-3 py-2 text-sm"
-            >
+            <select name="block_type" defaultValue={block.blockType} className="border border-line px-3 py-2 text-sm">
               <option value="video">Video</option>
               <option value="image">Image</option>
               <option value="slide">Slide</option>
@@ -400,6 +398,7 @@ export default async function BlockPage({
                 name="start_time"
                 required
                 defaultValue="00:00:05"
+                title="Offset inside the block"
                 className="border border-line px-3 py-2 text-sm"
               />
               <input
@@ -426,6 +425,7 @@ export default async function BlockPage({
                 name="start_time"
                 required
                 defaultValue="00:02:00"
+                title="Offset inside the block"
                 className="border border-line px-3 py-2 text-sm"
               />
               <input

@@ -4,7 +4,12 @@ import { getMediaAssetById, getMediaAssetByVimeoUri } from "./data"
 import { createProgramBlock } from "./mutations"
 import { getVimeoToken } from "./settings"
 import { createServiceClient } from "./supabase/server"
-import { formatTimecode, isoDateInTimezone, secondsSinceLocalMidnight } from "./time"
+import {
+  formatTimecode,
+  isoDateInTimezone,
+  PLAYOUT_TIMEZONE,
+  secondsSinceMidnightInTimezone
+} from "./time"
 import {
   getVimeoVideo,
   searchVimeoAccountVideos,
@@ -20,7 +25,7 @@ import type {
 } from "./schemas/manual-broadcast"
 import type { MediaAsset } from "./types"
 
-const TZ = "America/Argentina/Buenos_Aires"
+const TZ = PLAYOUT_TIMEZONE
 const DEFAULT_DURATION_SECONDS = 1800
 const REUTERS_LIVE_DEFAULT_DURATION_SECONDS = 1800
 
@@ -63,7 +68,7 @@ export async function goLiveWithVimeo(input: GoLiveNowInput): Promise<{ programB
 
   const now = new Date()
   const airDate = isoDateInTimezone(now, TZ)
-  const startSeconds = secondsSinceLocalMidnight(now)
+  const startSeconds = secondsSinceMidnightInTimezone(now, TZ)
   const startTime = formatTimecode(startSeconds)
   const durationSeconds = resolveDuration(asset)
 
@@ -208,7 +213,7 @@ export async function goLiveWithReuters(
 
   const now = new Date()
   const airDate = isoDateInTimezone(now, TZ)
-  const startSeconds = secondsSinceLocalMidnight(now)
+  const startSeconds = secondsSinceMidnightInTimezone(now, TZ)
   const startTime = formatTimecode(startSeconds)
   const durationSeconds = resolveReutersDuration(asset)
 

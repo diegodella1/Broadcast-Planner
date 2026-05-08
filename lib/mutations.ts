@@ -4,7 +4,7 @@ import { getScheduleForDate } from "./data"
 import { buildLongTestSchedule } from "./schedule-builder"
 import { analyzeSchedule } from "./schedule-health"
 import { createServiceClient } from "./supabase/server"
-import { parseTimecode } from "./time"
+import { parseTimecode, PLAYOUT_TIMEZONE } from "./time"
 
 import type { BlockCategory, ProgramBlock } from "./types"
 
@@ -15,7 +15,7 @@ export async function ensureProgramDay(date: string) {
     .upsert(
       {
         air_date: date,
-        timezone: "America/Argentina/Buenos_Aires",
+        timezone: PLAYOUT_TIMEZONE,
         status: "draft",
         title: `Programming ${date}`
       },
@@ -317,11 +317,12 @@ export async function createLongTestSchedule(input: {
 export async function createSlideAsset(input: {
   title: string
   slideType: string
-  content?: string
-  imageUrl?: string
-  htmlContent?: string
-  defaultDurationSeconds?: number
-  status?: string
+  content?: string | undefined
+  imageUrl?: string | undefined
+  htmlContent?: string | undefined
+  templateId?: string | undefined
+  defaultDurationSeconds?: number | undefined
+  status?: string | undefined
 }) {
   const supabase = createServiceClient()
   const { error } = await supabase.from("slide_assets").insert({
@@ -330,6 +331,7 @@ export async function createSlideAsset(input: {
     content: input.content || null,
     image_url: input.imageUrl || null,
     html_content: input.htmlContent || null,
+    template_id: input.templateId || null,
     default_duration_seconds: input.defaultDurationSeconds || null,
     status: input.status || "ready"
   })
@@ -448,11 +450,11 @@ export async function createMediaAsset(input: {
   sourceType: string
   mediaKind: string
   assetType: string
-  url?: string
-  storageBucket?: string
-  storagePath?: string
-  durationSeconds?: number
-  metadata?: Record<string, unknown>
+  url?: string | undefined
+  storageBucket?: string | undefined
+  storagePath?: string | undefined
+  durationSeconds?: number | undefined
+  metadata?: Record<string, unknown> | undefined
 }) {
   if (input.assetType === "ad" && input.durationSeconds && input.durationSeconds > 300) {
     throw new Error("Ads cannot be longer than 300 seconds")
@@ -483,16 +485,17 @@ export async function createMediaAsset(input: {
 export async function updateMediaAsset(input: {
   id: string
   title: string
-  description?: string
+  description?: string | undefined
   sourceType: string
   mediaKind: string
   assetType: string
-  url?: string
-  thumbnailUrl?: string
-  durationSeconds?: number
+  url?: string | undefined
+  thumbnailUrl?: string | undefined
+  durationSeconds?: number | undefined
   status: string
-  orientation?: string
-  revalidatePaths?: string[]
+  orientation?: string | undefined
+  playlistOrder?: number | undefined
+  revalidatePaths?: string[] | undefined
 }) {
   if (!input.id) throw new Error("Asset missing")
   if (input.assetType === "ad" && input.durationSeconds && input.durationSeconds > 300) {
@@ -514,6 +517,9 @@ export async function updateMediaAsset(input: {
   metadata.orientation = orientation
   metadata.presentation = orientation === "vertical" ? "vertical_blur" : "fit"
   metadata.background = orientation === "vertical" ? "blur" : "black"
+  if (input.assetType === "music" && typeof input.playlistOrder === "number") {
+    metadata.playlist_order = input.playlistOrder
+  }
 
   const { error } = await supabase
     .from("media_assets")
@@ -543,6 +549,36 @@ export async function updateMediaAsset(input: {
   for (const path of input.revalidatePaths ?? []) {
     revalidatePath(path)
   }
+}
+
+export async function deleteMediaAsset(input: { id: string }) {
+  if (!input.id) throw new Error("Asset missing")
+  const supabase = createServiceClient()
+  const { data: asset, error: assetError } = await supabase
+    .from("media_assets")
+    .select("title, storage_bucket, storage_path")
+    .eq("id", input.id)
+    .single()
+  if (assetError) throw assetError
+
+  const storageBucket = asset.storage_bucket ? String(asset.storage_bucket) : ""
+  const storagePath = asset.storage_path ? String(asset.storage_path) : ""
+  if (storageBucket && storagePath) {
+    const { error: storageError } = await supabase.storage.from(storageBucket).remove([storagePath])
+    if (storageError) throw storageError
+  }
+
+  const { error } = await supabase.from("media_assets").delete().eq("id", input.id)
+  if (error) throw error
+  await supabase.from("audit_log").insert({
+    actor: "admin",
+    action: "media_asset.deleted",
+    entity_type: "media_assets",
+    entity_id: input.id,
+    metadata: { title: String(asset.title ?? "") }
+  })
+  revalidatePath("/admin/assets")
+  revalidatePath("/admin/music")
 }
 
 function lowerThirdHtml(primaryText: string, secondaryText?: string) {

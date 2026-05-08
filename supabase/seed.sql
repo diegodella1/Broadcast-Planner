@@ -13,7 +13,7 @@ on conflict (id) do nothing;
 
 insert into program_days (id, air_date, timezone, status, title, fallback_asset_id)
 values
-  ('00000000-0000-0000-0000-000000000301', current_date, 'America/Argentina/Buenos_Aires', 'active', 'Roxom Daily', '00000000-0000-0000-0000-000000000103')
+  ('00000000-0000-0000-0000-000000000301', current_date, 'America/Los_Angeles', 'active', 'Roxom Daily', '00000000-0000-0000-0000-000000000103')
 on conflict (air_date) do nothing;
 
 insert into program_blocks (id, program_day_id, title, block_type, category, asset_id, start_time, start_time_seconds, duration_seconds, status, hide_overlays, fallback_asset_id)

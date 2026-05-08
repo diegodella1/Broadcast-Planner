@@ -1,5 +1,6 @@
 import { decryptSecret, encryptSecret, maskSecret } from "./crypto"
 import { createServiceClient } from "./supabase/server"
+import { PLAYOUT_TIMEZONE } from "./time"
 
 export type IntegrationSetting = {
   provider: string
@@ -15,7 +16,7 @@ export async function saveVimeoSettings(input: { token?: string; folderUri?: str
   const supabase = createServiceClient()
   const publicConfig = {
     folder_uri: input.folderUri || null,
-    timezone: input.timezone || "America/Argentina/Buenos_Aires"
+    timezone: input.timezone || PLAYOUT_TIMEZONE
   }
   const encrypted_secret = input.token ? encryptSecret(input.token) : null
   const payload: Record<string, unknown> = {

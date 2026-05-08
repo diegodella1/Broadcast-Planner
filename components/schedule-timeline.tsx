@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { useMemo, useRef, useState } from "react"
 import clsx from "clsx"
-import { formatTimecode } from "@/lib/time"
+import { PlayoutTime } from "@/components/playout-time"
+import { formatPlayoutTimeLabel, formatTimecode } from "@/lib/time"
 import type { ScheduleIssue } from "@/lib/schedule-health"
 import type { MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from "@/lib/types"
 
@@ -140,7 +141,7 @@ export function ScheduleTimeline({
                       <span className="shrink-0">{formatTimecode(block.durationSeconds)}</span>
                     </span>
                     <span className="mt-0.5 block truncate opacity-80">
-                      {formatTimecode(block.startTimeSeconds)} · {block.blockType} · {blockAssetLabel(schedule, block)}
+                      <PlayoutTime airDate={date} seconds={block.startTimeSeconds} /> · {block.blockType} · {blockAssetLabel(schedule, block)}
                     </span>
                   </Link>
                 )
@@ -164,7 +165,7 @@ function SelectionHighlight({ selection }: { selection: Selection }) {
       style={{ top: `${topPercent}%`, height: `${heightPercent}%`, minHeight: "34px" }}
     >
       <span className="absolute left-2 top-2 rounded bg-surface px-2 py-0.5 text-[10px] font-semibold text-info-strong shadow-sm">
-        {formatTimecode(selection.start)} to {formatTimecode(selection.end)}
+        {formatPlayoutTimeLabel(selection.start)} to {formatPlayoutTimeLabel(selection.end)}
       </span>
     </div>
   )
@@ -228,7 +229,7 @@ function SelectionCreatePanel({
           <div>
             <p className="font-semibold">Create block</p>
             <p className="mt-0.5 text-xs text-muted">
-              {formatTimecode(selection.start)} to {formatTimecode(selection.end)}
+              {formatPlayoutTimeLabel(selection.start)} to {formatPlayoutTimeLabel(selection.end)}
             </p>
             {knownDuration ? (
               <p className="mt-0.5 text-xs text-muted">
@@ -240,8 +241,8 @@ function SelectionCreatePanel({
             Cancel
           </button>
         </div>
-        <input name="title" required defaultValue={`Block ${formatTimecode(selection.start)}`} placeholder="Block title" className="border border-line px-3 py-2 text-sm" />
-        <input name="start_time" required defaultValue={formatTimecode(selection.start)} className="border border-line px-3 py-2 text-sm" />
+        <input name="title" required defaultValue={`Block ${formatPlayoutTimeLabel(selection.start)}`} placeholder="Block title" className="border border-line px-3 py-2 text-sm" />
+        <input name="start_time" required defaultValue={formatTimecode(selection.start)} title="San Francisco time" className="border border-line px-3 py-2 text-sm" />
         <input
           name="duration_seconds"
           required
