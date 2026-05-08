@@ -264,11 +264,12 @@ export async function createLongTestSchedule(input: {
     adBreakMinutes: input.adBreakMinutes,
     imageBumperSeconds: input.imageBumperSeconds
   })
-  if (!generatedBlocks.length) throw new Error("No se pudo generar la grilla")
+  const firstBlock = generatedBlocks[0]
+  const lastBlock = generatedBlocks[generatedBlocks.length - 1]
+  if (!firstBlock || !lastBlock) throw new Error("No se pudo generar la grilla")
 
   const supabase = createServiceClient()
-  const startSeconds = generatedBlocks[0].startTimeSeconds
-  const lastBlock = generatedBlocks[generatedBlocks.length - 1]
+  const startSeconds = firstBlock.startTimeSeconds
   const endSeconds = lastBlock.startTimeSeconds + lastBlock.durationSeconds
 
   if (input.replaceWindow) {
