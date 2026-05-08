@@ -12,8 +12,8 @@ import {
   type VimeoVideo
 } from "./vimeo"
 
-import type { MediaAsset } from "./types"
 import type { GoLiveNowInput, ScheduleVimeoBlockInput } from "./schemas/manual-broadcast"
+import type { MediaAsset } from "./types"
 
 const TZ = "America/Argentina/Buenos_Aires"
 const DEFAULT_DURATION_SECONDS = 1800
