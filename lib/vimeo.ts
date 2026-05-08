@@ -60,6 +60,17 @@ export async function listVimeoAccountVideos(token: string): Promise<VimeoVideo[
   return listVimeoVideos(token, `/me/videos?per_page=25&fields=${videoFields()}`)
 }
 
+export async function searchVimeoAccountVideos(
+  token: string,
+  query: string,
+  perPage = 25
+): Promise<VimeoVideo[]> {
+  const path = `/me/videos?per_page=${perPage}&query=${encodeURIComponent(
+    query
+  )}&fields=${videoFields()}`
+  return listVimeoVideos(token, path)
+}
+
 export async function getVimeoVideo(token: string, videoUri: string): Promise<VimeoVideo> {
   return vimeoFetch<VimeoVideo>(`${videoUri}?fields=${videoFields()}`, token)
 }

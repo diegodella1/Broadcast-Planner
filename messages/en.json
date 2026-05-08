@@ -346,7 +346,17 @@
       "title": "On air now"
     },
     "manualBroadcast": {
-      "title": "Manual broadcast"
+      "title": "Manual broadcast",
+      "searchPlaceholder": "Search Vimeo…",
+      "searching": "Searching…",
+      "empty": "No results",
+      "modeLabel": "Mode",
+      "modeNow": "Now",
+      "modeScheduled": "Schedule",
+      "startAt": "Start time",
+      "success": "Sent to air",
+      "goLive": "Go live now",
+      "schedule": "Schedule"
     },
     "lowerThird": {
       "title": "Lower third",

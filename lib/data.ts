@@ -169,6 +169,40 @@ export async function getLivePlaybackSchedule(
   return getPlaybackScheduleForDate(isoDateInTimezone(now, timezone))
 }
 
+export async function getMediaAssetById(id: string): Promise<MediaAsset | null> {
+  if (!id) return null
+  try {
+    const supabase = createServiceClient()
+    const { data, error } = await supabase
+      .from("media_assets")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle()
+    if (error) throw error
+    return data ? mapMediaAsset(data) : null
+  } catch (error) {
+    console.error("[lib/data.ts:getMediaAssetById]", error)
+    return devFallback(null, error, "lib/data.ts:getMediaAssetById")
+  }
+}
+
+export async function getMediaAssetByVimeoUri(uri: string): Promise<MediaAsset | null> {
+  if (!uri) return null
+  try {
+    const supabase = createServiceClient()
+    const { data, error } = await supabase
+      .from("media_assets")
+      .select("*")
+      .eq("vimeo_uri", uri)
+      .maybeSingle()
+    if (error) throw error
+    return data ? mapMediaAsset(data) : null
+  } catch (error) {
+    console.error("[lib/data.ts:getMediaAssetByVimeoUri]", error)
+    return devFallback(null, error, "lib/data.ts:getMediaAssetByVimeoUri")
+  }
+}
+
 export async function getAssets(): Promise<MediaAsset[]> {
   try {
     const supabase = createServiceClient()
