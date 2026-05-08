@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo } from "react"
+import { useState } from "react"
+import { useTranslations } from "next-intl"
 import Image from "next/image"
 import type { ActiveSchedule, MediaAsset, ScheduledLayer, SlideAsset } from "@/lib/types"
 import { findActiveSchedule } from "@/lib/scheduler"
@@ -18,6 +20,7 @@ export function OutputRenderer({
   debug?: boolean
   forcedBlockId?: string
 }) {
+  const t = useTranslations("output")
   const [secondsOfDay, setSecondsOfDay] = useState(initialSeconds)
 
   useEffect(() => {
@@ -45,27 +48,37 @@ export function OutputRenderer({
 
   return (
     <main className="tv-output relative">
-      <BaseContent active={active} asset={renderAsset ?? null} slide={renderSlide ?? null} />
+      <BaseContent active={active} asset={renderAsset ?? null} slide={renderSlide ?? null} t={t} />
       {active.layers.map((layer) => (
         <Layer key={layer.id} layer={layer} schedule={schedule} />
       ))}
-      {debug && <DebugPanel active={active} secondsOfDay={forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay} />}
+      {debug && <DebugPanel active={active} secondsOfDay={forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay} t={t} />}
     </main>
   )
 }
 
-function BaseContent({ active, asset, slide }: { active: ActiveSchedule; asset: MediaAsset | null; slide: SlideAsset | null }) {
+function BaseContent({
+  active,
+  asset,
+  slide,
+  t
+}: {
+  active: ActiveSchedule
+  asset: MediaAsset | null
+  slide: SlideAsset | null
+  t: ReturnType<typeof useTranslations<"output">>
+}) {
   if (!active.block) {
-    return <Fallback asset={asset} reason={active.reason ?? "No active block"} />
+    return <Fallback asset={asset} reason={t("fallback.noActiveBlock")} brand={t("brand")} />
   }
   if (slide) return <Slide slide={slide} fullscreen />
-  if (!asset) return <Fallback asset={active.fallbackAsset ?? null} reason="Missing asset" />
+  if (!asset) return <Fallback asset={active.fallbackAsset ?? null} reason={t("fallback.missingAsset")} brand={t("brand")} />
   if (asset.mediaKind === "image") return <ImageAsset asset={asset} />
   if (asset.sourceType === "vimeo" && asset.vimeoId) return <VimeoEmbed asset={asset} />
   if (asset.sourceType === "remote_mp4" || asset.sourceType === "hls") {
     return <VideoAsset asset={asset} />
   }
-  return <Fallback asset={active.fallbackAsset ?? null} reason="Unsupported asset" />
+  return <Fallback asset={active.fallbackAsset ?? null} reason={t("fallback.unsupportedAsset")} brand={t("brand")} />
 }
 
 function Layer({ layer, schedule }: { layer: ScheduledLayer; schedule: ScheduleBundle }) {
@@ -93,7 +106,8 @@ function VimeoEmbed({ asset }: { asset: MediaAsset }) {
 }
 
 function ImageAsset({ asset, contained = false }: { asset: MediaAsset; contained?: boolean }) {
-  if (!asset.url) return <Fallback asset={null} reason={asset.title} />
+  const t = useTranslations("output")
+  if (!asset.url) return <Fallback asset={null} reason={asset.title} brand={t("brand")} />
   return (
     <div className={contained ? "relative h-80 w-[36rem] max-w-full rounded bg-black" : "relative h-full w-full"}>
       <Image alt={asset.title} className={contained ? "object-contain" : "object-cover"} src={asset.url} fill sizes={contained ? "36rem" : "100vw"} />
@@ -102,7 +116,8 @@ function ImageAsset({ asset, contained = false }: { asset: MediaAsset; contained
 }
 
 function VideoAsset({ asset }: { asset: MediaAsset }) {
-  if (!asset.url) return <Fallback asset={null} reason={asset.title} />
+  const t = useTranslations("output")
+  if (!asset.url) return <Fallback asset={null} reason={asset.title} brand={t("brand")} />
   const presentation = asset.metadata?.presentation
   const vertical = presentation === "vertical_blur" || asset.metadata?.orientation === "vertical"
   if (!vertical) {
@@ -148,28 +163,36 @@ function Slide({ slide, fullscreen = false }: { slide: SlideAsset; fullscreen?: 
   )
 }
 
-function Fallback({ asset, reason }: { asset: MediaAsset | null; reason: string }) {
+function Fallback({ asset, reason, brand }: { asset: MediaAsset | null; reason: string; brand: string }) {
   if (asset?.mediaKind === "image" && asset.url) return <ImageAsset asset={asset} />
   return (
     <div className="grid h-full w-full place-items-center bg-black text-white">
       <div className="text-center">
-        <p className="text-5xl font-semibold">ROXOM TV</p>
+        <p className="text-5xl font-semibold">{brand}</p>
         <p className="mt-4 text-xl text-white/40">{reason}</p>
       </div>
     </div>
   )
 }
 
-function DebugPanel({ active, secondsOfDay }: { active: ActiveSchedule; secondsOfDay: number }) {
+function DebugPanel({
+  active,
+  secondsOfDay,
+  t
+}: {
+  active: ActiveSchedule
+  secondsOfDay: number
+  t: ReturnType<typeof useTranslations<"output">>
+}) {
   return (
     <aside className="absolute right-4 top-4 z-[9999] w-96 rounded bg-black/80 p-4 font-mono text-xs text-white">
-      <p>clock: {formatTimecode(secondsOfDay)}</p>
-      <p>day: {active.day?.airDate ?? "none"}</p>
-      <p>block: {active.block?.title ?? "fallback"}</p>
-      <p>elapsed: {formatTimecode(active.elapsedInBlock)}</p>
-      <p>asset: {active.asset?.title ?? active.fallbackAsset?.title ?? "none"}</p>
-      <p>layers: {active.layers.map((layer) => layer.title).join(", ") || "none"}</p>
-      {active.reason && <p>reason: {active.reason}</p>}
+      <p>{t("debug.clock")}: {formatTimecode(secondsOfDay)}</p>
+      <p>{t("debug.day")}: {active.day?.airDate ?? t("debug.none")}</p>
+      <p>{t("debug.block")}: {active.block?.title ?? t("debug.fallback")}</p>
+      <p>{t("debug.elapsed")}: {formatTimecode(active.elapsedInBlock)}</p>
+      <p>{t("debug.asset")}: {active.asset?.title ?? active.fallbackAsset?.title ?? t("debug.none")}</p>
+      <p>{t("debug.layers")}: {active.layers.map((layer) => layer.title).join(", ") || t("debug.none")}</p>
+      {active.reason && <p>{t("debug.reason")}: {active.reason}</p>}
     </aside>
   )
 }

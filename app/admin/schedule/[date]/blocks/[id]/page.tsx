@@ -1,5 +1,6 @@
 import Link from "next/link"
 import type { ReactNode } from "react"
+import { getTranslations } from "next-intl/server"
 import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
@@ -11,10 +12,16 @@ import type { MediaAsset } from "@/lib/types"
 
 export default async function BlockPage({ params }: { params: Promise<{ date: string; id: string }> }) {
   const { date, id } = await params
-  const schedule = await getScheduleForDate(date)
+  const [schedule, t, tBlock, tAsset, tActions] = await Promise.all([
+    getScheduleForDate(date),
+    getTranslations("blockDetail"),
+    getTranslations("block"),
+    getTranslations("asset"),
+    getTranslations("actions")
+  ])
   const block = schedule.blocks.find((item) => item.id === id)
   if (!block) {
-    return <AdminShell title="Bloque no encontrado">No existe el bloque.</AdminShell>
+    return <AdminShell title={t("notFound.title")}>{t("notFound.body")}</AdminShell>
   }
   const layers = schedule.layers.filter((layer) => layer.programBlockId === block.id).sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.zIndex - b.zIndex)
   const asset = schedule.mediaAssets.find((item) => item.id === block.assetId)
@@ -96,38 +103,53 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
     <AdminShell title={block.title}>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Link href={`/admin/schedule/${date}`} className="text-sm font-semibold text-white/60 hover:text-ink">
-          Volver a agenda {date}
+          {t("backToAgenda", { date })}
         </Link>
         <div className="flex flex-wrap gap-2">
           <Link className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink" href={`/output/preview/${block.id}?debug=true`}>
-            Preview debug
+            {t("previewDebug")}
           </Link>
           <Link className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" href={`/output/preview/${block.id}`}>
-            Preview limpio
+            {t("previewClean")}
           </Link>
         </div>
       </div>
       <section className="mb-5 grid gap-3 lg:grid-cols-3">
-        <SignalCard title="Base" primary={asset?.title ?? slide?.title ?? "Sin asset"} meta={asset ? `${asset.sourceType} · ${asset.mediaKind}` : slide ? slide.slideType : "Asignar contenido"} status={asset?.status ?? slide?.status ?? "missing"} />
-        <SignalCard title="Fallback" primary={fallback?.title ?? "Fallback global"} meta={fallback ? `${fallback.sourceType} · ${fallback.mediaKind}` : "Usa fallback del dia/sistema"} status={fallback?.status ?? "inherit"} />
-        <SignalCard title="Health" primary={`${health.criticalCount} criticas`} meta={`${health.warnCount} warnings · ${layers.length} overlays`} status={health.criticalCount ? "failed" : "ready"} />
+        <SignalCard
+          title={t("signal.base")}
+          primary={asset?.title ?? slide?.title ?? t("signal.noContent")}
+          meta={asset ? `${asset.sourceType} · ${asset.mediaKind}` : slide ? slide.slideType : t("signal.noContent")}
+          status={asset?.status ?? slide?.status ?? "missing"}
+        />
+        <SignalCard
+          title={t("signal.fallback")}
+          primary={fallback?.title ?? t("signal.fallbackGlobal")}
+          meta={fallback ? `${fallback.sourceType} · ${fallback.mediaKind}` : t("signal.fallbackInherited")}
+          status={fallback?.status ?? "inherit"}
+        />
+        <SignalCard
+          title={t("signal.health")}
+          primary={t("signal.criticals", { count: health.criticalCount })}
+          meta={`${t("signal.warnings", { count: health.warnCount })} · ${t("signal.overlays", { count: layers.length })}`}
+          status={health.criticalCount ? "failed" : "ready"}
+        />
       </section>
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
         <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-white/60">Bloque principal</p>
+              <p className="text-sm text-white/60">{t("main")}</p>
               <h2 className="text-2xl font-semibold">{block.title}</h2>
             </div>
             <StatusPill status={block.status} />
           </div>
           <dl className="mt-6 grid gap-4 sm:grid-cols-3">
-            <Info label="Inicio" value={<Timecode seconds={block.startTimeSeconds} />} />
-            <Info label="Duracion" value={<Timecode seconds={block.durationSeconds} />} />
-            <Info label="Tipo" value={block.blockType} />
+            <Info label={t("fields.start")} value={<Timecode seconds={block.startTimeSeconds} />} />
+            <Info label={t("fields.duration")} value={<Timecode seconds={block.durationSeconds} />} />
+            <Info label={t("fields.type")} value={block.blockType} />
           </dl>
           <form action={saveBlock} className="mt-6 grid gap-3 rounded-md border border-line bg-panel p-4 lg:grid-cols-2">
-            <input name="title" required defaultValue={block.title} placeholder="Titulo" className="rounded-md border border-line px-3 py-2 text-sm" />
+            <input name="title" required defaultValue={block.title} placeholder={t("fields.title")} className="rounded-md border border-line px-3 py-2 text-sm" />
             <select name="status" defaultValue={block.status} className="rounded-md border border-line px-3 py-2 text-sm">
               <option value="draft">Draft</option>
               <option value="ready">Ready</option>
@@ -138,20 +160,20 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
             <input name="duration_seconds" required type="number" min="1" defaultValue={block.durationSeconds} className="rounded-md border border-line px-3 py-2 text-sm" />
             <select name="block_type" defaultValue={block.blockType} className="rounded-md border border-line px-3 py-2 text-sm">
               <option value="video">Video</option>
-              <option value="image">Imagen</option>
+              <option value="image">Image</option>
               <option value="slide">Slide</option>
               <option value="ad">Ad</option>
               <option value="promo">Promo</option>
               <option value="fallback">Fallback</option>
             </select>
             <select name="fallback_asset_id" defaultValue={block.fallbackAssetId ?? ""} className="rounded-md border border-line px-3 py-2 text-sm">
-              <option value="">Fallback global</option>
+              <option value="">{t("fields.fallbackGlobal")}</option>
               {schedule.mediaAssets.filter((item) => item.assetType === "fallback").map((item) => (
                 <option key={item.id} value={item.id}>{item.title} · {item.status}</option>
               ))}
             </select>
             <select name="asset_id" defaultValue={block.assetId ?? ""} className="rounded-md border border-line px-3 py-2 text-sm">
-              <option value="">Sin asset</option>
+              <option value="">{t("fields.noAsset")}</option>
               {schedule.mediaAssets.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.title} · {item.status}{item.durationSeconds ? ` · ${formatTimecode(item.durationSeconds)}` : ""}
@@ -159,83 +181,89 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
               ))}
             </select>
             <select name="slide_id" defaultValue={block.slideId ?? ""} className="rounded-md border border-line px-3 py-2 text-sm">
-              <option value="">Sin slide</option>
+              <option value="">{t("fields.noSlide")}</option>
               {schedule.slideAssets.map((item) => (
                 <option key={item.id} value={item.id}>{item.title} · {item.status}</option>
               ))}
             </select>
             <label className="flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm lg:col-span-2">
               <input name="hide_overlays" type="checkbox" defaultChecked={block.hideOverlays} />
-              Ocultar overlays durante este bloque
+              {t("fields.hideOverlays")}
             </label>
-            <textarea name="notes" defaultValue={block.notes ?? ""} placeholder="Notas operativas" className="min-h-20 rounded-md border border-line px-3 py-2 text-sm lg:col-span-2" />
-            <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white lg:col-span-2">Guardar bloque</button>
+            <textarea name="notes" defaultValue={block.notes ?? ""} placeholder={t("fields.notes")} className="min-h-20 rounded-md border border-line px-3 py-2 text-sm lg:col-span-2" />
+            <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white lg:col-span-2">{t("fields.save")}</button>
           </form>
           <div className="mt-6 rounded-md bg-panel p-4">
-            <p className="text-sm font-semibold">Asset</p>
-            <p className="mt-1 text-sm text-white/70">{asset?.title ?? "Sin asset asignado"}</p>
-            {asset ? <Readiness asset={asset} /> : null}
-            {asset ? <AssignedAssetEditForm asset={asset} action={editAssignedAsset} /> : null}
+            <p className="text-sm font-semibold">{t("asset.title")}</p>
+            <p className="mt-1 text-sm text-white/70">{asset?.title ?? t("asset.noAsset")}</p>
+            {asset ? <Readiness asset={asset} readyLabel={t("asset.ready")} /> : null}
+            {asset ? <AssignedAssetEditForm asset={asset} action={editAssignedAsset} editLabel={t("asset.edit")} saveLabel={t("asset.save")} fieldLabels={{
+              title: t("asset.fields.title"),
+              url: t("asset.fields.url"),
+              thumbnailUrl: t("asset.fields.thumbnailUrl"),
+              description: t("asset.fields.description"),
+              durationSec: t("asset.fields.durationSec")
+            }} /> : null}
           </div>
           <div className="mt-6 grid gap-2">
             {blockIssues.map((issue) => (
               <p key={issue.id} className={issue.severity === "critical" ? "rounded-md bg-negative-red/10 px-3 py-2 text-sm text-negative-red" : "rounded-md bg-warn-amber/10 px-3 py-2 text-sm text-warn-amber"}>
-                <span className="block font-semibold">{issue.title}</span>
-                {issue.detail}
+                <span className="block font-semibold">{t(issue.i18n.titleKey as Parameters<typeof t>[0], issue.i18n.titleValues)}</span>
+                {t(issue.i18n.detailKey as Parameters<typeof t>[0], issue.i18n.detailValues)}
               </p>
             ))}
-            {blockIssues.length === 0 && <p className="rounded-md bg-accent-positive/10 px-3 py-2 text-sm text-accent-positive">Sin alertas para este bloque.</p>}
+            {blockIssues.length === 0 && <p className="rounded-md bg-accent-positive/10 px-3 py-2 text-sm text-accent-positive">{t("alerts.none")}</p>}
           </div>
         </section>
         <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-          <h3 className="font-semibold">Overlays</h3>
+          <h3 className="font-semibold">{t("overlays.title")}</h3>
           <form action={addLowerThird} className="mt-4 grid gap-3 rounded-md border border-line bg-white p-3">
-            <p className="text-sm font-semibold">Lower third rapido</p>
-            <input name="title" placeholder="Nombre interno" className="rounded-md border border-line px-3 py-2 text-sm" />
-            <input name="primary_text" required placeholder="Texto principal" className="rounded-md border border-line px-3 py-2 text-sm" />
-            <input name="secondary_text" placeholder="Texto secundario" className="rounded-md border border-line px-3 py-2 text-sm" />
+            <p className="text-sm font-semibold">{t("overlays.lowerThirdQuick")}</p>
+            <input name="title" placeholder={t("overlays.internalName")} className="rounded-md border border-line px-3 py-2 text-sm" />
+            <input name="primary_text" required placeholder={t("overlays.primaryText")} className="rounded-md border border-line px-3 py-2 text-sm" />
+            <input name="secondary_text" placeholder={t("overlays.secondaryText")} className="rounded-md border border-line px-3 py-2 text-sm" />
             <div className="grid gap-3 sm:grid-cols-2">
               <input name="start_time" required defaultValue="00:00:05" className="rounded-md border border-line px-3 py-2 text-sm" />
               <input name="duration_seconds" required type="number" min="1" defaultValue="12" className="rounded-md border border-line px-3 py-2 text-sm" />
             </div>
-            <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white">Agregar lower third</button>
+            <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white">{t("overlays.addLowerThird")}</button>
           </form>
           <form action={addLayer} className="mt-4 grid gap-3 rounded-md bg-panel p-3">
-            <input name="title" required placeholder="Titulo overlay" className="rounded-md border border-line px-3 py-2 text-sm" />
+            <input name="title" required placeholder={t("overlays.overlayTitle")} className="rounded-md border border-line px-3 py-2 text-sm" />
             <div className="grid gap-3 sm:grid-cols-2">
               <input name="start_time" required defaultValue="00:02:00" className="rounded-md border border-line px-3 py-2 text-sm" />
               <input name="duration_seconds" required type="number" min="1" defaultValue="30" className="rounded-md border border-line px-3 py-2 text-sm" />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <select name="layer_type" className="rounded-md border border-line px-3 py-2 text-sm">
-                <option value="slide">Slide</option>
-                <option value="image">Imagen</option>
-                <option value="lower_third">Lower third</option>
-                <option value="logo_bug">Logo bug</option>
-                <option value="promo">Promo</option>
+                <option value="slide">{t("layerType.slide")}</option>
+                <option value="image">{t("layerType.image")}</option>
+                <option value="lower_third">{t("layerType.lowerThird")}</option>
+                <option value="logo_bug">{t("layerType.logoBug")}</option>
+                <option value="promo">{t("layerType.promo")}</option>
               </select>
               <select name="position" className="rounded-md border border-line px-3 py-2 text-sm">
-                <option value="lower_third">Lower third</option>
-                <option value="top_right">Top right</option>
-                <option value="bottom_bar">Bottom bar</option>
-                <option value="sidebar">Sidebar</option>
-                <option value="fullscreen">Fullscreen</option>
+                <option value="lower_third">{t("position.lowerThird")}</option>
+                <option value="top_right">{t("position.topRight")}</option>
+                <option value="bottom_bar">{t("position.bottomBar")}</option>
+                <option value="sidebar">{t("position.sidebar")}</option>
+                <option value="fullscreen">{t("position.fullscreen")}</option>
               </select>
             </div>
             <select name="slide_id" className="rounded-md border border-line px-3 py-2 text-sm">
-              <option value="">Sin slide</option>
+              <option value="">{t("overlays.empty")}</option>
               {schedule.slideAssets.map((slide) => (
                 <option key={slide.id} value={slide.id}>{slide.title}</option>
               ))}
             </select>
             <select name="asset_id" className="rounded-md border border-line px-3 py-2 text-sm">
-              <option value="">Sin asset</option>
+              <option value="">{tBlock("noAsset")}</option>
               {schedule.mediaAssets.map((mediaAsset) => (
                 <option key={mediaAsset.id} value={mediaAsset.id}>{mediaAsset.title}</option>
               ))}
             </select>
             <input name="z_index" type="number" defaultValue="10" className="rounded-md border border-line px-3 py-2 text-sm" />
-            <button className="rounded-md bg-signal px-4 py-2 text-sm font-semibold text-white">Agregar overlay</button>
+            <button className="rounded-md bg-signal px-4 py-2 text-sm font-semibold text-white">{t("overlays.addOverlay")}</button>
           </form>
           <div className="mt-4 grid gap-3">
             {layers.map((layer) => (
@@ -251,12 +279,12 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
                   <input type="hidden" name="layer_id" value={layer.id} />
                   <input type="hidden" name="enabled" value={layer.enabled ? "false" : "true"} />
                   <button className="rounded-md border border-line px-3 py-2 text-xs font-semibold text-ink">
-                    {layer.enabled ? "Desactivar" : "Activar"}
+                    {layer.enabled ? t("overlays.disable") : t("overlays.enable")}
                   </button>
                 </form>
               </div>
             ))}
-            {layers.length === 0 && <p className="text-sm text-white/60">Sin overlays.</p>}
+            {layers.length === 0 && <p className="text-sm text-white/60">{t("overlays.empty")}</p>}
           </div>
         </section>
       </div>
@@ -266,19 +294,25 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
 
 function AssignedAssetEditForm({
   asset,
-  action
+  action,
+  editLabel,
+  saveLabel,
+  fieldLabels
 }: {
   asset: MediaAsset
   action: (formData: FormData) => Promise<void>
+  editLabel: string
+  saveLabel: string
+  fieldLabels: { title: string; url: string; thumbnailUrl: string; description: string; durationSec: string }
 }) {
   const orientation = String(asset.metadata?.orientation || (asset.metadata?.presentation === "vertical_blur" ? "vertical" : "auto"))
   return (
     <details className="mt-4">
-      <summary className="cursor-pointer text-sm font-semibold text-ink">Editar asset asignado</summary>
+      <summary className="cursor-pointer text-sm font-semibold text-ink">{editLabel}</summary>
       <form action={action} className="mt-3 grid gap-3">
         <input type="hidden" name="id" value={asset.id} />
-        <input name="title" required defaultValue={asset.title} placeholder="Titulo" className="rounded-md border border-line px-3 py-2 text-sm" />
-        <input name="url" defaultValue={asset.url ?? ""} placeholder="URL" className="rounded-md border border-line px-3 py-2 text-sm" />
+        <input name="title" required defaultValue={asset.title} placeholder={fieldLabels.title} className="rounded-md border border-line px-3 py-2 text-sm" />
+        <input name="url" defaultValue={asset.url ?? ""} placeholder={fieldLabels.url} className="rounded-md border border-line px-3 py-2 text-sm" />
         <div className="grid gap-3 sm:grid-cols-2">
           <select name="source_type" defaultValue={asset.sourceType} className="rounded-md border border-line px-3 py-2 text-sm">
             <option value="remote_image">Remote image</option>
@@ -316,11 +350,11 @@ function AssignedAssetEditForm({
             <option value="horizontal">Horizontal</option>
             <option value="vertical">Vertical blur</option>
           </select>
-          <input name="duration_seconds" type="number" min="1" defaultValue={asset.durationSeconds ?? ""} placeholder="Seg" className="rounded-md border border-line px-3 py-2 text-sm" />
+          <input name="duration_seconds" type="number" min="1" defaultValue={asset.durationSeconds ?? ""} placeholder={fieldLabels.durationSec} className="rounded-md border border-line px-3 py-2 text-sm" />
         </div>
-        <input name="thumbnail_url" defaultValue={asset.thumbnailUrl ?? ""} placeholder="Thumbnail URL" className="rounded-md border border-line px-3 py-2 text-sm" />
-        <input name="description" defaultValue={asset.description ?? ""} placeholder="Descripcion" className="rounded-md border border-line px-3 py-2 text-sm" />
-        <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white">Guardar asset</button>
+        <input name="thumbnail_url" defaultValue={asset.thumbnailUrl ?? ""} placeholder={fieldLabels.thumbnailUrl} className="rounded-md border border-line px-3 py-2 text-sm" />
+        <input name="description" defaultValue={asset.description ?? ""} placeholder={fieldLabels.description} className="rounded-md border border-line px-3 py-2 text-sm" />
+        <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white">{saveLabel}</button>
       </form>
     </details>
   )
@@ -337,11 +371,11 @@ function SignalCard({ title, primary, meta, status }: { title: string; primary: 
   )
 }
 
-function Readiness({ asset }: { asset: MediaAsset }) {
+function Readiness({ asset, readyLabel }: { asset: MediaAsset; readyLabel: string }) {
   const readiness = getAssetReadiness(asset)
   return (
     <p className={readiness.ready ? "mt-3 rounded-md bg-accent-positive/10 px-3 py-2 text-sm text-accent-positive" : "mt-3 rounded-md bg-negative-red/10 px-3 py-2 text-sm text-negative-red"}>
-      {readiness.ready ? "Listo para render" : readiness.messages.join(", ")}
+      {readiness.ready ? readyLabel : readiness.messages.join(", ")}
     </p>
   )
 }

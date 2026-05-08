@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server"
 import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { EmptyState, FormHeader } from "@/components/ui"
@@ -5,7 +6,10 @@ import { getSlides } from "@/lib/data"
 import { createSlideAsset } from "@/lib/mutations"
 
 export default async function SlidesPage() {
-  const slides = await getSlides()
+  const [t, slides] = await Promise.all([
+    getTranslations("slides"),
+    getSlides()
+  ])
   async function addSlide(formData: FormData) {
     "use server"
     const slideType = String(formData.get("slide_type"))
@@ -20,27 +24,27 @@ export default async function SlidesPage() {
     })
   }
   return (
-    <AdminShell title="Slides" description="Placas, textos y HTML controlado para bases visuales u overlays.">
+    <AdminShell title={t("title")} description={t("description")}>
       <form action={addSlide} className="surface-panel mb-5 grid gap-3 p-4 lg:grid-cols-[1fr_150px_120px_120px]">
         <div className="lg:col-span-4">
-          <FormHeader title="Crear slide" detail="Prepará una placa reutilizable para un bloque o una capa programada." />
+          <FormHeader title={t("create.title")} detail={t("create.detail")} />
         </div>
-        <input name="title" required placeholder="Titulo" className="border border-line px-3 py-2 text-sm" />
+        <input name="title" required placeholder={t("create.titleField")} className="border border-line px-3 py-2 text-sm" />
         <select name="slide_type" className="border border-line px-3 py-2 text-sm">
-          <option value="html">HTML</option>
-          <option value="image">Imagen</option>
-          <option value="markdown">Markdown</option>
-          <option value="template">Template</option>
+          <option value="html">{t("type.html")}</option>
+          <option value="image">{t("type.image")}</option>
+          <option value="markdown">{t("type.markdown")}</option>
+          <option value="template">{t("type.template")}</option>
         </select>
         <input name="default_duration_seconds" type="number" min="1" placeholder="Seg" className="border border-line px-3 py-2 text-sm" />
         <select name="status" className="border border-line px-3 py-2 text-sm">
-          <option value="ready">Ready</option>
-          <option value="draft">Draft</option>
+          <option value="ready">{t("status.ready")}</option>
+          <option value="draft">{t("status.draft")}</option>
         </select>
-        <input name="image_url" placeholder="URL imagen" className="border border-line px-3 py-2 text-sm lg:col-span-2" />
-        <textarea name="content" placeholder="Texto visible" className="min-h-24 border border-line px-3 py-2 text-sm lg:col-span-2" />
-        <textarea name="html_content" placeholder="HTML opcional" className="min-h-24 border border-line px-3 py-2 text-sm lg:col-span-4" />
-        <button className="btn-primary lg:col-span-4">Crear slide</button>
+        <input name="image_url" placeholder={t("create.imageUrl")} className="border border-line px-3 py-2 text-sm lg:col-span-2" />
+        <textarea name="content" placeholder={t("create.visibleText")} className="min-h-24 border border-line px-3 py-2 text-sm lg:col-span-2" />
+        <textarea name="html_content" placeholder={t("create.optionalHtml")} className="min-h-24 border border-line px-3 py-2 text-sm lg:col-span-4" />
+        <button className="btn-primary lg:col-span-4">{t("create.submit")}</button>
       </form>
       <div className="surface-panel overflow-hidden">
         {slides.map((slide) => (
@@ -48,15 +52,15 @@ export default async function SlidesPage() {
             <div>
               <p className="font-semibold">{slide.title}</p>
               <p className="text-sm text-muted">
-                {slide.slideType} · {slide.defaultDurationSeconds ? `${slide.defaultDurationSeconds}s` : "Sin duracion"}
+                {slide.slideType} · {slide.defaultDurationSeconds ? `${slide.defaultDurationSeconds}s` : t("noDuration")}
               </p>
               {slide.content && <p className="mt-1 line-clamp-1 text-sm text-muted">{slide.content}</p>}
             </div>
-            <span className="text-sm text-muted">{slide.imageUrl ? "Imagen" : slide.htmlContent ? "HTML" : "Texto"}</span>
+            <span className="text-sm text-muted">{slide.imageUrl ? t("kind.image") : slide.htmlContent ? t("kind.html") : t("kind.text")}</span>
             <StatusPill status={slide.status} />
           </div>
         ))}
-        {slides.length === 0 && <div className="p-4"><EmptyState title="No hay slides creados">Creá una placa para usarla como contenido base o overlay programado.</EmptyState></div>}
+        {slides.length === 0 && <div className="p-4"><EmptyState title={t("empty.title")}>{t("empty.body")}</EmptyState></div>}
       </div>
     </AdminShell>
   )

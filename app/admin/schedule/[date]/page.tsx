@@ -1,5 +1,6 @@
 import Link from "next/link"
 import clsx from "clsx"
+import { getTranslations } from "next-intl/server"
 import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
@@ -13,7 +14,14 @@ import type { MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from "@/lib
 
 export default async function ScheduleDatePage({ params }: { params: Promise<{ date: string }> }) {
   const { date } = await params
-  const schedule = await getScheduleForDate(date)
+  const [schedule, t, tSchedule, tHealth, tBlock, tActions] = await Promise.all([
+    getScheduleForDate(date),
+    getTranslations(),
+    getTranslations("schedule"),
+    getTranslations("health"),
+    getTranslations("block"),
+    getTranslations("actions")
+  ])
   const blocks = schedule.blocks.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
   async function addBlock(formData: FormData) {
     "use server"
@@ -63,11 +71,11 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
   const lastEnd = lastBlock ? lastBlock.startTimeSeconds + lastBlock.durationSeconds : 0
   return (
     <AdminShell
-      title={`Agenda ${date}`}
-      description="Consola operativa por horario, assets, continuidad y alertas antes de salir al aire."
+      title={tSchedule("title", { date })}
+      description={tSchedule("description")}
       actions={
         <ButtonLink href="/output/live?debug=true">
-          Ver output live
+          {tSchedule("viewOutputLive")}
         </ButtonLink>
       }
     >
@@ -84,42 +92,48 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
           <form action={setDayStatus} className="flex flex-wrap items-center gap-2">
             <label className="flex min-h-10 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium">
               <input name="allow_warnings" type="checkbox" />
-              Permitir warnings
+              {tSchedule("allowWarnings")}
             </label>
-            <button name="status" value="draft" className="btn-secondary">Draft</button>
-            <button name="status" value="ready" className="btn-secondary">Ready</button>
-            <button name="status" value="active" className="btn-primary">Active</button>
+            <button name="status" value="draft" className="btn-secondary">{tSchedule("status.draft")}</button>
+            <button name="status" value="ready" className="btn-secondary">{tSchedule("status.ready")}</button>
+            <button name="status" value="active" className="btn-primary">{tSchedule("status.active")}</button>
           </form>
         </div>
       </div>
 
       <section className="mb-5 grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr]">
         <StatusPanel
-          title={isToday ? "Ahora" : "Dia seleccionado"}
+          title={isToday ? tSchedule("now") : tSchedule("selectedDay")}
           tone={active?.block ? "ok" : isToday ? "danger" : "neutral"}
-          primary={active?.block?.title ?? (isToday ? "Sin bloque activo" : date)}
+          primary={active?.block?.title ?? (isToday ? tSchedule("noActiveBlock") : date)}
           meta={
             active?.block
               ? `${formatTimecode(active.elapsedInBlock)} / ${formatTimecode(active.block.durationSeconds)}`
               : isToday
-                ? active?.reason ?? "Fuera de ventana"
-                : "Vista offline"
+                ? active?.reason ?? tSchedule("outOfWindow")
+                : tSchedule("offlineView")
           }
           detail={active?.asset?.title ?? active?.slide?.title ?? active?.fallbackAsset?.title ?? null}
         />
         <StatusPanel
-          title="Siguiente"
+          title={tSchedule("next")}
           tone={nextBlock ? "neutral" : isToday ? "warn" : "neutral"}
-          primary={nextBlock?.title ?? (isToday ? "No hay proximo bloque" : firstBlock?.title ?? "Sin bloques")}
-          meta={nextBlock ? `Arranca ${formatTimecode(nextBlock.startTimeSeconds)}` : firstBlock ? `Primero ${formatTimecode(firstBlock.startTimeSeconds)}` : "Agenda vacia"}
+          primary={nextBlock?.title ?? (isToday ? tSchedule("noNextBlock") : firstBlock?.title ?? tSchedule("noBlocks"))}
+          meta={
+            nextBlock
+              ? tSchedule("startsAt", { time: formatTimecode(nextBlock.startTimeSeconds) })
+              : firstBlock
+                ? tSchedule("firstAt", { time: formatTimecode(firstBlock.startTimeSeconds) })
+                : tSchedule("emptyAgenda")
+          }
           detail={nextBlock ? blockAssetLabel(schedule, nextBlock) : null}
         />
         <StatusPanel
-          title="Cobertura"
+          title={tSchedule("coverage")}
           tone={health.criticalCount ? "danger" : health.warnCount ? "warn" : "ok"}
-          primary={`${formatTimecode(totalScheduledSeconds)} cargados`}
-          meta={`${readyBlocks}/${blocks.length} bloques listos`}
-          detail={firstBlock && lastBlock ? `${formatTimecode(firstBlock.startTimeSeconds)} a ${formatTimecode(lastEnd)}` : "Sin cobertura"}
+          primary={tSchedule("loaded", { time: formatTimecode(totalScheduledSeconds) })}
+          meta={tSchedule("blocksReady", { ready: readyBlocks, total: blocks.length })}
+          detail={firstBlock && lastBlock ? tSchedule("rangeAtoB", { start: formatTimecode(firstBlock.startTimeSeconds), end: formatTimecode(lastEnd) }) : tSchedule("noCoverage")}
         />
       </section>
 
@@ -127,28 +141,30 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
         <div className="surface-panel min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
             <div>
-              <h2 className="font-semibold">Timeline diario</h2>
-              <p className="mt-1 text-sm text-muted">Bloques proporcionales por hora con alertas de continuidad.</p>
+              <h2 className="font-semibold">{tSchedule("timeline.title")}</h2>
+              <p className="mt-1 text-sm text-muted">{tSchedule("timeline.description")}</p>
             </div>
             {health.issues.length ? (
               <span className="rounded-full border border-warn-line bg-warn-soft px-3 py-1 text-xs font-semibold text-warn-strong">
-                {health.issues.length} alertas
+                {tSchedule("timeline.alertsCount", { count: health.issues.length })}
               </span>
             ) : (
-              <span className="rounded-full border border-success-line bg-success-soft px-3 py-1 text-xs font-semibold text-success-strong">Sin alertas</span>
+              <span className="rounded-full border border-success-line bg-success-soft px-3 py-1 text-xs font-semibold text-success-strong">
+                {tSchedule("timeline.noAlerts")}
+              </span>
             )}
           </div>
-          <DailyTimeline blocks={blocks} schedule={schedule} date={date} nowSeconds={isToday ? nowSeconds : null} issues={health.issues} />
+          <DailyTimeline blocks={blocks} schedule={schedule} date={date} nowSeconds={isToday ? nowSeconds : null} issues={health.issues} liveLabel={tBlock("live")} />
         </div>
 
         <aside className="grid gap-5 content-start">
           <section className="surface-panel p-4">
-            <h2 className="font-semibold">Health check</h2>
+            <h2 className="font-semibold">{tHealth("title")}</h2>
             <div className="mt-4 grid gap-3">
-              <Metric label="Gaps" value={String(health.gaps.length)} tone={health.gaps.length ? "warn" : "ok"} />
-              <Metric label="Solapes" value={String(health.overlaps.length)} tone={health.overlaps.length ? "danger" : "ok"} />
-              <Metric label="Assets faltantes" value={String(health.missingAssets.length)} tone={health.missingAssets.length ? "danger" : "ok"} />
-              <Metric label="Assets no ready" value={String(health.unreadyAssets.length)} tone={health.unreadyAssets.length ? "warn" : "ok"} />
+              <Metric label={tHealth("metrics.gaps")} value={String(health.gaps.length)} tone={health.gaps.length ? "warn" : "ok"} />
+              <Metric label={tHealth("metrics.overlaps")} value={String(health.overlaps.length)} tone={health.overlaps.length ? "danger" : "ok"} />
+              <Metric label={tHealth("metrics.missingAssets")} value={String(health.missingAssets.length)} tone={health.missingAssets.length ? "danger" : "ok"} />
+              <Metric label={tHealth("metrics.unreadyAssets")} value={String(health.unreadyAssets.length)} tone={health.unreadyAssets.length ? "warn" : "ok"} />
             </div>
             <div className="mt-4 grid gap-2">
               {health.issues.slice(0, 8).map((issue) => (
@@ -160,32 +176,32 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
                     issue.severity === "critical" ? "border-danger-line bg-danger-soft text-danger-strong" : "border-warn-line bg-warn-soft text-warn-strong"
                   )}
                 >
-                  <span className="block font-semibold">{issue.title}</span>
-                  <span className="text-xs opacity-80">{issue.detail}</span>
+                  <span className="block font-semibold">{t(issue.i18n.titleKey as Parameters<typeof t>[0], issue.i18n.titleValues)}</span>
+                  <span className="text-xs opacity-80">{t(issue.i18n.detailKey as Parameters<typeof t>[0], issue.i18n.detailValues)}</span>
                 </Link>
               ))}
-              {health.issues.length === 0 && <p className="rounded-md bg-panel-soft px-3 py-2 text-sm text-muted">La agenda no tiene conflictos detectados.</p>}
+              {health.issues.length === 0 && <p className="rounded-md bg-panel-soft px-3 py-2 text-sm text-muted">{tSchedule("timeline.noConflicts")}</p>}
             </div>
           </section>
 
           <details className="surface-panel p-4">
-            <summary className="cursor-pointer font-semibold">Agregar bloque</summary>
+            <summary className="cursor-pointer font-semibold">{tSchedule("addBlock.title")}</summary>
             <form action={addBlock} className="mt-4 grid gap-3">
-              <input name="title" required placeholder="Titulo del bloque" className="border border-line px-3 py-2 text-sm" />
+              <input name="title" required placeholder={tSchedule("addBlock.titlePlaceholder")} className="border border-line px-3 py-2 text-sm" />
               <div className="grid gap-3 sm:grid-cols-2">
                 <input name="start_time" required defaultValue="00:00:00" className="border border-line px-3 py-2 text-sm" />
                 <input name="duration_seconds" required type="number" min="1" defaultValue="30" className="border border-line px-3 py-2 text-sm" />
               </div>
               <select name="block_type" className="border border-line px-3 py-2 text-sm">
                 <option value="video">Video</option>
-                <option value="image">Imagen</option>
+                <option value="image">Image</option>
                 <option value="slide">Slide</option>
                 <option value="ad">Ad</option>
                 <option value="promo">Promo</option>
                 <option value="fallback">Fallback</option>
               </select>
               <select name="asset_id" className="border border-line px-3 py-2 text-sm">
-                <option value="">Sin asset</option>
+                <option value="">{tSchedule("addBlock.noAssetOption")}</option>
                 {schedule.mediaAssets.map((asset) => (
                   <option key={asset.id} value={asset.id}>
                     {asset.title} · {asset.status}{asset.durationSeconds ? ` · ${formatTimecode(asset.durationSeconds)}` : ""}
@@ -193,16 +209,16 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
                 ))}
               </select>
               <select name="slide_id" className="border border-line px-3 py-2 text-sm">
-                <option value="">Sin slide</option>
+                <option value="">{tSchedule("addBlock.noSlideOption")}</option>
                 {schedule.slideAssets.map((slide) => (
                   <option key={slide.id} value={slide.id}>{slide.title} · {slide.status}</option>
                 ))}
               </select>
               <label className="flex min-h-10 items-center gap-2 rounded-md border border-line px-3 text-sm">
                 <input name="hide_overlays" type="checkbox" />
-                Ocultar overlays
+                {tSchedule("addBlock.hideOverlays")}
               </label>
-              <button className="btn-primary">Agregar</button>
+              <button className="btn-primary">{tSchedule("addBlock.submit")}</button>
             </form>
           </details>
         </aside>
@@ -211,10 +227,10 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
       <section className="surface-panel mb-5 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <FormHeader title="Generador de grilla larga" detail="Crea bloques consecutivos para probar 12 hs con programas, tandas e imagenes." />
+            <FormHeader title={tSchedule("longGenerator.title")} detail={tSchedule("longGenerator.detail")} />
           </div>
           <p className="rounded-md bg-panel-soft px-3 py-2 text-sm text-muted">
-            Total cargado: <Timecode seconds={totalScheduledSeconds} />
+            {tSchedule("longGenerator.totalLoaded")} <Timecode seconds={totalScheduledSeconds} />
           </p>
         </div>
         <form action={generateLongSchedule} className="mt-4 grid gap-3 lg:grid-cols-[120px_100px_130px_120px_130px_1fr_130px]">
@@ -225,19 +241,19 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
           <input name="image_bumper_seconds" required type="number" min="0" defaultValue="30" className="border border-line px-3 py-2 text-sm" />
           <label className="flex min-h-10 items-center gap-2 rounded-md border border-line px-3 text-sm">
             <input name="replace_window" type="checkbox" defaultChecked />
-            Reemplazar ventana
+            {tSchedule("longGenerator.replaceWindow")}
           </label>
-          <button className="btn-primary">Generar 12 hs</button>
+          <button className="btn-primary">{tSchedule("longGenerator.submit")}</button>
         </form>
       </section>
 
       <div className="surface-panel overflow-x-auto">
         <div className="min-w-[560px]">
         <div className="grid grid-cols-[120px_1fr_120px_120px] border-b border-line bg-panel-soft px-4 py-3 text-sm font-semibold text-muted">
-          <span>Inicio</span>
-          <span>Bloque</span>
-          <span>Duracion</span>
-          <span>Estado</span>
+          <span>{tSchedule("table.start")}</span>
+          <span>{tSchedule("table.block")}</span>
+          <span>{tSchedule("table.duration")}</span>
+          <span>{tSchedule("table.status")}</span>
         </div>
         {blocks.map((block) => {
           const asset = schedule.mediaAssets.find((item) => item.id === block.assetId)
@@ -251,14 +267,18 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
               <Timecode seconds={block.startTimeSeconds} />
               <span>
                 <span className="block font-semibold">{block.title}</span>
-                <span className="text-muted">{block.blockType} · {asset?.title ?? slide?.title ?? "Sin asset"}</span>
+                <span className="text-muted">{block.blockType} · {asset?.title ?? slide?.title ?? t("block.noAsset")}</span>
               </span>
               <Timecode seconds={block.durationSeconds} />
               <StatusPill status={block.status} />
             </Link>
           )
         })}
-        {blocks.length === 0 ? <div className="p-4"><EmptyState title="Agenda sin bloques">Agregá el primer bloque o generá una grilla larga para probar continuidad.</EmptyState></div> : null}
+        {blocks.length === 0 ? (
+          <div className="p-4">
+            <EmptyState title={tSchedule("table.empty.title")}>{tSchedule("table.empty.body")}</EmptyState>
+          </div>
+        ) : null}
         </div>
       </div>
     </AdminShell>
@@ -293,13 +313,15 @@ function DailyTimeline({
   schedule,
   date,
   nowSeconds,
-  issues
+  issues,
+  liveLabel
 }: {
   blocks: ProgramBlock[]
   schedule: ScheduleBundle
   date: string
   nowSeconds: number | null
   issues: ScheduleIssue[]
+  liveLabel: string
 }) {
   const issueMap = new Map(issues.filter((issue) => issue.blockId).map((issue) => [issue.blockId, issue]))
   return (
@@ -319,7 +341,7 @@ function DailyTimeline({
                     className="absolute left-0 right-0 z-20 border-t-2 border-accent-live"
                     style={{ top: `${((nowSeconds - hourStart) / 3600) * 100}%` }}
                   >
-                    <span className="absolute -top-3 right-2 rounded bg-accent-live px-2 py-0.5 text-[10px] font-semibold text-white">LIVE</span>
+                    <span className="absolute -top-3 right-2 rounded bg-accent-live px-2 py-0.5 text-[10px] font-semibold text-white">{liveLabel}</span>
                   </div>
                 ) : null}
                 {segments.map(({ block, top, height }) => {
@@ -386,7 +408,7 @@ function blockAssetLabel(schedule: ScheduleBundle, block: ProgramBlock) {
 function assetLabel(asset: MediaAsset | null | undefined, slide: SlideAsset | null | undefined) {
   if (asset) return `${asset.title} (${asset.status})`
   if (slide) return `${slide.title} (${slide.status})`
-  return "Sin asset"
+  return ""
 }
 
 function blockTone(block: ProgramBlock, issue?: ScheduleIssue) {

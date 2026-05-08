@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { getTranslations } from "next-intl/server"
 import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { ButtonLink, EmptyState, MetricTile } from "@/components/ui"
@@ -6,6 +7,7 @@ import { getDays } from "@/lib/data"
 import { ensureProgramDay } from "@/lib/mutations"
 
 export default async function CalendarPage() {
+  const t = await getTranslations("calendar")
   const days = await getDays()
   const today = new Date().toISOString().slice(0, 10)
   const activeDays = days.filter((day) => day.status === "active").length
@@ -15,22 +17,22 @@ export default async function CalendarPage() {
   }
   return (
     <AdminShell
-      title="Calendario de programacion"
-      description="Dias operativos con bloques horarios, overlays, fallback y estado de publicacion."
+      title={t("title")}
+      description={t("description")}
       actions={
         <ButtonLink href={`/admin/schedule/${today}`}>
-          Programar hoy
+          {t("scheduleToday")}
         </ButtonLink>
       }
     >
       <section className="mb-5 grid gap-3 md:grid-cols-3">
-        <MetricTile label="Dias" value={String(days.length)} detail="Programaciones creadas" />
-        <MetricTile label="Activos" value={String(activeDays)} detail="Dias al aire o marcados activos" tone={activeDays ? "ok" : "neutral"} />
-        <MetricTile label="Hoy" value={today} detail="Fecha operativa local" tone="info" />
+        <MetricTile label={t("metrics.days")} value={String(days.length)} detail={t("metrics.daysDetail")} />
+        <MetricTile label={t("metrics.active")} value={String(activeDays)} detail={t("metrics.activeDetail")} tone={activeDays ? "ok" : "neutral"} />
+        <MetricTile label={t("metrics.today")} value={today} detail={t("metrics.todayDetail")} tone="info" />
       </section>
       <form action={createDay} className="surface-panel mb-5 flex max-w-xl gap-3 p-4">
         <input name="date" type="date" required className="min-w-0 flex-1 border border-line px-3 py-2 text-sm" defaultValue={today} />
-        <button className="btn-primary">Crear dia</button>
+        <button className="btn-primary">{t("createDay")}</button>
       </form>
       <div className="grid gap-3">
         {days.map((day) => (
@@ -44,7 +46,7 @@ export default async function CalendarPage() {
             </div>
           </Link>
         ))}
-        {days.length === 0 ? <EmptyState title="No hay dias creados">Elegí una fecha y creá la primera programacion para empezar a cargar bloques.</EmptyState> : null}
+        {days.length === 0 ? <EmptyState title={t("empty.title")}>{t("empty.body")}</EmptyState> : null}
       </div>
     </AdminShell>
   )

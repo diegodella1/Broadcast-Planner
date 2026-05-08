@@ -1,0 +1,50 @@
+"use client"
+
+import { useLocale } from "next-intl"
+import { useRouter, usePathname } from "next/navigation"
+import clsx from "clsx"
+import { locales, type Locale } from "@/i18n"
+
+export function LocaleSwitcher() {
+  const current = useLocale() as Locale
+  const router = useRouter()
+  const pathname = usePathname()
+
+  function switchTo(next: Locale) {
+    if (next === current) return
+    document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`
+    const stripped = pathname.replace(/^\/es(?=\/|$)/, "") || "/"
+    const target = next === "en" ? stripped : `/es${stripped === "/" ? "" : stripped}`
+    router.push(target)
+    router.refresh()
+  }
+
+  return (
+    <div
+      role="group"
+      aria-label="Language"
+      className="inline-flex items-center gap-0.5 rounded-md bg-surface-elevated-2 p-0.5"
+    >
+      {locales.map((loc) => {
+        const active = loc === current
+        return (
+          <button
+            key={loc}
+            type="button"
+            onClick={() => switchTo(loc)}
+            aria-pressed={active}
+            className={clsx(
+              "rounded px-2 py-1 text-xs font-medium uppercase tracking-wide transition-colors",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-positive",
+              active
+                ? "bg-surface-selected-positive text-accent-positive"
+                : "text-white/60 hover:text-white/90"
+            )}
+          >
+            {loc}
+          </button>
+        )
+      })}
+    </div>
+  )
+}

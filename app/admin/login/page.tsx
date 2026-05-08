@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
+import { getTranslations } from "next-intl/server"
 import { isAdminTokenValid } from "@/lib/auth"
 
-export default function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const t = await getTranslations("login")
+
   async function login(formData: FormData) {
     "use server"
     const token = String(formData.get("token") ?? "")
@@ -24,22 +27,22 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<{ er
   return (
     <main className="grid min-h-screen place-items-center bg-panel px-6">
       <form action={login} className="surface-panel w-full max-w-sm p-6">
-        <p className="eyebrow text-signal">Roxom TV</p>
-        <h1 className="mt-2 text-2xl font-semibold">Acceso admin</h1>
-        <p className="mt-2 text-sm leading-6 text-muted">Ingresá el token operativo configurado para administrar RTVTime.</p>
+        <p className="eyebrow text-signal">{t("eyebrow")}</p>
+        <h1 className="mt-2 text-2xl font-semibold">{t("title")}</h1>
+        <p className="mt-2 text-sm leading-6 text-muted">{t("body")}</p>
         <label className="mt-6 block text-sm font-medium">
-          Token
+          {t("tokenLabel")}
           <input name="token" type="password" className="mt-2 w-full border border-line px-3 py-2" />
         </label>
-        <ErrorMessage searchParams={searchParams} />
-        <button className="btn-primary mt-5 w-full">Entrar</button>
+        <ErrorMessage searchParams={searchParams} errorText={t("errorInvalid")} />
+        <button className="btn-primary mt-5 w-full">{t("submit")}</button>
       </form>
     </main>
   )
 }
 
-async function ErrorMessage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+async function ErrorMessage({ searchParams, errorText }: { searchParams: Promise<{ error?: string }>; errorText: string }) {
   const params = await searchParams
   if (!params.error) return null
-  return <p className="mt-3 rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger-strong">Token invalido.</p>
+  return <p className="mt-3 rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger-strong">{errorText}</p>
 }

@@ -12,6 +12,15 @@ export function parseTimecode(value: string): number {
   throw new Error(`Invalid timecode: ${value}`)
 }
 
+/**
+ * Formats a duration (seconds) as `HH:MM:SS`.
+ *
+ * Intentionally locale-free: this is a duration formatter, not a clock
+ * formatter. Output is identical across locales by design (it is used in
+ * fixed-width timeline and tabular UI). For user-visible wall-clock times
+ * tied to a specific calendar instant, use next-intl's `useFormatter()` /
+ * `getFormatter()` from the consuming component instead.
+ */
 export function formatTimecode(totalSeconds: number): string {
   const safe = Math.max(0, Math.floor(totalSeconds))
   const hours = Math.floor(safe / 3600)
@@ -24,6 +33,15 @@ export function secondsSinceLocalMidnight(date = new Date()): number {
   return date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds()
 }
 
+/**
+ * Returns the calendar date (YYYY-MM-DD) for `date` as observed in `timezone`.
+ *
+ * Intentionally locale-free: the output is consumed as a database key and route
+ * parameter (e.g. `/admin/schedule/[date]`), so it must always render in
+ * ISO 8601 form regardless of the user's UI locale. Do NOT route this through
+ * next-intl's formatter — user-visible day labels live in components and use
+ * `useFormatter()` / `getFormatter()`.
+ */
 export function isoDateInTimezone(date: Date, timezone: string): string {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,
