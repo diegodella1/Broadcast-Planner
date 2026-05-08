@@ -1,5 +1,6 @@
-import type { MediaAsset, SlideAsset } from "./types"
 import { parseTimecode } from "./time"
+
+import type { MediaAsset, SlideAsset } from "./types"
 
 type BuildInput = {
   mediaAssets: MediaAsset[]
@@ -97,20 +98,19 @@ export function buildLongTestSchedule(input: BuildInput): GeneratedBlock[] {
 
     if (images.length && imageBumperSeconds > 0 && cursor < endSeconds) {
       const image = images[imageIndex % images.length]
-      if (image) {
-        const imageDuration = clampDuration(imageBumperSeconds, cursor, endSeconds)
-        blocks.push({
-          title: `Image: ${image.title}`,
-          blockType: "image",
-          assetId: image.id,
-          slideId: null,
-          startTime: formatTime(cursor),
-          startTimeSeconds: cursor,
-          durationSeconds: imageDuration
-        })
-        cursor += imageDuration
-        imageIndex += 1
-      }
+      if (!image) break
+      const imageDuration = clampDuration(imageBumperSeconds, cursor, endSeconds)
+      blocks.push({
+        title: `Image: ${image.title}`,
+        blockType: "image",
+        assetId: image.id,
+        slideId: null,
+        startTime: formatTime(cursor),
+        startTimeSeconds: cursor,
+        durationSeconds: imageDuration
+      })
+      cursor += imageDuration
+      imageIndex += 1
     }
   }
 

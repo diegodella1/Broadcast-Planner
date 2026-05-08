@@ -317,11 +317,11 @@ export async function createLongTestSchedule(input: {
 export async function createSlideAsset(input: {
   title: string
   slideType: string
-  content?: string
-  imageUrl?: string
-  htmlContent?: string
-  defaultDurationSeconds?: number
-  status?: string
+  content?: string | undefined
+  imageUrl?: string | undefined
+  htmlContent?: string | undefined
+  defaultDurationSeconds?: number | undefined
+  status?: string | undefined
 }) {
   const supabase = createServiceClient()
   const { error } = await supabase.from("slide_assets").insert({
@@ -448,11 +448,11 @@ export async function createMediaAsset(input: {
   sourceType: string
   mediaKind: string
   assetType: string
-  url?: string
-  storageBucket?: string
-  storagePath?: string
-  durationSeconds?: number
-  metadata?: Record<string, unknown>
+  url?: string | undefined
+  storageBucket?: string | undefined
+  storagePath?: string | undefined
+  durationSeconds?: number | undefined
+  metadata?: Record<string, unknown> | undefined
 }) {
   if (input.assetType === "ad" && input.durationSeconds && input.durationSeconds > 300) {
     throw new Error("Ads cannot be longer than 300 seconds")
@@ -483,16 +483,16 @@ export async function createMediaAsset(input: {
 export async function updateMediaAsset(input: {
   id: string
   title: string
-  description?: string
+  description?: string | undefined
   sourceType: string
   mediaKind: string
   assetType: string
-  url?: string
-  thumbnailUrl?: string
-  durationSeconds?: number
+  url?: string | undefined
+  thumbnailUrl?: string | undefined
+  durationSeconds?: number | undefined
   status: string
-  orientation?: string
-  revalidatePaths?: string[]
+  orientation?: string | undefined
+  revalidatePaths?: string[] | undefined
 }) {
   if (!input.id) throw new Error("Asset missing")
   if (input.assetType === "ad" && input.durationSeconds && input.durationSeconds > 300) {
