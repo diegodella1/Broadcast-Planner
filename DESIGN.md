@@ -14,21 +14,21 @@ Visual brief: `/Users/macarenazalazar/Downloads/rtv-air-manager_2.html`. Token a
 
 All tokens declared in `tailwind.config.ts` (P1.1). Component code MUST consume these by name.
 
-| Token | Value | Usage |
-|---|---|---|
-| `surface-elevated-1` | `#191919` | Body / sidebar / panels |
-| `surface-elevated-2` | `#1e1e1e` | Cards / blocks |
-| `surface-selected-positive` | `#19241f` | Active block bg |
-| `accent-positive` | `#1ae784` | Brand green / positive sentiment (chyron-canonical) |
-| `accent-positive-hover` | `#16cc74` | Hover on accent surfaces |
-| `accent-positive-glow` | `rgba(26,231,132,0.25)` | Outer glow shadow |
-| `accent-positive-glow-strong` | `rgba(26,231,132,0.60)` | Strong glow on focus |
-| `accent-live` | `#e7000b` | LIVE / ON AIR pill bg |
-| `accent-live-text` | `#ff4d4d` | Live text on dark |
-| `info-blue` | `#60a5fa` | Markets category badge |
-| `warn-amber` | `#fbbf24` | Calendar / warning category |
-| `info-violet` | `#c084fc` | Debt category |
-| `negative-red` | `#ef4444` | Negative sentiment / breaking |
+| Token                         | Value                   | Usage                                               |
+| ----------------------------- | ----------------------- | --------------------------------------------------- |
+| `surface-elevated-1`          | `#191919`               | Body / sidebar / panels                             |
+| `surface-elevated-2`          | `#1e1e1e`               | Cards / blocks                                      |
+| `surface-selected-positive`   | `#19241f`               | Active block bg                                     |
+| `accent-positive`             | `#1ae784`               | Brand green / positive sentiment (chyron-canonical) |
+| `accent-positive-hover`       | `#16cc74`               | Hover on accent surfaces                            |
+| `accent-positive-glow`        | `rgba(26,231,132,0.25)` | Outer glow shadow                                   |
+| `accent-positive-glow-strong` | `rgba(26,231,132,0.60)` | Strong glow on focus                                |
+| `accent-live`                 | `#e7000b`               | LIVE / ON AIR pill bg                               |
+| `accent-live-text`            | `#ff4d4d`               | Live text on dark                                   |
+| `info-blue`                   | `#60a5fa`               | Markets category badge                              |
+| `warn-amber`                  | `#fbbf24`               | Calendar / warning category                         |
+| `info-violet`                 | `#c084fc`               | Debt category                                       |
+| `negative-red`                | `#ef4444`               | Negative sentiment / breaking                       |
 
 ## Typography
 

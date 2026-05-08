@@ -16,7 +16,7 @@ export async function GET(request: Request) {
       )
     }
     const results = await searchVimeoCatalog(parsed.data.query)
-    return NextResponse.json({ results }, { headers: { "Cache-Control": "no-store" } })
+    return NextResponse.json(results, { headers: { "Cache-Control": "no-store" } })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error"
     console.error("[api/vimeo/search]", error)

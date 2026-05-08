@@ -81,7 +81,9 @@ export default async function SettingsPage({
           title="Vimeo shows and episodes"
           detail="Pick a show and convert visible episodes into reviewable assets."
         />
-        {!token ? <p className="mt-3 text-sm text-muted">Save a Vimeo API token to list shows.</p> : null}
+        {!token ? (
+          <p className="mt-3 text-sm text-muted">Save a Vimeo API token to list shows.</p>
+        ) : null}
         {vimeoState.error ? (
           <p className="mt-3 rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger-strong">
             {vimeoState.error}
@@ -170,7 +172,9 @@ async function loadVimeoState(
 
 function ShowEpisodePicker({ episodes, showUri }: { episodes: VimeoVideo[]; showUri: string }) {
   if (!episodes.length) {
-    return <p className="mt-4 text-sm text-muted">This show has no visible episodes for this token.</p>
+    return (
+      <p className="mt-4 text-sm text-muted">This show has no visible episodes for this token.</p>
+    )
   }
   return (
     <form

@@ -1,4 +1,11 @@
-import type { ActiveSchedule, MediaAsset, ProgramBlock, ScheduleBundle, ScheduledLayer, SlideAsset } from "./types"
+import type {
+  ActiveSchedule,
+  MediaAsset,
+  ProgramBlock,
+  ScheduleBundle,
+  ScheduledLayer,
+  SlideAsset
+} from "./types"
 
 export function findActiveSchedule(bundle: ScheduleBundle, secondsOfDay: number): ActiveSchedule {
   let block: ProgramBlock | null = null
@@ -35,21 +42,34 @@ export function findActiveSchedule(bundle: ScheduleBundle, secondsOfDay: number)
     layers: block.hideOverlays ? [] : activeLayers,
     asset,
     slide,
-    fallbackAsset: block.fallbackAssetId ? findAsset(bundle.mediaAssets, block.fallbackAssetId) : findFallbackAsset(bundle)
+    fallbackAsset: block.fallbackAssetId
+      ? findAsset(bundle.mediaAssets, block.fallbackAssetId)
+      : findFallbackAsset(bundle)
   }
 }
 
-export function findActiveLayers(layers: ScheduledLayer[], blockId: string, elapsedInBlock: number): ScheduledLayer[] {
+export function findActiveLayers(
+  layers: ScheduledLayer[],
+  blockId: string,
+  elapsedInBlock: number
+): ScheduledLayer[] {
   return layers
     .filter((layer) => layer.programBlockId === blockId && layer.enabled)
-    .filter((layer) => elapsedInBlock >= layer.startTimeSeconds && elapsedInBlock < layer.startTimeSeconds + layer.durationSeconds)
+    .filter(
+      (layer) =>
+        elapsedInBlock >= layer.startTimeSeconds &&
+        elapsedInBlock < layer.startTimeSeconds + layer.durationSeconds
+    )
     .sort((a, b) => a.zIndex - b.zIndex)
 }
 
-export function validateBlock(block: Pick<ProgramBlock, "blockType" | "durationSeconds">): string[] {
+export function validateBlock(
+  block: Pick<ProgramBlock, "blockType" | "durationSeconds">
+): string[] {
   const errors: string[] = []
   if (block.durationSeconds <= 0) errors.push("Duration must be greater than zero")
-  if (block.blockType === "ad" && block.durationSeconds > 300) errors.push("Ads cannot be longer than 300 seconds")
+  if (block.blockType === "ad" && block.durationSeconds > 300)
+    errors.push("Ads cannot be longer than 300 seconds")
   return errors
 }
 
@@ -71,6 +91,14 @@ function findSlide(slides: SlideAsset[], id: string): SlideAsset | null {
 }
 
 function findFallbackAsset(bundle: ScheduleBundle): MediaAsset | null {
-  const dayFallback = bundle.day?.fallbackAssetId ? findAsset(bundle.mediaAssets, bundle.day.fallbackAssetId) : null
-  return dayFallback ?? bundle.mediaAssets.find((asset) => asset.assetType === "fallback" && asset.status === "ready") ?? null
+  const dayFallback = bundle.day?.fallbackAssetId
+    ? findAsset(bundle.mediaAssets, bundle.day.fallbackAssetId)
+    : null
+  return (
+    dayFallback ??
+    bundle.mediaAssets.find(
+      (asset) => asset.assetType === "fallback" && asset.status === "ready"
+    ) ??
+    null
+  )
 }

@@ -12,7 +12,11 @@ export type IntegrationSetting = {
   hasSecret?: boolean
 }
 
-export async function saveVimeoSettings(input: { token?: string; folderUri?: string; timezone?: string }) {
+export async function saveVimeoSettings(input: {
+  token?: string
+  folderUri?: string
+  timezone?: string
+}) {
   const supabase = createServiceClient()
   const publicConfig = {
     folder_uri: input.folderUri || null,
@@ -26,14 +30,19 @@ export async function saveVimeoSettings(input: { token?: string; folderUri?: str
     updated_at: new Date().toISOString()
   }
   if (encrypted_secret) payload.encrypted_secret = encrypted_secret
-  const { error } = await supabase.from("integration_settings").upsert(payload, { onConflict: "provider" })
+  const { error } = await supabase
+    .from("integration_settings")
+    .upsert(payload, { onConflict: "provider" })
   if (error) throw error
   await supabase.from("audit_log").insert({
     actor: "admin",
     action: "settings.vimeo.updated",
     entity_type: "integration_settings",
     entity_id: "vimeo",
-    metadata: { token: encrypted_secret ? maskSecret(input.token) : "unchanged", folder_uri: input.folderUri ?? null }
+    metadata: {
+      token: encrypted_secret ? maskSecret(input.token) : "unchanged",
+      folder_uri: input.folderUri ?? null
+    }
   })
 }
 
@@ -59,7 +68,10 @@ export async function getVimeoSettings(): Promise<IntegrationSetting | null> {
   if (!data) return null
   return {
     provider: String(data.provider),
-    publicConfig: typeof data.public_config === "object" && data.public_config !== null ? data.public_config as Record<string, unknown> : {},
+    publicConfig:
+      typeof data.public_config === "object" && data.public_config !== null
+        ? (data.public_config as Record<string, unknown>)
+        : {},
     status: String(data.status) as IntegrationSetting["status"],
     lastError: data.last_error ? String(data.last_error) : null,
     lastCheckedAt: data.last_checked_at ? String(data.last_checked_at) : null,
@@ -67,7 +79,10 @@ export async function getVimeoSettings(): Promise<IntegrationSetting | null> {
   }
 }
 
-export async function markVimeoStatus(status: "connected" | "invalid" | "failed", errorMessage?: string) {
+export async function markVimeoStatus(
+  status: "connected" | "invalid" | "failed",
+  errorMessage?: string
+) {
   const supabase = createServiceClient()
   await supabase
     .from("integration_settings")

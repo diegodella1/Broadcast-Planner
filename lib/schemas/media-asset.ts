@@ -11,7 +11,16 @@ const sourceTypeEnum = z.enum([
   "reuters"
 ])
 const mediaKindEnum = z.enum(["video", "image", "audio", "graphic"])
-const assetTypeEnum = z.enum(["video", "image", "slide", "ad", "promo", "fallback", "overlay", "music"])
+const assetTypeEnum = z.enum([
+  "video",
+  "image",
+  "slide",
+  "ad",
+  "promo",
+  "fallback",
+  "overlay",
+  "music"
+])
 const assetStatusEnum = z.enum(["draft", "syncing", "ready", "failed", "archived"])
 const orientationEnum = z.enum(["auto", "horizontal", "vertical"])
 

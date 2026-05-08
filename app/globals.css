@@ -168,6 +168,91 @@ textarea::placeholder {
 }
 
 /* ---------------------------------------------------------------------------
+   Keyframe definitions
+   Source: rtv-air-manager_2.html <style> block (lines ~45–209).
+   flash-up / flash-down / ticker-scroll-* are not in the chyron HTML and are
+   inferred per spec. Raw rgba is required — CSS keyframes cannot reference
+   Tailwind tokens. Values match design tokens:
+     accent-positive (#1ae784) → rgba(26, 231, 132, …)
+     negative-red    (#ef4444) → rgba(239, 68, 68, …)
+   --------------------------------------------------------------------------- */
+
+/* blink — ON AIR pill, LIVE dot (chyron HTML line 45; opacity 0.15 matches source) */
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+
+/* pd — globe / earthcam preview dots, concentric pulse (chyron HTML line 197) */
+@keyframes pd {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0.4;
+  }
+}
+
+/* bar-grow — market chart bars growing from a floor (chyron HTML line 209;
+   uses height rather than scaleY because bars set an explicit --h custom property) */
+@keyframes bar-grow {
+  from {
+    height: 20%;
+  }
+  to {
+    height: var(--h);
+  }
+}
+
+/* flash-up — green tint flash on price increase (inferred; not in chyron HTML) */
+@keyframes flash-up {
+  0% {
+    background-color: rgba(26, 231, 132, 0.5);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* flash-down — red tint flash on price decrease (inferred; not in chyron HTML) */
+@keyframes flash-down {
+  0% {
+    background-color: rgba(239, 68, 68, 0.5);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* ticker-scroll-news — news ticker belt, 80 s (inferred; not in chyron HTML) */
+@keyframes ticker-scroll-news {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/* ticker-scroll-stocks — stocks ticker belt, 28 s (inferred; not in chyron HTML) */
+@keyframes ticker-scroll-stocks {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Animation helper classes (P5 / P6 chyron primitives)
    Keyframe definitions (@keyframes blink, pd, bar-grow, …) live alongside the
    components that first use them (P5.4 for blink/now-line, P6.3 for slide

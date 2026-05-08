@@ -36,7 +36,10 @@ export async function GET() {
             blockCategory: active.block.category,
             startsAt: active.block.startTimeSeconds,
             durationSeconds: active.block.durationSeconds,
-            elapsedInBlock: Math.max(0, Math.min(active.elapsedInBlock, active.block.durationSeconds))
+            elapsedInBlock: Math.max(
+              0,
+              Math.min(active.elapsedInBlock, active.block.durationSeconds)
+            )
           },
           dayStatus
         }

@@ -34,7 +34,9 @@ export async function OperationsPanel() {
 function PanelSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border-b border-white/10 px-4 py-3">
-      <h2 className="text-[10px] font-semibold uppercase tracking-wide text-white/50 mb-2">{title}</h2>
+      <h2 className="text-[10px] font-semibold uppercase tracking-wide text-white/50 mb-2">
+        {title}
+      </h2>
       {children}
     </section>
   )

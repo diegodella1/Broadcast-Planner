@@ -123,11 +123,11 @@ export default async function MusicPage({
             <summary className="grid cursor-pointer list-none gap-3 md:grid-cols-[1fr_90px_140px_120px_90px] md:items-center">
               <div>
                 <p className="font-semibold">{track.title}</p>
-              <p className="text-sm text-muted">
-                {track.sourceType} · {track.url ? "source linked" : "missing source"}
-              </p>
-            </div>
-            <span className="text-sm text-muted">#{playlistOrder(track)}</span>
+                <p className="text-sm text-muted">
+                  {track.sourceType} · {track.url ? "source linked" : "missing source"}
+                </p>
+              </div>
+              <span className="text-sm text-muted">#{playlistOrder(track)}</span>
               <span className="text-sm text-muted">
                 {track.durationSeconds ? `${track.durationSeconds}s` : "No duration"}
               </span>

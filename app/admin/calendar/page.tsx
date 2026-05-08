@@ -8,7 +8,11 @@ import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
 
 export const dynamic = "force-dynamic"
 
-export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+export default async function CalendarPage({
+  searchParams
+}: {
+  searchParams: Promise<{ month?: string }>
+}) {
   const params = await searchParams
   const days = await getDays()
   const today = isoDateInTimezone(new Date(), PLAYOUT_TIMEZONE)
@@ -21,7 +25,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   )
   const coverage = new Map(
     schedules.map(([date, schedule]) => {
-      const programmedSeconds = schedule.blocks.reduce((total, block) => total + block.durationSeconds, 0)
+      const programmedSeconds = schedule.blocks.reduce(
+        (total, block) => total + block.durationSeconds,
+        0
+      )
       return [date, Math.min(100, Math.round((programmedSeconds / 86400) * 100))]
     })
   )
@@ -37,32 +44,49 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     <AdminShell
       title="Programming"
       description="Operational broadcast days with scheduled blocks, overlays, fallback coverage and publish state."
-      actions={
-        <ButtonLink href={`/admin/schedule/${today}`}>
-          Program today
-        </ButtonLink>
-      }
+      actions={<ButtonLink href={`/admin/schedule/${today}`}>Program today</ButtonLink>}
     >
       <section className="mb-5 grid gap-3 md:grid-cols-3">
         <MetricTile label="Days" value={String(days.length)} detail="Programming days created" />
-        <MetricTile label="Active" value={String(activeDays)} detail="Days currently marked active" tone={activeDays ? "ok" : "neutral"} />
+        <MetricTile
+          label="Active"
+          value={String(activeDays)}
+          detail="Days currently marked active"
+          tone={activeDays ? "ok" : "neutral"}
+        />
         <MetricTile label="Today" value={today} detail="San Francisco operating date" tone="info" />
       </section>
       <section className="surface-panel mb-5 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div>
             <h2 className="font-semibold">Monthly programming</h2>
-            <p className="mt-1 text-sm text-muted">Each day shows the percentage of the 24h schedule already programmed.</p>
+            <p className="mt-1 text-sm text-muted">
+              Each day shows the percentage of the 24h schedule already programmed.
+            </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link className="btn-secondary" href={`/admin/calendar?month=${monthKey(previousMonth.year, previousMonth.month)}`}>Previous</Link>
-            <span className="rounded-md border border-line px-3 py-2 text-sm font-semibold">{monthLabel(selectedMonth.year, selectedMonth.month)}</span>
-            <Link className="btn-secondary" href={`/admin/calendar?month=${monthKey(nextMonth.year, nextMonth.month)}`}>Next</Link>
+            <Link
+              className="btn-secondary"
+              href={`/admin/calendar?month=${monthKey(previousMonth.year, previousMonth.month)}`}
+            >
+              Previous
+            </Link>
+            <span className="rounded-md border border-line px-3 py-2 text-sm font-semibold">
+              {monthLabel(selectedMonth.year, selectedMonth.month)}
+            </span>
+            <Link
+              className="btn-secondary"
+              href={`/admin/calendar?month=${monthKey(nextMonth.year, nextMonth.month)}`}
+            >
+              Next
+            </Link>
           </div>
         </div>
         <div className="grid grid-cols-7 border-b border-line bg-panel-soft text-center text-xs font-semibold uppercase text-muted">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
-            <div key={label} className="px-2 py-2">{label}</div>
+            <div key={label} className="px-2 py-2">
+              {label}
+            </div>
           ))}
         </div>
         <div className="grid grid-cols-7">
@@ -83,10 +107,23 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className="font-semibold tabular-nums">{Number(date.slice(8, 10))}</span>
-                  {day ? <StatusPill status={day.status} /> : <span className="text-xs text-muted">Empty</span>}
+                  {day ? (
+                    <StatusPill status={day.status} />
+                  ) : (
+                    <span className="text-xs text-muted">Empty</span>
+                  )}
                 </div>
                 <div className="mt-5 h-2 overflow-hidden rounded-full bg-panel">
-                  <div className={percent >= 100 ? "h-full bg-success" : percent > 0 ? "h-full bg-info" : "h-full bg-line"} style={{ width: `${Math.max(percent, percent > 0 ? 4 : 0)}%` }} />
+                  <div
+                    className={
+                      percent >= 100
+                        ? "h-full bg-success"
+                        : percent > 0
+                          ? "h-full bg-info"
+                          : "h-full bg-line"
+                    }
+                    style={{ width: `${Math.max(percent, percent > 0 ? 4 : 0)}%` }}
+                  />
                 </div>
                 <p className="mt-2 text-xs font-semibold tabular-nums">{percent}% programmed</p>
               </Link>
@@ -95,22 +132,38 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         </div>
       </section>
       <form action={createDay} className="surface-panel mb-5 flex max-w-xl gap-3 p-4">
-        <input name="date" type="date" required className="min-w-0 flex-1 border border-line px-3 py-2 text-sm" defaultValue={today} />
+        <input
+          name="date"
+          type="date"
+          required
+          className="min-w-0 flex-1 border border-line px-3 py-2 text-sm"
+          defaultValue={today}
+        />
         <button className="btn-primary">Create day</button>
       </form>
       <div className="grid gap-3">
         {days.map((day) => (
-          <Link key={day.id} href={`/admin/schedule/${day.airDate}`} className="surface-card p-4 hover:border-line-strong hover:bg-panel-soft">
+          <Link
+            key={day.id}
+            href={`/admin/schedule/${day.airDate}`}
+            className="surface-card p-4 hover:border-line-strong hover:bg-panel-soft"
+          >
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-lg font-semibold">{day.title ?? day.airDate}</p>
-                <p className="text-sm text-muted">{day.airDate} · {day.timezone}</p>
+                <p className="text-sm text-muted">
+                  {day.airDate} · {day.timezone}
+                </p>
               </div>
               <StatusPill status={day.status} />
             </div>
           </Link>
         ))}
-        {days.length === 0 ? <EmptyState title="No programming days yet">Pick a date and create the first day before adding blocks.</EmptyState> : null}
+        {days.length === 0 ? (
+          <EmptyState title="No programming days yet">
+            Pick a date and create the first day before adding blocks.
+          </EmptyState>
+        ) : null}
       </div>
     </AdminShell>
   )

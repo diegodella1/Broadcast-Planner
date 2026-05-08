@@ -36,8 +36,12 @@ export function ScheduleTimeline({
   const [dragStart, setDragStart] = useState<number | null>(null)
   const [dragEnd, setDragEnd] = useState<number | null>(null)
   const [selection, setSelection] = useState<Selection | null>(null)
-  const issueMap = useMemo(() => new Map(issues.filter((issue) => issue.blockId).map((issue) => [issue.blockId, issue])), [issues])
-  const selectedRange = dragStart !== null && dragEnd !== null ? normalizeSelection(dragStart, dragEnd) : selection
+  const issueMap = useMemo(
+    () => new Map(issues.filter((issue) => issue.blockId).map((issue) => [issue.blockId, issue])),
+    [issues]
+  )
+  const selectedRange =
+    dragStart !== null && dragEnd !== null ? normalizeSelection(dragStart, dragEnd) : selection
 
   function secondsFromPointer(clientY: number) {
     const rect = trackRef.current?.getBoundingClientRect()
@@ -89,7 +93,11 @@ export function ScheduleTimeline({
           <div className="grid" style={{ gridTemplateColumns: "72px minmax(0, 1fr)" }}>
             <div>
               {Array.from({ length: 24 }, (_, hour) => (
-                <div key={hour} className="border-b border-r border-line bg-panel-soft px-3 py-2 text-xs font-semibold text-muted last:border-b-0" style={{ height: HOUR_HEIGHT }}>
+                <div
+                  key={hour}
+                  className="border-b border-r border-line bg-panel-soft px-3 py-2 text-xs font-semibold text-muted last:border-b-0"
+                  style={{ height: HOUR_HEIGHT }}
+                >
                   {String(hour).padStart(2, "0")}:00
                 </div>
               ))}
@@ -107,7 +115,11 @@ export function ScheduleTimeline({
               }}
             >
               {Array.from({ length: 24 }, (_, hour) => (
-                <div key={hour} className="border-b border-line last:border-b-0" style={{ height: HOUR_HEIGHT }}>
+                <div
+                  key={hour}
+                  className="border-b border-line last:border-b-0"
+                  style={{ height: HOUR_HEIGHT }}
+                >
                   <div className="h-1/2 border-b border-dashed border-line/70" />
                 </div>
               ))}
@@ -116,7 +128,9 @@ export function ScheduleTimeline({
                   className="absolute left-0 right-0 z-20 border-t-2 border-red-500"
                   style={{ top: `${(nowSeconds / DAY_SECONDS) * 100}%` }}
                 >
-                  <span className="absolute -top-3 right-2 rounded bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white">LIVE</span>
+                  <span className="absolute -top-3 right-2 rounded bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                    LIVE
+                  </span>
                 </div>
               ) : null}
               {blocks.map((block) => {
@@ -141,7 +155,8 @@ export function ScheduleTimeline({
                       <span className="shrink-0">{formatTimecode(block.durationSeconds)}</span>
                     </span>
                     <span className="mt-0.5 block truncate opacity-80">
-                      <PlayoutTime airDate={date} seconds={block.startTimeSeconds} /> · {block.blockType} · {blockAssetLabel(schedule, block)}
+                      <PlayoutTime airDate={date} seconds={block.startTimeSeconds} /> ·{" "}
+                      {block.blockType} · {blockAssetLabel(schedule, block)}
                     </span>
                   </Link>
                 )
@@ -197,15 +212,21 @@ function SelectionCreatePanel({
   function setAsset(value: string) {
     setAssetId(value)
     if (value) setSlideId("")
-    const assetDuration = schedule.mediaAssets.find((asset) => asset.id === value)?.durationSeconds ?? 0
-    setDurationSeconds((current) => Math.max(current, assetDuration + preRollSeconds + postRollSeconds))
+    const assetDuration =
+      schedule.mediaAssets.find((asset) => asset.id === value)?.durationSeconds ?? 0
+    setDurationSeconds((current) =>
+      Math.max(current, assetDuration + preRollSeconds + postRollSeconds)
+    )
   }
 
   function setSlide(value: string) {
     setSlideId(value)
     if (value) setAssetId("")
-    const slideDuration = schedule.slideAssets.find((slide) => slide.id === value)?.defaultDurationSeconds ?? 0
-    setDurationSeconds((current) => Math.max(current, slideDuration + preRollSeconds + postRollSeconds))
+    const slideDuration =
+      schedule.slideAssets.find((slide) => slide.id === value)?.defaultDurationSeconds ?? 0
+    setDurationSeconds((current) =>
+      Math.max(current, slideDuration + preRollSeconds + postRollSeconds)
+    )
   }
 
   function setPadding(kind: "pre" | "post", value: number) {
@@ -237,12 +258,28 @@ function SelectionCreatePanel({
               </p>
             ) : null}
           </div>
-          <button type="button" onClick={onCancel} className="rounded-md border border-line px-2 py-1 text-xs font-semibold text-muted hover:bg-panel-soft">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md border border-line px-2 py-1 text-xs font-semibold text-muted hover:bg-panel-soft"
+          >
             Cancel
           </button>
         </div>
-        <input name="title" required defaultValue={`Block ${formatPlayoutTimeLabel(selection.start)}`} placeholder="Block title" className="border border-line px-3 py-2 text-sm" />
-        <input name="start_time" required defaultValue={formatTimecode(selection.start)} title="San Francisco time" className="border border-line px-3 py-2 text-sm" />
+        <input
+          name="title"
+          required
+          defaultValue={`Block ${formatPlayoutTimeLabel(selection.start)}`}
+          placeholder="Block title"
+          className="border border-line px-3 py-2 text-sm"
+        />
+        <input
+          name="start_time"
+          required
+          defaultValue={formatTimecode(selection.start)}
+          title="San Francisco time"
+          className="border border-line px-3 py-2 text-sm"
+        />
         <input
           name="duration_seconds"
           required
@@ -260,18 +297,31 @@ function SelectionCreatePanel({
           <option value="promo">Promo</option>
           <option value="fallback">Fallback</option>
         </select>
-        <select name="asset_id" value={assetId} onChange={(event) => setAsset(event.target.value)} className="border border-line px-3 py-2 text-sm">
+        <select
+          name="asset_id"
+          value={assetId}
+          onChange={(event) => setAsset(event.target.value)}
+          className="border border-line px-3 py-2 text-sm"
+        >
           <option value="">No asset</option>
           {schedule.mediaAssets.map((asset) => (
             <option key={asset.id} value={asset.id}>
-              {asset.title} · {asset.status}{asset.durationSeconds ? ` · ${formatTimecode(asset.durationSeconds)}` : ""}
+              {asset.title} · {asset.status}
+              {asset.durationSeconds ? ` · ${formatTimecode(asset.durationSeconds)}` : ""}
             </option>
           ))}
         </select>
-        <select name="slide_id" value={slideId} onChange={(event) => setSlide(event.target.value)} className="border border-line px-3 py-2 text-sm">
+        <select
+          name="slide_id"
+          value={slideId}
+          onChange={(event) => setSlide(event.target.value)}
+          className="border border-line px-3 py-2 text-sm"
+        >
           <option value="">No slide</option>
           {schedule.slideAssets.map((slide) => (
-            <option key={slide.id} value={slide.id}>{slide.title} · {slide.status}</option>
+            <option key={slide.id} value={slide.id}>
+              {slide.title} · {slide.status}
+            </option>
           ))}
         </select>
         <input
@@ -316,8 +366,12 @@ function snapSeconds(value: number) {
 }
 
 function blockAssetLabel(schedule: ScheduleBundle, block: ProgramBlock) {
-  const asset = block.assetId ? schedule.mediaAssets.find((item) => item.id === block.assetId) : null
-  const slide = block.slideId ? schedule.slideAssets.find((item) => item.id === block.slideId) : null
+  const asset = block.assetId
+    ? schedule.mediaAssets.find((item) => item.id === block.assetId)
+    : null
+  const slide = block.slideId
+    ? schedule.slideAssets.find((item) => item.id === block.slideId)
+    : null
   return assetLabel(asset, slide)
 }
 
@@ -330,7 +384,8 @@ function assetLabel(asset: MediaAsset | null | undefined, slide: SlideAsset | nu
 function blockTone(block: ProgramBlock, issueSeverity?: string) {
   if (issueSeverity === "critical") return "border-danger-line bg-danger-soft text-danger-strong"
   if (issueSeverity === "warning") return "border-warn-line bg-warn-soft text-warn-strong"
-  if (block.status !== "ready" && block.status !== "active") return "border-line bg-panel text-muted"
+  if (block.status !== "ready" && block.status !== "active")
+    return "border-line bg-panel text-muted"
   switch (block.blockType) {
     case "ad":
       return "border-info-line bg-info-soft text-info-strong"

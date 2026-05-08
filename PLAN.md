@@ -25,6 +25,7 @@ The codebase is structurally sound (clean server/client split, 0 `any`, accurate
 ## 3. Phased Plan
 
 ### Phase 1 — Foundation: dark theme, tokens, font
+
 **Goal**: Lock the visual direction so every later phase can reference token names instead of hex.
 **Duration**: 1–1.5 dev-days.
 **Exit criteria**: All token names from the design HTML resolve in Tailwind; `app/globals.css` declares `color-scheme: dark`; `DESIGN.md` matches; existing pages render against new tokens without raw hex.
@@ -62,6 +63,7 @@ The codebase is structurally sound (clean server/client split, 0 `any`, accurate
 ---
 
 ### Phase 2 — Internationalization (i18n): English default + Spanish secondary
+
 **Goal**: Externalize every UI string and default the app to English. Locked early so every later UI task in Phases 4-6 uses `t()` from day one — avoids retrofitting after the visual rework lands.
 **Duration**: 1.5–2 dev-days.
 **Exit criteria**: Zero hardcoded user-facing strings outside `messages/*.json`; default locale = `en`; language switcher in topbar (lands in Phase 4 task 2); build passes typecheck with `next-intl` strict mode; both `messages/en.json` and `messages/es.json` complete and symmetric.
@@ -105,6 +107,7 @@ The codebase is structurally sound (clean server/client split, 0 `any`, accurate
 ---
 
 ### Phase 3 — Domain extensions: BlockCategory, reuters source, Live chip
+
 **Goal**: Land schema + types so badges, filters, and chips compile against real fields.
 **Duration**: 1–2 dev-days.
 **Exit criteria**: Migrations applied, seed updated, `lib/types.ts` exports new enums, all server actions/queries that touch blocks accept a category.
@@ -136,6 +139,7 @@ The codebase is structurally sound (clean server/client split, 0 `any`, accurate
 ---
 
 ### Phase 4 — Shell rework: 56px sidebar, 48px topbar, ON AIR pill, language switcher
+
 **Goal**: The visible spine of the app matches the design before deeper views are reworked.
 **Duration**: 1.5–2 dev-days.
 **Exit criteria**: `components/admin-shell.tsx` renders the new chrome; ON AIR pill is gated correctly; topbar buttons exist with correct icons + aria-labels; language switcher mounts in topbar.
@@ -161,6 +165,7 @@ The codebase is structurally sound (clean server/client split, 0 `any`, accurate
 ---
 
 ### Phase 5 — Schedule rundown + right-rail operations panel
+
 **Goal**: The largest user-facing block. Convert the 24h grid to a vertical rundown and add the 240px operations panel.
 **Duration**: 3–5 dev-days.
 **Exit criteria**: `app/admin/schedule/[date]/page.tsx` renders rundown rows + now-line + right-rail; right-rail sections appear in the order specified.
@@ -234,6 +239,7 @@ The codebase is structurally sound (clean server/client split, 0 `any`, accurate
 ---
 
 ### Phase 6 — Assets, Slides, Operator panel `/admin/output`
+
 **Goal**: Round out the views the design HTML specifies.
 **Duration**: 3–4 dev-days.
 **Exit criteria**: Assets supports tile-grid + source filter; Slides has list + 16:9 preview; `/admin/output` exists with broadcast controls.
@@ -271,6 +277,7 @@ The codebase is structurally sound (clean server/client split, 0 `any`, accurate
 ---
 
 ### Phase 7 — Standards bar: tests, tsconfig, lint, error handling, dead deps, CI
+
 **Goal**: Lift the project's engineering floor. Most of this is parallel-safe with Phase 6; listed last so a clean "polish PR" exists.
 **Duration**: 3–5 dev-days.
 **Exit criteria**: Coverage thresholds enforced; tsconfig strictness raised; silent catches replaced with telemetry + outage banner; CI runs typecheck + lint + test on PRs.

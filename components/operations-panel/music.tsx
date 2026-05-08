@@ -40,9 +40,7 @@ export function OperationsPanelMusic() {
           aria-valuemax={100}
           className="flex-1 accent-accent-positive disabled:opacity-30"
         />
-        <span className="text-[10px] text-white/40 tabular-nums w-8 text-right">
-          {volume}%
-        </span>
+        <span className="text-[10px] text-white/40 tabular-nums w-8 text-right">{volume}%</span>
       </div>
     </div>
   )

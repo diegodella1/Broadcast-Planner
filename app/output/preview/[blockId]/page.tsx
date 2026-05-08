@@ -12,7 +12,14 @@ export default async function OutputPreviewPage({
   const [{ blockId }, query] = await Promise.all([params, searchParams])
   const schedule = await getScheduleOrEmergency(blockId)
   if (!schedule) return <EmergencySlate reason="Preview data unavailable" />
-  return <OutputRenderer initialSchedule={schedule} initialSeconds={secondsSinceMidnightInTimezone()} debug={query.debug === "true"} forcedBlockId={blockId} />
+  return (
+    <OutputRenderer
+      initialSchedule={schedule}
+      initialSeconds={secondsSinceMidnightInTimezone()}
+      debug={query.debug === "true"}
+      forcedBlockId={blockId}
+    />
+  )
 }
 
 async function getScheduleOrEmergency(blockId: string) {

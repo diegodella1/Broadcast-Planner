@@ -21,27 +21,42 @@ type Props = {
 function cardClasses(state: RundownRowState, isBroadcast: boolean): string {
   const base = "flex-1 rounded-md border p-3 text-sm transition hover:brightness-95"
   if (state === "active") {
-    return clsx(base, "bg-surface-selected-positive border-accent-positive shadow-accent-positive-glow")
+    return clsx(
+      base,
+      "bg-surface-selected-positive border-accent-positive shadow-accent-positive-glow"
+    )
   }
   if (state === "next") {
     return clsx(
       base,
       "opacity-60",
-      isBroadcast ? "border-accent-live bg-surface-elevated-2" : "bg-surface-elevated-2 border-white/10"
+      isBroadcast
+        ? "border-accent-live bg-surface-elevated-2"
+        : "bg-surface-elevated-2 border-white/10"
     )
   }
   return clsx(
     base,
-    isBroadcast ? "border-accent-live bg-surface-elevated-2" : "bg-surface-elevated-2 border-white/10"
+    isBroadcast
+      ? "border-accent-live bg-surface-elevated-2"
+      : "bg-surface-elevated-2 border-white/10"
   )
 }
 
-export function RundownRow({ block, schedule, date, state, categoryLabel, liveLabel, statusLabel }: Props) {
+export function RundownRow({
+  block,
+  schedule,
+  date,
+  state,
+  categoryLabel,
+  liveLabel,
+  statusLabel
+}: Props) {
   const asset = block.assetId
-    ? schedule.mediaAssets.find((a) => a.id === block.assetId) ?? null
+    ? (schedule.mediaAssets.find((a) => a.id === block.assetId) ?? null)
     : null
   const slide = block.slideId
-    ? schedule.slideAssets.find((s) => s.id === block.slideId) ?? null
+    ? (schedule.slideAssets.find((s) => s.id === block.slideId) ?? null)
     : null
 
   const duration = getDurationDisplay({
@@ -74,7 +89,10 @@ export function RundownRow({ block, schedule, date, state, categoryLabel, liveLa
 
       {/* Card */}
       <div className="flex-1 py-1 pl-3">
-        <Link href={`/admin/schedule/${date}/blocks/${block.id}`} className={cardClasses(state, isBroadcast)}>
+        <Link
+          href={`/admin/schedule/${date}/blocks/${block.id}`}
+          className={cardClasses(state, isBroadcast)}
+        >
           {/* Top row: badge + status + duration */}
           <div className="flex flex-wrap items-center gap-2">
             <BlockBadge
