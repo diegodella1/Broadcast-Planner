@@ -89,7 +89,13 @@ vi.mock("@/lib/supabase/server", () => ({
 import { revalidatePath } from "next/cache"
 
 import { getMediaAssetByVimeoUri, getMediaAssetById } from "./data"
-import { searchVimeoCatalog, goLiveWithVimeo, scheduleVimeoBlock } from "./manual-broadcast"
+import {
+  goLiveWithReuters,
+  goLiveWithVimeo,
+  scheduleReutersBlock,
+  scheduleVimeoBlock,
+  searchVimeoCatalog
+} from "./manual-broadcast"
 import { createProgramBlock } from "./mutations"
 import { getVimeoToken } from "./settings"
 import { searchVimeoAccountVideos, getVimeoVideo, upsertVimeoVideos } from "./vimeo"
@@ -340,5 +346,121 @@ describe("scheduleVimeoBlock", () => {
     // The date must be a valid ISO date string (YYYY-MM-DD) — exact value
     // depends on the TZ offset for America/Argentina/Buenos_Aires (-3h)
     expect(call?.[0].date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// goLiveWithReuters
+// ---------------------------------------------------------------------------
+describe("goLiveWithReuters", () => {
+  beforeEach(resetMocks)
+
+  function makeReutersAsset(overrides: Partial<MediaAsset> = {}): MediaAsset {
+    return makeAsset({
+      id: "11111111-1111-1111-1111-111111111111",
+      sourceType: "reuters",
+      durationSeconds: null,
+      title: "Reuters Top News HD",
+      ...overrides
+    })
+  }
+
+  it("throws when the asset id does not resolve to a media asset", async () => {
+    vi.mocked(getMediaAssetById).mockResolvedValue(null)
+    await expect(
+      goLiveWithReuters({ assetId: "11111111-1111-1111-1111-111111111111" })
+    ).rejects.toThrow(/reuters asset not found/i)
+  })
+
+  it("throws when the asset is not a reuters source", async () => {
+    vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ sourceType: "vimeo" }))
+    await expect(
+      goLiveWithReuters({ assetId: "11111111-1111-1111-1111-111111111111" })
+    ).rejects.toThrow(/not a reuters channel/i)
+  })
+
+  it("creates a ProgramBlock with category=reuters and 1800s default for live channels", async () => {
+    vi.mocked(getMediaAssetById).mockResolvedValue(makeReutersAsset())
+    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    supabaseMock.setResult({ data: null, error: null })
+
+    await goLiveWithReuters({ assetId: "11111111-1111-1111-1111-111111111111" })
+
+    expect(createProgramBlock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: "reuters",
+        blockType: "video",
+        durationSeconds: 1800,
+        assetId: "11111111-1111-1111-1111-111111111111",
+        title: "Reuters Top News HD"
+      })
+    )
+  })
+
+  it("calls revalidatePath for /admin/output and /admin/schedule/<date>", async () => {
+    vi.mocked(getMediaAssetById).mockResolvedValue(makeReutersAsset())
+    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    supabaseMock.setResult({ data: null, error: null })
+
+    await goLiveWithReuters({ assetId: "11111111-1111-1111-1111-111111111111" })
+
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/output")
+    expect(
+      vi.mocked(revalidatePath).mock.calls.some((c) => c[0].startsWith("/admin/schedule/"))
+    ).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// scheduleReutersBlock
+// ---------------------------------------------------------------------------
+describe("scheduleReutersBlock", () => {
+  beforeEach(resetMocks)
+
+  function makeReutersAsset(overrides: Partial<MediaAsset> = {}): MediaAsset {
+    return makeAsset({
+      id: "22222222-2222-2222-2222-222222222222",
+      sourceType: "reuters",
+      durationSeconds: null,
+      title: "Reuters Markets HD",
+      ...overrides
+    })
+  }
+
+  it("normalizes HH:MM startAt to HH:MM:SS in the ProgramBlock", async () => {
+    vi.mocked(getMediaAssetById).mockResolvedValue(makeReutersAsset())
+    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    supabaseMock.setResult({ data: null, error: null })
+
+    await scheduleReutersBlock({
+      assetId: "22222222-2222-2222-2222-222222222222",
+      startAt: "09:30",
+      durationSeconds: 1800
+    })
+
+    expect(createProgramBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ startTime: "09:30:00", category: "reuters" })
+    )
+  })
+
+  it("uses the supplied airDate", async () => {
+    vi.mocked(getMediaAssetById).mockResolvedValue(makeReutersAsset())
+    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    supabaseMock.setResult({ data: null, error: null })
+
+    await scheduleReutersBlock({
+      assetId: "22222222-2222-2222-2222-222222222222",
+      startAt: "08:00",
+      airDate: "2026-06-15",
+      durationSeconds: 3600
+    })
+
+    expect(createProgramBlock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        date: "2026-06-15",
+        durationSeconds: 3600,
+        category: "reuters"
+      })
+    )
   })
 })

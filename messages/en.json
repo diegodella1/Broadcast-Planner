@@ -356,7 +356,16 @@
       "startAt": "Start time",
       "success": "Sent to air",
       "goLive": "Go live now",
-      "schedule": "Schedule"
+      "schedule": "Schedule",
+      "sourceLabel": "Source",
+      "sourceVimeo": "Vimeo",
+      "sourceReuters": "Reuters Live",
+      "reutersChannels": "Reuters channels",
+      "syncChannels": "Refresh channels",
+      "noReutersConfigured": "Configure Reuters credentials in settings."
+    },
+    "reuters": {
+      "empty": "No Reuters channels available."
     },
     "lowerThird": {
       "title": "Lower third",
@@ -484,6 +493,23 @@
       "noEpisodes": "That show has no visible episodes for this token.",
       "episodeLabel": "Episode",
       "importEpisode": "Import episode as asset"
+    },
+    "reuters": {
+      "title": "Reuters",
+      "detail": "OAuth2 credentials for Reuters Connect. Secrets are stored encrypted server-side.",
+      "fixturesNotice": "Running on fixtures. Configure credentials and set REUTERS_PROVIDER=real to enable live.",
+      "statusSaved": "Reuters: credentials saved ({status})",
+      "statusMissing": "Reuters: no credentials saved",
+      "lastError": "Last error: {error}",
+      "clientId": "Client ID",
+      "clientIdPlaceholder": "OAuth2 client_id",
+      "clientSecret": "Client secret",
+      "clientSecretPlaceholder": "OAuth2 client_secret",
+      "refreshToken": "Refresh token",
+      "refreshTokenPlaceholder": "OAuth2 refresh_token",
+      "save": "Save Reuters",
+      "refreshChannels": "Refresh channels",
+      "status": "Status"
     }
   },
   "login": {
@@ -528,6 +554,10 @@
   "errors": {
     "required": "This field is required.",
     "invalid": "Invalid value.",
-    "networkFailed": "Network request failed."
+    "networkFailed": "Network request failed.",
+    "reuters": {
+      "noClient": "Reuters client is not configured.",
+      "notImplemented": "Reuters real provider is not implemented. See lib/reuters-real.ts."
+    }
   }
 }
