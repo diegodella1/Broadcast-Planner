@@ -5,6 +5,7 @@ import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
 import { getScheduleForDate } from "@/lib/data"
+import { getDurationDisplay } from "@/lib/duration-display"
 import { createLowerThirdLayer, createScheduledLayer, setScheduledLayerEnabled, updateMediaAsset, updateProgramBlock } from "@/lib/mutations"
 import { analyzeSchedule, getAssetReadiness } from "@/lib/schedule-health"
 import { formatTimecode } from "@/lib/time"
@@ -149,16 +150,16 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
             <Info label={t("fields.type")} value={block.blockType} />
           </dl>
           <form action={saveBlock} className="mt-6 grid gap-3 rounded-md border border-line bg-panel p-4 lg:grid-cols-2">
-            <input name="title" required defaultValue={block.title} placeholder={t("fields.title")} className="rounded-md border border-line px-3 py-2 text-sm" />
-            <select name="status" defaultValue={block.status} className="rounded-md border border-line px-3 py-2 text-sm">
+            <input name="title" required defaultValue={block.title} placeholder={t("fields.title")} aria-label={t("fields.title")} className="rounded-md border border-line px-3 py-2 text-sm" />
+            <select name="status" defaultValue={block.status} aria-label={t("fields.status")} className="rounded-md border border-line px-3 py-2 text-sm">
               <option value="draft">Draft</option>
               <option value="ready">Ready</option>
               <option value="active">Active</option>
               <option value="archived">Archived</option>
             </select>
-            <input name="start_time" required defaultValue={block.startTime} className="rounded-md border border-line px-3 py-2 text-sm" />
-            <input name="duration_seconds" required type="number" min="1" defaultValue={block.durationSeconds} className="rounded-md border border-line px-3 py-2 text-sm" />
-            <select name="block_type" defaultValue={block.blockType} className="rounded-md border border-line px-3 py-2 text-sm">
+            <input name="start_time" required defaultValue={block.startTime} aria-label={t("fields.start")} className="rounded-md border border-line px-3 py-2 text-sm" />
+            <input name="duration_seconds" required type="number" min="1" defaultValue={block.durationSeconds} aria-label={t("fields.duration")} className="rounded-md border border-line px-3 py-2 text-sm" />
+            <select name="block_type" defaultValue={block.blockType} aria-label={t("fields.type")} className="rounded-md border border-line px-3 py-2 text-sm">
               <option value="video">Video</option>
               <option value="image">Image</option>
               <option value="slide">Slide</option>
@@ -166,21 +167,25 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
               <option value="promo">Promo</option>
               <option value="fallback">Fallback</option>
             </select>
-            <select name="fallback_asset_id" defaultValue={block.fallbackAssetId ?? ""} className="rounded-md border border-line px-3 py-2 text-sm">
+            <select name="fallback_asset_id" defaultValue={block.fallbackAssetId ?? ""} aria-label={t("fields.fallbackGlobal")} className="rounded-md border border-line px-3 py-2 text-sm">
               <option value="">{t("fields.fallbackGlobal")}</option>
               {schedule.mediaAssets.filter((item) => item.assetType === "fallback").map((item) => (
                 <option key={item.id} value={item.id}>{item.title} · {item.status}</option>
               ))}
             </select>
-            <select name="asset_id" defaultValue={block.assetId ?? ""} className="rounded-md border border-line px-3 py-2 text-sm">
+            <select name="asset_id" defaultValue={block.assetId ?? ""} aria-label={t("fields.noAsset")} className="rounded-md border border-line px-3 py-2 text-sm">
               <option value="">{t("fields.noAsset")}</option>
-              {schedule.mediaAssets.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.title} · {item.status}{item.durationSeconds ? ` · ${formatTimecode(item.durationSeconds)}` : ""}
-                </option>
-              ))}
+              {schedule.mediaAssets.map((item) => {
+                const dur = getDurationDisplay({ durationSeconds: item.durationSeconds ?? null, sourceType: item.sourceType })
+                const durLabel = dur.kind === "live" ? " · Live" : dur.seconds > 0 ? ` · ${formatTimecode(dur.seconds)}` : ""
+                return (
+                  <option key={item.id} value={item.id}>
+                    {item.title} · {item.status}{durLabel}
+                  </option>
+                )
+              })}
             </select>
-            <select name="slide_id" defaultValue={block.slideId ?? ""} className="rounded-md border border-line px-3 py-2 text-sm">
+            <select name="slide_id" defaultValue={block.slideId ?? ""} aria-label={t("fields.noSlide")} className="rounded-md border border-line px-3 py-2 text-sm">
               <option value="">{t("fields.noSlide")}</option>
               {schedule.slideAssets.map((item) => (
                 <option key={item.id} value={item.id}>{item.title} · {item.status}</option>
@@ -190,7 +195,7 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
               <input name="hide_overlays" type="checkbox" defaultChecked={block.hideOverlays} />
               {t("fields.hideOverlays")}
             </label>
-            <textarea name="notes" defaultValue={block.notes ?? ""} placeholder={t("fields.notes")} className="min-h-20 rounded-md border border-line px-3 py-2 text-sm lg:col-span-2" />
+            <textarea name="notes" defaultValue={block.notes ?? ""} placeholder={t("fields.notes")} aria-label={t("fields.notes")} className="min-h-20 rounded-md border border-line px-3 py-2 text-sm lg:col-span-2" />
             <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white lg:col-span-2">{t("fields.save")}</button>
           </form>
           <div className="mt-6 rounded-md bg-panel p-4">
@@ -219,30 +224,30 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
           <h3 className="font-semibold">{t("overlays.title")}</h3>
           <form action={addLowerThird} className="mt-4 grid gap-3 rounded-md border border-line bg-white p-3">
             <p className="text-sm font-semibold">{t("overlays.lowerThirdQuick")}</p>
-            <input name="title" placeholder={t("overlays.internalName")} className="rounded-md border border-line px-3 py-2 text-sm" />
-            <input name="primary_text" required placeholder={t("overlays.primaryText")} className="rounded-md border border-line px-3 py-2 text-sm" />
-            <input name="secondary_text" placeholder={t("overlays.secondaryText")} className="rounded-md border border-line px-3 py-2 text-sm" />
+            <input name="title" placeholder={t("overlays.internalName")} aria-label={t("overlays.internalName")} className="rounded-md border border-line px-3 py-2 text-sm" />
+            <input name="primary_text" required placeholder={t("overlays.primaryText")} aria-label={t("overlays.primaryText")} className="rounded-md border border-line px-3 py-2 text-sm" />
+            <input name="secondary_text" placeholder={t("overlays.secondaryText")} aria-label={t("overlays.secondaryText")} className="rounded-md border border-line px-3 py-2 text-sm" />
             <div className="grid gap-3 sm:grid-cols-2">
-              <input name="start_time" required defaultValue="00:00:05" className="rounded-md border border-line px-3 py-2 text-sm" />
-              <input name="duration_seconds" required type="number" min="1" defaultValue="12" className="rounded-md border border-line px-3 py-2 text-sm" />
+              <input name="start_time" required defaultValue="00:00:05" aria-label={t("fields.start")} className="rounded-md border border-line px-3 py-2 text-sm" />
+              <input name="duration_seconds" required type="number" min="1" defaultValue="12" aria-label={t("fields.duration")} className="rounded-md border border-line px-3 py-2 text-sm" />
             </div>
             <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white">{t("overlays.addLowerThird")}</button>
           </form>
           <form action={addLayer} className="mt-4 grid gap-3 rounded-md bg-panel p-3">
-            <input name="title" required placeholder={t("overlays.overlayTitle")} className="rounded-md border border-line px-3 py-2 text-sm" />
+            <input name="title" required placeholder={t("overlays.overlayTitle")} aria-label={t("overlays.overlayTitle")} className="rounded-md border border-line px-3 py-2 text-sm" />
             <div className="grid gap-3 sm:grid-cols-2">
-              <input name="start_time" required defaultValue="00:02:00" className="rounded-md border border-line px-3 py-2 text-sm" />
-              <input name="duration_seconds" required type="number" min="1" defaultValue="30" className="rounded-md border border-line px-3 py-2 text-sm" />
+              <input name="start_time" required defaultValue="00:02:00" aria-label={t("fields.start")} className="rounded-md border border-line px-3 py-2 text-sm" />
+              <input name="duration_seconds" required type="number" min="1" defaultValue="30" aria-label={t("fields.duration")} className="rounded-md border border-line px-3 py-2 text-sm" />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <select name="layer_type" className="rounded-md border border-line px-3 py-2 text-sm">
+              <select name="layer_type" aria-label={t("overlays.layerType")} className="rounded-md border border-line px-3 py-2 text-sm">
                 <option value="slide">{t("layerType.slide")}</option>
                 <option value="image">{t("layerType.image")}</option>
                 <option value="lower_third">{t("layerType.lowerThird")}</option>
                 <option value="logo_bug">{t("layerType.logoBug")}</option>
                 <option value="promo">{t("layerType.promo")}</option>
               </select>
-              <select name="position" className="rounded-md border border-line px-3 py-2 text-sm">
+              <select name="position" aria-label={t("overlays.position")} className="rounded-md border border-line px-3 py-2 text-sm">
                 <option value="lower_third">{t("position.lowerThird")}</option>
                 <option value="top_right">{t("position.topRight")}</option>
                 <option value="bottom_bar">{t("position.bottomBar")}</option>
@@ -250,19 +255,19 @@ export default async function BlockPage({ params }: { params: Promise<{ date: st
                 <option value="fullscreen">{t("position.fullscreen")}</option>
               </select>
             </div>
-            <select name="slide_id" className="rounded-md border border-line px-3 py-2 text-sm">
+            <select name="slide_id" aria-label={t("fields.noSlide")} className="rounded-md border border-line px-3 py-2 text-sm">
               <option value="">{t("overlays.empty")}</option>
               {schedule.slideAssets.map((slide) => (
                 <option key={slide.id} value={slide.id}>{slide.title}</option>
               ))}
             </select>
-            <select name="asset_id" className="rounded-md border border-line px-3 py-2 text-sm">
+            <select name="asset_id" aria-label={t("fields.noAsset")} className="rounded-md border border-line px-3 py-2 text-sm">
               <option value="">{tBlock("noAsset")}</option>
               {schedule.mediaAssets.map((mediaAsset) => (
                 <option key={mediaAsset.id} value={mediaAsset.id}>{mediaAsset.title}</option>
               ))}
             </select>
-            <input name="z_index" type="number" defaultValue="10" className="rounded-md border border-line px-3 py-2 text-sm" />
+            <input name="z_index" type="number" defaultValue="10" aria-label={t("overlays.zIndex")} className="rounded-md border border-line px-3 py-2 text-sm" />
             <button className="rounded-md bg-signal px-4 py-2 text-sm font-semibold text-white">{t("overlays.addOverlay")}</button>
           </form>
           <div className="mt-4 grid gap-3">

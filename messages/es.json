@@ -287,6 +287,7 @@
       "fallbackGlobal": "Fallback global",
       "noAsset": "Sin asset",
       "noSlide": "Sin slide",
+      "status": "Estado",
       "hideOverlays": "Ocultar overlays durante este bloque",
       "notes": "Notas operativas",
       "save": "Guardar bloque"
@@ -317,6 +318,9 @@
       "addLowerThird": "Agregar lower third",
       "overlayTitle": "Titulo overlay",
       "addOverlay": "Agregar overlay",
+      "layerType": "Tipo de capa",
+      "position": "Posicion",
+      "zIndex": "Z-index",
       "empty": "Sin overlays.",
       "disable": "Desactivar",
       "enable": "Activar"
