@@ -1,7 +1,7 @@
 import clsx from "clsx"
 
-export function StatusPill({ status }: { status: string }) {
-  const label = statusLabels[status] ?? status
+export function StatusPill({ status, label }: { status: string; label?: string }) {
+  const displayLabel = label ?? statusLabels[status] ?? status
   return (
     <span
       className={clsx(
@@ -24,7 +24,7 @@ export function StatusPill({ status }: { status: string }) {
           status === "archived" && "bg-line-strong"
         )}
       />
-      {label}
+      {displayLabel}
     </span>
   )
 }

@@ -1,0 +1,344 @@
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
+// ---------------------------------------------------------------------------
+// Mock next/cache before any module import that uses it
+// ---------------------------------------------------------------------------
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn()
+}))
+
+// ---------------------------------------------------------------------------
+// Mock @/lib/settings
+// ---------------------------------------------------------------------------
+vi.mock("@/lib/settings", () => ({
+  getVimeoToken: vi.fn()
+}))
+
+// ---------------------------------------------------------------------------
+// Mock @/lib/vimeo
+// ---------------------------------------------------------------------------
+vi.mock("@/lib/vimeo", () => ({
+  searchVimeoAccountVideos: vi.fn(),
+  getVimeoVideo: vi.fn(),
+  upsertVimeoVideos: vi.fn()
+}))
+
+// ---------------------------------------------------------------------------
+// Mock @/lib/data
+// ---------------------------------------------------------------------------
+vi.mock("@/lib/data", () => ({
+  getMediaAssetByVimeoUri: vi.fn(),
+  getMediaAssetById: vi.fn()
+}))
+
+// ---------------------------------------------------------------------------
+// Mock @/lib/mutations
+// ---------------------------------------------------------------------------
+vi.mock("@/lib/mutations", () => ({
+  createProgramBlock: vi.fn()
+}))
+
+// ---------------------------------------------------------------------------
+// Supabase builder mock — mirrors mutations.test.ts pattern.
+// fetchInsertedBlockId and logManualBroadcast both call createServiceClient.
+// ---------------------------------------------------------------------------
+type MockResult = { data: unknown; error: unknown }
+
+function makeSupabaseMock() {
+  let _result: MockResult = { data: null, error: null }
+
+  const builder: Record<string, unknown> & {
+    setResult: (r: MockResult) => void
+    _result: MockResult
+  } = {
+    setResult(r: MockResult) {
+      _result = r
+    },
+    get _result() {
+      return _result
+    },
+    from: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    upsert: vi.fn().mockReturnThis(),
+    delete: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockImplementation(function () {
+      return Promise.resolve(_result)
+    }),
+    then: vi.fn().mockImplementation(function (resolve: (value: MockResult) => void) {
+      return Promise.resolve(_result).then(resolve)
+    })
+  }
+
+  return builder
+}
+
+const supabaseMock = makeSupabaseMock()
+
+vi.mock("@/lib/supabase/server", () => ({
+  createServiceClient: vi.fn(() => supabaseMock)
+}))
+
+// ---------------------------------------------------------------------------
+// Static imports — after all vi.mock calls
+// ---------------------------------------------------------------------------
+import { revalidatePath } from "next/cache"
+
+import { getMediaAssetByVimeoUri, getMediaAssetById } from "./data"
+import { searchVimeoCatalog, goLiveWithVimeo, scheduleVimeoBlock } from "./manual-broadcast"
+import { createProgramBlock } from "./mutations"
+import { getVimeoToken } from "./settings"
+import { searchVimeoAccountVideos, getVimeoVideo, upsertVimeoVideos } from "./vimeo"
+
+import type { MediaAsset } from "./types"
+import type { VimeoVideo } from "./vimeo"
+
+// ---------------------------------------------------------------------------
+// Shared fixture builders
+// ---------------------------------------------------------------------------
+function makeAsset(overrides: Partial<MediaAsset> = {}): MediaAsset {
+  return {
+    id: "asset-1",
+    title: "Test Video",
+    sourceType: "vimeo",
+    mediaKind: "video",
+    assetType: "video",
+    durationSeconds: 600,
+    status: "ready",
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    ...overrides
+  }
+}
+
+function makeVimeoVideo(overrides: Partial<VimeoVideo> = {}): VimeoVideo {
+  return {
+    uri: "/videos/123",
+    name: "Test Video",
+    link: "https://vimeo.com/123",
+    duration: 600,
+    ...overrides
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function resetMocks() {
+  vi.clearAllMocks()
+  supabaseMock.setResult({ data: null, error: null })
+  ;(supabaseMock.from as ReturnType<typeof vi.fn>).mockReturnThis()
+  ;(supabaseMock.select as ReturnType<typeof vi.fn>).mockReturnThis()
+  ;(supabaseMock.insert as ReturnType<typeof vi.fn>).mockReturnThis()
+  ;(supabaseMock.update as ReturnType<typeof vi.fn>).mockReturnThis()
+  ;(supabaseMock.upsert as ReturnType<typeof vi.fn>).mockReturnThis()
+  ;(supabaseMock.delete as ReturnType<typeof vi.fn>).mockReturnThis()
+  ;(supabaseMock.eq as ReturnType<typeof vi.fn>).mockReturnThis()
+  ;(supabaseMock.order as ReturnType<typeof vi.fn>).mockReturnThis()
+  ;(supabaseMock.limit as ReturnType<typeof vi.fn>).mockReturnThis()
+  ;(supabaseMock.maybeSingle as ReturnType<typeof vi.fn>).mockImplementation(() =>
+    Promise.resolve(supabaseMock._result)
+  )
+  ;(supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
+    (resolve: (value: MockResult) => void) => Promise.resolve(supabaseMock._result).then(resolve)
+  )
+}
+
+// ---------------------------------------------------------------------------
+// searchVimeoCatalog
+// ---------------------------------------------------------------------------
+describe("searchVimeoCatalog", () => {
+  beforeEach(resetMocks)
+
+  it("throws when no token is configured", async () => {
+    vi.mocked(getVimeoToken).mockResolvedValue(null)
+    await expect(searchVimeoCatalog("test")).rejects.toThrow(/no token/i)
+  })
+
+  it("returns search results when token is present", async () => {
+    vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
+    const videos = [makeVimeoVideo()]
+    vi.mocked(searchVimeoAccountVideos).mockResolvedValue(videos)
+
+    const result = await searchVimeoCatalog("test")
+
+    expect(result).toHaveLength(1)
+    expect(result[0]!.uri).toBe("/videos/123")
+    expect(searchVimeoAccountVideos).toHaveBeenCalledWith("fake-token", "test")
+  })
+
+  it("propagates errors from searchVimeoAccountVideos", async () => {
+    vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
+    vi.mocked(searchVimeoAccountVideos).mockRejectedValue(new Error("Vimeo returned 401"))
+
+    await expect(searchVimeoCatalog("query")).rejects.toThrow("Vimeo returned 401")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// goLiveWithVimeo
+// ---------------------------------------------------------------------------
+describe("goLiveWithVimeo", () => {
+  beforeEach(resetMocks)
+
+  it("throws when no token is configured", async () => {
+    vi.mocked(getVimeoToken).mockResolvedValue(null)
+    await expect(goLiveWithVimeo({ vimeoUri: "/videos/123" })).rejects.toThrow(/no token/i)
+  })
+
+  it("creates a ProgramBlock with category broadcast using the asset duration", async () => {
+    vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
+    vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-1" } as MediaAsset)
+    vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ durationSeconds: 600 }))
+    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    // fetchInsertedBlockId: program_days query returns null, so programBlockId falls back to ""
+    supabaseMock.setResult({ data: null, error: null })
+
+    const result = await goLiveWithVimeo({ vimeoUri: "/videos/123" })
+
+    expect(createProgramBlock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: "broadcast",
+        blockType: "video",
+        durationSeconds: 600,
+        assetId: "asset-1",
+        title: "Test Video"
+      })
+    )
+    expect(result).toEqual({ programBlockId: "" })
+  })
+
+  it("uses asset durationSeconds for the ProgramBlock duration", async () => {
+    vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
+    vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-2" } as MediaAsset)
+    vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ durationSeconds: 3600 }))
+    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    supabaseMock.setResult({ data: null, error: null })
+
+    await goLiveWithVimeo({ vimeoUri: "/videos/999" })
+
+    expect(createProgramBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ durationSeconds: 3600 })
+    )
+  })
+
+  it("falls back to 1800s default when asset durationSeconds is null", async () => {
+    vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
+    vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-3" } as MediaAsset)
+    vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ durationSeconds: null }))
+    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    supabaseMock.setResult({ data: null, error: null })
+
+    await goLiveWithVimeo({ vimeoUri: "/videos/999" })
+
+    expect(createProgramBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ durationSeconds: 1800 })
+    )
+  })
+
+  it("caches the Vimeo asset when not already present", async () => {
+    vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
+    // First call: not cached; second call (after upsert): returns inserted row
+    vi.mocked(getMediaAssetByVimeoUri)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "asset-new" } as MediaAsset)
+    vi.mocked(getVimeoVideo).mockResolvedValue(makeVimeoVideo())
+    vi.mocked(upsertVimeoVideos).mockResolvedValue(undefined)
+    vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ id: "asset-new" }))
+    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    supabaseMock.setResult({ data: null, error: null })
+
+    await goLiveWithVimeo({ vimeoUri: "/videos/123" })
+
+    expect(getVimeoVideo).toHaveBeenCalledWith("fake-token", "/videos/123")
+    expect(upsertVimeoVideos).toHaveBeenCalled()
+    expect(createProgramBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ assetId: "asset-new" })
+    )
+  })
+
+  it("calls revalidatePath for the output and schedule routes", async () => {
+    vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
+    vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-1" } as MediaAsset)
+    vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset())
+    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    supabaseMock.setResult({ data: null, error: null })
+
+    await goLiveWithVimeo({ vimeoUri: "/videos/123" })
+
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/output")
+    expect(
+      vi.mocked(revalidatePath).mock.calls.some((c) => c[0].startsWith("/admin/schedule/"))
+    ).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// scheduleVimeoBlock
+// ---------------------------------------------------------------------------
+describe("scheduleVimeoBlock", () => {
+  beforeEach(resetMocks)
+
+  it("throws when no token is configured", async () => {
+    vi.mocked(getVimeoToken).mockResolvedValue(null)
+    await expect(scheduleVimeoBlock({ vimeoUri: "/videos/123", startAt: "14:30" })).rejects.toThrow(
+      /no token/i
+    )
+  })
+
+  it("parses HH:MM startAt to correct startTimeSeconds in ProgramBlock", async () => {
+    vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
+    vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-1" } as MediaAsset)
+    vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset())
+    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    supabaseMock.setResult({ data: null, error: null })
+
+    await scheduleVimeoBlock({ vimeoUri: "/videos/123", startAt: "14:30" })
+
+    // The createProgramBlock receives startTime "14:30:00" (normalised)
+    expect(createProgramBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ startTime: "14:30:00" })
+    )
+  })
+
+  it("uses the provided airDate", async () => {
+    vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
+    vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-1" } as MediaAsset)
+    vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset())
+    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    supabaseMock.setResult({ data: null, error: null })
+
+    await scheduleVimeoBlock({
+      vimeoUri: "/videos/123",
+      startAt: "09:00",
+      airDate: "2026-05-20"
+    })
+
+    expect(createProgramBlock).toHaveBeenCalledWith(expect.objectContaining({ date: "2026-05-20" }))
+  })
+
+  it("defaults airDate to today in TZ when not supplied", async () => {
+    vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
+    vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-1" } as MediaAsset)
+    vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset())
+    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    supabaseMock.setResult({ data: null, error: null })
+
+    // Freeze time to a known instant so the derived date is predictable
+    const fakeNow = new Date("2026-05-08T12:00:00Z")
+    vi.setSystemTime(fakeNow)
+
+    await scheduleVimeoBlock({ vimeoUri: "/videos/123", startAt: "08:00" })
+
+    vi.useRealTimers()
+
+    const [call] = vi.mocked(createProgramBlock).mock.calls
+    // The date must be a valid ISO date string (YYYY-MM-DD) — exact value
+    // depends on the TZ offset for America/Argentina/Buenos_Aires (-3h)
+    expect(call?.[0].date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+})

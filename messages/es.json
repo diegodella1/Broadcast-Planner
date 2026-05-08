@@ -1,0 +1,533 @@
+{
+  "home": {
+    "eyebrow": "Roxom TV",
+    "title": "Playout Manager",
+    "subtitle": "Consola interna para programar el dia, verificar la senal y mantener la salida al aire.",
+    "links": {
+      "calendar": {
+        "label": "Calendario",
+        "description": "Crear dias y revisar estado operativo."
+      },
+      "assets": {
+        "label": "Assets",
+        "description": "Videos, imagenes, ads, promos y fallbacks."
+      },
+      "outputLive": {
+        "label": "Output live",
+        "description": "Salida para vMix/OBS con debug."
+      }
+    }
+  },
+  "nav": {
+    "calendar": "Calendario",
+    "assets": "Assets",
+    "slides": "Slides",
+    "settings": "Settings",
+    "output": "Output",
+    "schedule": "Agenda"
+  },
+  "chrome": {
+    "brand": "Roxom TV",
+    "tagline": "Playout manager",
+    "broadcastOutput": "Salida broadcast",
+    "openDebug": "Abrir debug",
+    "onAir": "AL AIRE",
+    "offAir": "FUERA DE AIRE",
+    "health": "Health del schedule",
+    "output": "Output",
+    "outage": "Outage",
+    "outageMessage": "Servicio degradado. Algunos datos pueden estar desactualizados o no disponibles."
+  },
+  "block": {
+    "status": {
+      "draft": "Draft",
+      "ready": "Ready",
+      "active": "Active",
+      "archived": "Archived",
+      "syncing": "Syncing",
+      "failed": "Failed"
+    },
+    "type": {
+      "video": "Video",
+      "image": "Imagen",
+      "slide": "Slide",
+      "ad": "Ad",
+      "promo": "Promo",
+      "fallback": "Fallback"
+    },
+    "category": {
+      "mercados": "Mercados",
+      "earthcam": "Earthcam",
+      "clima": "Clima",
+      "calendario": "Calendario",
+      "trending": "Trending",
+      "deuda": "Deuda",
+      "reuters": "Reuters",
+      "broadcast": "Broadcast"
+    },
+    "live": "EN VIVO",
+    "noAsset": "Sin asset"
+  },
+  "asset": {
+    "status": {
+      "draft": "Draft",
+      "syncing": "Syncing",
+      "ready": "Ready",
+      "failed": "Failed",
+      "archived": "Archived",
+      "active": "Active"
+    },
+    "kind": {
+      "image": "Image",
+      "video": "Video",
+      "graphic": "Graphic"
+    },
+    "type": {
+      "image": "Image",
+      "video": "Video",
+      "ad": "Ad",
+      "promo": "Promo",
+      "fallback": "Fallback",
+      "overlay": "Overlay"
+    },
+    "source": {
+      "remoteImage": "Remote image",
+      "remoteMp4": "Remote MP4",
+      "hls": "HLS",
+      "vimeo": "Vimeo",
+      "supabaseImage": "Supabase image"
+    },
+    "orientation": {
+      "auto": "Auto",
+      "horizontal": "Horizontal",
+      "vertical": "Vertical blur"
+    },
+    "review": "Revisar",
+    "playable": "Playable",
+    "noDuration": "Sin duracion"
+  },
+  "calendar": {
+    "title": "Calendario de programacion",
+    "description": "Dias operativos con bloques horarios, overlays, fallback y estado de publicacion.",
+    "scheduleToday": "Programar hoy",
+    "metrics": {
+      "days": "Dias",
+      "daysDetail": "Programaciones creadas",
+      "active": "Activos",
+      "activeDetail": "Dias al aire o marcados activos",
+      "today": "Hoy",
+      "todayDetail": "Fecha operativa local"
+    },
+    "createDay": "Crear dia",
+    "empty": {
+      "title": "No hay dias creados",
+      "body": "Elegí una fecha y creá la primera programacion para empezar a cargar bloques."
+    }
+  },
+  "schedule": {
+    "title": "Agenda {date}",
+    "description": "Consola operativa por horario, assets, continuidad y alertas antes de salir al aire.",
+    "viewOutputLive": "Ver output live",
+    "allowWarnings": "Permitir warnings",
+    "status": {
+      "draft": "Draft",
+      "ready": "Ready",
+      "active": "Active"
+    },
+    "now": "Ahora",
+    "selectedDay": "Dia seleccionado",
+    "noActiveBlock": "Sin bloque activo",
+    "outOfWindow": "Fuera de ventana",
+    "offlineView": "Vista offline",
+    "next": "Siguiente",
+    "noNextBlock": "No hay proximo bloque",
+    "noBlocks": "Sin bloques",
+    "startsAt": "Arranca {time}",
+    "firstAt": "Primero {time}",
+    "emptyAgenda": "Agenda vacia",
+    "coverage": "Cobertura",
+    "loaded": "{time} cargados",
+    "blocksReady": "{ready}/{total} bloques listos",
+    "noCoverage": "Sin cobertura",
+    "rangeAtoB": "{start} a {end}",
+    "broadcast": "Broadcast",
+    "empty": "Sin bloques programados",
+    "stop": "Detener broadcast",
+    "timeline": {
+      "title": "Timeline diario",
+      "description": "Bloques proporcionales por hora con alertas de continuidad.",
+      "alertsCount": "{count} alertas",
+      "noAlerts": "Sin alertas",
+      "noConflicts": "La agenda no tiene conflictos detectados."
+    },
+    "addBlock": {
+      "title": "Agregar bloque",
+      "titlePlaceholder": "Titulo del bloque",
+      "noAssetOption": "Sin asset",
+      "noSlideOption": "Sin slide",
+      "hideOverlays": "Ocultar overlays",
+      "submit": "Agregar"
+    },
+    "longGenerator": {
+      "title": "Generador de grilla larga",
+      "detail": "Crea bloques consecutivos para probar 12 hs con programas, tandas e imagenes.",
+      "totalLoaded": "Total cargado:",
+      "replaceWindow": "Reemplazar ventana",
+      "submit": "Generar 12 hs"
+    },
+    "table": {
+      "start": "Inicio",
+      "block": "Bloque",
+      "duration": "Duracion",
+      "status": "Estado",
+      "empty": {
+        "title": "Agenda sin bloques",
+        "body": "Agregá el primer bloque o generá una grilla larga para probar continuidad."
+      }
+    }
+  },
+  "health": {
+    "title": "Health check",
+    "metrics": {
+      "gaps": "Gaps",
+      "overlaps": "Solapes",
+      "missingAssets": "Assets faltantes",
+      "unreadyAssets": "Assets no ready"
+    },
+    "issues": {
+      "gap": {
+        "title": "Gap de programacion",
+        "description": "{from} a {to}"
+      },
+      "overlap": {
+        "title": "Bloques solapados",
+        "description": "{current} pisa a {next}"
+      },
+      "missingAsset": {
+        "title": "Bloque sin asset",
+        "blockDescription": "{block} no tiene {kind} asignado",
+        "kindSlide": "slide",
+        "kindMedia": "media"
+      },
+      "unreadyAsset": {
+        "title": "Asset no ready",
+        "description": "{title}: {messages}"
+      },
+      "unsupportedAsset": {
+        "title": "Asset no reproducible",
+        "description": "{title}: {messages}"
+      },
+      "unreadySlide": {
+        "title": "Slide no ready",
+        "description": "{title} esta {status}"
+      },
+      "adDuration": {
+        "title": "Ad demasiado largo",
+        "description": "{title} dura {duration} y el maximo es 00:05:00"
+      },
+      "fallbackMissing": {
+        "title": "Sin fallback ready",
+        "description": "No hay asset fallback listo para cubrir errores de salida"
+      },
+      "layerOutOfRange": {
+        "title": "Overlay fuera del bloque",
+        "description": "{title} termina despues de {duration}"
+      },
+      "layerMissing": {
+        "title": "Overlay sin asset",
+        "description": "{title} no tiene media ni slide asignado"
+      },
+      "layerUnready": {
+        "title": "Overlay no ready",
+        "description": "{title}: {messages}"
+      },
+      "layerUnreadySlide": {
+        "title": "Overlay slide no ready",
+        "description": "{title} esta {status}"
+      },
+      "hiddenLayer": {
+        "title": "Overlay oculto por bloque",
+        "description": "{title} esta activo pero el bloque oculta overlays"
+      }
+    },
+    "readiness": {
+      "statusLabel": "status {status}",
+      "videoSourceUnsupported": "source {source} no soportado para video",
+      "imageSourceUnsupported": "source {source} no soportado para imagen",
+      "missingVimeoId": "falta Vimeo ID",
+      "missingUrl": "falta URL",
+      "graphicNotSupported": "graphic todavia no renderiza como base"
+    }
+  },
+  "blockDetail": {
+    "notFound": {
+      "title": "Bloque no encontrado",
+      "body": "No existe el bloque."
+    },
+    "backToAgenda": "Volver a agenda {date}",
+    "previewDebug": "Preview debug",
+    "previewClean": "Preview limpio",
+    "signal": {
+      "base": "Base",
+      "fallback": "Fallback",
+      "fallbackGlobal": "Fallback global",
+      "fallbackInherited": "Usa fallback del dia/sistema",
+      "noContent": "Asignar contenido",
+      "noAsset": "Sin asset",
+      "health": "Health",
+      "criticals": "{count} criticas",
+      "warnings": "{count} warnings",
+      "overlays": "{count} overlays"
+    },
+    "main": "Bloque principal",
+    "fields": {
+      "start": "Inicio",
+      "duration": "Duracion",
+      "type": "Tipo",
+      "title": "Titulo",
+      "fallbackGlobal": "Fallback global",
+      "noAsset": "Sin asset",
+      "noSlide": "Sin slide",
+      "status": "Estado",
+      "hideOverlays": "Ocultar overlays durante este bloque",
+      "notes": "Notas operativas",
+      "save": "Guardar bloque"
+    },
+    "asset": {
+      "title": "Asset",
+      "noAsset": "Sin asset asignado",
+      "ready": "Listo para render",
+      "edit": "Editar asset asignado",
+      "save": "Guardar asset",
+      "fields": {
+        "title": "Titulo",
+        "url": "URL",
+        "thumbnailUrl": "Thumbnail URL",
+        "description": "Descripcion",
+        "durationSec": "Seg"
+      }
+    },
+    "alerts": {
+      "none": "Sin alertas para este bloque."
+    },
+    "overlays": {
+      "title": "Overlays",
+      "lowerThirdQuick": "Lower third rapido",
+      "internalName": "Nombre interno",
+      "primaryText": "Texto principal",
+      "secondaryText": "Texto secundario",
+      "addLowerThird": "Agregar lower third",
+      "overlayTitle": "Titulo overlay",
+      "addOverlay": "Agregar overlay",
+      "layerType": "Tipo de capa",
+      "position": "Posicion",
+      "zIndex": "Z-index",
+      "empty": "Sin overlays.",
+      "disable": "Desactivar",
+      "enable": "Activar"
+    },
+    "layerType": {
+      "slide": "Slide",
+      "image": "Imagen",
+      "lowerThird": "Lower third",
+      "logoBug": "Logo bug",
+      "promo": "Promo"
+    },
+    "position": {
+      "lowerThird": "Lower third",
+      "topRight": "Top right",
+      "bottomBar": "Bottom bar",
+      "sidebar": "Sidebar",
+      "fullscreen": "Fullscreen"
+    }
+  },
+  "ops": {
+    "onAir": {
+      "title": "Al aire ahora"
+    },
+    "manualBroadcast": {
+      "title": "Broadcast manual",
+      "searchPlaceholder": "Buscar Vimeo…",
+      "searching": "Buscando…",
+      "empty": "Sin resultados",
+      "modeLabel": "Modo",
+      "modeNow": "Ahora",
+      "modeScheduled": "Programar",
+      "startAt": "Hora de inicio",
+      "success": "Enviado al aire",
+      "goLive": "Ir al aire ahora",
+      "schedule": "Programar"
+    },
+    "lowerThird": {
+      "title": "Lower third",
+      "titleLabel": "Título",
+      "titlePlaceholder": "p. ej. Jerome Powell — Fed Chair",
+      "subtitleLabel": "Subtítulo",
+      "subtitlePlaceholder": "p. ej. Conferencia FOMC · Mayo 2026",
+      "visible": "Visible en pantalla"
+    },
+    "health": {
+      "title": "Health del schedule",
+      "allGood": "Todo en orden — sin problemas",
+      "idle": "Sin agenda cargada para hoy"
+    },
+    "music": {
+      "title": "Música de fondo",
+      "enabled": "Activar música",
+      "volume": "Volumen"
+    },
+    "stopBroadcast": "Detener broadcast"
+  },
+  "assets": {
+    "title": "Assets",
+    "description": "Biblioteca operativa de videos, imagenes, promos, ads y fallbacks para la grilla.",
+    "importVimeo": "Importar Vimeo",
+    "uploadedNotice": "Video subido y guardado como asset.",
+    "metrics": {
+      "total": "Total",
+      "totalDetail": "Assets guardados",
+      "ready": "Ready",
+      "readyDetail": "Listos para usar",
+      "review": "Revisar",
+      "reviewDetail": "Sin URL, duracion o ready"
+    },
+    "uploadVideo": {
+      "title": "Subir video",
+      "detail": "Guarda MP4, WebM o HLS como asset operativo.",
+      "videoTitle": "Titulo video",
+      "submit": "Subir"
+    },
+    "addUrl": {
+      "title": "Agregar URL",
+      "detail": "Registra una fuente remota sin subir archivo.",
+      "title2": "Titulo",
+      "url": "URL imagen/video",
+      "submit": "Agregar asset"
+    },
+    "tabs": {
+      "all": "Todos",
+      "uploads": "Uploads",
+      "review": "Revisar",
+      "ready": "Ready",
+      "fallbacks": "Fallbacks",
+      "ads": "Ads",
+      "promos": "Promos"
+    },
+    "edit": "Editar",
+    "saveChanges": "Guardar cambios",
+    "verticalBlur": "vertical blur",
+    "secondsShort": "s",
+    "empty": {
+      "title": "Sin assets para este filtro",
+      "body": "Cambiá el filtro o cargá un video, imagen, promo, ad o fallback."
+    },
+    "add": "Agregar asset"
+  },
+  "slides": {
+    "title": "Slides",
+    "description": "Placas, textos y HTML controlado para bases visuales u overlays.",
+    "create": {
+      "title": "Crear slide",
+      "detail": "Prepará una placa reutilizable para un bloque o una capa programada.",
+      "titleField": "Titulo",
+      "imageUrl": "URL imagen",
+      "visibleText": "Texto visible",
+      "optionalHtml": "HTML opcional",
+      "submit": "Crear slide"
+    },
+    "type": {
+      "html": "HTML",
+      "image": "Imagen",
+      "markdown": "Markdown",
+      "template": "Template"
+    },
+    "status": {
+      "ready": "Ready",
+      "draft": "Draft"
+    },
+    "kind": {
+      "image": "Imagen",
+      "html": "HTML",
+      "text": "Texto"
+    },
+    "noDuration": "Sin duracion",
+    "empty": {
+      "title": "No hay slides creados",
+      "body": "Creá una placa para usarla como contenido base o overlay programado."
+    },
+    "add": "Agregar slide"
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Credenciales, timezone operativo e importacion Vimeo.",
+    "savedNotice": "Settings guardados.",
+    "importedNotice": "Episodio importado como asset.",
+    "integrations": {
+      "title": "Integraciones",
+      "detail": "Los secretos se guardan cifrados server-side y no se devuelven completos desde la API.",
+      "vimeoStateSaved": "Vimeo: token guardado ({status})",
+      "vimeoStateMissing": "Vimeo: sin token guardado",
+      "lastError": "Ultimo error: {error}"
+    },
+    "tokenLabel": "Vimeo API token",
+    "tokenPlaceholder": "Bearer token",
+    "folderUriLabel": "Vimeo folder/project URI opcional",
+    "timezoneLabel": "Timezone",
+    "save": "Guardar settings",
+    "vimeoShows": {
+      "title": "Vimeo shows y episodios",
+      "detail": "Elegí un show y convertí episodios visibles en assets listos para revisar.",
+      "missingToken": "Guardá un Vimeo API token para listar shows.",
+      "showLabel": "Show",
+      "pickShow": "Elegir show",
+      "viewEpisodes": "Ver episodios",
+      "noEpisodes": "Ese show no tiene episodios visibles para este token.",
+      "episodeLabel": "Episodio",
+      "importEpisode": "Importar episodio como asset"
+    }
+  },
+  "login": {
+    "eyebrow": "Roxom TV",
+    "title": "Acceso admin",
+    "body": "Ingresá el token operativo configurado para administrar RTVTime.",
+    "tokenLabel": "Token",
+    "submit": "Entrar",
+    "errorInvalid": "Token invalido."
+  },
+  "output": {
+    "brand": "ROXOM TV",
+    "fallback": {
+      "noActiveBlock": "No active block",
+      "missingAsset": "Missing asset",
+      "unsupportedAsset": "Unsupported asset"
+    },
+    "debug": {
+      "clock": "clock",
+      "day": "day",
+      "block": "block",
+      "elapsed": "elapsed",
+      "asset": "asset",
+      "layers": "layers",
+      "reason": "reason",
+      "none": "none",
+      "fallback": "fallback"
+    }
+  },
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "confirm": "Confirmar",
+    "back": "Volver",
+    "edit": "Editar",
+    "add": "Agregar",
+    "close": "Cerrar",
+    "submit": "Enviar",
+    "open": "Abrir"
+  },
+  "errors": {
+    "required": "Este campo es obligatorio.",
+    "invalid": "Valor invalido.",
+    "networkFailed": "La solicitud de red fallo."
+  }
+}

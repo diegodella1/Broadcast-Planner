@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 export function middleware(request: NextRequest) {
-  if (!request.nextUrl.pathname.startsWith("/admin") || request.nextUrl.pathname === "/admin/login") {
+  if (
+    !request.nextUrl.pathname.startsWith("/admin") ||
+    request.nextUrl.pathname === "/admin/login"
+  ) {
     return NextResponse.next()
   }
   const expected = process.env.ADMIN_BOOTSTRAP_TOKEN

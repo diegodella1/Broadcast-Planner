@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest"
+
 import { mockSchedule } from "./mock-data"
 import { analyzeSchedule, getAssetReadiness } from "./schedule-health"
-import type { MediaAsset } from "./types"
+
+import type { MediaAsset, ProgramBlock, ScheduledLayer } from "./types"
+
+const firstBlock = mockSchedule.blocks[0] as ProgramBlock
+const secondBlock = mockSchedule.blocks[1] as ProgramBlock
+const firstLayer = mockSchedule.layers[0] as ScheduledLayer
+const firstAsset = mockSchedule.mediaAssets[0] as MediaAsset
 
 describe("schedule health", () => {
   it("detects block overlaps as critical", () => {
     const schedule = {
       ...mockSchedule,
-      blocks: [
-        mockSchedule.blocks[0],
-        { ...mockSchedule.blocks[1], startTimeSeconds: 30, startTime: "00:00:30" }
-      ]
+      blocks: [firstBlock, { ...secondBlock, startTimeSeconds: 30, startTime: "00:00:30" }]
     }
     const health = analyzeSchedule(schedule)
     expect(health.overlaps).toHaveLength(1)
@@ -20,17 +24,17 @@ describe("schedule health", () => {
   it("detects missing block assets", () => {
     const schedule = {
       ...mockSchedule,
-      blocks: [{ ...mockSchedule.blocks[0], assetId: "missing-asset" }]
+      blocks: [{ ...firstBlock, assetId: "missing-asset" }]
     }
     const health = analyzeSchedule(schedule)
-    expect(health.missingAssets[0].kind).toBe("missing_asset")
+    expect(health.missingAssets[0]?.kind).toBe("missing_asset")
   })
 
   it("detects layers that exceed block duration", () => {
     const schedule = {
       ...mockSchedule,
-      blocks: [{ ...mockSchedule.blocks[0], durationSeconds: 100 }],
-      layers: [{ ...mockSchedule.layers[0], startTimeSeconds: 90, durationSeconds: 30 }]
+      blocks: [{ ...firstBlock, durationSeconds: 100 }],
+      layers: [{ ...firstLayer, startTimeSeconds: 90, durationSeconds: 30 }]
     }
     const health = analyzeSchedule(schedule)
     expect(health.layerIssues.some((issue) => issue.kind === "layer_timing")).toBe(true)
@@ -38,7 +42,7 @@ describe("schedule health", () => {
 
   it("flags unsupported video assets as not ready", () => {
     const asset: MediaAsset = {
-      ...mockSchedule.mediaAssets[0],
+      ...firstAsset,
       sourceType: "remote_image",
       mediaKind: "video",
       vimeoId: null

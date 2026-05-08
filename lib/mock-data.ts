@@ -54,6 +54,19 @@ export const mockSchedule: ScheduleBundle = {
       status: "ready",
       createdAt: now,
       updatedAt: now
+    },
+    {
+      id: "asset-reuters-live",
+      title: "Reuters Live Feed",
+      sourceType: "reuters",
+      mediaKind: "video",
+      assetType: "video",
+      url: "https://example.com/reuters/live",
+      thumbnailUrl: null,
+      durationSeconds: null,
+      status: "ready",
+      createdAt: now,
+      updatedAt: now
     }
   ],
   slideAssets: [
@@ -74,6 +87,7 @@ export const mockSchedule: ScheduleBundle = {
       programDayId: "day-today",
       title: "Programa central",
       blockType: "video",
+      category: "mercados",
       assetId: "asset-vimeo-demo",
       startTime: "00:00:00",
       startTimeSeconds: 0,
@@ -89,6 +103,7 @@ export const mockSchedule: ScheduleBundle = {
       programDayId: "day-today",
       title: "Sponsor 30s",
       blockType: "ad",
+      category: "broadcast",
       assetId: "asset-sponsor-image",
       startTime: "00:15:00",
       startTimeSeconds: 900,

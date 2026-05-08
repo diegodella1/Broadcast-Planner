@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache"
+
 import { createServiceClient } from "./supabase/server"
 
 const VIMEO_API = "https://api.vimeo.com"
@@ -27,23 +28,28 @@ type VimeoPage<T> = {
 }
 
 export async function listVimeoShows(token: string): Promise<VimeoShow[]> {
-  const page = await vimeoFetch<VimeoPage<{
-    uri: string
-    name: string
-    link?: string
-    description?: string
-    metadata?: { connections?: { videos?: { total?: number } } }
-  }>>(
+  const page = await vimeoFetch<
+    VimeoPage<{
+      uri: string
+      name: string
+      link?: string
+      description?: string
+      metadata?: { connections?: { videos?: { total?: number } } }
+    }>
+  >(
     "/me/albums?per_page=100&fields=uri,name,link,description,metadata.connections.videos.total",
     token
   )
-  return (page.data ?? []).map((show) => ({
-    uri: show.uri,
-    name: show.name,
-    link: show.link,
-    description: show.description,
-    videoCount: show.metadata?.connections?.videos?.total
-  }))
+  return (page.data ?? []).map((show) => {
+    const videoCount = show.metadata?.connections?.videos?.total
+    return {
+      uri: show.uri,
+      name: show.name,
+      ...(show.link !== undefined ? { link: show.link } : {}),
+      ...(show.description !== undefined ? { description: show.description } : {}),
+      ...(videoCount !== undefined ? { videoCount } : {})
+    }
+  })
 }
 
 export async function listVimeoEpisodes(token: string, showUri: string): Promise<VimeoVideo[]> {
@@ -52,6 +58,17 @@ export async function listVimeoEpisodes(token: string, showUri: string): Promise
 
 export async function listVimeoAccountVideos(token: string): Promise<VimeoVideo[]> {
   return listVimeoVideos(token, `/me/videos?per_page=25&fields=${videoFields()}`)
+}
+
+export async function searchVimeoAccountVideos(
+  token: string,
+  query: string,
+  perPage = 25
+): Promise<VimeoVideo[]> {
+  const path = `/me/videos?per_page=${perPage}&query=${encodeURIComponent(
+    query
+  )}&fields=${videoFields()}`
+  return listVimeoVideos(token, path)
 }
 
 export async function getVimeoVideo(token: string, videoUri: string): Promise<VimeoVideo> {
