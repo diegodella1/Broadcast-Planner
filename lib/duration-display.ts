@@ -1,8 +1,6 @@
 import type { SourceType } from "./types"
 
-export type DurationDisplay =
-  | { kind: "live" }
-  | { kind: "duration"; seconds: number }
+export type DurationDisplay = { kind: "live" } | { kind: "duration"; seconds: number }
 
 /**
  * Decides whether a duration chip should render as the literal "Live" label

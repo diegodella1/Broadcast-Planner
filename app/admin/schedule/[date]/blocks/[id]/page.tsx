@@ -191,7 +191,10 @@ export default async function BlockPage({
           </div>
 
           <dl className="mt-6 grid gap-4 sm:grid-cols-3">
-            <Info label="Start" value={<PlayoutTime airDate={date} seconds={block.startTimeSeconds} />} />
+            <Info
+              label="Start"
+              value={<PlayoutTime airDate={date} seconds={block.startTimeSeconds} />}
+            />
             <Info label="Duration" value={<Timecode seconds={block.durationSeconds} />} />
             <Info label="Type" value={block.blockType} />
           </dl>
@@ -232,7 +235,11 @@ export default async function BlockPage({
               defaultValue={block.durationSeconds}
               className="border border-line px-3 py-2 text-sm"
             />
-            <select name="block_type" defaultValue={block.blockType} className="border border-line px-3 py-2 text-sm">
+            <select
+              name="block_type"
+              defaultValue={block.blockType}
+              className="border border-line px-3 py-2 text-sm"
+            >
               <option value="video">Video</option>
               <option value="image">Image</option>
               <option value="slide">Slide</option>

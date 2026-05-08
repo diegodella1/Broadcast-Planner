@@ -13,7 +13,9 @@ describe("data fallback policy", () => {
     delete process.env.ALLOW_DEMO_DATA
 
     expect(shouldUseDemoData()).toBe(false)
-    expect(() => handleDataFailure(new Error("supabase down"), "demo")).toThrow("Database unavailable: supabase down")
+    expect(() => handleDataFailure(new Error("supabase down"), "demo")).toThrow(
+      "Database unavailable: supabase down"
+    )
   })
 
   it("allows demo data behind ALLOW_DEMO_DATA", () => {

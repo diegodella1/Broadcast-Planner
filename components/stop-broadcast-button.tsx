@@ -13,7 +13,7 @@ export function StopBroadcastButton({
   action,
   disabled = false,
   label,
-  confirmMessage,
+  confirmMessage
 }: StopBroadcastButtonProps) {
   const [isPending, startTransition] = useTransition()
 

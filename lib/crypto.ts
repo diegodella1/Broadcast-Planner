@@ -17,7 +17,10 @@ export function decryptSecret(payload: string): string {
   if (!ivRaw || !tagRaw || !encryptedRaw) throw new Error("Invalid encrypted payload")
   const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(ivRaw, "base64"))
   decipher.setAuthTag(Buffer.from(tagRaw, "base64"))
-  return Buffer.concat([decipher.update(Buffer.from(encryptedRaw, "base64")), decipher.final()]).toString("utf8")
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedRaw, "base64")),
+    decipher.final()
+  ]).toString("utf8")
 }
 
 export function maskSecret(value?: string | null): string {

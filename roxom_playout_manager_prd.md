@@ -464,12 +464,7 @@ type MediaAsset = {
     | "camera"
     | "graphic"
 
-  sourceType:
-    | "uploaded_file"
-    | "remote_url"
-    | "youtube_embed"
-    | "hls"
-    | "internal_storage"
+  sourceType: "uploaded_file" | "remote_url" | "youtube_embed" | "hls" | "internal_storage"
 
   url: string
   thumbnailUrl?: string
@@ -511,12 +506,7 @@ type SlideAsset = {
   id: string
   title: string
 
-  slideType:
-    | "image"
-    | "html"
-    | "template"
-    | "markdown"
-    | "custom_graphic"
+  slideType: "image" | "html" | "template" | "markdown" | "custom_graphic"
 
   content?: string
   imageUrl?: string
@@ -609,13 +599,7 @@ type ScheduledLayer = {
 
   zIndex: number
 
-  position?:
-    | "fullscreen"
-    | "lower_third"
-    | "sidebar"
-    | "top_right"
-    | "bottom_bar"
-    | "custom"
+  position?: "fullscreen" | "lower_third" | "sidebar" | "top_right" | "bottom_bar" | "custom"
 
   transitionIn?: "cut" | "fade" | "slide" | "none"
   transitionOut?: "cut" | "fade" | "slide" | "none"
@@ -677,13 +661,7 @@ type BroadcastOverlay = {
   slideId?: string
   widgetId?: string
 
-  position:
-    | "fullscreen"
-    | "lower_third"
-    | "sidebar"
-    | "top_right"
-    | "bottom_bar"
-    | "custom"
+  position: "fullscreen" | "lower_third" | "sidebar" | "top_right" | "bottom_bar" | "custom"
 
   zIndex: number
   durationSeconds?: number
@@ -736,14 +714,7 @@ type CameraFeed = {
 type DataWidget = {
   id: string
   name: string
-  type:
-    | "market"
-    | "debt"
-    | "commodity"
-    | "bitcoin"
-    | "treasury"
-    | "macro"
-    | "custom"
+  type: "market" | "debt" | "commodity" | "bitcoin" | "treasury" | "macro" | "custom"
 
   enabled: boolean
   priority: number
@@ -849,12 +820,7 @@ Every timeline should define fallback behavior.
 Possible fallback modes:
 
 ```ts
-type FallbackMode =
-  | "black"
-  | "slate"
-  | "default_loop"
-  | "weather_camera"
-  | "next_item"
+type FallbackMode = "black" | "slate" | "default_loop" | "weather_camera" | "next_item"
 ```
 
 Recommended MVP fallback:
@@ -1181,6 +1147,7 @@ This is a CMS-controlled broadcast playout manager for Roxom TV.
 The viewer does not interact with the UI. This is for television. The admin controls what appears on air.
 
 The product must support:
+
 - long-form video playback up to 2 hours,
 - ads/promos of 5 minutes or less,
 - slides scheduled at exact timestamps,
@@ -1195,12 +1162,14 @@ Do not implement live ingest.
 Do not build a clickable consumer map.
 
 Use browser-compatible media only:
+
 - uploaded file URL,
 - remote MP4,
 - HLS if already available,
 - YouTube embed if stable.
 
 Implementation order:
+
 1. Create clean TypeScript models for MediaAsset, SlideAsset, BroadcastTimeline, ScheduledLayer, BroadcastScene.
 2. Create mock data for a sample 2-hour timeline.
 3. Build a fullscreen `/output/[timelineId]` route.

@@ -218,11 +218,11 @@ wrangler secret put REUTERS_REFRESH_TOKEN        # only when REUTERS_PROVIDER=re
 
 These are not secrets but differ between staging and production. Set them in the Cloudflare dashboard under **Workers & Pages > roxom-playout-manager > Settings > Variables**:
 
-| Variable | Example |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://xxxxx.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project anon key |
-| `NEXT_PUBLIC_APP_BASE_URL` | `https://roxomtv.com/rtvtime` |
+| Variable                        | Example                       |
+| ------------------------------- | ----------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | `https://xxxxx.supabase.co`   |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project anon key     |
+| `NEXT_PUBLIC_APP_BASE_URL`      | `https://roxomtv.com/rtvtime` |
 
 ### Build and deploy commands
 

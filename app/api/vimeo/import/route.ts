@@ -16,7 +16,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Missing Vimeo token" }, { status: 400 })
     }
 
-    const videos = videoUri ? [await getVimeoVideo(token, videoUri)] : await listVimeoAccountVideos(token)
+    const videos = videoUri
+      ? [await getVimeoVideo(token, videoUri)]
+      : await listVimeoAccountVideos(token)
     await upsertVimeoVideos(videos)
     await markVimeoStatus("connected")
     return NextResponse.redirect(appUrl(returnTo || "/admin/assets?imported=1"), 303)

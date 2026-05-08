@@ -260,10 +260,15 @@ export default async function AssetsPage({
               </span>
             </summary>
             <AssetEditForm asset={asset} action={editAsset} />
-            <form action={deleteAsset} className="mt-3 rounded-md border border-danger-line bg-danger-soft p-4">
+            <form
+              action={deleteAsset}
+              className="mt-3 rounded-md border border-danger-line bg-danger-soft p-4"
+            >
               <input type="hidden" name="id" value={asset.id} />
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-danger-strong">Delete this asset from the library</p>
+                <p className="text-sm font-semibold text-danger-strong">
+                  Delete this asset from the library
+                </p>
                 <ConfirmSubmitButton
                   message={`Delete "${asset.title}" from the library? Scheduled blocks using it will show missing asset warnings.`}
                   className="rounded-md border border-danger-line bg-surface px-4 py-2 text-sm font-semibold text-danger-strong hover:bg-danger-soft"
