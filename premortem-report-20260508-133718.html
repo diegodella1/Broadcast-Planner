@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Premortem Report - RTV TL Manager</title>
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --panel: #101827;
+      --panel2: #162033;
+      --line: #29364f;
+      --text: #edf2ff;
+      --muted: #a8b3c7;
+      --danger: #ff6b6b;
+      --warn: #f6c85f;
+      --info: #65d6ff;
+      --ok: #74e0a4;
+      --violet: #b79cff;
+      --orange: #ff9b6a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { max-width: 1180px; margin: 0 auto; padding: 36px 20px 52px; }
+    header { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 24px; }
+    h1, h2, h3 { margin: 0; line-height: 1.15; }
+    h1 { font-size: clamp(32px, 5vw, 58px); letter-spacing: 0; }
+    h2 { font-size: 24px; margin-bottom: 14px; }
+    h3 { font-size: 18px; }
+    p { margin: 0; }
+    .eyebrow { color: var(--info); font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: .08em; margin-bottom: 10px; }
+    .sub { color: var(--muted); max-width: 820px; margin-top: 14px; font-size: 17px; }
+    .grid { display: grid; gap: 16px; }
+    .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 24px 0; }
+    .card {
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: 0 18px 42px rgba(0,0,0,.28);
+    }
+    .card strong { display: block; margin-bottom: 8px; color: white; }
+    .tag { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--info); display: inline-block; }
+    .danger .dot { background: var(--danger); }
+    .warn .dot { background: var(--warn); }
+    .ok .dot { background: var(--ok); }
+    .accent-danger { border-top: 4px solid var(--danger); }
+    .accent-warn { border-top: 4px solid var(--warn); }
+    .accent-info { border-top: 4px solid var(--info); }
+    .accent-ok { border-top: 4px solid var(--ok); }
+    .accent-violet { border-top: 4px solid var(--violet); }
+    .accent-orange { border-top: 4px solid var(--orange); }
+    .section { margin-top: 28px; }
+    .revisions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    ol, ul { margin: 10px 0 0; padding-left: 20px; }
+    li { margin: 8px 0; color: var(--muted); }
+    .failure-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .failure-card p { color: var(--muted); margin-top: 10px; }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .pill { border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; color: var(--muted); font-size: 13px; background: rgba(255,255,255,.03); }
+    .checklist li { color: var(--text); }
+    footer { border-top: 1px solid var(--line); color: var(--muted); margin-top: 34px; padding-top: 20px; font-size: 13px; }
+    @media (max-width: 860px) {
+      .summary, .revisions, .failure-grid { grid-template-columns: 1fr; }
+      main { padding: 24px 14px 40px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Premortem report</p>
+      <h1>RTV TL Manager failed 6 months from now</h1>
+      <p class="sub">Premise: Roxom Playout Manager compiled and had useful admin screens, but the team stopped trusting it for real broadcast playout. This report works backward from that failure and turns it into an improvement plan.</p>
+      <div class="meta-row">
+        <span class="pill">Generated 2026-05-08 13:37:18</span>
+        <span class="pill">7 failure modes</span>
+        <span class="pill">Tests passed: 12</span>
+        <span class="pill">Build passed</span>
+      </div>
+    </header>
+
+    <section class="grid summary">
+      <article class="card accent-warn">
+        <span class="tag warn"><span class="dot"></span>Most likely failure</span>
+        <strong>Output reliability lags behind CMS functionality.</strong>
+        <p>The app has strong scheduling direction, but renderer behavior and end-to-end playout are not yet tested or instrumented like broadcast infrastructure.</p>
+      </article>
+      <article class="card accent-danger">
+        <span class="tag danger"><span class="dot"></span>Most dangerous failure</span>
+        <strong>Silent wrong output reaches air.</strong>
+        <p>Database failure can fall back to mock schedule, or playback can freeze/fail while the browser route still appears alive.</p>
+      </article>
+      <article class="card accent-info">
+        <span class="tag"><span class="dot"></span>Hidden assumption</span>
+        <strong>"The app renders" means "the signal is safe."</strong>
+        <p>Broadcast safety requires real data, playable media, valid schedule, and automatic recovery. Rendering alone proves too little.</p>
+      </article>
+    </section>
+
+    <section class="section">
+      <h2>Revised Plan</h2>
+      <div class="grid revisions">
+        <article class="card">
+          <h3>1. Make real data non-negotiable</h3>
+          <ul>
+            <li>Remove mock fallback from production data paths.</li>
+            <li>Show explicit data-source state in admin screens.</li>
+            <li>Keep demo data behind `ALLOW_DEMO_DATA=true` only.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>2. Lock privileged mutations</h3>
+          <ul>
+            <li>Add `requireAdmin()` to service-role write routes.</li>
+            <li>Add static/test guard for API routes using service client.</li>
+            <li>Audit uploads, imports, settings, edits, and overrides.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>3. Build playout-grade fallback</h3>
+          <ul>
+            <li>Add renderer state machine: loading, playing, stalled, errored, ended, fallback.</li>
+            <li>Wire video error/stall/end events to fallback.</li>
+            <li>Add media-start timeout and debug media state.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>4. Turn readiness into enforcement</h3>
+          <ul>
+            <li>Add database-level overlap protection.</li>
+            <li>Publish only with no critical issues and ready fallback.</li>
+            <li>Use a pass/fail day readiness checklist, not only counts.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>5. Add live operations panel</h3>
+          <ul>
+            <li>Show now, next, active media state, warnings.</li>
+            <li>Add force fallback, disable overlay, force next, hold block, clear override.</li>
+            <li>Store overrides and audit them.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>6. Add broadcast smoke tests</h3>
+          <ul>
+            <li>Playwright: login, create block, publish, output route.</li>
+            <li>Pixel/media checks for nonblank clean output.</li>
+            <li>Bad media URL must trigger fallback.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Failure Modes</h2>
+      <div class="grid failure-grid">
+        <article class="card failure-card accent-danger">
+          <span class="tag danger"><span class="dot"></span>Severity high / likelihood medium</span>
+          <h3>Silent mock fallback</h3>
+          <p>Supabase fails, but `lib/data.ts` returns `mockSchedule`. Operators see a believable schedule that is not the real on-air plan.</p>
+          <p><strong>Assumption:</strong> A working render means real data was loaded.</p>
+          <p><strong>Warning signs:</strong> Health passes while Supabase fetches fail; output shows blocks not in production DB.</p>
+        </article>
+        <article class="card failure-card accent-danger">
+          <span class="tag danger"><span class="dot"></span>Severity high / likelihood medium</span>
+          <h3>Service-role API exposure</h3>
+          <p>Upload/import/settings routes write with privileged Supabase access without consistent route-level admin enforcement.</p>
+          <p><strong>Assumption:</strong> Environment secrecy is enough protection for privileged writes.</p>
+          <p><strong>Warning signs:</strong> `createServiceClient()` in API routes without `requireAdmin()`; storage objects with weak audit trail.</p>
+        </article>
+        <article class="card failure-card accent-warn">
+          <span class="tag warn"><span class="dot"></span>Severity high / likelihood high</span>
+          <h3>Renderer not playout-grade</h3>
+          <p>Video stalls, iframe autoplay fails, HLS errors, or remote media breaks. Browser output remains alive but shows black/frozen/incorrect content.</p>
+          <p><strong>Assumption:</strong> Ready URL means successful browser playback.</p>
+          <p><strong>Warning signs:</strong> No tests for media errors, stalls, ended events, autoplay failures, or iframe failures.</p>
+        </article>
+        <article class="card failure-card accent-orange">
+          <span class="tag warn"><span class="dot"></span>Severity medium / likelihood high</span>
+          <h3>Health checks stay advisory</h3>
+          <p>UI detects gaps, overlaps, and asset problems, but not every unsafe state is impossible at database/API level.</p>
+          <p><strong>Assumption:</strong> UI health checks are enough to protect broadcast state.</p>
+          <p><strong>Warning signs:</strong> Direct writes or future endpoints can bypass app-layer checks.</p>
+        </article>
+        <article class="card failure-card accent-info">
+          <span class="tag"><span class="dot"></span>Severity medium / likelihood high</span>
+          <h3>Live recovery UX too slow</h3>
+          <p>Operator must navigate schedule rows and edit blocks during a live issue instead of using one-click recovery controls.</p>
+          <p><strong>Assumption:</strong> Editing workflows are fast enough for live recovery.</p>
+          <p><strong>Warning signs:</strong> Live incident actions require multiple page transitions.</p>
+        </article>
+        <article class="card failure-card accent-violet">
+          <span class="tag"><span class="dot"></span>Severity medium / likelihood medium</span>
+          <h3>CMS breadth outruns reliability</h3>
+          <p>Slides, Vimeo, uploads, lower thirds, and settings expand before the team proves 12-hour unattended output stability.</p>
+          <p><strong>Assumption:</strong> Unit tests and build are enough confidence for playout.</p>
+          <p><strong>Warning signs:</strong> Tests cover schedule logic but not browser output behavior.</p>
+        </article>
+        <article class="card failure-card accent-ok">
+          <span class="tag ok"><span class="dot"></span>Severity medium / likelihood medium</span>
+          <h3>Environment drift breaks production</h3>
+          <p>Wrong base URL, missing bucket, missing encryption key, bad Vimeo token, or bad Supabase key passes build but fails at runtime.</p>
+          <p><strong>Assumption:</strong> Successful `next build` means production is ready.</p>
+          <p><strong>Warning signs:</strong> Health route does not verify critical dependencies.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Pre-Launch Checklist</h2>
+      <article class="card checklist">
+        <ul>
+          <li>Production data paths never return mock schedule unless explicit demo mode is enabled.</li>
+          <li>Every service-role write route has admin auth and audit log.</li>
+          <li>Live output automatically switches to fallback when media URL fails.</li>
+          <li>Active day cannot publish with overlap, missing asset, unsupported asset, or missing ready fallback.</li>
+          <li>Playwright smoke proves login, schedule creation, publish, live output, preview output, and fallback behavior.</li>
+        </ul>
+      </article>
+    </section>
+
+    <footer>
+      Premortem target: RTV TL Manager / Roxom Playout Manager. Full reasoning saved in `premortem-transcript-20260508-133718.md`.
+    </footer>
+  </main>
+</body>
+</html>

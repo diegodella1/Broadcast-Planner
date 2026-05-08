@@ -75,7 +75,7 @@ export async function createProgramBlock(input: {
     const candidateEnd = candidate.startTimeSeconds + candidate.durationSeconds
     return candidate.startTimeSeconds < blockEnd && candidateEnd > block.startTimeSeconds
   })
-  if (conflict) throw new Error("The block overlaps another block")
+  if (conflict) throw new Error("El bloque se solapa con otro bloque")
   const { error } = await supabase.from("program_blocks").insert({
     program_day_id: dayId,
     title: input.title,
@@ -112,16 +112,16 @@ export async function updateProgramDayStatus(input: {
   allowWarnings?: boolean
 }) {
   if (!["draft", "ready", "active", "archived"].includes(input.status)) {
-    throw new Error("Invalid status")
+    throw new Error("Estado invalido")
   }
   const schedule = await getScheduleForDate(input.date)
-  if (!schedule.day) throw new Error("Day not found")
+  if (!schedule.day) throw new Error("Dia no encontrado")
   const health = analyzeSchedule(schedule)
   if ((input.status === "ready" || input.status === "active") && health.criticalCount > 0) {
-    throw new Error("Cannot publish with critical alerts")
+    throw new Error("No se puede publicar con alertas criticas")
   }
   if ((input.status === "ready" || input.status === "active") && health.warnCount > 0 && !input.allowWarnings) {
-    throw new Error("There are pending warnings")
+    throw new Error("Hay advertencias pendientes")
   }
   const supabase = createServiceClient()
   const { error } = await supabase
@@ -156,14 +156,14 @@ export async function updateProgramBlock(input: {
   notes?: string
 }) {
   if (!["video", "image", "slide", "ad", "promo", "fallback"].includes(input.blockType)) {
-    throw new Error("Invalid block type")
+    throw new Error("Tipo de bloque invalido")
   }
   if (!["draft", "ready", "active", "archived"].includes(input.status)) {
-    throw new Error("Invalid status")
+    throw new Error("Estado invalido")
   }
   const schedule = await getScheduleForDate(input.date)
   const block = schedule.blocks.find((item) => item.id === input.blockId)
-  if (!block) throw new Error("Block not found")
+  if (!block) throw new Error("Bloque no encontrado")
   const startTimeSeconds = parseTimecode(input.startTime)
   const contentDuration = getKnownContentDuration(schedule, input.assetId, input.slideId)
   const durationSeconds = Math.max(1, Number(input.durationSeconds || 0), contentDuration || 1)
@@ -176,7 +176,7 @@ export async function updateProgramBlock(input: {
     const itemEnd = item.startTimeSeconds + item.durationSeconds
     return startTimeSeconds < itemEnd && candidateEnd > item.startTimeSeconds
   })
-  if (conflict) throw new Error("The block overlaps another block")
+  if (conflict) throw new Error("El bloque se solapa con otro bloque")
   const supabase = createServiceClient()
   const { error } = await supabase
     .from("program_blocks")
@@ -214,7 +214,7 @@ export async function deleteProgramBlock(input: {
 }) {
   const schedule = await getScheduleForDate(input.date)
   const block = schedule.blocks.find((item) => item.id === input.blockId)
-  if (!block) throw new Error("Block not found")
+  if (!block) throw new Error("Bloque no encontrado")
   const supabase = createServiceClient()
   const { error: layerError } = await supabase
     .from("scheduled_layers")
@@ -256,7 +256,7 @@ export async function createLongTestSchedule(input: {
     adBreakMinutes: input.adBreakMinutes,
     imageBumperSeconds: input.imageBumperSeconds
   })
-  if (!generatedBlocks.length) throw new Error("Could not generate the grid")
+  if (!generatedBlocks.length) throw new Error("No se pudo generar la grilla")
 
   const supabase = createServiceClient()
   const startSeconds = generatedBlocks[0].startTimeSeconds
