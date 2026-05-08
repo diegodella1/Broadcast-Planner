@@ -1,293 +1,166 @@
 import Link from "next/link"
-import { getTranslations } from "next-intl/server"
-
+import { redirect } from "next/navigation"
+import type { ReactNode } from "react"
 import { AdminShell } from "@/components/admin-shell"
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
 import { getScheduleForDate } from "@/lib/data"
-import { getDurationDisplay } from "@/lib/duration-display"
-import {
-  createLowerThirdLayer,
-  createScheduledLayer,
-  setScheduledLayerEnabled,
-  updateMediaAsset,
-  updateProgramBlock
-} from "@/lib/mutations"
+import { createLowerThirdLayer, createScheduledLayer, deleteProgramBlock, setScheduledLayerEnabled, updateMediaAsset, updateProgramBlock } from "@/lib/mutations"
 import { analyzeSchedule, getAssetReadiness } from "@/lib/schedule-health"
-import {
-  createLayerSchema,
-  createLowerThirdSchema,
-  parseFormData,
-  toggleLayerSchema,
-  updateBlockSchema,
-  updateMediaAssetSchema
-} from "@/lib/schemas"
 import { formatTimecode } from "@/lib/time"
+import type { MediaAsset } from "@/lib/types"
 
-import type { BlockCategory, MediaAsset } from "@/lib/types"
-import type { ReactNode } from "react"
-
-export default async function BlockPage({
-  params
-}: {
-  params: Promise<{ date: string; id: string }>
-}) {
+export default async function BlockPage({ params }: { params: Promise<{ date: string; id: string }> }) {
   const { date, id } = await params
-  const [schedule, t, tBlock] = await Promise.all([
-    getScheduleForDate(date),
-    getTranslations("blockDetail"),
-    getTranslations("block")
-  ])
+  const schedule = await getScheduleForDate(date)
   const block = schedule.blocks.find((item) => item.id === id)
   if (!block) {
-    return <AdminShell title={t("notFound.title")}>{t("notFound.body")}</AdminShell>
+    return <AdminShell title="Block not found">This block does not exist.</AdminShell>
   }
-  const layers = schedule.layers
-    .filter((layer) => layer.programBlockId === block.id)
-    .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.zIndex - b.zIndex)
+
+  const layers = schedule.layers.filter((layer) => layer.programBlockId === block.id).sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.zIndex - b.zIndex)
   const asset = schedule.mediaAssets.find((item) => item.id === block.assetId)
   const slide = schedule.slideAssets.find((item) => item.id === block.slideId)
   const fallback = schedule.mediaAssets.find((item) => item.id === block.fallbackAssetId)
+  const musicAssets = schedule.mediaAssets.filter((item) => item.assetType === "music")
+  const readyMusicAssets = musicAssets.filter((item) => item.status === "ready" && item.url)
   const health = analyzeSchedule(schedule, [block])
   const blockIssues = health.issues.filter((issue) => issue.blockId === block.id || !issue.blockId)
+
   async function saveBlock(formData: FormData) {
     "use server"
-    const data = parseFormData(updateBlockSchema, {
-      title: formData.get("title"),
-      blockType: formData.get("block_type"),
-      assetId: formData.get("asset_id") ?? "",
-      slideId: formData.get("slide_id") ?? "",
-      startTime: formData.get("start_time"),
-      durationSeconds: formData.get("duration_seconds"),
-      status: formData.get("status"),
-      hideOverlays: formData.get("hide_overlays") === "on",
-      fallbackAssetId: formData.get("fallback_asset_id") ?? "",
-      notes: formData.get("notes") ?? ""
-    })
     await updateProgramBlock({
       date,
       blockId: id,
-      title: data.title,
-      blockType: data.blockType,
-      startTime: data.startTime,
-      durationSeconds: data.durationSeconds,
-      status: data.status,
-      hideOverlays: data.hideOverlays,
-      ...(data.assetId !== undefined ? { assetId: data.assetId } : {}),
-      ...(data.slideId !== undefined ? { slideId: data.slideId } : {}),
-      ...(data.fallbackAssetId !== undefined ? { fallbackAssetId: data.fallbackAssetId } : {}),
-      ...(data.notes !== undefined ? { notes: data.notes } : {}),
-      ...(data.category !== undefined ? { category: data.category as BlockCategory } : {})
+      title: String(formData.get("title")),
+      blockType: String(formData.get("block_type")),
+      assetId: String(formData.get("asset_id") || ""),
+      slideId: String(formData.get("slide_id") || ""),
+      startTime: String(formData.get("start_time")),
+      durationSeconds: Number(formData.get("duration_seconds")),
+      status: String(formData.get("status")),
+      hideOverlays: formData.get("hide_overlays") === "on",
+      fallbackAssetId: String(formData.get("fallback_asset_id") || ""),
+      notes: String(formData.get("notes") || "")
     })
   }
+
   async function addLayer(formData: FormData) {
     "use server"
-    const data = parseFormData(createLayerSchema, {
-      title: formData.get("title"),
-      layerType: formData.get("layer_type"),
-      assetId: formData.get("asset_id") ?? "",
-      slideId: formData.get("slide_id") ?? "",
-      startTime: formData.get("start_time"),
-      durationSeconds: formData.get("duration_seconds"),
-      zIndex: formData.get("z_index") ?? 10,
-      position: formData.get("position")
-    })
     await createScheduledLayer({
       date,
       blockId: id,
-      title: data.title,
-      layerType: data.layerType,
-      startTime: data.startTime,
-      durationSeconds: data.durationSeconds,
-      zIndex: data.zIndex,
-      position: data.position,
-      ...(data.assetId !== undefined ? { assetId: data.assetId } : {}),
-      ...(data.slideId !== undefined ? { slideId: data.slideId } : {})
+      title: String(formData.get("title")),
+      layerType: String(formData.get("layer_type")),
+      assetId: String(formData.get("asset_id") || ""),
+      slideId: String(formData.get("slide_id") || ""),
+      startTime: String(formData.get("start_time")),
+      durationSeconds: Number(formData.get("duration_seconds")),
+      zIndex: Number(formData.get("z_index") || 10),
+      position: String(formData.get("position"))
     })
   }
+
   async function addLowerThird(formData: FormData) {
     "use server"
-    const data = parseFormData(createLowerThirdSchema, {
-      title: formData.get("title") ?? undefined,
-      primaryText: formData.get("primary_text"),
-      secondaryText: formData.get("secondary_text") ?? "",
-      startTime: formData.get("start_time"),
-      durationSeconds: formData.get("duration_seconds")
-    })
     await createLowerThirdLayer({
       date,
       blockId: id,
-      title: data.title ?? data.primaryText,
-      primaryText: data.primaryText,
-      startTime: data.startTime,
-      durationSeconds: data.durationSeconds,
-      ...(data.secondaryText !== undefined ? { secondaryText: data.secondaryText } : {})
+      title: String(formData.get("title") || formData.get("primary_text") || "Lower third"),
+      primaryText: String(formData.get("primary_text")),
+      secondaryText: String(formData.get("secondary_text") || ""),
+      startTime: String(formData.get("start_time")),
+      durationSeconds: Number(formData.get("duration_seconds") || 0)
     })
   }
+
   async function editAssignedAsset(formData: FormData) {
     "use server"
-    const data = parseFormData(updateMediaAssetSchema, {
-      id: formData.get("id"),
-      title: formData.get("title"),
-      description: formData.get("description") ?? "",
-      sourceType: formData.get("source_type"),
-      mediaKind: formData.get("media_kind"),
-      assetType: formData.get("asset_type"),
-      url: formData.get("url") ?? "",
-      thumbnailUrl: formData.get("thumbnail_url") ?? "",
-      durationSeconds: formData.get("duration_seconds") ?? "",
-      status: formData.get("status"),
-      orientation: formData.get("orientation") ?? "auto"
-    })
     await updateMediaAsset({
-      id: data.id,
-      title: data.title,
-      sourceType: data.sourceType,
-      mediaKind: data.mediaKind,
-      assetType: data.assetType,
-      status: data.status,
-      orientation: data.orientation,
-      revalidatePaths: [
-        `/admin/schedule/${date}`,
-        `/admin/schedule/${date}/blocks/${id}`,
-        `/output/preview/${id}`,
-        "/output/live"
-      ],
-      ...(data.description !== undefined ? { description: data.description } : {}),
-      ...(data.url !== undefined ? { url: data.url } : {}),
-      ...(data.thumbnailUrl !== undefined ? { thumbnailUrl: data.thumbnailUrl } : {}),
-      ...(data.durationSeconds !== undefined ? { durationSeconds: data.durationSeconds } : {})
+      id: String(formData.get("id")),
+      title: String(formData.get("title")),
+      description: String(formData.get("description") || ""),
+      sourceType: String(formData.get("source_type")),
+      mediaKind: String(formData.get("media_kind")),
+      assetType: String(formData.get("asset_type")),
+      url: String(formData.get("url") || ""),
+      thumbnailUrl: String(formData.get("thumbnail_url") || ""),
+      durationSeconds: Number(formData.get("duration_seconds") || 0) || undefined,
+      status: String(formData.get("status")),
+      orientation: String(formData.get("orientation") || "auto"),
+      revalidatePaths: [`/admin/schedule/${date}`, `/admin/schedule/${date}/blocks/${id}`, `/output/preview/${id}`, "/output/live"]
     })
   }
+
   async function toggleLayer(formData: FormData) {
     "use server"
-    const data = parseFormData(toggleLayerSchema, {
-      layerId: formData.get("layer_id"),
-      enabled: formData.get("enabled") === "true"
-    })
     await setScheduledLayerEnabled({
       date,
       blockId: id,
-      layerId: data.layerId,
-      enabled: data.enabled
+      layerId: String(formData.get("layer_id")),
+      enabled: formData.get("enabled") === "true"
     })
   }
+
+  async function deleteBlock() {
+    "use server"
+    await deleteProgramBlock({ date, blockId: id })
+    redirect(`/admin/schedule/${date}`)
+  }
+
   return (
-    <AdminShell title={block.title}>
+    <AdminShell
+      title={block.title}
+      description="Block control room for base content, timing, fallback, overlays, graphics and background music behavior."
+    >
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href={`/admin/schedule/${date}`}
-          className="text-sm font-semibold text-white/60 hover:text-ink"
-        >
-          {t("backToAgenda", { date })}
+        <Link href={`/admin/schedule/${date}`} className="text-sm font-semibold text-zinc-600 hover:text-ink">
+          Back to programming day {date}
         </Link>
         <div className="flex flex-wrap gap-2">
-          <Link
-            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink"
-            href={`/output/preview/${block.id}?debug=true`}
-          >
-            {t("previewDebug")}
+          <Link className="btn-secondary" href={`/output/preview/${block.id}?debug=true`}>
+            Debug preview
           </Link>
-          <Link
-            className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
-            href={`/output/preview/${block.id}`}
-          >
-            {t("previewClean")}
+          <Link className="btn-primary" href={`/output/preview/${block.id}`}>
+            Clean preview
           </Link>
         </div>
       </div>
+
       <section className="mb-5 grid gap-3 lg:grid-cols-3">
-        <SignalCard
-          title={t("signal.base")}
-          primary={asset?.title ?? slide?.title ?? t("signal.noContent")}
-          meta={
-            asset
-              ? `${asset.sourceType} · ${asset.mediaKind}`
-              : slide
-                ? slide.slideType
-                : t("signal.noContent")
-          }
-          status={asset?.status ?? slide?.status ?? "missing"}
-        />
-        <SignalCard
-          title={t("signal.fallback")}
-          primary={fallback?.title ?? t("signal.fallbackGlobal")}
-          meta={
-            fallback
-              ? `${fallback.sourceType} · ${fallback.mediaKind}`
-              : t("signal.fallbackInherited")
-          }
-          status={fallback?.status ?? "inherit"}
-        />
-        <SignalCard
-          title={t("signal.health")}
-          primary={t("signal.criticals", { count: health.criticalCount })}
-          meta={`${t("signal.warnings", { count: health.warnCount })} · ${t("signal.overlays", { count: layers.length })}`}
-          status={health.criticalCount ? "failed" : "ready"}
-        />
+        <SignalCard title="Base content" primary={asset?.title ?? slide?.title ?? "No asset"} meta={asset ? `${asset.sourceType} · ${asset.mediaKind}` : slide ? slide.slideType : "Assign content"} status={asset?.status ?? slide?.status ?? "missing"} />
+        <SignalCard title="Fallback" primary={fallback?.title ?? "Global fallback"} meta={fallback ? `${fallback.sourceType} · ${fallback.mediaKind}` : "Uses day/system fallback"} status={fallback?.status ?? "inherit"} />
+        <SignalCard title="Health" primary={`${health.criticalCount} critical`} meta={`${health.warnCount} warnings · ${layers.length} overlays`} status={health.criticalCount ? "failed" : "ready"} />
       </section>
-      <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <section className="surface-panel p-5">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm text-white/60">{t("main")}</p>
+              <p className="text-sm text-muted">Primary block</p>
               <h2 className="text-2xl font-semibold">{block.title}</h2>
             </div>
             <StatusPill status={block.status} />
           </div>
+
           <dl className="mt-6 grid gap-4 sm:grid-cols-3">
-            <Info label={t("fields.start")} value={<Timecode seconds={block.startTimeSeconds} />} />
-            <Info
-              label={t("fields.duration")}
-              value={<Timecode seconds={block.durationSeconds} />}
-            />
-            <Info label={t("fields.type")} value={block.blockType} />
+            <Info label="Start" value={<Timecode seconds={block.startTimeSeconds} />} />
+            <Info label="Duration" value={<Timecode seconds={block.durationSeconds} />} />
+            <Info label="Type" value={block.blockType} />
           </dl>
-          <form
-            action={saveBlock}
-            className="mt-6 grid gap-3 rounded-md border border-line bg-panel p-4 lg:grid-cols-2"
-          >
-            <input
-              name="title"
-              required
-              defaultValue={block.title}
-              placeholder={t("fields.title")}
-              aria-label={t("fields.title")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            />
-            <select
-              name="status"
-              defaultValue={block.status}
-              aria-label={t("fields.status")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            >
+
+          <form action={saveBlock} className="mt-6 grid gap-3 rounded-md border border-line bg-panel p-4 lg:grid-cols-2">
+            <input name="title" required defaultValue={block.title} placeholder="Title" className="border border-line px-3 py-2 text-sm" />
+            <select name="status" defaultValue={block.status} className="border border-line px-3 py-2 text-sm">
               <option value="draft">Draft</option>
               <option value="ready">Ready</option>
               <option value="active">Active</option>
               <option value="archived">Archived</option>
             </select>
-            <input
-              name="start_time"
-              required
-              defaultValue={block.startTime}
-              aria-label={t("fields.start")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            />
-            <input
-              name="duration_seconds"
-              required
-              type="number"
-              min="1"
-              defaultValue={block.durationSeconds}
-              aria-label={t("fields.duration")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            />
-            <select
-              name="block_type"
-              defaultValue={block.blockType}
-              aria-label={t("fields.type")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            >
+            <input name="start_time" required defaultValue={block.startTime} className="border border-line px-3 py-2 text-sm" />
+            <input name="duration_seconds" required type="number" min="1" defaultValue={block.durationSeconds} className="border border-line px-3 py-2 text-sm" />
+            <select name="block_type" defaultValue={block.blockType} className="border border-line px-3 py-2 text-sm">
               <option value="video">Video</option>
               <option value="image">Image</option>
               <option value="slide">Slide</option>
@@ -295,272 +168,156 @@ export default async function BlockPage({
               <option value="promo">Promo</option>
               <option value="fallback">Fallback</option>
             </select>
-            <select
-              name="fallback_asset_id"
-              defaultValue={block.fallbackAssetId ?? ""}
-              aria-label={t("fields.fallbackGlobal")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            >
-              <option value="">{t("fields.fallbackGlobal")}</option>
-              {schedule.mediaAssets
-                .filter((item) => item.assetType === "fallback")
-                .map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.title} · {item.status}
-                  </option>
-                ))}
+            <select name="fallback_asset_id" defaultValue={block.fallbackAssetId ?? ""} className="border border-line px-3 py-2 text-sm">
+              <option value="">Global fallback</option>
+              {schedule.mediaAssets.filter((item) => item.assetType === "fallback").map((item) => (
+                <option key={item.id} value={item.id}>{item.title} · {item.status}</option>
+              ))}
             </select>
-            <select
-              name="asset_id"
-              defaultValue={block.assetId ?? ""}
-              aria-label={t("fields.noAsset")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            >
-              <option value="">{t("fields.noAsset")}</option>
-              {schedule.mediaAssets.map((item) => {
-                const dur = getDurationDisplay({
-                  durationSeconds: item.durationSeconds ?? null,
-                  sourceType: item.sourceType
-                })
-                const durLabel =
-                  dur.kind === "live"
-                    ? " · Live"
-                    : dur.seconds > 0
-                      ? ` · ${formatTimecode(dur.seconds)}`
-                      : ""
-                return (
-                  <option key={item.id} value={item.id}>
-                    {item.title} · {item.status}
-                    {durLabel}
-                  </option>
-                )
-              })}
-            </select>
-            <select
-              name="slide_id"
-              defaultValue={block.slideId ?? ""}
-              aria-label={t("fields.noSlide")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            >
-              <option value="">{t("fields.noSlide")}</option>
-              {schedule.slideAssets.map((item) => (
+            <select name="asset_id" defaultValue={block.assetId ?? ""} className="border border-line px-3 py-2 text-sm">
+              <option value="">No asset</option>
+              {schedule.mediaAssets.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.title} · {item.status}
+                  {item.title} · {item.status}{item.durationSeconds ? ` · ${formatTimecode(item.durationSeconds)}` : ""}
                 </option>
               ))}
             </select>
-            <label className="flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm lg:col-span-2">
+            <select name="slide_id" defaultValue={block.slideId ?? ""} className="border border-line px-3 py-2 text-sm">
+              <option value="">No slide</option>
+              {schedule.slideAssets.map((item) => (
+                <option key={item.id} value={item.id}>{item.title} · {item.status}</option>
+              ))}
+            </select>
+            <label className="flex min-h-10 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm lg:col-span-2">
               <input name="hide_overlays" type="checkbox" defaultChecked={block.hideOverlays} />
-              {t("fields.hideOverlays")}
+              Hide overlays during this block
             </label>
-            <textarea
-              name="notes"
-              defaultValue={block.notes ?? ""}
-              placeholder={t("fields.notes")}
-              aria-label={t("fields.notes")}
-              className="min-h-20 rounded-md border border-line px-3 py-2 text-sm lg:col-span-2"
-            />
-            <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white lg:col-span-2">
-              {t("fields.save")}
-            </button>
+            <textarea name="notes" defaultValue={block.notes ?? ""} placeholder="Operator notes" className="min-h-20 border border-line px-3 py-2 text-sm lg:col-span-2" />
+            <button className="btn-primary lg:col-span-2">Save block</button>
           </form>
-          <div className="mt-6 rounded-md bg-panel p-4">
-            <p className="text-sm font-semibold">{t("asset.title")}</p>
-            <p className="mt-1 text-sm text-white/70">{asset?.title ?? t("asset.noAsset")}</p>
-            {asset ? <Readiness asset={asset} readyLabel={t("asset.ready")} /> : null}
-            {asset ? (
-              <AssignedAssetEditForm
-                asset={asset}
-                action={editAssignedAsset}
-                editLabel={t("asset.edit")}
-                saveLabel={t("asset.save")}
-                fieldLabels={{
-                  title: t("asset.fields.title"),
-                  url: t("asset.fields.url"),
-                  thumbnailUrl: t("asset.fields.thumbnailUrl"),
-                  description: t("asset.fields.description"),
-                  durationSec: t("asset.fields.durationSec")
-                }}
-              />
-            ) : null}
-          </div>
+
+          <section className="mt-6 rounded-md bg-panel p-4">
+            <p className="text-sm font-semibold">Assigned asset</p>
+            <p className="mt-1 text-sm text-zinc-700">{asset?.title ?? "No asset assigned"}</p>
+            {asset ? <Readiness asset={asset} /> : null}
+            {asset ? <AssignedAssetEditForm asset={asset} action={editAssignedAsset} /> : null}
+          </section>
+
+          <section className="mt-6 rounded-md border border-line bg-surface p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">Music behavior</p>
+                <p className="mt-1 text-sm text-muted">Ready music tracks play during image and slide blocks. Video, ad and promo media suppress the playlist.</p>
+              </div>
+              <Link href="/admin/music" className="btn-secondary">Manage music</Link>
+            </div>
+            <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+              <Info label="Playlist" value={`${readyMusicAssets.length}/${musicAssets.length} ready`} />
+              <Info label="This block" value={block.blockType === "image" || block.blockType === "slide" ? "Music enabled" : "Music suppressed"} />
+              <Info label="Rule" value="Automatic" />
+            </dl>
+          </section>
+
           <div className="mt-6 grid gap-2">
             {blockIssues.map((issue) => (
-              <p
-                key={issue.id}
-                className={
-                  issue.severity === "critical"
-                    ? "rounded-md bg-negative-red/10 px-3 py-2 text-sm text-negative-red"
-                    : "rounded-md bg-warn-amber/10 px-3 py-2 text-sm text-warn-amber"
-                }
-              >
-                <span className="block font-semibold">
-                  {t(issue.i18n.titleKey as Parameters<typeof t>[0], issue.i18n.titleValues)}
-                </span>
-                {t(issue.i18n.detailKey as Parameters<typeof t>[0], issue.i18n.detailValues)}
+              <p key={issue.id} className={issue.severity === "critical" ? "rounded-md bg-red-50 px-3 py-2 text-sm text-red-900" : "rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900"}>
+                <span className="block font-semibold">{issue.title}</span>
+                {issue.detail}
               </p>
             ))}
-            {blockIssues.length === 0 && (
-              <p className="rounded-md bg-accent-positive/10 px-3 py-2 text-sm text-accent-positive">
-                {t("alerts.none")}
-              </p>
-            )}
+            {blockIssues.length === 0 ? <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900">No alerts for this block.</p> : null}
           </div>
+
+          <section className="mt-6 rounded-md border border-danger-line bg-danger-soft p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold text-danger-strong">Delete block</p>
+                <p className="mt-1 text-sm text-danger-strong">Deletes this block and its scheduled overlays. This cannot be undone.</p>
+              </div>
+              <form action={deleteBlock}>
+                <ConfirmSubmitButton
+                  message={`Delete "${block.title}" and its overlays?`}
+                  className="rounded-md border border-danger-line bg-surface px-4 py-2 text-sm font-semibold text-danger-strong hover:bg-danger-soft"
+                >
+                  Delete block
+                </ConfirmSubmitButton>
+              </form>
+            </div>
+          </section>
         </section>
-        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-          <h3 className="font-semibold">{t("overlays.title")}</h3>
-          <form
-            action={addLowerThird}
-            className="mt-4 grid gap-3 rounded-md border border-line bg-white p-3"
-          >
-            <p className="text-sm font-semibold">{t("overlays.lowerThirdQuick")}</p>
-            <input
-              name="title"
-              placeholder={t("overlays.internalName")}
-              aria-label={t("overlays.internalName")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            />
-            <input
-              name="primary_text"
-              required
-              placeholder={t("overlays.primaryText")}
-              aria-label={t("overlays.primaryText")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            />
-            <input
-              name="secondary_text"
-              placeholder={t("overlays.secondaryText")}
-              aria-label={t("overlays.secondaryText")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            />
+
+        <section className="surface-panel p-5">
+          <h3 className="font-semibold">Overlays</h3>
+          <form action={addLowerThird} className="mt-4 grid gap-3 rounded-md border border-line bg-surface p-3">
+            <p className="text-sm font-semibold">Quick lower third</p>
+            <input name="title" placeholder="Internal name" className="border border-line px-3 py-2 text-sm" />
+            <input name="primary_text" required placeholder="Primary text" className="border border-line px-3 py-2 text-sm" />
+            <input name="secondary_text" placeholder="Secondary text" className="border border-line px-3 py-2 text-sm" />
             <div className="grid gap-3 sm:grid-cols-2">
-              <input
-                name="start_time"
-                required
-                defaultValue="00:00:05"
-                aria-label={t("fields.start")}
-                className="rounded-md border border-line px-3 py-2 text-sm"
-              />
-              <input
-                name="duration_seconds"
-                required
-                type="number"
-                min="1"
-                defaultValue="12"
-                aria-label={t("fields.duration")}
-                className="rounded-md border border-line px-3 py-2 text-sm"
-              />
+              <input name="start_time" required defaultValue="00:00:05" className="border border-line px-3 py-2 text-sm" />
+              <input name="duration_seconds" required type="number" min="1" defaultValue="12" className="border border-line px-3 py-2 text-sm" />
             </div>
-            <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white">
-              {t("overlays.addLowerThird")}
-            </button>
+            <button className="btn-primary">Add lower third</button>
           </form>
+
           <form action={addLayer} className="mt-4 grid gap-3 rounded-md bg-panel p-3">
-            <input
-              name="title"
-              required
-              placeholder={t("overlays.overlayTitle")}
-              aria-label={t("overlays.overlayTitle")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            />
+            <input name="title" required placeholder="Overlay title" className="border border-line px-3 py-2 text-sm" />
             <div className="grid gap-3 sm:grid-cols-2">
-              <input
-                name="start_time"
-                required
-                defaultValue="00:02:00"
-                aria-label={t("fields.start")}
-                className="rounded-md border border-line px-3 py-2 text-sm"
-              />
-              <input
-                name="duration_seconds"
-                required
-                type="number"
-                min="1"
-                defaultValue="30"
-                aria-label={t("fields.duration")}
-                className="rounded-md border border-line px-3 py-2 text-sm"
-              />
+              <input name="start_time" required defaultValue="00:02:00" className="border border-line px-3 py-2 text-sm" />
+              <input name="duration_seconds" required type="number" min="1" defaultValue="30" className="border border-line px-3 py-2 text-sm" />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <select
-                name="layer_type"
-                aria-label={t("overlays.layerType")}
-                className="rounded-md border border-line px-3 py-2 text-sm"
-              >
-                <option value="slide">{t("layerType.slide")}</option>
-                <option value="image">{t("layerType.image")}</option>
-                <option value="lower_third">{t("layerType.lowerThird")}</option>
-                <option value="logo_bug">{t("layerType.logoBug")}</option>
-                <option value="promo">{t("layerType.promo")}</option>
+              <select name="layer_type" className="border border-line px-3 py-2 text-sm">
+                <option value="slide">Slide</option>
+                <option value="image">Image</option>
+                <option value="lower_third">Lower third</option>
+                <option value="logo_bug">Logo bug</option>
+                <option value="promo">Promo</option>
               </select>
-              <select
-                name="position"
-                aria-label={t("overlays.position")}
-                className="rounded-md border border-line px-3 py-2 text-sm"
-              >
-                <option value="lower_third">{t("position.lowerThird")}</option>
-                <option value="top_right">{t("position.topRight")}</option>
-                <option value="bottom_bar">{t("position.bottomBar")}</option>
-                <option value="sidebar">{t("position.sidebar")}</option>
-                <option value="fullscreen">{t("position.fullscreen")}</option>
+              <select name="position" className="border border-line px-3 py-2 text-sm">
+                <option value="lower_third">Lower third</option>
+                <option value="top_right">Top right</option>
+                <option value="bottom_bar">Bottom bar</option>
+                <option value="sidebar">Sidebar</option>
+                <option value="fullscreen">Fullscreen</option>
               </select>
             </div>
-            <select
-              name="slide_id"
-              aria-label={t("fields.noSlide")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            >
-              <option value="">{t("overlays.empty")}</option>
-              {schedule.slideAssets.map((slide) => (
-                <option key={slide.id} value={slide.id}>
-                  {slide.title}
-                </option>
+            <select name="slide_id" className="border border-line px-3 py-2 text-sm">
+              <option value="">No slide</option>
+              {schedule.slideAssets.map((item) => (
+                <option key={item.id} value={item.id}>{item.title}</option>
               ))}
             </select>
-            <select
-              name="asset_id"
-              aria-label={t("fields.noAsset")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            >
-              <option value="">{tBlock("noAsset")}</option>
-              {schedule.mediaAssets.map((mediaAsset) => (
-                <option key={mediaAsset.id} value={mediaAsset.id}>
-                  {mediaAsset.title}
-                </option>
+            <select name="asset_id" className="border border-line px-3 py-2 text-sm">
+              <option value="">No asset</option>
+              {schedule.mediaAssets.map((item) => (
+                <option key={item.id} value={item.id}>{item.title}</option>
               ))}
             </select>
-            <input
-              name="z_index"
-              type="number"
-              defaultValue="10"
-              aria-label={t("overlays.zIndex")}
-              className="rounded-md border border-line px-3 py-2 text-sm"
-            />
-            <button className="rounded-md bg-signal px-4 py-2 text-sm font-semibold text-white">
-              {t("overlays.addOverlay")}
-            </button>
+            <input name="z_index" type="number" defaultValue="10" className="border border-line px-3 py-2 text-sm" />
+            <button className="btn-secondary">Add overlay</button>
           </form>
+
           <div className="mt-4 grid gap-3">
             {layers.map((layer) => (
               <div key={layer.id} className="rounded-md border border-line p-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">{layer.title}</span>
-                  <span className="text-white/50">z{layer.zIndex}</span>
+                  <span className="text-zinc-500">z{layer.zIndex}</span>
                 </div>
-                <p className="mt-1 text-white/60">
-                  <Timecode seconds={layer.startTimeSeconds} /> ·{" "}
-                  <Timecode seconds={layer.durationSeconds} /> · {layer.position}
+                <p className="mt-1 text-zinc-600">
+                  <Timecode seconds={layer.startTimeSeconds} /> · <Timecode seconds={layer.durationSeconds} /> · {layer.position}
                 </p>
                 <form action={toggleLayer} className="mt-3">
                   <input type="hidden" name="layer_id" value={layer.id} />
                   <input type="hidden" name="enabled" value={layer.enabled ? "false" : "true"} />
                   <button className="rounded-md border border-line px-3 py-2 text-xs font-semibold text-ink">
-                    {layer.enabled ? t("overlays.disable") : t("overlays.enable")}
+                    {layer.enabled ? "Disable" : "Enable"}
                   </button>
                 </form>
               </div>
             ))}
-            {layers.length === 0 && <p className="text-sm text-white/60">{t("overlays.empty")}</p>}
+            {layers.length === 0 ? <p className="text-sm text-muted">No overlays scheduled.</p> : null}
           </div>
         </section>
       </div>
@@ -570,85 +327,46 @@ export default async function BlockPage({
 
 function AssignedAssetEditForm({
   asset,
-  action,
-  editLabel,
-  saveLabel,
-  fieldLabels
+  action
 }: {
   asset: MediaAsset
   action: (formData: FormData) => Promise<void>
-  editLabel: string
-  saveLabel: string
-  fieldLabels: {
-    title: string
-    url: string
-    thumbnailUrl: string
-    description: string
-    durationSec: string
-  }
 }) {
-  const orientation = String(
-    asset.metadata?.orientation ||
-      (asset.metadata?.presentation === "vertical_blur" ? "vertical" : "auto")
-  )
+  const orientation = String(asset.metadata?.orientation || (asset.metadata?.presentation === "vertical_blur" ? "vertical" : "auto"))
   return (
     <details className="mt-4">
-      <summary className="cursor-pointer text-sm font-semibold text-ink">{editLabel}</summary>
+      <summary className="cursor-pointer text-sm font-semibold text-ink">Edit assigned asset</summary>
       <form action={action} className="mt-3 grid gap-3">
         <input type="hidden" name="id" value={asset.id} />
-        <input
-          name="title"
-          required
-          defaultValue={asset.title}
-          placeholder={fieldLabels.title}
-          className="rounded-md border border-line px-3 py-2 text-sm"
-        />
-        <input
-          name="url"
-          defaultValue={asset.url ?? ""}
-          placeholder={fieldLabels.url}
-          className="rounded-md border border-line px-3 py-2 text-sm"
-        />
+        <input name="title" required defaultValue={asset.title} placeholder="Title" className="border border-line px-3 py-2 text-sm" />
+        <input name="url" defaultValue={asset.url ?? ""} placeholder="URL" className="border border-line px-3 py-2 text-sm" />
         <div className="grid gap-3 sm:grid-cols-2">
-          <select
-            name="source_type"
-            defaultValue={asset.sourceType}
-            className="rounded-md border border-line px-3 py-2 text-sm"
-          >
+          <select name="source_type" defaultValue={asset.sourceType} className="border border-line px-3 py-2 text-sm">
             <option value="remote_image">Remote image</option>
             <option value="remote_mp4">Remote MP4</option>
             <option value="hls">HLS</option>
             <option value="vimeo">Vimeo</option>
             <option value="supabase_image">Supabase image</option>
+            <option value="supabase_audio">Supabase audio</option>
           </select>
-          <select
-            name="media_kind"
-            defaultValue={asset.mediaKind}
-            className="rounded-md border border-line px-3 py-2 text-sm"
-          >
+          <select name="media_kind" defaultValue={asset.mediaKind} className="border border-line px-3 py-2 text-sm">
             <option value="image">Image</option>
             <option value="video">Video</option>
             <option value="graphic">Graphic</option>
+            <option value="audio">Audio</option>
           </select>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <select
-            name="asset_type"
-            defaultValue={asset.assetType}
-            className="rounded-md border border-line px-3 py-2 text-sm"
-          >
+          <select name="asset_type" defaultValue={asset.assetType} className="border border-line px-3 py-2 text-sm">
             <option value="image">Image</option>
             <option value="video">Video</option>
             <option value="ad">Ad</option>
             <option value="promo">Promo</option>
             <option value="fallback">Fallback</option>
             <option value="overlay">Overlay</option>
+            <option value="music">Music</option>
           </select>
-          <select
-            name="status"
-            defaultValue={asset.status}
-            className="rounded-md border border-line px-3 py-2 text-sm"
-          >
+          <select name="status" defaultValue={asset.status} className="border border-line px-3 py-2 text-sm">
             <option value="draft">Draft</option>
             <option value="syncing">Syncing</option>
             <option value="ready">Ready</option>
@@ -657,78 +375,37 @@ function AssignedAssetEditForm({
           </select>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <select
-            name="orientation"
-            defaultValue={orientation}
-            className="rounded-md border border-line px-3 py-2 text-sm"
-          >
+          <select name="orientation" defaultValue={orientation} className="border border-line px-3 py-2 text-sm">
             <option value="auto">Auto</option>
             <option value="horizontal">Horizontal</option>
             <option value="vertical">Vertical blur</option>
           </select>
-          <input
-            name="duration_seconds"
-            type="number"
-            min="1"
-            defaultValue={asset.durationSeconds ?? ""}
-            placeholder={fieldLabels.durationSec}
-            className="rounded-md border border-line px-3 py-2 text-sm"
-          />
+          <input name="duration_seconds" type="number" min="1" defaultValue={asset.durationSeconds ?? ""} placeholder="Sec" className="border border-line px-3 py-2 text-sm" />
         </div>
-        <input
-          name="thumbnail_url"
-          defaultValue={asset.thumbnailUrl ?? ""}
-          placeholder={fieldLabels.thumbnailUrl}
-          className="rounded-md border border-line px-3 py-2 text-sm"
-        />
-        <input
-          name="description"
-          defaultValue={asset.description ?? ""}
-          placeholder={fieldLabels.description}
-          className="rounded-md border border-line px-3 py-2 text-sm"
-        />
-        <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white">
-          {saveLabel}
-        </button>
+        <input name="thumbnail_url" defaultValue={asset.thumbnailUrl ?? ""} placeholder="Thumbnail URL" className="border border-line px-3 py-2 text-sm" />
+        <input name="description" defaultValue={asset.description ?? ""} placeholder="Description" className="border border-line px-3 py-2 text-sm" />
+        <button className="btn-primary">Save asset</button>
       </form>
     </details>
   )
 }
 
-function SignalCard({
-  title,
-  primary,
-  meta,
-  status
-}: {
-  title: string
-  primary: string
-  meta: string
-  status: string
-}) {
+function SignalCard({ title, primary, meta, status }: { title: string; primary: string; meta: string; status: string }) {
   return (
-    <section className="rounded-lg border border-line bg-white p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase text-white/50">{title}</p>
+    <section className="surface-card p-4">
+      <p className="eyebrow">{title}</p>
       <p className="mt-2 truncate text-xl font-semibold">{primary}</p>
-      <p className="mt-1 text-sm text-white/60">{meta}</p>
-      <div className="mt-3">
-        <StatusPill status={status} />
-      </div>
+      <p className="mt-1 text-sm text-muted">{meta}</p>
+      <div className="mt-3"><StatusPill status={status} /></div>
     </section>
   )
 }
 
-function Readiness({ asset, readyLabel }: { asset: MediaAsset; readyLabel: string }) {
+function Readiness({ asset }: { asset: MediaAsset }) {
   const readiness = getAssetReadiness(asset)
   return (
-    <p
-      className={
-        readiness.ready
-          ? "mt-3 rounded-md bg-accent-positive/10 px-3 py-2 text-sm text-accent-positive"
-          : "mt-3 rounded-md bg-negative-red/10 px-3 py-2 text-sm text-negative-red"
-      }
-    >
-      {readiness.ready ? readyLabel : readiness.messages.join(", ")}
+    <p className={readiness.ready ? "mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900" : "mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-900"}>
+      {readiness.ready ? "Ready to render" : readiness.messages.join(", ")}
     </p>
   )
 }
@@ -736,7 +413,7 @@ function Readiness({ asset, readyLabel }: { asset: MediaAsset; readyLabel: strin
 function Info({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase text-white/50">{label}</dt>
+      <dt className="text-xs font-semibold uppercase text-zinc-500">{label}</dt>
       <dd className="mt-1 text-lg font-semibold">{value}</dd>
     </div>
   )

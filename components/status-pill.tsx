@@ -34,6 +34,8 @@ const statusLabels: Record<string, string> = {
   archived: "Archived",
   draft: "Draft",
   failed: "Failed",
+  inherit: "Inherited",
+  missing: "Missing",
   ready: "Ready",
   syncing: "Syncing"
 }

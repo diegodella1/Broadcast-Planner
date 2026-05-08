@@ -1,12 +1,9 @@
 import { revalidatePath } from "next/cache"
-
 import { getScheduleForDate } from "./data"
-import { buildLongTestSchedule, type GeneratedBlock } from "./schedule-builder"
+import { buildLongTestSchedule } from "./schedule-builder"
 import { analyzeSchedule } from "./schedule-health"
-import { hasBaseBlockConflict } from "./scheduler"
-import { createServiceClient } from "./supabase/server"
 import { parseTimecode } from "./time"
-
+import { createServiceClient } from "./supabase/server"
 import type { BlockCategory, ProgramBlock } from "./types"
 
 export async function ensureProgramDay(date: string) {
@@ -18,7 +15,7 @@ export async function ensureProgramDay(date: string) {
         air_date: date,
         timezone: "America/Argentina/Buenos_Aires",
         status: "draft",
-        title: `Programacion ${date}`
+        title: `Programming ${date}`
       },
       { onConflict: "air_date" }
     )
@@ -30,7 +27,7 @@ export async function ensureProgramDay(date: string) {
   return data.id as string
 }
 
-type CreateProgramBlockInput = {
+export async function createProgramBlock(input: {
   date: string
   title: string
   blockType: string
@@ -39,24 +36,59 @@ type CreateProgramBlockInput = {
   slideId?: string
   startTime: string
   durationSeconds: number
+  preRollSeconds?: number
+  postRollSeconds?: number
   hideOverlays: boolean
-}
-
-export async function createProgramBlock(input: CreateProgramBlockInput) {
-  if (input.blockType === "ad" && input.durationSeconds > 300) {
-    throw new Error("Ads cannot be longer than 300 seconds")
-  }
+}) {
   const dayId = await ensureProgramDay(input.date)
   const startTimeSeconds = parseTimecode(input.startTime)
   const schedule = await getScheduleForDate(input.date)
-  const candidate = buildCandidateBlock(input, dayId, startTimeSeconds)
-  if (hasBaseBlockConflict(schedule.blocks, candidate)) {
-    throw new Error("El bloque se solapa con otro bloque")
+  const contentDuration = getKnownContentDuration(schedule, input.assetId, input.slideId)
+  const preRollSeconds = Math.max(0, Number(input.preRollSeconds || 0) || 0)
+  const postRollSeconds = Math.max(0, Number(input.postRollSeconds || 0) || 0)
+  const minimumDuration = contentDuration ? contentDuration + preRollSeconds + postRollSeconds : 1
+  const durationSeconds = Math.max(1, Number(input.durationSeconds || 0), minimumDuration)
+  if (input.blockType === "ad" && durationSeconds > 300) {
+    throw new Error("Ads cannot be longer than 300 seconds")
   }
   const supabase = createServiceClient()
-  const { error } = await supabase
-    .from("program_blocks")
-    .insert(buildProgramBlockRow(input, dayId, startTimeSeconds))
+  const candidate: ProgramBlock = {
+    id: "candidate",
+    programDayId: dayId,
+    title: input.title,
+    blockType: input.blockType as ProgramBlock["blockType"],
+    category: input.category ?? "mercados",
+    assetId: input.assetId || null,
+    slideId: input.slideId || null,
+    startTime: input.startTime,
+    startTimeSeconds,
+    durationSeconds,
+    status: "ready",
+    hideOverlays: input.hideOverlays,
+    fallbackAssetId: null,
+    createdAt: "",
+    updatedAt: ""
+  }
+  const conflict = schedule.blocks.some((block) => {
+    if (block.programDayId !== dayId) return false
+    const blockEnd = block.startTimeSeconds + block.durationSeconds
+    const candidateEnd = candidate.startTimeSeconds + candidate.durationSeconds
+    return candidate.startTimeSeconds < blockEnd && candidateEnd > block.startTimeSeconds
+  })
+  if (conflict) throw new Error("The block overlaps another block")
+  const { error } = await supabase.from("program_blocks").insert({
+    program_day_id: dayId,
+    title: input.title,
+    block_type: input.blockType,
+    category: input.category ?? "mercados",
+    asset_id: input.assetId || null,
+    slide_id: input.slideId || null,
+    start_time: input.startTime,
+    start_time_seconds: startTimeSeconds,
+    duration_seconds: durationSeconds,
+    status: "ready",
+    hide_overlays: input.hideOverlays
+  })
   if (error) throw error
   await supabase.from("audit_log").insert({
     actor: "admin",
@@ -67,48 +99,11 @@ export async function createProgramBlock(input: CreateProgramBlockInput) {
   revalidatePath(`/admin/schedule/${input.date}`)
 }
 
-function buildProgramBlockRow(
-  input: CreateProgramBlockInput,
-  dayId: string,
-  startTimeSeconds: number
-) {
-  return {
-    program_day_id: dayId,
-    title: input.title,
-    block_type: input.blockType,
-    category: input.category ?? "mercados",
-    asset_id: input.assetId || null,
-    slide_id: input.slideId || null,
-    start_time: input.startTime,
-    start_time_seconds: startTimeSeconds,
-    duration_seconds: input.durationSeconds,
-    status: "ready",
-    hide_overlays: input.hideOverlays
-  }
-}
-
-function buildCandidateBlock(
-  input: CreateProgramBlockInput,
-  dayId: string,
-  startTimeSeconds: number
-): ProgramBlock {
-  return {
-    id: "candidate",
-    programDayId: dayId,
-    title: input.title,
-    blockType: input.blockType as ProgramBlock["blockType"],
-    category: input.category ?? "mercados",
-    assetId: null,
-    slideId: null,
-    startTime: input.startTime,
-    startTimeSeconds,
-    durationSeconds: input.durationSeconds,
-    status: "ready",
-    hideOverlays: input.hideOverlays,
-    fallbackAssetId: null,
-    createdAt: "",
-    updatedAt: ""
-  }
+function getKnownContentDuration(schedule: Awaited<ReturnType<typeof getScheduleForDate>>, assetId?: string, slideId?: string) {
+  const assetDuration = assetId ? schedule.mediaAssets.find((asset) => asset.id === assetId)?.durationSeconds : null
+  if (assetDuration) return assetDuration
+  const slideDuration = slideId ? schedule.slideAssets.find((slide) => slide.id === slideId)?.defaultDurationSeconds : null
+  return slideDuration ?? 0
 }
 
 export async function updateProgramDayStatus(input: {
@@ -117,20 +112,16 @@ export async function updateProgramDayStatus(input: {
   allowWarnings?: boolean
 }) {
   if (!["draft", "ready", "active", "archived"].includes(input.status)) {
-    throw new Error("Estado invalido")
+    throw new Error("Invalid status")
   }
   const schedule = await getScheduleForDate(input.date)
-  if (!schedule.day) throw new Error("Dia no encontrado")
+  if (!schedule.day) throw new Error("Day not found")
   const health = analyzeSchedule(schedule)
   if ((input.status === "ready" || input.status === "active") && health.criticalCount > 0) {
-    throw new Error("No se puede publicar con alertas criticas")
+    throw new Error("Cannot publish with critical alerts")
   }
-  if (
-    (input.status === "ready" || input.status === "active") &&
-    health.warnCount > 0 &&
-    !input.allowWarnings
-  ) {
-    throw new Error("Hay advertencias pendientes")
+  if ((input.status === "ready" || input.status === "active") && health.warnCount > 0 && !input.allowWarnings) {
+    throw new Error("There are pending warnings")
   }
   const supabase = createServiceClient()
   const { error } = await supabase
@@ -165,46 +156,45 @@ export async function updateProgramBlock(input: {
   notes?: string
 }) {
   if (!["video", "image", "slide", "ad", "promo", "fallback"].includes(input.blockType)) {
-    throw new Error("Tipo de bloque invalido")
+    throw new Error("Invalid block type")
   }
   if (!["draft", "ready", "active", "archived"].includes(input.status)) {
-    throw new Error("Estado invalido")
-  }
-  if (input.blockType === "ad" && input.durationSeconds > 300) {
-    throw new Error("Ads cannot be longer than 300 seconds")
+    throw new Error("Invalid status")
   }
   const schedule = await getScheduleForDate(input.date)
   const block = schedule.blocks.find((item) => item.id === input.blockId)
-  if (!block) throw new Error("Bloque no encontrado")
+  if (!block) throw new Error("Block not found")
   const startTimeSeconds = parseTimecode(input.startTime)
-  const candidateEnd = startTimeSeconds + input.durationSeconds
+  const contentDuration = getKnownContentDuration(schedule, input.assetId, input.slideId)
+  const durationSeconds = Math.max(1, Number(input.durationSeconds || 0), contentDuration || 1)
+  if (input.blockType === "ad" && durationSeconds > 300) {
+    throw new Error("Ads cannot be longer than 300 seconds")
+  }
+  const candidateEnd = startTimeSeconds + durationSeconds
   const conflict = schedule.blocks.some((item) => {
     if (item.id === input.blockId || item.programDayId !== block.programDayId) return false
     const itemEnd = item.startTimeSeconds + item.durationSeconds
     return startTimeSeconds < itemEnd && candidateEnd > item.startTimeSeconds
   })
-  if (conflict) throw new Error("El bloque se solapa con otro bloque")
+  if (conflict) throw new Error("The block overlaps another block")
   const supabase = createServiceClient()
-  const updatePayload: Record<string, unknown> = {
-    title: input.title,
-    block_type: input.blockType,
-    asset_id: input.assetId || null,
-    slide_id: input.slideId || null,
-    start_time: input.startTime,
-    start_time_seconds: startTimeSeconds,
-    duration_seconds: input.durationSeconds,
-    status: input.status,
-    hide_overlays: input.hideOverlays,
-    fallback_asset_id: input.fallbackAssetId || null,
-    notes: input.notes || null,
-    updated_at: new Date().toISOString()
-  }
-  if (input.category !== undefined) {
-    updatePayload.category = input.category
-  }
   const { error } = await supabase
     .from("program_blocks")
-    .update(updatePayload)
+    .update({
+      title: input.title,
+      block_type: input.blockType,
+      category: input.category ?? block.category,
+      asset_id: input.assetId || null,
+      slide_id: input.slideId || null,
+      start_time: input.startTime,
+      start_time_seconds: startTimeSeconds,
+      duration_seconds: durationSeconds,
+      status: input.status,
+      hide_overlays: input.hideOverlays,
+      fallback_asset_id: input.fallbackAssetId || null,
+      notes: input.notes || null,
+      updated_at: new Date().toISOString()
+    })
     .eq("id", input.blockId)
   if (error) throw error
   await supabase.from("audit_log").insert({
@@ -218,7 +208,35 @@ export async function updateProgramBlock(input: {
   revalidatePath(`/admin/schedule/${input.date}/blocks/${input.blockId}`)
 }
 
-type LongTestScheduleInput = {
+export async function deleteProgramBlock(input: {
+  date: string
+  blockId: string
+}) {
+  const schedule = await getScheduleForDate(input.date)
+  const block = schedule.blocks.find((item) => item.id === input.blockId)
+  if (!block) throw new Error("Block not found")
+  const supabase = createServiceClient()
+  const { error: layerError } = await supabase
+    .from("scheduled_layers")
+    .delete()
+    .eq("program_block_id", input.blockId)
+  if (layerError) throw layerError
+  const { error } = await supabase
+    .from("program_blocks")
+    .delete()
+    .eq("id", input.blockId)
+  if (error) throw error
+  await supabase.from("audit_log").insert({
+    actor: "admin",
+    action: "program_block.deleted",
+    entity_type: "program_blocks",
+    entity_id: input.blockId,
+    metadata: { date: input.date, title: block.title, start_time: block.startTime }
+  })
+  revalidatePath(`/admin/schedule/${input.date}`)
+}
+
+export async function createLongTestSchedule(input: {
   date: string
   startTime: string
   totalHours: number
@@ -226,18 +244,50 @@ type LongTestScheduleInput = {
   adBreakMinutes: number
   imageBumperSeconds: number
   replaceWindow: boolean
-}
-
-export async function createLongTestSchedule(input: LongTestScheduleInput) {
+}) {
   const dayId = await ensureProgramDay(input.date)
   const schedule = await getScheduleForDate(input.date)
-  const generatedBlocks = buildLongTestBlocks(input, schedule.mediaAssets, schedule.slideAssets)
-  if (!generatedBlocks.length) throw new Error("No se pudo generar la grilla")
+  const generatedBlocks = buildLongTestSchedule({
+    mediaAssets: schedule.mediaAssets,
+    slideAssets: schedule.slideAssets,
+    startTime: input.startTime,
+    totalHours: input.totalHours,
+    programMinutes: input.programMinutes,
+    adBreakMinutes: input.adBreakMinutes,
+    imageBumperSeconds: input.imageBumperSeconds
+  })
+  if (!generatedBlocks.length) throw new Error("Could not generate the grid")
+
   const supabase = createServiceClient()
-  if (input.replaceWindow) await replaceLongTestWindow(supabase, dayId, generatedBlocks)
-  const { error } = await supabase
-    .from("program_blocks")
-    .insert(generatedBlocks.map((block) => toBlockRow(block, dayId)))
+  const startSeconds = generatedBlocks[0].startTimeSeconds
+  const lastBlock = generatedBlocks[generatedBlocks.length - 1]
+  const endSeconds = lastBlock.startTimeSeconds + lastBlock.durationSeconds
+
+  if (input.replaceWindow) {
+    const { error: deleteError } = await supabase
+      .from("program_blocks")
+      .delete()
+      .eq("program_day_id", dayId)
+      .gte("start_time_seconds", startSeconds)
+      .lt("start_time_seconds", endSeconds)
+    if (deleteError) throw deleteError
+  }
+
+  const { error } = await supabase.from("program_blocks").insert(
+    generatedBlocks.map((block) => ({
+      program_day_id: dayId,
+      title: block.title,
+      block_type: block.blockType,
+      category: "broadcast" satisfies BlockCategory,
+      asset_id: block.assetId || null,
+      slide_id: block.slideId || null,
+      start_time: block.startTime,
+      start_time_seconds: block.startTimeSeconds,
+      duration_seconds: block.durationSeconds,
+      status: "ready",
+      hide_overlays: false
+    }))
+  )
   if (error) throw error
   await supabase.from("audit_log").insert({
     actor: "admin",
@@ -253,56 +303,6 @@ export async function createLongTestSchedule(input: LongTestScheduleInput) {
   })
   revalidatePath(`/admin/schedule/${input.date}`)
   revalidatePath("/admin/calendar")
-}
-
-function buildLongTestBlocks(
-  input: LongTestScheduleInput,
-  mediaAssets: Parameters<typeof buildLongTestSchedule>[0]["mediaAssets"],
-  slideAssets: Parameters<typeof buildLongTestSchedule>[0]["slideAssets"]
-): GeneratedBlock[] {
-  return buildLongTestSchedule({
-    mediaAssets,
-    slideAssets,
-    startTime: input.startTime,
-    totalHours: input.totalHours,
-    programMinutes: input.programMinutes,
-    adBreakMinutes: input.adBreakMinutes,
-    imageBumperSeconds: input.imageBumperSeconds
-  })
-}
-
-async function replaceLongTestWindow(
-  supabase: ReturnType<typeof createServiceClient>,
-  dayId: string,
-  generatedBlocks: GeneratedBlock[]
-) {
-  // Safe: caller guarantees generatedBlocks has at least one element.
-  const startSeconds = generatedBlocks[0]!.startTimeSeconds
-  const last = generatedBlocks[generatedBlocks.length - 1]!
-  const endSeconds = last.startTimeSeconds + last.durationSeconds
-  const { error } = await supabase
-    .from("program_blocks")
-    .delete()
-    .eq("program_day_id", dayId)
-    .gte("start_time_seconds", startSeconds)
-    .lt("start_time_seconds", endSeconds)
-  if (error) throw error
-}
-
-function toBlockRow(block: GeneratedBlock, dayId: string) {
-  return {
-    program_day_id: dayId,
-    title: block.title,
-    block_type: block.blockType,
-    category: "broadcast" satisfies BlockCategory,
-    asset_id: block.assetId || null,
-    slide_id: block.slideId || null,
-    start_time: block.startTime,
-    start_time_seconds: block.startTimeSeconds,
-    duration_seconds: block.durationSeconds,
-    status: "ready",
-    hide_overlays: false
-  }
 }
 
 export async function createSlideAsset(input: {

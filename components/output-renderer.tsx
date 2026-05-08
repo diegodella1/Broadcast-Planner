@@ -1,19 +1,13 @@
 "use client"
 
-import { useTranslations } from "next-intl"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
-import { useEffect, useMemo, useRef, useState } from "react"
-
+import type { ActiveSchedule, MediaAsset, ScheduledLayer, SlideAsset } from "@/lib/types"
 import { findActiveSchedule } from "@/lib/scheduler"
+import type { ScheduleBundle } from "@/lib/types"
 import { formatTimecode } from "@/lib/time"
 
-import type {
-  ActiveSchedule,
-  MediaAsset,
-  ScheduleBundle,
-  ScheduledLayer,
-  SlideAsset
-} from "@/lib/types"
+type MediaState = "idle" | "loading" | "playing" | "waiting" | "stalled" | "errored" | "ended" | "fallback"
 
 export function OutputRenderer({
   initialSchedule,
@@ -26,8 +20,12 @@ export function OutputRenderer({
   debug?: boolean
   forcedBlockId?: string
 }) {
-  const t = useTranslations("output")
   const [secondsOfDay, setSecondsOfDay] = useState(initialSeconds)
+  const [mediaState, setMediaState] = useState<{
+    assetId: string | null
+    state: MediaState
+    lastError: string | null
+  }>({ assetId: null, state: "idle", lastError: null })
 
   useEffect(() => {
     const startedAt = Date.now()
@@ -48,26 +46,42 @@ export function OutputRenderer({
     }
   }, [forcedBlockId, initialSchedule])
 
-  const active = findActiveSchedule(
-    schedule,
-    forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay
-  )
-  const renderAsset = active.asset ?? active.fallbackAsset
+  const active = findActiveSchedule(schedule, forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay)
+  const activeAssetId = active.asset?.id ?? active.fallbackAsset?.id ?? null
+  const mediaFailed = mediaState.assetId === active.asset?.id && ["stalled", "errored", "ended", "fallback"].includes(mediaState.state)
+  const renderAsset = mediaFailed ? active.fallbackAsset : active.asset ?? active.fallbackAsset
   const renderSlide = active.slide
+  const musicAssets = schedule.mediaAssets.filter((asset) => asset.assetType === "music" && asset.status === "ready" && asset.url)
+  const playMusic = shouldPlayBackgroundMusic(active, renderAsset ?? null, renderSlide ?? null)
+
+  useEffect(() => {
+    setMediaState({ assetId: activeAssetId, state: activeAssetId ? "loading" : "idle", lastError: null })
+  }, [active.block?.id, activeAssetId])
+
+  const updateMediaState = useCallback((state: MediaState, error?: string) => {
+    setMediaState({
+      assetId: activeAssetId,
+      state,
+      lastError: error ?? null
+    })
+  }, [activeAssetId])
 
   return (
     <main className="tv-output relative">
-      <BaseContent active={active} asset={renderAsset ?? null} slide={renderSlide ?? null} t={t} />
+      <BaseContent active={active} asset={renderAsset ?? null} slide={renderSlide ?? null} onMediaState={updateMediaState} />
       {active.layers.map((layer) => (
         <Layer key={layer.id} layer={layer} schedule={schedule} />
       ))}
-      {debug && (
-        <DebugPanel
-          active={active}
-          secondsOfDay={forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay}
-          t={t}
-        />
-      )}
+      <BackgroundMusic assets={musicAssets} enabled={playMusic} />
+      {debug && <DebugPanel active={active} secondsOfDay={forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay} mediaState={mediaState} musicEnabled={playMusic} musicCount={musicAssets.length} />}
+    </main>
+  )
+}
+
+export function EmergencySlate({ reason }: { reason: string }) {
+  return (
+    <main className="tv-output relative">
+      <Fallback asset={null} reason={reason} />
     </main>
   )
 }
@@ -76,55 +90,34 @@ function BaseContent({
   active,
   asset,
   slide,
-  t
+  onMediaState
 }: {
   active: ActiveSchedule
   asset: MediaAsset | null
   slide: SlideAsset | null
-  t: ReturnType<typeof useTranslations<"output">>
+  onMediaState: (state: MediaState, error?: string) => void
 }) {
   if (!active.block) {
-    return <Fallback asset={asset} reason={t("fallback.noActiveBlock")} brand={t("brand")} />
+    return <Fallback asset={asset} reason={active.reason ?? "No active block"} />
   }
   if (slide) return <Slide slide={slide} fullscreen />
-  if (!asset)
-    return (
-      <Fallback
-        asset={active.fallbackAsset ?? null}
-        reason={t("fallback.missingAsset")}
-        brand={t("brand")}
-      />
-    )
+  if (!asset) return <Fallback asset={active.fallbackAsset ?? null} reason="Missing asset" />
   if (asset.mediaKind === "image") return <ImageAsset asset={asset} />
   if (asset.sourceType === "vimeo" && asset.vimeoId) return <VimeoEmbed asset={asset} />
+  if (asset.sourceType === "reuters") return <ReutersPlayer asset={asset} onMediaState={onMediaState} />
   if (asset.sourceType === "remote_mp4" || asset.sourceType === "hls") {
-    return <VideoAsset asset={asset} />
+    return <VideoAsset asset={asset} onMediaState={onMediaState} />
   }
-  if (asset.sourceType === "reuters") return <ReutersPlayer asset={asset} />
-  return (
-    <Fallback
-      asset={active.fallbackAsset ?? null}
-      reason={t("fallback.unsupportedAsset")}
-      brand={t("brand")}
-    />
-  )
+  return <Fallback asset={active.fallbackAsset ?? null} reason="Unsupported asset" />
 }
 
 function Layer({ layer, schedule }: { layer: ScheduledLayer; schedule: ScheduleBundle }) {
-  const asset = layer.assetId
-    ? schedule.mediaAssets.find((item) => item.id === layer.assetId)
-    : null
-  const slide = layer.slideId
-    ? schedule.slideAssets.find((item) => item.id === layer.slideId)
-    : null
+  const asset = layer.assetId ? schedule.mediaAssets.find((item) => item.id === layer.assetId) : null
+  const slide = layer.slideId ? schedule.slideAssets.find((item) => item.id === layer.slideId) : null
   const position = positionClass(layer.position)
   return (
     <div className={`absolute ${position}`} style={{ zIndex: layer.zIndex }}>
-      {slide ? (
-        <Slide slide={slide} />
-      ) : asset?.mediaKind === "image" ? (
-        <ImageAsset asset={asset} contained />
-      ) : null}
+      {slide ? <Slide slide={slide} /> : asset?.mediaKind === "image" ? <ImageAsset asset={asset} contained /> : null}
     </div>
   )
 }
@@ -143,41 +136,36 @@ function VimeoEmbed({ asset }: { asset: MediaAsset }) {
 }
 
 function ImageAsset({ asset, contained = false }: { asset: MediaAsset; contained?: boolean }) {
-  const t = useTranslations("output")
-  if (!asset.url) return <Fallback asset={null} reason={asset.title} brand={t("brand")} />
+  if (!asset.url) return <Fallback asset={null} reason={asset.title} />
   return (
-    <div
-      className={
-        contained ? "relative h-80 w-[36rem] max-w-full rounded bg-black" : "relative h-full w-full"
-      }
-    >
-      <Image
-        alt={asset.title}
-        className={contained ? "object-contain" : "object-cover"}
-        src={asset.url}
-        fill
-        sizes={contained ? "36rem" : "100vw"}
-      />
+    <div className={contained ? "relative h-80 w-[36rem] max-w-full rounded bg-black" : "relative h-full w-full"}>
+      <Image alt={asset.title} className={contained ? "object-contain" : "object-cover"} src={asset.url} fill sizes={contained ? "36rem" : "100vw"} />
     </div>
   )
 }
 
-function VideoAsset({ asset }: { asset: MediaAsset }) {
-  const t = useTranslations("output")
-  if (!asset.url) return <Fallback asset={null} reason={asset.title} brand={t("brand")} />
+function VideoAsset({ asset, onMediaState }: { asset: MediaAsset; onMediaState: (state: MediaState, error?: string) => void }) {
+  useEffect(() => {
+    onMediaState("loading")
+    const timeout = window.setTimeout(() => {
+      onMediaState("fallback", "Media startup timeout")
+    }, 8000)
+    return () => window.clearTimeout(timeout)
+  }, [asset.id, onMediaState])
+
+  if (!asset.url) return <Fallback asset={null} reason={asset.title} />
   const presentation = asset.metadata?.presentation
   const vertical = presentation === "vertical_blur" || asset.metadata?.orientation === "vertical"
+  const handlers = {
+    onCanPlay: () => onMediaState("loading"),
+    onPlaying: () => onMediaState("playing"),
+    onWaiting: () => onMediaState("waiting"),
+    onStalled: () => onMediaState("stalled", "Media stalled"),
+    onError: () => onMediaState("errored", "Media playback error"),
+    onEnded: () => onMediaState("ended", "Media ended")
+  }
   if (!vertical) {
-    return (
-      <video
-        className="h-full w-full bg-black object-contain"
-        src={asset.url}
-        autoPlay
-        muted
-        playsInline
-        controls={false}
-      />
-    )
+    return <video className="h-full w-full bg-black object-contain" src={asset.url} autoPlay muted playsInline controls={false} {...handlers} />
   }
   return (
     <div className="relative h-full w-full overflow-hidden bg-black">
@@ -192,24 +180,17 @@ function VideoAsset({ asset }: { asset: MediaAsset }) {
         />
       ) : null}
       <div className="absolute inset-0 bg-black/35" />
-      <video
-        className="relative z-10 mx-auto h-full max-w-full object-contain"
-        src={asset.url}
-        autoPlay
-        muted
-        playsInline
-        controls={false}
-      />
+      <video className="relative z-10 mx-auto h-full max-w-full object-contain" src={asset.url} autoPlay muted playsInline controls={false} {...handlers} />
     </div>
   )
 }
 
-function ReutersPlayer({ asset }: { asset: MediaAsset }) {
-  const t = useTranslations("output")
+function ReutersPlayer({ asset, onMediaState }: { asset: MediaAsset; onMediaState: (state: MediaState, error?: string) => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const src = asset.url ?? ""
 
   useEffect(() => {
+    onMediaState("loading")
     const video = videoRef.current
     if (!video || !src) return
 
@@ -232,15 +213,17 @@ function ReutersPlayer({ asset }: { asset: MediaAsset }) {
       hlsInstance = instance
       instance.loadSource(src)
       instance.attachMedia(video)
+    }).catch(() => {
+      onMediaState("errored", "Reuters HLS load error")
     })
 
     return () => {
       cancelled = true
       if (hlsInstance) hlsInstance.destroy()
     }
-  }, [src])
+  }, [asset.id, onMediaState, src])
 
-  if (!src) return <Fallback asset={null} reason={asset.title} brand={t("brand")} />
+  if (!src) return <Fallback asset={null} reason={asset.title} />
 
   return (
     <video
@@ -251,24 +234,46 @@ function ReutersPlayer({ asset }: { asset: MediaAsset }) {
       controls={false}
       className="absolute inset-0 h-full w-full bg-black object-cover"
       aria-label={asset.title}
+      onPlaying={() => onMediaState("playing")}
+      onWaiting={() => onMediaState("waiting")}
+      onStalled={() => onMediaState("stalled", "Reuters stream stalled")}
+      onError={() => onMediaState("errored", "Reuters playback error")}
+    />
+  )
+}
+
+function BackgroundMusic({ assets, enabled }: { assets: MediaAsset[]; enabled: boolean }) {
+  const [index, setIndex] = useState(0)
+  const playlistKey = useMemo(() => assets.map((asset) => asset.id).join("|"), [assets])
+  const current = assets[index % Math.max(assets.length, 1)]
+
+  useEffect(() => {
+    setIndex(0)
+  }, [playlistKey])
+
+  if (!enabled || !current?.url) return null
+
+  return (
+    <audio
+      key={current.id}
+      src={current.url}
+      autoPlay
+      controls={false}
+      loop={assets.length === 1}
+      onEnded={() => setIndex((value) => (value + 1) % assets.length)}
+      onError={() => setIndex((value) => (value + 1) % assets.length)}
     />
   )
 }
 
 function Slide({ slide, fullscreen = false }: { slide: SlideAsset; fullscreen?: boolean }) {
   const className = fullscreen
-    ? "grid h-full w-full place-items-center bg-surface-elevated-1 px-20 text-center text-white"
-    : "rounded bg-surface-elevated-1/92 px-8 py-5 text-white shadow-2xl"
+    ? "grid h-full w-full place-items-center bg-zinc-950 px-20 text-center text-white"
+    : "rounded bg-zinc-950/92 px-8 py-5 text-white shadow-2xl"
   if (slide.slideType === "image" && slide.imageUrl) {
     return (
       <div className={fullscreen ? "relative h-full w-full" : "relative h-80 w-[36rem] max-w-full"}>
-        <Image
-          alt={slide.title}
-          className="object-contain"
-          src={slide.imageUrl}
-          fill
-          sizes={fullscreen ? "100vw" : "36rem"}
-        />
+        <Image alt={slide.title} className="object-contain" src={slide.imageUrl} fill sizes={fullscreen ? "100vw" : "36rem"} />
       </div>
     )
   }
@@ -276,30 +281,20 @@ function Slide({ slide, fullscreen = false }: { slide: SlideAsset; fullscreen?: 
     <div className={className}>
       <div>
         <div className="text-5xl font-semibold">{slide.title}</div>
-        {slide.htmlContent && (
-          <div className="mt-4 text-2xl" dangerouslySetInnerHTML={{ __html: slide.htmlContent }} />
-        )}
+        {slide.htmlContent && <div className="mt-4 text-2xl" dangerouslySetInnerHTML={{ __html: slide.htmlContent }} />}
         {slide.content && <p className="mt-4 text-2xl">{slide.content}</p>}
       </div>
     </div>
   )
 }
 
-function Fallback({
-  asset,
-  reason,
-  brand
-}: {
-  asset: MediaAsset | null
-  reason: string
-  brand: string
-}) {
+function Fallback({ asset, reason }: { asset: MediaAsset | null; reason: string }) {
   if (asset?.mediaKind === "image" && asset.url) return <ImageAsset asset={asset} />
   return (
     <div className="grid h-full w-full place-items-center bg-black text-white">
       <div className="text-center">
-        <p className="text-5xl font-semibold">{brand}</p>
-        <p className="mt-4 text-xl text-white/40">{reason}</p>
+        <p className="text-5xl font-semibold">ROXOM TV</p>
+        <p className="mt-4 text-xl text-zinc-400">{reason}</p>
       </div>
     </div>
   )
@@ -308,40 +303,39 @@ function Fallback({
 function DebugPanel({
   active,
   secondsOfDay,
-  t
+  mediaState,
+  musicEnabled,
+  musicCount
 }: {
   active: ActiveSchedule
   secondsOfDay: number
-  t: ReturnType<typeof useTranslations<"output">>
+  mediaState: { assetId: string | null; state: MediaState; lastError: string | null }
+  musicEnabled: boolean
+  musicCount: number
 }) {
   return (
     <aside className="absolute right-4 top-4 z-[9999] w-96 rounded bg-black/80 p-4 font-mono text-xs text-white">
-      <p>
-        {t("debug.clock")}: {formatTimecode(secondsOfDay)}
-      </p>
-      <p>
-        {t("debug.day")}: {active.day?.airDate ?? t("debug.none")}
-      </p>
-      <p>
-        {t("debug.block")}: {active.block?.title ?? t("debug.fallback")}
-      </p>
-      <p>
-        {t("debug.elapsed")}: {formatTimecode(active.elapsedInBlock)}
-      </p>
-      <p>
-        {t("debug.asset")}: {active.asset?.title ?? active.fallbackAsset?.title ?? t("debug.none")}
-      </p>
-      <p>
-        {t("debug.layers")}:{" "}
-        {active.layers.map((layer) => layer.title).join(", ") || t("debug.none")}
-      </p>
-      {active.reason && (
-        <p>
-          {t("debug.reason")}: {active.reason}
-        </p>
-      )}
+      <p>clock: {formatTimecode(secondsOfDay)}</p>
+      <p>day: {active.day?.airDate ?? "none"}</p>
+      <p>block: {active.block?.title ?? "fallback"}</p>
+      <p>elapsed: {formatTimecode(active.elapsedInBlock)}</p>
+      <p>asset: {active.asset?.title ?? active.fallbackAsset?.title ?? "none"}</p>
+      <p>mediaState: {mediaState.state}</p>
+      <p>mediaAssetId: {mediaState.assetId ?? "none"}</p>
+      <p>fallback: {active.fallbackAsset?.title ?? "none"}</p>
+      <p>music: {musicEnabled ? "on" : "off"} ({musicCount})</p>
+      {mediaState.lastError && <p>mediaError: {mediaState.lastError}</p>}
+      <p>layers: {active.layers.map((layer) => layer.title).join(", ") || "none"}</p>
+      {active.reason && <p>reason: {active.reason}</p>}
     </aside>
   )
+}
+
+function shouldPlayBackgroundMusic(active: ActiveSchedule, renderAsset: MediaAsset | null, renderSlide: SlideAsset | null) {
+  if (renderSlide) return true
+  if (!active.block) return true
+  if (!renderAsset) return true
+  return renderAsset.mediaKind === "image"
 }
 
 function positionClass(position: string) {

@@ -1,7 +1,7 @@
 export type ProgramStatus = "draft" | "ready" | "active" | "archived"
 export type AssetStatus = "draft" | "syncing" | "ready" | "failed" | "archived"
-export type SourceType = "vimeo" | "supabase_image" | "remote_image" | "remote_mp4" | "hls" | "reuters"
-export type MediaKind = "video" | "image" | "graphic"
+export type SourceType = "vimeo" | "supabase_image" | "supabase_audio" | "remote_image" | "remote_mp4" | "hls" | "reuters"
+export type MediaKind = "video" | "image" | "audio" | "graphic"
 export type BlockType = "video" | "image" | "slide" | "ad" | "promo" | "fallback"
 export type LayerType = "overlay" | "image" | "slide" | "logo_bug" | "lower_third" | "promo"
 export type Position = "fullscreen" | "lower_third" | "sidebar" | "top_right" | "bottom_bar" | "custom"
@@ -17,8 +17,14 @@ export type BlockCategory =
   | "broadcast"
 
 export const BLOCK_CATEGORIES: readonly BlockCategory[] = [
-  "mercados", "earthcam", "clima", "calendario",
-  "trending", "deuda", "reuters", "broadcast"
+  "mercados",
+  "earthcam",
+  "clima",
+  "calendario",
+  "trending",
+  "deuda",
+  "reuters",
+  "broadcast"
 ] as const
 
 export type MediaAsset = {
@@ -27,7 +33,7 @@ export type MediaAsset = {
   description?: string | null
   sourceType: SourceType
   mediaKind: MediaKind
-  assetType: BlockType | "overlay"
+  assetType: BlockType | "music" | "overlay"
   url?: string | null
   storageBucket?: string | null
   storagePath?: string | null
