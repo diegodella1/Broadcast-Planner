@@ -6,7 +6,7 @@ export const mockSchedule: ScheduleBundle = {
   day: {
     id: "day-today",
     airDate: new Date().toISOString().slice(0, 10),
-    timezone: "America/Argentina/Buenos_Aires",
+    timezone: "America/Los_Angeles",
     status: "active",
     title: "Roxom Daily",
     notes: "Seed fallback schedule",
@@ -65,6 +65,20 @@ export const mockSchedule: ScheduleBundle = {
       thumbnailUrl: null,
       durationSeconds: null,
       status: "ready",
+      createdAt: now,
+      updatedAt: now
+    },
+    {
+      id: "asset-music-bed",
+      title: "Background Music Bed",
+      sourceType: "supabase_audio",
+      mediaKind: "audio",
+      assetType: "music",
+      url: "https://example.com/music.mp3",
+      thumbnailUrl: null,
+      durationSeconds: 180,
+      status: "ready",
+      metadata: { playlist_order: 1 },
       createdAt: now,
       updatedAt: now
     }

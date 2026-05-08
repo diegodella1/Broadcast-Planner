@@ -1,7 +1,7 @@
 import { headers } from "next/headers"
 import { EmergencySlate, OutputRenderer } from "@/components/output-renderer"
 import { getLivePlaybackSchedule } from "@/lib/data"
-import { secondsSinceLocalMidnight } from "@/lib/time"
+import { secondsSinceMidnightInTimezone } from "@/lib/time"
 import { prefetchSlideData } from "@/lib/slides/prefetch"
 import type { SlideTemplateId } from "@/lib/slides/registry"
 import type { ScheduleBundle } from "@/lib/types"
@@ -21,7 +21,7 @@ export default async function OutputLivePage({
   return (
     <OutputRenderer
       initialSchedule={enriched}
-      initialSeconds={Number.isFinite(startAt) ? startAt! : secondsSinceLocalMidnight()}
+      initialSeconds={Number.isFinite(startAt) ? startAt! : secondsSinceMidnightInTimezone()}
       debug={params.debug === "true"}
     />
   )

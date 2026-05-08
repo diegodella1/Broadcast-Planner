@@ -1,5 +1,6 @@
-import type { MediaAsset, ProgramBlock, ScheduleBundle, ScheduledLayer, SlideAsset } from "./types"
 import { formatTimecode } from "./time"
+
+import type { MediaAsset, ProgramBlock, ScheduleBundle, ScheduledLayer, SlideAsset } from "./types"
 
 export type ScheduleIssueSeverity = "warning" | "critical"
 export type ScheduleIssueKind =
@@ -52,7 +53,7 @@ export type ScheduleHealth = {
   warnCount: number
 }
 
-const SUPPORTED_VIDEO_SOURCES = new Set(["vimeo", "remote_mp4", "hls"])
+const SUPPORTED_VIDEO_SOURCES = new Set(["vimeo", "remote_mp4", "hls", "rtmp", "reuters"])
 const SUPPORTED_IMAGE_SOURCES = new Set(["remote_image", "supabase_image"])
 const SUPPORTED_AUDIO_SOURCES = new Set(["supabase_audio"])
 
@@ -276,6 +277,7 @@ export function getAssetReadiness(asset: MediaAsset): AssetReadiness {
   if (
     (asset.sourceType === "remote_mp4" ||
       asset.sourceType === "hls" ||
+      asset.sourceType === "rtmp" ||
       asset.sourceType === "remote_image") &&
     !asset.url
   ) {

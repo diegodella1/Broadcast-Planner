@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+
 import { createServiceClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -10,14 +11,13 @@ type HealthCheck = {
 }
 
 export async function GET() {
-  const checks: Record<string, HealthCheck> = {
+  const checks = {
     env: checkEnv(),
     supabase: await checkSupabase(),
     storage: await checkStorage(),
     vimeo: checkOptionalEnv("VIMEO_ACCESS_TOKEN", "Vimeo token configured")
-  }
-  const requiredKeys = ["env", "supabase"] as const
-  const ok = requiredKeys.every((key) => checks[key]?.ok === true)
+  } satisfies Record<string, HealthCheck>
+  const ok = checks.env.ok && checks.supabase.ok
   const degraded = ok && Object.values(checks).some((check) => check.status === "degraded")
   return NextResponse.json(
     {

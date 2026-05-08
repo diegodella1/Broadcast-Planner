@@ -71,8 +71,7 @@ describe("RundownRow", () => {
 
   it("renders the start time label formatted as HH:MM", () => {
     renderRow()
-    // startTimeSeconds=3600 => formatTimecode => "01:00:00" sliced to "01:00"
-    expect(screen.getByText("01:00")).toBeInTheDocument()
+    expect(screen.getByText("01:00 SF")).toBeInTheDocument()
   })
 
   it("renders the category badge with the provided categoryLabel", () => {

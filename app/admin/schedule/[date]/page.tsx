@@ -1,6 +1,7 @@
 import Link from "next/link"
 import clsx from "clsx"
 import { AdminShell } from "@/components/admin-shell"
+import { PlayoutTime } from "@/components/playout-time"
 import { ScheduleTimeline } from "@/components/schedule-timeline"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
@@ -9,7 +10,13 @@ import { getScheduleForDate } from "@/lib/data"
 import { createLongTestSchedule, createProgramBlock, updateProgramDayStatus } from "@/lib/mutations"
 import { analyzeSchedule } from "@/lib/schedule-health"
 import { findActiveSchedule } from "@/lib/scheduler"
-import { formatTimecode, isoDateInTimezone, secondsSinceLocalMidnight } from "@/lib/time"
+import {
+  formatPlayoutTimeLabel,
+  formatTimecode,
+  isoDateInTimezone,
+  PLAYOUT_TIMEZONE,
+  secondsSinceMidnightInTimezone
+} from "@/lib/time"
 import type { MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from "@/lib/types"
 
 export default async function ScheduleDatePage({ params }: { params: Promise<{ date: string }> }) {
@@ -52,8 +59,8 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
     })
   }
   const totalScheduledSeconds = blocks.reduce((total, block) => total + block.durationSeconds, 0)
-  const timezone = schedule.day?.timezone ?? "America/Argentina/Buenos_Aires"
-  const nowSeconds = secondsSinceLocalMidnight(new Date())
+  const timezone = schedule.day?.timezone ?? PLAYOUT_TIMEZONE
+  const nowSeconds = secondsSinceMidnightInTimezone(new Date(), timezone)
   const isToday = date === isoDateInTimezone(new Date(), timezone)
   const active = isToday ? findActiveSchedule(schedule, nowSeconds) : null
   const nextBlock = isToday
@@ -114,7 +121,7 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
           title="Next"
           tone={nextBlock ? "neutral" : isToday ? "warn" : "neutral"}
           primary={nextBlock?.title ?? (isToday ? "No next block" : firstBlock?.title ?? "No blocks")}
-          meta={nextBlock ? `Starts ${formatTimecode(nextBlock.startTimeSeconds)}` : firstBlock ? `First ${formatTimecode(firstBlock.startTimeSeconds)}` : "Empty schedule"}
+          meta={nextBlock ? `Starts ${formatPlayoutTimeLabel(nextBlock.startTimeSeconds)}` : firstBlock ? `First ${formatPlayoutTimeLabel(firstBlock.startTimeSeconds)}` : "Empty schedule"}
           detail={nextBlock ? blockAssetLabel(schedule, nextBlock) : null}
         />
         <StatusPanel
@@ -122,7 +129,7 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
           tone={health.criticalCount ? "danger" : health.warnCount ? "warn" : "ok"}
           primary={`${formatTimecode(totalScheduledSeconds)} loaded`}
           meta={`${readyBlocks}/${blocks.length} blocks ready`}
-          detail={firstBlock && lastBlock ? `${formatTimecode(firstBlock.startTimeSeconds)} to ${formatTimecode(lastEnd)}` : "No coverage"}
+          detail={firstBlock && lastBlock ? `${formatPlayoutTimeLabel(firstBlock.startTimeSeconds)} to ${formatPlayoutTimeLabel(lastEnd)}` : "No coverage"}
         />
       </section>
 
@@ -176,7 +183,7 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
             <form action={addBlock} className="mt-4 grid gap-3">
               <input name="title" required placeholder="Block title" className="border border-line px-3 py-2 text-sm" />
               <div className="grid gap-3 sm:grid-cols-2">
-                <input name="start_time" required defaultValue="00:00:00" className="border border-line px-3 py-2 text-sm" />
+                <input name="start_time" required defaultValue="00:00:00" title="San Francisco time. Tooltip equivalents appear on saved schedule times." className="border border-line px-3 py-2 text-sm" />
                 <input name="duration_seconds" required type="number" min="1" defaultValue="30" className="border border-line px-3 py-2 text-sm" />
               </div>
               <select name="block_type" className="border border-line px-3 py-2 text-sm">
@@ -228,7 +235,7 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
           </p>
         </div>
         <form action={generateLongSchedule} className="mt-4 grid gap-3 lg:grid-cols-[120px_100px_130px_120px_130px_1fr_130px]">
-          <input name="start_time" required defaultValue="00:00:00" className="border border-line px-3 py-2 text-sm" />
+          <input name="start_time" required defaultValue="00:00:00" title="San Francisco time" className="border border-line px-3 py-2 text-sm" />
           <input name="total_hours" required type="number" min="1" max="24" step="0.5" defaultValue="12" className="border border-line px-3 py-2 text-sm" />
           <input name="program_minutes" required type="number" min="1" defaultValue="48" className="border border-line px-3 py-2 text-sm" />
           <input name="ad_break_minutes" required type="number" min="0" max="5" defaultValue="4" className="border border-line px-3 py-2 text-sm" />
@@ -258,7 +265,7 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
               href={`/admin/schedule/${date}/blocks/${block.id}`}
               className="grid grid-cols-[120px_1fr_120px_120px] items-center border-b border-line px-4 py-4 text-sm last:border-b-0 hover:bg-panel-soft"
             >
-              <Timecode seconds={block.startTimeSeconds} />
+              <PlayoutTime airDate={date} seconds={block.startTimeSeconds} />
               <span>
                 <span className="block font-semibold">{block.title}</span>
                 <span className="text-muted">{block.blockType} · {asset?.title ?? slide?.title ?? "No asset"}</span>

@@ -1,4 +1,7 @@
 import { mockSchedule } from "./mock-data"
+import { createServiceClient } from "./supabase/server"
+import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "./time"
+
 import type {
   MediaAsset,
   ProgramBlock,
@@ -7,8 +10,6 @@ import type {
   ScheduledLayer,
   SlideAsset
 } from "./types"
-import { isoDateInTimezone } from "./time"
-import { createServiceClient } from "./supabase/server"
 
 type Row = Record<string, unknown>
 
@@ -183,17 +184,11 @@ export async function getPlaybackScheduleForBlock(blockId: string): Promise<Sche
   }
 }
 
-export async function getLiveSchedule(
-  now = new Date(),
-  timezone = "America/Argentina/Buenos_Aires"
-) {
+export async function getLiveSchedule(now = new Date(), timezone = PLAYOUT_TIMEZONE) {
   return getScheduleForDate(isoDateInTimezone(now, timezone))
 }
 
-export async function getLivePlaybackSchedule(
-  now = new Date(),
-  timezone = "America/Argentina/Buenos_Aires"
-) {
+export async function getLivePlaybackSchedule(now = new Date(), timezone = PLAYOUT_TIMEZONE) {
   return getPlaybackScheduleForDate(isoDateInTimezone(now, timezone))
 }
 
@@ -208,6 +203,38 @@ export async function getAssets(): Promise<MediaAsset[]> {
     return (data ?? []).map(mapMediaAsset)
   } catch (error) {
     return handleDataFailure(error, mockSchedule.mediaAssets)
+  }
+}
+
+export async function getMediaAssetById(id: string): Promise<MediaAsset | null> {
+  try {
+    const supabase = createServiceClient()
+    const { data, error } = await supabase
+      .from("media_assets")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle()
+    if (error) throw error
+    return data ? mapMediaAsset(data) : null
+  } catch (error) {
+    const fallback = mockSchedule.mediaAssets.find((asset) => asset.id === id) ?? null
+    return handleDataFailure(error, fallback)
+  }
+}
+
+export async function getMediaAssetByVimeoUri(vimeoUri: string): Promise<MediaAsset | null> {
+  try {
+    const supabase = createServiceClient()
+    const { data, error } = await supabase
+      .from("media_assets")
+      .select("*")
+      .eq("vimeo_uri", vimeoUri)
+      .maybeSingle()
+    if (error) throw error
+    return data ? mapMediaAsset(data) : null
+  } catch (error) {
+    const fallback = mockSchedule.mediaAssets.find((asset) => asset.vimeoUri === vimeoUri) ?? null
+    return handleDataFailure(error, fallback)
   }
 }
 
@@ -236,38 +263,6 @@ export async function getDays(): Promise<ProgramDay[]> {
     return (data ?? []).map(mapDay)
   } catch (error) {
     return handleDataFailure(error, mockSchedule.day ? [mockSchedule.day] : [])
-  }
-}
-
-export async function getMediaAssetById(id: string): Promise<MediaAsset | null> {
-  try {
-    const supabase = createServiceClient()
-    const { data, error } = await supabase
-      .from("media_assets")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle()
-    if (error) throw error
-    return data ? mapMediaAsset(data as Row) : null
-  } catch (error) {
-    console.error("[lib/data.ts:getMediaAssetById]", error)
-    return null
-  }
-}
-
-export async function getMediaAssetByVimeoUri(vimeoUri: string): Promise<MediaAsset | null> {
-  try {
-    const supabase = createServiceClient()
-    const { data, error } = await supabase
-      .from("media_assets")
-      .select("*")
-      .eq("vimeo_uri", vimeoUri)
-      .maybeSingle()
-    if (error) throw error
-    return data ? mapMediaAsset(data as Row) : null
-  } catch (error) {
-    console.error("[lib/data.ts:getMediaAssetByVimeoUri]", error)
-    return null
   }
 }
 

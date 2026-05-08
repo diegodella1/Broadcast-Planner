@@ -7,6 +7,7 @@ export type SourceType =
   | "remote_image"
   | "remote_mp4"
   | "hls"
+  | "rtmp"
   | "reuters"
 export type MediaKind = "video" | "image" | "audio" | "graphic"
 export type BlockType = "video" | "image" | "slide" | "ad" | "promo" | "fallback"

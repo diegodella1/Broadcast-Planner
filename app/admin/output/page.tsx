@@ -7,7 +7,7 @@ import { getLiveSchedule } from "@/lib/data"
 import { updateProgramDayStatus } from "@/lib/mutations"
 import { findActiveSchedule } from "@/lib/scheduler"
 import { createDaySchema } from "@/lib/schemas"
-import { secondsSinceLocalMidnight, isoDateInTimezone } from "@/lib/time"
+import { secondsSinceMidnightInTimezone, isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
 
 export default async function AdminOutputPage() {
   const [t, tOps, liveBundle] = await Promise.all([
@@ -16,13 +16,13 @@ export default async function AdminOutputPage() {
     getLiveSchedule()
   ])
 
-  const nowSeconds = secondsSinceLocalMidnight(new Date())
+  const nowSeconds = secondsSinceMidnightInTimezone(new Date())
   const active = findActiveSchedule(liveBundle, nowSeconds)
   const dayStatus = liveBundle.day?.status ?? "draft"
   const isLive = dayStatus === "active" && active.block !== null
   const dayId = liveBundle.day?.id ?? null
   const dayDate = liveBundle.day
-    ? isoDateInTimezone(new Date(), liveBundle.day.timezone ?? "America/Argentina/Buenos_Aires")
+    ? isoDateInTimezone(new Date(), liveBundle.day.timezone ?? PLAYOUT_TIMEZONE)
     : null
 
   // Status label derivation

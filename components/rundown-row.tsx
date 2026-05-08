@@ -1,6 +1,7 @@
 import Link from "next/link"
 import clsx from "clsx"
 import { BlockBadge } from "@/components/block-badge"
+import { PlayoutTime } from "@/components/playout-time"
 import { formatTimecode } from "@/lib/time"
 import { getDurationDisplay } from "@/lib/duration-display"
 import type { BlockCategory, ProgramBlock, ScheduleBundle } from "@/lib/types"
@@ -49,8 +50,6 @@ export function RundownRow({ block, schedule, date, state, categoryLabel, liveLa
   })
 
   const isBroadcast = block.category === "broadcast"
-  const timeLabel = formatTimecode(block.startTimeSeconds).slice(0, 5)
-
   const subtitleParts: string[] = []
   if (asset) subtitleParts.push(asset.title)
   else if (slide) subtitleParts.push(slide.title)
@@ -60,7 +59,9 @@ export function RundownRow({ block, schedule, date, state, categoryLabel, liveLa
     <div className="flex items-start gap-0">
       {/* Time label */}
       <div className="w-[60px] shrink-0 pt-3.5 text-right pr-3">
-        <span className="text-sm font-medium text-white/60 tabular-nums">{timeLabel}</span>
+        <span className="text-sm font-medium text-white/60 tabular-nums">
+          <PlayoutTime airDate={date} seconds={block.startTimeSeconds} />
+        </span>
       </div>
 
       {/* Axis column */}

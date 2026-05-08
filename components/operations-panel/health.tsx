@@ -1,13 +1,14 @@
-import { getTranslations } from "next-intl/server"
 import { AlertTriangle, AlertOctagon, Check } from "lucide-react"
+import { getTranslations } from "next-intl/server"
+
 import { getLiveSchedule } from "@/lib/data"
 import { analyzeSchedule } from "@/lib/schedule-health"
-import { isoDateInTimezone } from "@/lib/time"
+import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
 
 export async function OperationsPanelHealth() {
   const t = await getTranslations()
   const now = new Date()
-  const tz = "America/Argentina/Buenos_Aires"
+  const tz = PLAYOUT_TIMEZONE
   const isoDate = isoDateInTimezone(now, tz)
   const bundle = await getLiveSchedule(now)
   const isToday = bundle.day?.airDate === isoDate
@@ -42,7 +43,7 @@ export async function OperationsPanelHealth() {
         return (
           <li key={`${issue.kind}-${i}`} className={`flex items-start gap-2 text-xs ${tone}`}>
             <Icon size={12} aria-hidden="true" className="mt-0.5 shrink-0" />
-            <span className="text-white/80">{t(issue.i18n.titleKey, issue.i18n.titleValues)}</span>
+            <span className="text-white/80">{issue.title}</span>
           </li>
         )
       })}

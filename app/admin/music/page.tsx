@@ -13,7 +13,9 @@ export default async function MusicPage({
 }) {
   const params = await searchParams
   const assets = await getAssets()
-  const tracks = assets.filter((asset) => asset.assetType === "music")
+  const tracks = assets
+    .filter((asset) => asset.assetType === "music")
+    .sort((a, b) => playlistOrder(a) - playlistOrder(b) || a.title.localeCompare(b.title))
   const readyTracks = tracks.filter((asset) => asset.status === "ready" && asset.url)
   const totalDuration = tracks.reduce((total, asset) => total + (asset.durationSeconds ?? 0), 0)
 
@@ -32,6 +34,7 @@ export default async function MusicPage({
       ...(durationSeconds !== undefined ? { durationSeconds } : {}),
       status: String(formData.get("status")),
       orientation: "auto",
+      playlistOrder: Number(formData.get("playlist_order") || 0) || undefined,
       revalidatePaths: ["/output/live"]
     })
   }
@@ -117,13 +120,14 @@ export default async function MusicPage({
       <div className="surface-panel overflow-hidden">
         {tracks.map((track) => (
           <details key={track.id} className="group border-b border-line p-4 last:border-b-0">
-            <summary className="grid cursor-pointer list-none gap-3 md:grid-cols-[1fr_140px_120px_90px] md:items-center">
+            <summary className="grid cursor-pointer list-none gap-3 md:grid-cols-[1fr_90px_140px_120px_90px] md:items-center">
               <div>
                 <p className="font-semibold">{track.title}</p>
-                <p className="text-sm text-muted">
-                  {track.sourceType} · {track.url ? "source linked" : "missing source"}
-                </p>
-              </div>
+              <p className="text-sm text-muted">
+                {track.sourceType} · {track.url ? "source linked" : "missing source"}
+              </p>
+            </div>
+            <span className="text-sm text-muted">#{playlistOrder(track)}</span>
               <span className="text-sm text-muted">
                 {track.durationSeconds ? `${track.durationSeconds}s` : "No duration"}
               </span>
@@ -165,7 +169,7 @@ function MusicEditForm({
   return (
     <form
       action={action}
-      className="mt-4 grid gap-3 rounded-md bg-panel-soft p-4 lg:grid-cols-[1fr_160px_120px_1fr]"
+      className="mt-4 grid gap-3 rounded-md bg-panel-soft p-4 lg:grid-cols-[1fr_160px_120px_100px_1fr]"
     >
       <input type="hidden" name="id" value={track.id} />
       <input
@@ -193,6 +197,14 @@ function MusicEditForm({
         <option value="archived">Archived</option>
       </select>
       <input
+        name="playlist_order"
+        type="number"
+        min="1"
+        defaultValue={playlistOrder(track)}
+        placeholder="Order"
+        className="border border-line px-3 py-2 text-sm"
+      />
+      <input
         name="url"
         defaultValue={track.url ?? ""}
         placeholder="Audio URL"
@@ -212,7 +224,12 @@ function MusicEditForm({
         placeholder="Notes"
         className="border border-line px-3 py-2 text-sm lg:col-span-2"
       />
-      <button className="btn-primary lg:col-span-4">Save track</button>
+      <button className="btn-primary lg:col-span-5">Save track</button>
     </form>
   )
+}
+
+function playlistOrder(track: MediaAsset) {
+  const value = Number(track.metadata?.playlist_order ?? 999)
+  return Number.isFinite(value) ? value : 999
 }
