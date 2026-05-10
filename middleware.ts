@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 export function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname === "/rtvtime" || request.nextUrl.pathname.startsWith("/rtvtime/")) {
+    const url = request.nextUrl.clone()
+    url.pathname = request.nextUrl.pathname.replace(/^\/rtvtime/, "") || "/"
+    return NextResponse.redirect(url, 308)
+  }
+
   if (
     !request.nextUrl.pathname.startsWith("/admin") ||
     request.nextUrl.pathname === "/admin/login"
@@ -17,5 +23,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"]
+  matcher: ["/admin/:path*", "/rtvtime/:path*"]
 }

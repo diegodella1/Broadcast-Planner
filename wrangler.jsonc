@@ -12,7 +12,7 @@
   //   Set these in the Cloudflare dashboard under Workers & Pages > roxom-playout-manager > Settings > Variables
   //   NEXT_PUBLIC_SUPABASE_URL      (e.g. https://xxxxx.supabase.co)
   //   NEXT_PUBLIC_SUPABASE_ANON_KEY (public anon key from Supabase dashboard)
-  //   NEXT_PUBLIC_APP_BASE_URL      (e.g. https://roxomtv.com/rtvtime)
+  //   NEXT_PUBLIC_APP_BASE_URL      (e.g. https://roxomtv.com)
   // ────────────────────────────────────────────────────────────────────────────
 
   "name": "roxom-playout-manager",

@@ -230,7 +230,7 @@ export default function ManualPage() {
         </header>
 
         <section className="grid gap-3 border-b border-white/10 py-6 md:grid-cols-4">
-          <ManualMetric label="Base path" value="/rtvtime" />
+          <ManualMetric label="Base path" value="/" />
           <ManualMetric label="Admin access" value="Token" />
           <ManualMetric label="Output" value="Fullscreen" />
           <ManualMetric label="Data store" value="Supabase" />

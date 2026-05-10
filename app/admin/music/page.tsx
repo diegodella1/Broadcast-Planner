@@ -2,6 +2,7 @@ import { AdminShell } from "@/components/admin-shell"
 import { EmptyState, FormHeader, MetricTile, Notice } from "@/components/ui"
 import { getAssets } from "@/lib/data"
 import { updateMediaAsset } from "@/lib/mutations"
+
 import type { MediaAsset } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -65,7 +66,7 @@ export default async function MusicPage({
 
       <section className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <form
-          action="/rtvtime/api/assets/upload"
+          action="/api/assets/upload"
           method="post"
           encType="multipart/form-data"
           className="surface-panel p-4"

@@ -5,7 +5,6 @@ const withNextIntl = createNextIntlPlugin("./i18n.ts")
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  basePath: "/rtvtime",
   poweredByHeader: false,
   images: {
     remotePatterns: [

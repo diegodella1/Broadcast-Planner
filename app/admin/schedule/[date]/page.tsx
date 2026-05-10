@@ -197,7 +197,7 @@ export default async function ScheduleDatePage({
 
         <aside className="grid gap-5 content-start">
           <MediaUploadForm
-            action="/rtvtime/api/assets/upload-schedule"
+            action="/api/assets/upload-schedule"
             title="Upload and schedule"
             detail="Add an image or short video directly to this day. Blank or 0 seconds uses detected video duration; images default to 25 seconds."
             submitLabel="Upload and schedule"

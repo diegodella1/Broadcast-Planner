@@ -426,9 +426,7 @@ function VideoAsset({
 }
 
 function apiPath(path: string) {
-  if (typeof window === "undefined") return path
-  const basePath = window.location.pathname.startsWith("/rtvtime/") ? "/rtvtime" : ""
-  return `${basePath}${path}`
+  return path
 }
 
 function RtmpNotice({ asset }: { asset: MediaAsset }) {

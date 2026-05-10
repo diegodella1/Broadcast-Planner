@@ -127,7 +127,7 @@ Underlying assumption: Passing unit tests and build is enough signal for playout
 Early warning signs:
 
 - Tests focus on schedule logic but not browser output behavior.
-- No continuous local smoke that opens `/rtvtime/output/live` and checks active pixels/media state.
+- No continuous local smoke that opens `/output/live` and checks active pixels/media state.
 
 ### 7. Environment Drift Breaks Production
 
@@ -199,7 +199,7 @@ The hidden assumption is that "the app renders" equals "the signal is safe." For
 
 - Production data paths never return `mockSchedule` unless `ALLOW_DEMO_DATA=true`.
 - Every service-role write route has explicit admin auth and audit log.
-- `/rtvtime/output/live` survives bad media URL by switching to fallback automatically.
+- `/output/live` survives bad media URL by switching to fallback automatically.
 - Active day cannot publish with overlap, missing asset, unsupported asset, or missing ready fallback.
 - Playwright smoke proves login, schedule creation, publish, live output, preview output, and fallback behavior.
 

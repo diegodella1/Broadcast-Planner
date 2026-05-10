@@ -8,9 +8,9 @@ Internal playout / lineup manager for Roxom TV. Programs the on-air day, manages
 
 ## 1. Getting started
 
-**URL**: `https://<your-domain>/rtvtime/admin/calendar` (production) or `http://localhost:3000/rtvtime/admin/calendar` (local dev).
+**URL**: `https://<your-domain>/admin/calendar` (production) or `http://localhost:3000/admin/calendar` (local dev).
 
-Note the `/rtvtime` basePath — visiting the root or `/admin/...` directly returns 404.
+The app is served from the domain root. Old `/rtvtime/...` links redirect to root paths.
 
 **Login** (`/admin/login`):
 

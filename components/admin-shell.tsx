@@ -1,5 +1,3 @@
-import Link from "next/link"
-import type { ReactNode } from "react"
 import {
   CalendarDays,
   Clapperboard,
@@ -10,6 +8,9 @@ import {
   Tv,
   Video
 } from "lucide-react"
+import Link from "next/link"
+
+import type { ReactNode } from "react"
 
 const navGroups = [
   {
@@ -84,7 +85,7 @@ export function AdminShell({
         </nav>
         <div className="absolute bottom-5 left-4 right-4 rounded-md border border-line bg-panel-soft p-3 text-xs text-muted">
           <p className="font-semibold text-ink">Broadcast output</p>
-          <p className="mt-1 break-all font-mono">/rtvtime/output/live</p>
+          <p className="mt-1 break-all font-mono">/output/live</p>
           <Link
             href="/output/live?debug=true"
             className="mt-3 inline-flex min-h-8 items-center rounded-md border border-line bg-surface px-2 font-semibold text-ink hover:bg-panel"

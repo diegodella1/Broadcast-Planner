@@ -35,18 +35,18 @@ This is not a public website or a video library. It is an operations console for
 
 ## Main Routes
 
-- `/rtvtime/admin/login` - admin login
-- `/rtvtime/admin/calendar` - programming calendar
-- `/rtvtime/admin/schedule/[date]` - daily schedule view
-- `/rtvtime/admin/assets` - media asset library
-- `/rtvtime/admin/slides` - slide library
-- `/rtvtime/admin/settings` - integrations and app settings
-- `/rtvtime/output/live` - live fullscreen output
-- `/rtvtime/output/[timelineId]` - timeline output
-- `/rtvtime/output/preview/[blockId]` - block preview output
-- `/rtvtime/api/health` - app health check
+- `/admin/login` - admin login
+- `/admin/calendar` - programming calendar
+- `/admin/schedule/[date]` - daily schedule view
+- `/admin/assets` - media asset library
+- `/admin/slides` - slide library
+- `/admin/settings` - integrations and app settings
+- `/output/live` - live fullscreen output
+- `/output/[timelineId]` - timeline output
+- `/output/preview/[blockId]` - block preview output
+- `/api/health` - app health check
 
-The app is configured for the `/rtvtime` base path in `next.config.mjs`.
+The app is configured for the domain root. Old `/rtvtime/...` links redirect to root paths.
 
 ## Local Setup
 
@@ -70,7 +70,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=replace-with-local-anon-key
 SUPABASE_SERVICE_ROLE_KEY=replace-with-local-service-role-key
 APP_ENCRYPTION_KEY=replace-with-32-byte-base64-key
 ADMIN_BOOTSTRAP_TOKEN=change-me
-NEXT_PUBLIC_APP_BASE_URL=http://roxomtv.local/rtvtime
+NEXT_PUBLIC_APP_BASE_URL=http://roxomtv.local
 SUPABASE_FETCH_TIMEOUT_MS=4000
 ```
 
@@ -89,7 +89,7 @@ npm run dev
 Default local URL:
 
 ```txt
-http://localhost:3450/rtvtime
+http://localhost:3450
 ```
 
 ## Supabase
@@ -140,13 +140,13 @@ docker compose up --build
 The container exposes the app on:
 
 ```txt
-http://localhost:3450/rtvtime
+http://localhost:3450
 ```
 
 Production container health check:
 
 ```txt
-/rtvtime/api/health
+/api/health
 ```
 
 ## Operational Notes
@@ -218,11 +218,11 @@ wrangler secret put REUTERS_REFRESH_TOKEN        # only when REUTERS_PROVIDER=re
 
 These are not secrets but differ between staging and production. Set them in the Cloudflare dashboard under **Workers & Pages > roxom-playout-manager > Settings > Variables**:
 
-| Variable                        | Example                       |
-| ------------------------------- | ----------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | `https://xxxxx.supabase.co`   |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project anon key     |
-| `NEXT_PUBLIC_APP_BASE_URL`      | `https://roxomtv.com/rtvtime` |
+| Variable                        | Example                     |
+| ------------------------------- | --------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | `https://xxxxx.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project anon key   |
+| `NEXT_PUBLIC_APP_BASE_URL`      | `https://roxomtv.com`       |
 
 ### Build and deploy commands
 

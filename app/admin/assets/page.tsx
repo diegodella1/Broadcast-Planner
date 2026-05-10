@@ -77,7 +77,7 @@ export default async function AssetsPage({
       title="Library"
       description="Operational media library for videos, Vimeo sources, stills, ads, promos, music beds and fallbacks."
       actions={
-        <form action="/rtvtime/api/vimeo/import" method="post">
+        <form action="/api/vimeo/import" method="post">
           <button className="btn-primary">Import Vimeo</button>
         </form>
       }
@@ -101,7 +101,7 @@ export default async function AssetsPage({
 
       <section className="mb-5 grid gap-5 xl:grid-cols-2">
         <MediaUploadForm
-          action="/rtvtime/api/assets/upload"
+          action="/api/assets/upload"
           title="Upload media"
           detail="Store videos, images or MP3 files up to 500 MB. Browser checks duration, dimensions and file details before upload."
           returnTo="/admin/assets?uploaded=1"

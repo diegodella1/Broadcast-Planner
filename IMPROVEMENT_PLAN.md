@@ -28,7 +28,7 @@ Actions:
 
 Acceptance:
 
-- Supabase outage cannot render mock blocks on `/rtvtime/output/live`.
+- Supabase outage cannot render mock blocks on `/output/live`.
 - Unit test covers data failure behavior.
 
 ### 2. Expand health endpoint
@@ -209,7 +209,7 @@ Actions:
 - Create or seed day.
 - Create media/slide/block.
 - Publish day.
-- Open `/rtvtime/output/live`.
+- Open `/output/live`.
 - Verify no admin UI leaks.
 - Verify output is nonblank.
 - Verify preview route works.

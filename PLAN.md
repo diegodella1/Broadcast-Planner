@@ -75,8 +75,8 @@ The codebase is structurally sound (clean server/client split, 0 `any`, accurate
    - **Suggested specialist**: `senior-ts-microservices-architect`.
 
 2. **Wire locale-aware routing + chain with admin auth middleware**
-   - **What changes**: Update `middleware.ts` — chain `next-intl/middleware` w/ locale prefix mode `'as-needed'` (English at `/rtvtime/...`, Spanish at `/rtvtime/es/...`) AND the existing `rpm_admin_token` admin gate. Order: i18n first (rewrites locale), then admin auth (checks cookie). Update `matcher` so both run for `/admin/*` regardless of locale.
-   - **Acceptance**: Does `/rtvtime/admin/calendar` render English? Does `/rtvtime/es/admin/calendar` render Spanish? Does admin auth still gate `/admin/*` regardless of locale prefix? Does login redirect preserve locale?
+   - **What changes**: Update `middleware.ts` — chain `next-intl/middleware` w/ locale prefix mode `'as-needed'` (English at `/...`, Spanish at `/es/...`) AND the existing `rpm_admin_token` admin gate. Order: i18n first (rewrites locale), then admin auth (checks cookie). Update `matcher` so both run for `/admin/*` regardless of locale.
+   - **Acceptance**: Does `/admin/calendar` render English? Does `/es/admin/calendar` render Spanish? Does admin auth still gate `/admin/*` regardless of locale prefix? Does login redirect preserve locale?
    - **Dependencies**: 1.
    - **Suggested specialist**: `senior-ts-microservices-architect`.
 
@@ -264,7 +264,7 @@ The codebase is structurally sound (clean server/client split, 0 `any`, accurate
 
 4. **Create `/admin/output` operator panel**
    - **What changes**: New route `app/admin/output/page.tsx` (NOT `/output/live`, which stays for vMix capture). Surface: broadcast status with live dot, source switcher, lower-third editor, "Stop broadcast" / "Detener broadcast" button. The button is a server action that flips `ProgramDay.status` to `"inactive"`, clears manual override, writes audit log. All copy via `t()`.
-   - **Acceptance**: Does `/admin/output` resolve under the `/rtvtime` basePath AND its locale prefix? Does Stop broadcast require explicit confirmation (modal or hold-to-confirm)? Does the audit log capture before/after status + user + timestamp? Does `/output/live` remain untouched?
+   - **Acceptance**: Does `/admin/output` resolve at the domain root AND its locale prefix? Does Stop broadcast require explicit confirmation (modal or hold-to-confirm)? Does the audit log capture before/after status + user + timestamp? Does `/output/live` remain untouched?
    - **Dependencies**: Phase 5 tasks 7, 8.
    - **Suggested specialist**: `nextjs-component-agent`.
 
@@ -383,7 +383,7 @@ To turn this plan into Linear tickets:
 - **Schema migration drops production rows**. _Mitigation_: Phase 3 migrations include explicit DOWN sections, and `category` defaults existing rows to `"mercados"` before tightening the constraint.
 - **i18n drift between locales**. _Mitigation_: Phase 7 task 5 (`i18n:check` script) blocks merges with asymmetric catalogs; Phase 7 task 7 lint rule rejects hardcoded UI strings.
 - **English copy quality**. _Mitigation_: Phase 2 task 3 uses Spanish source as the seed; route through a native English review pass before Phase 4 ships (or accept iterative copy fixes per phase).
-- **Locale routing collision with `/admin` middleware**. _Mitigation_: Phase 2 task 2 explicitly chains `next-intl/middleware` then admin auth; verify with manual test of `/rtvtime/es/admin/calendar` with and without cookie.
+- **Locale routing collision with `/admin` middleware**. _Mitigation_: Phase 2 task 2 explicitly chains `next-intl/middleware` then admin auth; verify with manual test of `/es/admin/calendar` with and without cookie.
 - **Spark-ui / Yarn / Inter creep from Roxom-markets habits**. _Mitigation_: Phase 1 task 4 (`DESIGN.md` update) explicitly documents that this repo is npm + Tailwind + DM Sans; reviewers reject any spark-ui imports.
 - **Long functions persist past Phase 7**. _Mitigation_: Phase 7 task 10 has acceptance criteria tied to a 30-line ceiling and `createProgramBlock` reusing `hasBaseBlockConflict`; CI lint can later add `max-lines-per-function`.
 - **Test coverage regression after raising tsconfig strictness**. _Mitigation_: Phase 7 ordering — tests (tasks 2–4) before tsconfig (task 6) so refactors land on a green test suite.

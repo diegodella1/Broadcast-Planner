@@ -35,7 +35,7 @@ export default async function SettingsPage({
     >
       {params.saved ? <Notice tone="ok">Settings saved.</Notice> : null}
       {params.imported ? <Notice tone="ok">Episode imported as an asset.</Notice> : null}
-      <form action="/rtvtime/api/settings" method="post" className="surface-panel max-w-2xl p-5">
+      <form action="/api/settings" method="post" className="surface-panel max-w-2xl p-5">
         <FormHeader
           title="Vimeo integration"
           detail="Store a Vimeo API token for account search, show browsing, and program imports."
@@ -104,7 +104,7 @@ export default async function SettingsPage({
         ) : null}
         {token && !vimeoState.error ? (
           <>
-            <form action="/rtvtime/admin/settings" className="mt-4 grid gap-3">
+            <form action="/admin/settings" className="mt-4 grid gap-3">
               <label className="block text-sm font-medium">
                 Show
                 <select
@@ -140,10 +140,7 @@ export default async function SettingsPage({
         ) : null}
         {token ? (
           <>
-            <form
-              action="/rtvtime/admin/settings"
-              className="mt-4 grid gap-3 sm:grid-cols-[1fr_120px]"
-            >
+            <form action="/admin/settings" className="mt-4 grid gap-3 sm:grid-cols-[1fr_120px]">
               <input
                 name="vimeo_q"
                 defaultValue={searchQuery}
@@ -191,7 +188,7 @@ function ShowEpisodePicker({ episodes, showUri }: { episodes: VimeoVideo[]; show
   }
   return (
     <form
-      action="/rtvtime/api/vimeo/import"
+      action="/api/vimeo/import"
       method="post"
       className="mt-5 grid gap-3 rounded-md bg-panel-soft p-4"
     >
@@ -221,7 +218,7 @@ function EpisodePicker({ episodes, returnTo }: { episodes: VimeoVideo[]; returnT
   }
   return (
     <form
-      action="/rtvtime/api/vimeo/import"
+      action="/api/vimeo/import"
       method="post"
       className="mt-5 grid gap-3 rounded-md bg-panel-soft p-4"
     >
