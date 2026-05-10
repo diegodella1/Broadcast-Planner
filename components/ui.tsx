@@ -1,6 +1,7 @@
-import Link from "next/link"
-import type { ReactNode } from "react"
 import clsx from "clsx"
+import Link from "next/link"
+
+import type { ReactNode } from "react"
 
 type Tone = "neutral" | "ok" | "warn" | "danger" | "info"
 
@@ -41,6 +42,33 @@ export function Notice({
   )
 }
 
+export function StatusBanner({
+  tone = "info",
+  label,
+  title,
+  detail,
+  action
+}: {
+  tone?: Tone
+  label: string
+  title: string
+  detail?: ReactNode
+  action?: ReactNode
+}) {
+  return (
+    <section className={clsx("rounded-lg border px-4 py-3", noticeTone(tone))}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[0.68rem] font-bold uppercase">{label}</p>
+          <h2 className="mt-1 truncate text-lg font-semibold text-ink">{title}</h2>
+          {detail ? <div className="mt-1 text-sm opacity-85">{detail}</div> : null}
+        </div>
+        {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
+      </div>
+    </section>
+  )
+}
+
 export function EmptyState({
   title,
   children,
@@ -65,6 +93,26 @@ export function FormHeader({ title, detail }: { title: string; detail: string })
       <h2 className="text-base font-semibold">{title}</h2>
       <p className="mt-1 text-sm text-muted">{detail}</p>
     </div>
+  )
+}
+
+export function Field({
+  label,
+  hint,
+  children,
+  className
+}: {
+  label: string
+  hint?: string
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <label className={clsx("grid gap-1 text-xs font-semibold text-muted", className)}>
+      <span>{label}</span>
+      {children}
+      {hint ? <span className="text-[0.7rem] font-normal leading-4 text-muted">{hint}</span> : null}
+    </label>
   )
 }
 

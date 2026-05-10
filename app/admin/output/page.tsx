@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server"
 import { AdminShell } from "@/components/admin-shell"
 import { OperationsPanelLowerThird } from "@/components/operations-panel/lower-third"
 import { StopBroadcastButton } from "@/components/stop-broadcast-button"
+import { StatusBanner } from "@/components/ui"
 import { getLiveSchedule } from "@/lib/data"
 import { updateProgramDayStatus } from "@/lib/mutations"
 import { findActiveSchedule } from "@/lib/scheduler"
@@ -55,6 +56,28 @@ export default async function AdminOutputPage() {
 
   return (
     <AdminShell title={t("chrome.output")} description={t("schedule.broadcast")}>
+      <div className="mb-5">
+        <StatusBanner
+          tone={isLive ? "ok" : dayStatus === "active" ? "warn" : "info"}
+          label="Output control"
+          title={broadcastStatusLabel}
+          detail={
+            active.block
+              ? `${active.block.title} · ${activeSourceLabel}`
+              : (active.reason ?? "No active block")
+          }
+          action={
+            <a
+              className="btn-secondary"
+              href="/output/live?debug=true"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open monitor
+            </a>
+          }
+        />
+      </div>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         {/* ── Broadcast preview pane ────────────────────────────────────── */}
         <div className="min-w-0 flex-1">
@@ -63,47 +86,11 @@ export default async function AdminOutputPage() {
             className="relative w-full overflow-hidden rounded-md border border-white/10 bg-surface-elevated-1"
             style={{ aspectRatio: "16 / 9" }}
           >
-            {active.block ? (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-8 text-center">
-                <p className="text-2xl font-semibold text-white/90">{active.block.title}</p>
-                {active.asset && (
-                  <p className="text-sm text-white/50">
-                    {active.asset.sourceType} · {active.asset.title}
-                  </p>
-                )}
-                {active.slide && !active.asset && (
-                  <p className="text-sm text-white/50">
-                    {active.slide.slideType} · {active.slide.title}
-                  </p>
-                )}
-                <p className="text-xs text-white/30">
-                  {t("chrome.broadcastOutput")} — captured by vMix / OBS
-                </p>
-              </div>
-            ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-2">
-                <p className="text-base font-semibold text-white/30">
-                  {t("output.fallback.noActiveBlock")}
-                </p>
-                <p className="text-xs text-white/20">{t("output.brand")}</p>
-              </div>
-            )}
-
-            {/* Lower-third overlay preview inside the 16:9 frame */}
-            {active.layers.length > 0 && (
-              <div className="absolute bottom-[8%] left-[6%] pointer-events-none">
-                <div className="lower-third-card rounded-sm">
-                  <div className="lower-third-accent" />
-                  <div>
-                    {active.layers.map((layer) => (
-                      <div key={layer.id} className="lower-third-primary text-white text-sm">
-                        {layer.title}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            <iframe
+              title="Live output preview"
+              src="/output/live?debug=true"
+              className="h-full w-full border-0"
+            />
           </div>
 
           {/* ON AIR / status banner below preview */}
@@ -128,7 +115,7 @@ export default async function AdminOutputPage() {
 
         {/* ── Operator control surface ──────────────────────────────────── */}
         <aside
-          className="w-full shrink-0 overflow-y-auto rounded-md border border-white/10 bg-surface-elevated-1 lg:w-[260px]"
+          className="w-full shrink-0 overflow-y-auto rounded-md border border-white/10 bg-surface-elevated-1 lg:w-[320px]"
           aria-label="Operator controls"
         >
           {/* Broadcast status section */}
@@ -153,11 +140,12 @@ export default async function AdminOutputPage() {
             )}
           </ControlSection>
 
-          {/* Source switcher */}
-          <ControlSection title="Source switcher">
-            <p className="mb-2 text-[10px] text-white/30">Active: {activeSourceLabel}</p>
-            {/* Local state only — wire-up to mutation is a follow-up task */}
-            <SourceSwitcherStub />
+          <ControlSection title="Active source">
+            <p className="text-xs font-semibold text-white/80">{activeSourceLabel}</p>
+            <p className="mt-1 text-[11px] leading-4 text-white/40">
+              Source switching is hidden until mutation is wired. Use timeline block edit to change
+              source.
+            </p>
           </ControlSection>
 
           {/* Lower-third editor — reuse existing component */}
@@ -195,26 +183,5 @@ function ControlSection({ title, children }: { title: string; children: React.Re
       </h2>
       {children}
     </section>
-  )
-}
-
-// Stub source switcher — local state only; real mutation wired in a follow-up
-function SourceSwitcherStub() {
-  // This must be a client component to hold state; keeping it here as a
-  // static stub that shows the shape. Upgrade to a "use client" subcomponent
-  // when the mutation is wired.
-  return (
-    <select
-      className="w-full rounded-sm border border-white/10 bg-surface-elevated-2 px-2 py-1 text-xs text-white/80"
-      defaultValue="vimeo"
-      disabled
-      aria-label="Source switcher (stub — follow-up)"
-    >
-      <option value="vimeo">Vimeo — recording</option>
-      <option value="reuters">Reuters embed</option>
-      <option value="slide">Slide / static</option>
-      <option value="hls">HLS / MP4 direct</option>
-      <option value="remote_image">Remote image</option>
-    </select>
   )
 }

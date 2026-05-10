@@ -10,6 +10,7 @@ import {
   RadioTower,
   Settings,
   Shield,
+  StepForward,
   Video
 } from "lucide-react"
 import Link from "next/link"
@@ -41,12 +42,13 @@ const operatorSections = [
     icon: RadioTower,
     body: [
       "The schedule page is the main rundown. Blocks appear in time order with category badges, status, duration, current/next indicators and a live now-line on today's date.",
-      "Operators can create blocks, generate a programming grid, open block detail, validate schedule health, and use the operations panel for live control."
+      "To add a show to the timeline, upload directly with Add show to timeline or choose Schedule existing asset / show, select the media asset or system slide, set start time, duration and block type, then save."
     ],
     details: [
+      "Hierarchy: media asset or system slide -> scheduled block/show -> optional overlays -> output.",
       "Block categories: mercados, earthcam, clima, calendario, trending, deuda, reuters and broadcast.",
       "Schedule health detects overlaps, gaps, missing assets, unready assets, ad duration problems and missing fallback coverage.",
-      "The operations panel shows the active block, manual broadcast controls, lower-third preview state, schedule health and background music controls."
+      "The day readiness strip shows blockers before the day is marked active."
     ],
     links: [{ label: "Open today's schedule", href: "/admin/calendar" }]
   },
@@ -70,14 +72,31 @@ const operatorSections = [
     icon: Library,
     body: [
       "The asset library stores videos, Vimeo programs, Reuters channels, still images, HLS/MP4 links, ads, promos, fallbacks and music assets.",
-      "Operators upload files, import Vimeo media, filter by source/status, inspect thumbnails and duration, and edit asset metadata used by the renderer."
+      "Operators upload files, filter by source/status/type/search, inspect thumbnails, duration and file metadata, and edit asset metadata used by the renderer."
     ],
     details: [
+      "Library order is intentional: upload/import media first, review readiness, then schedule it as a show/block on a programming day.",
+      "Images default to 25 seconds unless overridden. Video/audio use detected metadata duration unless overridden.",
       "Ready assets are eligible for playout. Draft, syncing, failed and archived assets need review before they should be scheduled.",
       "Fallback assets protect the output when primary media is missing or playback fails.",
       "Vertical video metadata can use a blurred background presentation in the output renderer."
     ],
     links: [{ label: "Open assets", href: "/admin/assets" }]
+  },
+  {
+    id: "vimeo-import",
+    title: "Vimeo episode import",
+    icon: StepForward,
+    body: [
+      "The Vimeo import page lets operators choose exactly one episode before importing it into the library.",
+      "Use filters for episode title, show name, month and year. Pick a show/folder from the left, inspect episode duration/privacy/date, then press Import this episode."
+    ],
+    details: [
+      "No bulk import happens from the library button anymore.",
+      "Imported Vimeo episodes become media assets with duration, thumbnail, privacy and status metadata.",
+      "After import, schedule the episode from the programming day as an existing asset/show."
+    ],
+    links: [{ label: "Import Vimeo episode", href: "/admin/vimeo" }]
   },
   {
     id: "music",
@@ -200,9 +219,12 @@ const publicSections = [
 ]
 
 const workflowSteps = [
+  "Upload media in Library or import one Vimeo episode from the Vimeo picker.",
+  "Confirm duration, thumbnail, metadata and ready/review state in Library.",
   "Create or open the programming day.",
-  "Add blocks in the expected air order.",
-  "Assign media, slides, fallback assets and overlays.",
+  "Use Add show to timeline for a new upload or Schedule existing asset / show for existing media.",
+  "Set show title, start time, duration, block type and asset/slide.",
+  "Assign fallback assets and overlays when needed.",
   "Review schedule health until critical items are clear.",
   "Mark the day ready, then active when it should drive output.",
   "Open /output/live on the capture machine and confirm audio/video.",

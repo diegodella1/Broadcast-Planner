@@ -14,6 +14,7 @@ This is not a public website or a video library. It is an operations console for
 
 - Builds daily programming by date.
 - Organizes media assets, uploaded videos, remote media, fallback assets, and Vimeo imports.
+- Imports Vimeo one episode at a time through a searchable show/episode picker.
 - Manages slides and graphic content used by the output renderer.
 - Generates long schedule grids for broadcast programming.
 - Checks schedule health: gaps, overlaps, missing assets, unready assets, and missing fallback.
@@ -39,7 +40,9 @@ This is not a public website or a video library. It is an operations console for
 - `/admin/calendar` - programming calendar
 - `/admin/schedule/[date]` - daily schedule view
 - `/admin/assets` - media asset library
+- `/admin/vimeo` - Vimeo show/episode picker and one-episode import
 - `/admin/slides` - slide library
+- `/admin/output` - operator output control panel
 - `/admin/settings` - integrations and app settings
 - `/output/live` - live fullscreen output
 - `/output/[timelineId]` - timeline output
@@ -152,6 +155,9 @@ Production container health check:
 ## Operational Notes
 
 - Admin screens are for operators, producers, and content administrators.
+- Normal show workflow is: Library -> Programming day -> Timeline block -> Output control.
+- To schedule a show, first upload/import the media, then open `/admin/calendar`, pick the day, and use “Schedule existing asset / show” or “Add show to timeline”.
+- Vimeo import is intentionally one episode at a time. Use `/admin/vimeo` to filter by episode title, show name, month and year before importing.
 - Output screens should stay clean, fullscreen, and safe for browser capture.
 - `.env` contains secrets and must not be committed.
 - `ADMIN_BOOTSTRAP_TOKEN` is used for protected admin access.
@@ -167,18 +173,19 @@ Implemented:
 - Calendar
 - Daily schedule
 - Asset library
+- Vimeo show/episode picker
 - Slide library
 - Settings
 - Live output route
 - Timeline output route
 - Block preview route
 - Supabase schema and seed data
-- Vimeo import endpoint
+- Vimeo import endpoint and one-episode import UI
 - Schedule generation and health checks
 
 Known next priority:
 
-- Dedicated block detail editor for editing scheduled layers, previewing a block, and making fast live corrections.
+- Multi-user role system and richer audit trail for production operators.
 
 ## Repository
 

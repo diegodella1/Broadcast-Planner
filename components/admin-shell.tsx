@@ -1,42 +1,9 @@
-import {
-  CalendarDays,
-  Clapperboard,
-  LayoutDashboard,
-  MonitorPlay,
-  Music,
-  Settings,
-  Tv,
-  Video
-} from "lucide-react"
+import { MonitorPlay, Tv } from "lucide-react"
 import Link from "next/link"
 
-import type { ReactNode } from "react"
+import { AdminNav } from "@/components/admin-nav"
 
-const navGroups = [
-  {
-    label: "Operate",
-    items: [
-      { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-      { label: "Output", href: "/output/live?debug=true", icon: MonitorPlay }
-    ]
-  },
-  {
-    label: "Plan",
-    items: [{ label: "Programming", href: "/admin/calendar", icon: CalendarDays }]
-  },
-  {
-    label: "Media",
-    items: [
-      { label: "Library", href: "/admin/assets", icon: Video },
-      { label: "Graphics", href: "/admin/slides", icon: Clapperboard },
-      { label: "Music", href: "/admin/music", icon: Music }
-    ]
-  },
-  {
-    label: "System",
-    items: [{ label: "Integrations", href: "/admin/settings", icon: Settings }]
-  }
-]
+import type { ReactNode } from "react"
 
 export function AdminShell({
   title,
@@ -64,32 +31,15 @@ export function AdminShell({
             <span className="block text-xs font-medium text-muted">Playout Manager</span>
           </span>
         </Link>
-        <nav className="mt-8 grid gap-5">
-          {navGroups.map((group) => (
-            <section key={group.label}>
-              <p className="px-3 text-[0.68rem] font-bold uppercase text-muted">{group.label}</p>
-              <div className="mt-2 grid gap-1">
-                {group.items.map(({ label, href, icon: Icon }) => (
-                  <Link
-                    key={href}
-                    href={href}
-                    className="flex min-h-10 items-center gap-3 rounded-md px-3 text-sm font-semibold text-muted hover:bg-panel-soft hover:text-ink"
-                  >
-                    <Icon size={17} aria-hidden="true" />
-                    <span>{label}</span>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ))}
-        </nav>
+        <AdminNav />
         <div className="absolute bottom-5 left-4 right-4 rounded-md border border-line bg-panel-soft p-3 text-xs text-muted">
-          <p className="font-semibold text-ink">Broadcast output</p>
+          <p className="font-semibold text-ink">Live capture output</p>
           <p className="mt-1 break-all font-mono">/output/live</p>
           <Link
             href="/output/live?debug=true"
-            className="mt-3 inline-flex min-h-8 items-center rounded-md border border-line bg-surface px-2 font-semibold text-ink hover:bg-panel"
+            className="mt-3 inline-flex min-h-8 items-center gap-2 rounded-md border border-line bg-surface px-2 font-semibold text-ink hover:bg-panel"
           >
+            <MonitorPlay size={14} aria-hidden="true" />
             Open debug
           </Link>
         </div>
@@ -105,20 +55,7 @@ export function AdminShell({
             </div>
             {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
           </div>
-          <nav className="mt-4 flex gap-2 overflow-x-auto pb-1 md:hidden">
-            {navGroups
-              .flatMap((group) => group.items)
-              .map(({ label, href, icon: Icon }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-semibold text-muted"
-                >
-                  <Icon size={16} aria-hidden="true" />
-                  {label}
-                </Link>
-              ))}
-          </nav>
+          <AdminNav mobile />
         </header>
         <div className="p-4 md:p-6 xl:p-7">{children}</div>
       </main>

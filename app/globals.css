@@ -19,7 +19,13 @@ body {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-family:
+    var(--font-dm-sans),
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    system-ui,
+    sans-serif;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -93,6 +99,7 @@ textarea::placeholder {
 
 .btn-primary,
 .btn-secondary,
+.btn-danger,
 .chip,
 .chip-active {
   display: inline-flex;
@@ -113,6 +120,14 @@ textarea::placeholder {
 
 .btn-primary:hover {
   @apply bg-accent-positive-hover border-accent-positive-hover;
+}
+
+.btn-danger {
+  @apply border border-danger-line bg-danger-soft text-danger-strong;
+}
+
+.btn-danger:hover {
+  @apply bg-accent-live text-white;
 }
 
 .btn-secondary,

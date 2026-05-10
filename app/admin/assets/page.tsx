@@ -2,7 +2,7 @@ import { AdminShell } from "@/components/admin-shell"
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button"
 import { MediaUploadForm } from "@/components/media-upload-form"
 import { StatusPill } from "@/components/status-pill"
-import { EmptyState, FilterLink, FormHeader, MetricTile, Notice } from "@/components/ui"
+import { EmptyState, Field, FilterLink, FormHeader, MetricTile, Notice } from "@/components/ui"
 import { getAssets } from "@/lib/data"
 import { createMediaAsset, deleteMediaAsset, updateMediaAsset } from "@/lib/mutations"
 
@@ -13,30 +13,50 @@ export const dynamic = "force-dynamic"
 export default async function AssetsPage({
   searchParams
 }: {
-  searchParams: Promise<{ uploaded?: string; status?: string; kind?: string }>
+  searchParams: Promise<{
+    uploaded?: string
+    status?: string
+    kind?: string
+    q?: string
+    sort?: string
+  }>
 }) {
   const params = await searchParams
   const assets = await getAssets()
-  const filteredAssets = assets.filter((asset) => {
-    if (params.status === "attention" && !assetNeedsAttention(asset)) return false
-    if (
-      params.status &&
-      params.status !== "all" &&
-      params.status !== "attention" &&
-      asset.status !== params.status
-    )
-      return false
-    if (params.kind === "vimeo" && asset.sourceType !== "vimeo") return false
-    if (params.kind === "video" && asset.mediaKind !== "video") return false
-    if (params.kind === "image" && asset.mediaKind !== "image") return false
-    if (
-      params.kind &&
-      !["all", "vimeo", "video", "image"].includes(params.kind) &&
-      asset.assetType !== params.kind
-    )
-      return false
-    return true
-  })
+  const query = (params.q ?? "").trim().toLowerCase()
+  const filteredAssets = assets
+    .filter((asset) => {
+      if (params.status === "attention" && !assetNeedsAttention(asset)) return false
+      if (
+        params.status &&
+        params.status !== "all" &&
+        params.status !== "attention" &&
+        asset.status !== params.status
+      )
+        return false
+      if (params.kind === "vimeo" && asset.sourceType !== "vimeo") return false
+      if (params.kind === "video" && asset.mediaKind !== "video") return false
+      if (params.kind === "image" && asset.mediaKind !== "image") return false
+      if (
+        params.kind &&
+        !["all", "vimeo", "video", "image", "audio"].includes(params.kind) &&
+        asset.assetType !== params.kind
+      )
+        return false
+      if (params.kind === "audio" && asset.mediaKind !== "audio" && asset.assetType !== "music")
+        return false
+      if (
+        query &&
+        ![asset.title, asset.description, asset.sourceType, asset.mediaKind, asset.assetType]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(query)
+      )
+        return false
+      return true
+    })
+    .sort((a, b) => sortAssets(a, b, params.sort))
   const readyCount = assets.filter((asset) => asset.status === "ready").length
   const attentionCount = assets.filter(assetNeedsAttention).length
   async function addAsset(formData: FormData) {
@@ -77,12 +97,29 @@ export default async function AssetsPage({
       title="Library"
       description="Operational media library for videos, Vimeo sources, stills, ads, promos, music beds and fallbacks."
       actions={
-        <form action="/api/vimeo/import" method="post">
-          <button className="btn-primary">Import Vimeo</button>
-        </form>
+        <a className="btn-primary" href="/admin/vimeo">
+          Import Vimeo episode
+        </a>
       }
     >
       {params.uploaded ? <Notice tone="ok">Media uploaded and saved as an asset.</Notice> : null}
+      <section className="mb-5 grid gap-3 lg:grid-cols-3">
+        <WorkflowStep
+          number="1"
+          title="Library"
+          detail="Upload or import media. Metadata and duration must be visible here first."
+        />
+        <WorkflowStep
+          number="2"
+          title="Schedule show"
+          detail="Open Programming, pick the day, then add the asset as a timeline block."
+        />
+        <WorkflowStep
+          number="3"
+          title="Control output"
+          detail="Use Control to monitor active block, overlays and stop/go-live actions."
+        />
+      </section>
       <section className="mb-5 grid gap-3 md:grid-cols-3">
         <MetricTile label="Total" value={String(assets.length)} detail="Saved media assets" />
         <MetricTile
@@ -114,24 +151,30 @@ export default async function AssetsPage({
             detail="Register a remote source without uploading a file."
           />
           <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_130px]">
-            <input
-              name="title"
-              required
-              placeholder="Title"
-              className="border border-line px-3 py-2 text-sm"
-            />
-            <input
-              name="url"
-              placeholder="Image/video URL"
-              className="border border-line px-3 py-2 text-sm"
-            />
-            <input
-              name="duration_seconds"
-              type="number"
-              min="1"
-              placeholder="Sec"
-              className="border border-line px-3 py-2 text-sm"
-            />
+            <Field label="Title">
+              <input
+                name="title"
+                required
+                placeholder="Title"
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              />
+            </Field>
+            <Field label="URL">
+              <input
+                name="url"
+                placeholder="Image/video URL"
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              />
+            </Field>
+            <Field label="Seconds">
+              <input
+                name="duration_seconds"
+                type="number"
+                min="1"
+                placeholder="Sec"
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              />
+            </Field>
             <select name="source_type" className="border border-line px-3 py-2 text-sm">
               <option value="remote_image">Remote image</option>
               <option value="remote_mp4">Remote MP4</option>
@@ -157,38 +200,64 @@ export default async function AssetsPage({
         </form>
       </section>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <FilterLink href="/admin/assets" active={!params.status && !params.kind}>
-          All
-        </FilterLink>
-        <FilterLink href="/admin/assets?status=attention" active={params.status === "attention"}>
-          Review
-        </FilterLink>
-        <FilterLink href="/admin/assets?status=ready" active={params.status === "ready"}>
-          Ready
-        </FilterLink>
-        <FilterLink href="/admin/assets?kind=video" active={params.kind === "video"}>
-          Videos
-        </FilterLink>
-        <FilterLink href="/admin/assets?kind=vimeo" active={params.kind === "vimeo"}>
-          Vimeo
-        </FilterLink>
-        <FilterLink href="/admin/assets?kind=fallback" active={params.kind === "fallback"}>
-          Fallbacks
-        </FilterLink>
-        <FilterLink href="/admin/assets?kind=ad" active={params.kind === "ad"}>
-          Ads
-        </FilterLink>
-        <FilterLink href="/admin/assets?kind=promo" active={params.kind === "promo"}>
-          Promos
-        </FilterLink>
-        <FilterLink href="/admin/assets?kind=image" active={params.kind === "image"}>
-          Images
-        </FilterLink>
-        <FilterLink href="/admin/assets?kind=music" active={params.kind === "music"}>
-          Music
-        </FilterLink>
-      </div>
+      <section className="mb-4 rounded-lg border border-line bg-surface p-3">
+        <form className="mb-3 grid gap-3 md:grid-cols-[1fr_160px_120px]" action="/admin/assets">
+          <input type="hidden" name="status" value={params.status ?? ""} />
+          <input type="hidden" name="kind" value={params.kind ?? ""} />
+          <Field label="Search">
+            <input
+              name="q"
+              defaultValue={params.q ?? ""}
+              placeholder="Title, type, source"
+              className="border border-line px-3 py-2 text-sm font-normal text-ink"
+            />
+          </Field>
+          <Field label="Sort">
+            <select
+              name="sort"
+              defaultValue={params.sort ?? "title"}
+              className="border border-line px-3 py-2 text-sm font-normal text-ink"
+            >
+              <option value="title">Title</option>
+              <option value="duration">Duration</option>
+              <option value="status">Status</option>
+            </select>
+          </Field>
+          <button className="btn-secondary self-end">Apply</button>
+        </form>
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterLink href="/admin/assets" active={!params.status && !params.kind}>
+            All
+          </FilterLink>
+          <FilterLink href="/admin/assets?status=attention" active={params.status === "attention"}>
+            Review
+          </FilterLink>
+          <FilterLink href="/admin/assets?status=ready" active={params.status === "ready"}>
+            Ready
+          </FilterLink>
+          <FilterLink href="/admin/assets?kind=video" active={params.kind === "video"}>
+            Videos
+          </FilterLink>
+          <FilterLink href="/admin/assets?kind=vimeo" active={params.kind === "vimeo"}>
+            Vimeo
+          </FilterLink>
+          <FilterLink href="/admin/assets?kind=fallback" active={params.kind === "fallback"}>
+            Fallbacks
+          </FilterLink>
+          <FilterLink href="/admin/assets?kind=ad" active={params.kind === "ad"}>
+            Ads
+          </FilterLink>
+          <FilterLink href="/admin/assets?kind=promo" active={params.kind === "promo"}>
+            Promos
+          </FilterLink>
+          <FilterLink href="/admin/assets?kind=image" active={params.kind === "image"}>
+            Images
+          </FilterLink>
+          <FilterLink href="/admin/assets?kind=audio" active={params.kind === "audio"}>
+            Audio
+          </FilterLink>
+        </div>
+      </section>
       <div className="surface-panel overflow-hidden">
         {filteredAssets.map((asset) => (
           <details
@@ -196,8 +265,9 @@ export default async function AssetsPage({
             id={`asset-${asset.id}`}
             className="group border-b border-line p-4 last:border-b-0"
           >
-            <summary className="grid cursor-pointer list-none gap-3 md:grid-cols-[1fr_150px_140px_120px_90px] md:items-center">
-              <div>
+            <summary className="grid cursor-pointer list-none gap-3 md:grid-cols-[84px_1fr_150px_170px_120px_90px] md:items-center">
+              <AssetPreview asset={asset} />
+              <div className="min-w-0">
                 <p className="font-semibold">{asset.title}</p>
                 <p className="text-sm text-muted">
                   {asset.sourceType} · {asset.mediaKind} · {asset.assetType}
@@ -215,6 +285,9 @@ export default async function AssetsPage({
                 }
               >
                 {assetNeedsAttention(asset) ? "Review" : "Playable"}
+                <span className="block text-xs font-normal text-muted">
+                  {assetAttentionReason(asset)}
+                </span>
               </span>
               <StatusPill status={asset.status} />
               <span className="rounded-md border border-line px-3 py-2 text-center text-sm font-semibold text-ink group-open:bg-panel-soft">
@@ -391,6 +464,51 @@ function assetNeedsAttention(asset: MediaAsset) {
   return false
 }
 
+function assetAttentionReason(asset: MediaAsset) {
+  if (asset.status !== "ready") return `Status: ${asset.status}`
+  if (
+    (asset.sourceType === "remote_image" ||
+      asset.sourceType === "remote_mp4" ||
+      asset.sourceType === "hls" ||
+      asset.sourceType === "rtmp" ||
+      asset.sourceType === "supabase_audio") &&
+    !asset.url
+  )
+    return "Missing URL"
+  if (
+    (asset.mediaKind === "video" || asset.mediaKind === "audio" || asset.mediaKind === "image") &&
+    !asset.durationSeconds
+  )
+    return "Missing duration"
+  if (asset.assetType === "ad" && asset.durationSeconds && asset.durationSeconds > 300)
+    return "Ad over 5 min"
+  return "Ready for schedule"
+}
+
+function sortAssets(a: MediaAsset, b: MediaAsset, sort: string | undefined) {
+  if (sort === "duration") return (b.durationSeconds ?? 0) - (a.durationSeconds ?? 0)
+  if (sort === "status") return a.status.localeCompare(b.status) || a.title.localeCompare(b.title)
+  return a.title.localeCompare(b.title)
+}
+
+function AssetPreview({ asset }: { asset: MediaAsset }) {
+  const src = asset.thumbnailUrl || (asset.mediaKind === "image" ? asset.url : "")
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        className="aspect-video w-full rounded-md border border-line bg-panel-soft object-cover"
+      />
+    )
+  }
+  return (
+    <div className="grid aspect-video place-items-center rounded-md border border-line bg-panel-soft text-xs font-semibold uppercase text-muted">
+      {asset.mediaKind}
+    </div>
+  )
+}
+
 function fileDetailLine(asset: MediaAsset) {
   const metadata = asset.metadata ?? {}
   const parts = [
@@ -415,4 +533,26 @@ function formatBytes(bytes: number) {
     unit += 1
   }
   return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`
+}
+
+function WorkflowStep({
+  number,
+  title,
+  detail
+}: {
+  number: string
+  title: string
+  detail: string
+}) {
+  return (
+    <div className="rounded-lg border border-line bg-surface p-4">
+      <div className="flex items-center gap-3">
+        <span className="grid h-8 w-8 place-items-center rounded-md border border-accent-positive bg-surface-selected-positive text-sm font-bold text-accent-positive">
+          {number}
+        </span>
+        <p className="font-semibold">{title}</p>
+      </div>
+      <p className="mt-2 text-sm leading-5 text-muted">{detail}</p>
+    </div>
+  )
 }

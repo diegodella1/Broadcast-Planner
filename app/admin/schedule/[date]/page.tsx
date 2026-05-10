@@ -7,7 +7,7 @@ import { PlayoutTime } from "@/components/playout-time"
 import { ScheduleTimeline } from "@/components/schedule-timeline"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
-import { ButtonLink, EmptyState, FormHeader, Notice } from "@/components/ui"
+import { ButtonLink, EmptyState, Field, FormHeader, Notice, StatusBanner } from "@/components/ui"
 import { getScheduleForDate } from "@/lib/data"
 import { createLongTestSchedule, createProgramBlock, updateProgramDayStatus } from "@/lib/mutations"
 import { analyzeSchedule } from "@/lib/schedule-health"
@@ -94,6 +94,31 @@ export default async function ScheduleDatePage({
       actions={<ButtonLink href="/output/live?debug=true">Open live output</ButtonLink>}
     >
       {query.uploaded ? <Notice tone="ok">Media uploaded and scheduled.</Notice> : null}
+      <StatusBanner
+        tone={health.criticalCount ? "danger" : health.warnCount ? "warn" : "ok"}
+        label="Day readiness"
+        title={
+          health.criticalCount
+            ? `${health.criticalCount} critical blockers`
+            : health.warnCount
+              ? `${health.warnCount} warnings before air`
+              : "Ready to test"
+        }
+        detail={`${readyBlocks}/${blocks.length} blocks ready · ${formatTimecode(totalScheduledSeconds)} scheduled · ${timezone}`}
+        action={
+          <>
+            <ButtonLink href="/admin/assets" variant="secondary">
+              1. Library
+            </ButtonLink>
+            <ButtonLink href={`/admin/schedule/${date}`} variant="secondary">
+              2. Timeline
+            </ButtonLink>
+            <ButtonLink href="/admin/output" variant="secondary">
+              3. Control
+            </ButtonLink>
+          </>
+        }
+      />
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           {schedule.day && (
@@ -122,7 +147,7 @@ export default async function ScheduleDatePage({
         </div>
       </div>
 
-      <section className="mb-5 grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr]">
+      <section className="mb-5 mt-5 grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr]">
         <StatusPanel
           title={isToday ? "Now" : "Selected day"}
           tone={active?.block ? "ok" : isToday ? "danger" : "neutral"}
@@ -198,8 +223,8 @@ export default async function ScheduleDatePage({
         <aside className="grid gap-5 content-start">
           <MediaUploadForm
             action="/api/assets/upload-schedule"
-            title="Upload and schedule"
-            detail="Add an image or short video directly to this day. Blank or 0 seconds uses detected video duration; images default to 25 seconds."
+            title="Add show to timeline"
+            detail="Upload an image or short video and place it on this day. Images default to 25 seconds; video uses detected duration unless overridden."
             submitLabel="Upload and schedule"
             returnTo={`/admin/schedule/${date}?uploaded=1`}
             includeAudio={false}
@@ -258,57 +283,80 @@ export default async function ScheduleDatePage({
             </div>
           </section>
 
-          <details className="surface-panel p-4">
-            <summary className="cursor-pointer font-semibold">Add block</summary>
+          <details className="surface-panel p-4" open={blocks.length === 0}>
+            <summary className="cursor-pointer font-semibold">
+              Schedule existing asset / show
+            </summary>
             <form action={addBlock} className="mt-4 grid gap-3">
-              <input
-                name="title"
-                required
-                placeholder="Block title"
-                className="border border-line px-3 py-2 text-sm"
-              />
+              <Field label="Show title">
+                <input
+                  name="title"
+                  required
+                  placeholder="Show title"
+                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                />
+              </Field>
               <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  name="start_time"
-                  required
-                  defaultValue="00:00:00"
-                  title="San Francisco time. Tooltip equivalents appear on saved schedule times."
-                  className="border border-line px-3 py-2 text-sm"
-                />
-                <input
-                  name="duration_seconds"
-                  required
-                  type="number"
-                  min="1"
-                  defaultValue="30"
-                  className="border border-line px-3 py-2 text-sm"
-                />
+                <Field label="Start time">
+                  <input
+                    name="start_time"
+                    required
+                    defaultValue="00:00:00"
+                    title="San Francisco time. Tooltip equivalents appear on saved schedule times."
+                    className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                  />
+                </Field>
+                <Field label="Duration seconds" hint="Save expands to media duration when needed.">
+                  <input
+                    name="duration_seconds"
+                    required
+                    type="number"
+                    min="1"
+                    defaultValue="30"
+                    className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                  />
+                </Field>
               </div>
-              <select name="block_type" className="border border-line px-3 py-2 text-sm">
-                <option value="video">Video</option>
-                <option value="image">Image</option>
-                <option value="slide">Slide</option>
-                <option value="ad">Ad</option>
-                <option value="promo">Promo</option>
-                <option value="fallback">Fallback</option>
-              </select>
-              <select name="asset_id" className="border border-line px-3 py-2 text-sm">
-                <option value="">No asset</option>
-                {schedule.mediaAssets.map((asset) => (
-                  <option key={asset.id} value={asset.id}>
-                    {asset.title} · {asset.status}
-                    {asset.durationSeconds ? ` · ${formatTimecode(asset.durationSeconds)}` : ""}
-                  </option>
-                ))}
-              </select>
-              <select name="slide_id" className="border border-line px-3 py-2 text-sm">
-                <option value="">No slide</option>
-                {schedule.slideAssets.map((slide) => (
-                  <option key={slide.id} value={slide.id}>
-                    {slide.title} · {slide.status}
-                  </option>
-                ))}
-              </select>
+              <Field label="Block type">
+                <select
+                  name="block_type"
+                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                >
+                  <option value="video">Video show</option>
+                  <option value="image">Image plate</option>
+                  <option value="slide">System slide</option>
+                  <option value="ad">Ad</option>
+                  <option value="promo">Promo</option>
+                  <option value="fallback">Fallback</option>
+                </select>
+              </Field>
+              <Field label="Media asset">
+                <select
+                  name="asset_id"
+                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                >
+                  <option value="">No asset</option>
+                  {schedule.mediaAssets.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.title} · {asset.status}
+                      {asset.durationSeconds ? ` · ${formatTimecode(asset.durationSeconds)}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="System slide">
+                <select
+                  name="slide_id"
+                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                >
+                  <option value="">No slide</option>
+                  {schedule.slideAssets.map((slide) => (
+                    <option key={slide.id} value={slide.id}>
+                      {slide.title} · {slide.status}
+                    </option>
+                  ))}
+                </select>
+              </Field>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
                   name="pre_roll_seconds"

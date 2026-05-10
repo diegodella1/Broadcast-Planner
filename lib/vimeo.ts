@@ -18,6 +18,7 @@ export type VimeoVideo = {
   name: string
   link: string
   duration: number
+  created_time?: string
   pictures?: { sizes?: Array<{ link: string; width: number }> }
   privacy?: { view?: string; embed?: string }
   status?: string
@@ -144,5 +145,5 @@ async function vimeoFetch<T>(path: string, token: string): Promise<T> {
 }
 
 function videoFields() {
-  return "uri,name,link,duration,pictures,privacy,status"
+  return "uri,name,link,duration,created_time,pictures,privacy,status"
 }
