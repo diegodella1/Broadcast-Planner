@@ -3,11 +3,11 @@
 import Image from "next/image"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
+import { SlideTemplateRenderer } from "@/components/slides/index"
 import { findActiveSchedule } from "@/lib/scheduler"
 import { formatTimecode } from "@/lib/time"
-import { SlideTemplateRenderer } from "@/components/slides/index"
-import type { SlideTemplateId } from "@/lib/slides/registry"
 
+import type { SlideTemplateId } from "@/lib/slides/registry"
 import type { ActiveSchedule, MediaAsset, ScheduledLayer, SlideAsset } from "@/lib/types"
 import type { ScheduleBundle } from "@/lib/types"
 
@@ -182,7 +182,9 @@ function BaseContent({
   if (slide) return <Slide slide={slide} fullscreen />
   if (!asset) return <Fallback asset={active.fallbackAsset ?? null} reason="Missing asset" />
   if (asset.mediaKind === "image") return <ImageAsset asset={asset} />
-  if (asset.sourceType === "vimeo" && asset.vimeoId) return <VimeoEmbed asset={asset} />
+  if (asset.sourceType === "vimeo" && asset.vimeoId) {
+    return <VimeoHlsPlayer asset={asset} onMediaState={onMediaState} />
+  }
   if (asset.sourceType === "reuters")
     return <ReutersPlayer asset={asset} onMediaState={onMediaState} />
   if (asset.sourceType === "rtmp") return <RtmpNotice asset={asset} />
@@ -211,15 +213,68 @@ function Layer({ layer, schedule }: { layer: ScheduledLayer; schedule: ScheduleB
   )
 }
 
-function VimeoEmbed({ asset }: { asset: MediaAsset }) {
-  const src = `https://player.vimeo.com/video/${asset.vimeoId}?autoplay=1&muted=0&controls=0&background=0&autopause=0&dnt=1`
+function VimeoHlsPlayer({
+  asset,
+  onMediaState
+}: {
+  asset: MediaAsset
+  onMediaState: (state: MediaState, error?: string) => void
+}) {
+  const [playback, setPlayback] = useState<{
+    assetId: string
+    hlsUrl: string
+    title: string
+    durationSeconds: number | null
+  } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    onMediaState("loading")
+    fetch(apiPath(`/api/vimeo/playback/${asset.id}`), { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { error?: string } | null
+          throw new Error(payload?.error ?? `Vimeo playback returned ${response.status}`)
+        }
+        return response.json() as Promise<{
+          hlsUrl?: string
+          title?: string
+          durationSeconds?: number | null
+        }>
+      })
+      .then((payload) => {
+        if (cancelled) return
+        if (!payload.hlsUrl) throw new Error("Vimeo playback URL unavailable")
+        setPlayback({
+          assetId: asset.id,
+          hlsUrl: payload.hlsUrl,
+          title: payload.title ?? asset.title,
+          durationSeconds: payload.durationSeconds ?? asset.durationSeconds ?? null
+        })
+      })
+      .catch((error) => {
+        if (cancelled) return
+        onMediaState("fallback", error instanceof Error ? error.message : "Vimeo playback failed")
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [asset.id, asset.durationSeconds, asset.title, onMediaState])
+
+  if (!playback || playback.assetId !== asset.id) {
+    return <Fallback asset={null} reason="Loading Vimeo stream" />
+  }
+
   return (
-    <iframe
-      title={asset.title}
-      className="h-full w-full border-0"
-      src={src}
-      allow="autoplay; fullscreen; picture-in-picture"
-      allowFullScreen
+    <VideoAsset
+      asset={{
+        ...asset,
+        sourceType: "hls",
+        url: playback.hlsUrl,
+        title: playback.title,
+        durationSeconds: playback.durationSeconds
+      }}
+      onMediaState={onMediaState}
     />
   )
 }
@@ -251,15 +306,23 @@ function VideoAsset({
   onMediaState: (state: MediaState, error?: string) => void
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const startupTimeoutRef = useRef<number | null>(null)
   const src = asset.url ?? ""
+
+  const clearStartupTimeout = useCallback(() => {
+    if (startupTimeoutRef.current === null) return
+    window.clearTimeout(startupTimeoutRef.current)
+    startupTimeoutRef.current = null
+  }, [])
 
   useEffect(() => {
     onMediaState("loading")
-    const timeout = window.setTimeout(() => {
+    clearStartupTimeout()
+    startupTimeoutRef.current = window.setTimeout(() => {
       onMediaState("fallback", "Media startup timeout")
     }, 8000)
-    return () => window.clearTimeout(timeout)
-  }, [asset.id, onMediaState])
+    return clearStartupTimeout
+  }, [asset.id, clearStartupTimeout, onMediaState])
 
   useEffect(() => {
     const video = videoRef.current
@@ -297,11 +360,27 @@ function VideoAsset({
   const vertical = presentation === "vertical_blur" || asset.metadata?.orientation === "vertical"
   const handlers = {
     onCanPlay: () => onMediaState("loading"),
-    onPlaying: () => onMediaState("playing"),
+    onLoadedData: () => {
+      const playResult = videoRef.current?.play()
+      playResult?.catch(() => onMediaState("fallback", "Autoplay blocked or media failed"))
+    },
+    onPlaying: () => {
+      clearStartupTimeout()
+      onMediaState("playing")
+    },
     onWaiting: () => onMediaState("waiting"),
-    onStalled: () => onMediaState("stalled", "Media stalled"),
-    onError: () => onMediaState("errored", "Media playback error"),
-    onEnded: () => onMediaState("ended", "Media ended")
+    onStalled: () => {
+      clearStartupTimeout()
+      onMediaState("stalled", "Media stalled")
+    },
+    onError: () => {
+      clearStartupTimeout()
+      onMediaState("errored", "Media playback error")
+    },
+    onEnded: () => {
+      clearStartupTimeout()
+      onMediaState("ended", "Media ended")
+    }
   }
   if (!vertical) {
     return (
@@ -344,6 +423,12 @@ function VideoAsset({
       />
     </div>
   )
+}
+
+function apiPath(path: string) {
+  if (typeof window === "undefined") return path
+  const basePath = window.location.pathname.startsWith("/rtvtime/") ? "/rtvtime" : ""
+  return `${basePath}${path}`
 }
 
 function RtmpNotice({ asset }: { asset: MediaAsset }) {

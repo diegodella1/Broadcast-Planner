@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { getVimeoToken } from "@/lib/settings"
 import { createServiceClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -15,7 +16,7 @@ export async function GET() {
     env: checkEnv(),
     supabase: await checkSupabase(),
     storage: await checkStorage(),
-    vimeo: checkOptionalEnv("VIMEO_ACCESS_TOKEN", "Vimeo token configured")
+    vimeo: await checkVimeoToken()
   } satisfies Record<string, HealthCheck>
   const ok = checks.env.ok && checks.supabase.ok
   const degraded = ok && Object.values(checks).some((check) => check.status === "degraded")
@@ -84,10 +85,18 @@ async function checkStorage(): Promise<HealthCheck> {
   }
 }
 
-function checkOptionalEnv(key: string, okMessage: string): HealthCheck {
-  return process.env[key]
-    ? { ok: true, status: "ok", message: okMessage }
-    : { ok: true, status: "degraded", message: `${key} not configured` }
+async function checkVimeoToken(): Promise<HealthCheck> {
+  try {
+    return (await getVimeoToken())
+      ? { ok: true, status: "ok", message: "Vimeo token configured" }
+      : { ok: true, status: "degraded", message: "Vimeo token not configured" }
+  } catch (error) {
+    return {
+      ok: true,
+      status: "degraded",
+      message: `Vimeo token check failed: ${errorMessage(error)}`
+    }
+  }
 }
 
 function errorMessage(error: unknown) {

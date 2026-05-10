@@ -38,21 +38,34 @@ export default async function SettingsPage({
       <form action="/rtvtime/api/settings" method="post" className="surface-panel max-w-2xl p-5">
         <FormHeader
           title="Vimeo integration"
-          detail="API tokens come from infrastructure config (Cloudflare env var VIMEO_ACCESS_TOKEN or wrangler secret put). They are never entered through this UI."
+          detail="Store a Vimeo API token for account search, show browsing, and program imports."
         />
         <div className="mt-4 rounded-md bg-panel-soft px-3 py-2 text-sm text-muted">
-          Vimeo connection: {token ? "token detected from environment" : "no token configured"}
+          Vimeo connection: {token ? "token configured" : "no token configured"}
           {token ? <span className="block">Status: {settings?.status ?? "unknown"}</span> : null}
           {settings?.lastError ? (
             <span className="block text-danger">Last error: {settings.lastError}</span>
           ) : null}
           {!token ? (
-            <span className="block">
-              Set VIMEO_ACCESS_TOKEN in your Cloudflare worker environment (wrangler secret put
-              VIMEO_ACCESS_TOKEN) and redeploy.
-            </span>
+            <span className="block">Paste a Vimeo access token below to enable imports.</span>
           ) : null}
         </div>
+        <label className="mt-5 block text-sm font-medium">
+          Vimeo access token
+          <input
+            name="vimeo_token"
+            type="password"
+            autoComplete="off"
+            className="mt-2 w-full border border-line px-3 py-2"
+            placeholder={
+              settings?.hasSecret ? "Token saved. Leave blank to keep it." : "Paste token"
+            }
+          />
+          <span className="mt-1 block text-xs text-muted">
+            Stored encrypted in Supabase. Environment variable VIMEO_ACCESS_TOKEN still takes
+            priority if present.
+          </span>
+        </label>
         <label className="mt-5 block text-sm font-medium">
           Optional Vimeo folder/project URI
           <input

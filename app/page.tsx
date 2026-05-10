@@ -1,5 +1,5 @@
-import Link from "next/link"
 import {
+  BookOpen,
   CalendarDays,
   Clapperboard,
   LayoutDashboard,
@@ -7,6 +7,7 @@ import {
   Music,
   Video
 } from "lucide-react"
+import Link from "next/link"
 
 export default function HomePage() {
   const links = [
@@ -45,6 +46,12 @@ export default function HomePage() {
       href: "/output/live?debug=true",
       detail: "vMix/OBS output route with debug overlay.",
       icon: MonitorPlay
+    },
+    {
+      label: "Manual",
+      href: "/manual",
+      detail: "Current guide for operators, output users and public-facing routes.",
+      icon: BookOpen
     }
   ]
   return (

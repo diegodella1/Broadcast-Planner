@@ -1,4 +1,4 @@
-import { render, screen, act } from "@testing-library/react"
+import { render, screen, act, waitFor, fireEvent } from "@testing-library/react"
 import { describe, expect, it, vi, afterEach } from "vitest"
 
 import { renderWithIntl } from "@/vitest.intl-helper"
@@ -56,6 +56,7 @@ function bundleWithActiveBlock(overrides?: Partial<ScheduleBundle>): ScheduleBun
 describe("OutputRenderer", () => {
   afterEach(() => {
     vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
   it("renders the fallback brand and no-active-block message when no block is active", () => {
@@ -115,7 +116,17 @@ describe("OutputRenderer", () => {
     expect(video).toHaveAttribute("src", "https://example.com/video.mp4")
   })
 
-  it("renders an iframe when the active block has a vimeo asset", () => {
+  it("resolves Vimeo playback and renders it through the HLS video player", async () => {
+    vi.spyOn(window, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        hlsUrl: "https://vimeo.example/playlist.m3u8",
+        title: "Vimeo Video",
+        durationSeconds: 120
+      })
+    } as Response)
+    vi.spyOn(HTMLMediaElement.prototype, "canPlayType").mockReturnValue("probably")
+
     const bundle = bundleWithActiveBlock({
       blocks: [
         {
@@ -149,9 +160,101 @@ describe("OutputRenderer", () => {
       ]
     })
     render(renderWithIntl(<OutputRenderer initialSchedule={bundle} initialSeconds={100} />))
-    const iframe = document.querySelector("iframe")
-    expect(iframe).toBeInTheDocument()
-    expect(iframe?.src).toContain("123456789")
+    await waitFor(() => {
+      expect(document.querySelector("video")).toBeInTheDocument()
+    })
+    expect(document.querySelector("iframe")).not.toBeInTheDocument()
+    expect(window.fetch).toHaveBeenCalledWith("/api/vimeo/playback/asset-v", { cache: "no-store" })
+  })
+
+  it("falls back when unmuted autoplay is blocked", async () => {
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockRejectedValue(new Error("blocked"))
+
+    const bundle = bundleWithActiveBlock({
+      blocks: [
+        {
+          id: "block-1",
+          programDayId: "day-1",
+          title: "Video Block",
+          blockType: "video",
+          category: "broadcast",
+          assetId: "asset-1",
+          startTimeSeconds: 0,
+          durationSeconds: 7200,
+          status: "active",
+          hideOverlays: false,
+          startTime: "00:00:00",
+          createdAt: "2026-05-08T00:00:00Z",
+          updatedAt: "2026-05-08T00:00:00Z"
+        }
+      ],
+      mediaAssets: [
+        {
+          id: "asset-1",
+          title: "Blocked Video",
+          sourceType: "remote_mp4",
+          mediaKind: "video",
+          assetType: "video",
+          url: "https://example.com/video.mp4",
+          status: "ready",
+          createdAt: "2026-05-08T00:00:00Z",
+          updatedAt: "2026-05-08T00:00:00Z"
+        }
+      ]
+    })
+
+    render(renderWithIntl(<OutputRenderer initialSchedule={bundle} initialSeconds={100} debug />))
+    const video = document.querySelector("video")
+    expect(video).toBeInTheDocument()
+    fireEvent.loadedData(video as HTMLVideoElement)
+    await waitFor(() => {
+      expect(screen.getByText(/Autoplay blocked or media failed/)).toBeInTheDocument()
+    })
+  })
+
+  it("does not trigger startup timeout after media starts playing", () => {
+    vi.useFakeTimers()
+    const bundle = bundleWithActiveBlock({
+      blocks: [
+        {
+          id: "block-1",
+          programDayId: "day-1",
+          title: "Video Block",
+          blockType: "video",
+          category: "broadcast",
+          assetId: "asset-1",
+          startTimeSeconds: 0,
+          durationSeconds: 7200,
+          status: "active",
+          hideOverlays: false,
+          startTime: "00:00:00",
+          createdAt: "2026-05-08T00:00:00Z",
+          updatedAt: "2026-05-08T00:00:00Z"
+        }
+      ],
+      mediaAssets: [
+        {
+          id: "asset-1",
+          title: "Playing Video",
+          sourceType: "remote_mp4",
+          mediaKind: "video",
+          assetType: "video",
+          url: "https://example.com/video.mp4",
+          status: "ready",
+          createdAt: "2026-05-08T00:00:00Z",
+          updatedAt: "2026-05-08T00:00:00Z"
+        }
+      ]
+    })
+
+    render(renderWithIntl(<OutputRenderer initialSchedule={bundle} initialSeconds={100} debug />))
+    const video = document.querySelector("video")
+    expect(video).toBeInTheDocument()
+    fireEvent.playing(video as HTMLVideoElement)
+    act(() => {
+      vi.advanceTimersByTime(9000)
+    })
+    expect(screen.queryByText(/Media startup timeout/)).not.toBeInTheDocument()
   })
 
   it("ticks the internal clock via setInterval and clears on unmount", () => {

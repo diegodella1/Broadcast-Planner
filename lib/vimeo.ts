@@ -23,6 +23,12 @@ export type VimeoVideo = {
   status?: string
 }
 
+export type VimeoPlayback = {
+  hlsUrl: string
+  title: string
+  durationSeconds: number
+}
+
 type VimeoPage<T> = {
   data?: T[]
 }
@@ -73,6 +79,21 @@ export async function searchVimeoAccountVideos(
 
 export async function getVimeoVideo(token: string, videoUri: string): Promise<VimeoVideo> {
   return vimeoFetch<VimeoVideo>(`${videoUri}?fields=${videoFields()}`, token)
+}
+
+export async function getVimeoPlayback(token: string, videoId: string): Promise<VimeoPlayback> {
+  const video = await vimeoFetch<{
+    name?: string
+    duration?: number
+    play?: { hls?: { link?: string } }
+  }>(`/videos/${encodeURIComponent(videoId)}?fields=name,duration,play.hls.link`, token)
+  const hlsUrl = video.play?.hls?.link
+  if (!hlsUrl) throw new Error("Vimeo playback URL unavailable")
+  return {
+    hlsUrl,
+    title: video.name ?? "Vimeo video",
+    durationSeconds: typeof video.duration === "number" ? video.duration : 0
+  }
 }
 
 export async function upsertVimeoVideos(videos: VimeoVideo[]) {
