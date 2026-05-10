@@ -44,6 +44,8 @@ This is not a public website or a video library. It is an operations console for
 - `/admin/slides` - slide library
 - `/admin/output` - operator output control panel
 - `/admin/settings` - integrations and app settings
+- `/manual` - operator and public output manual
+- `/pending` - pending developments, needed functionality and production backlog
 - `/output/live` - live fullscreen output
 - `/output/[timelineId]` - timeline output
 - `/output/preview/[blockId]` - block preview output
@@ -164,6 +166,7 @@ Production container health check:
 - `APP_ENCRYPTION_KEY` must be a strong 32-byte base64 key.
 - Fallback assets matter: schedules should not depend on a single fragile media URL.
 - Schedule health warnings should be treated as broadcast risks, not cosmetic errors.
+- Track production gaps in `/pending` and treat P0 items as required before unattended operation.
 
 ## Current State
 
@@ -182,10 +185,11 @@ Implemented:
 - Supabase schema and seed data
 - Vimeo sync endpoint and synced Library catalog
 - Schedule generation and health checks
+- Pending developments page
 
 Known next priority:
 
-- Multi-user role system and richer audit trail for production operators.
+- P0 backlog in `/pending`: multi-user roles, broadcast audit trail, Vimeo playback readiness, protected output decision, and conflict-prevention UX.
 
 ## Repository
 

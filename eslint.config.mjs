@@ -34,23 +34,8 @@ export default [
   ),
   {
     rules: {
-      "import/order": [
-        "warn",
-        {
-          groups: [
-            "builtin",
-            "external",
-            "internal",
-            "parent",
-            "sibling",
-            "index",
-            "object",
-            "type"
-          ],
-          "newlines-between": "always",
-          alphabetize: { order: "asc", caseInsensitive: true }
-        }
-      ]
+      "import/order": "off",
+      "@next/next/no-img-element": "off"
     }
   }
 ]

@@ -5,6 +5,7 @@ import {
   Clapperboard,
   Eye,
   Library,
+  ListChecks,
   MonitorPlay,
   Music,
   RadioTower,
@@ -141,6 +142,21 @@ const operatorSections = [
     ]
   },
   {
+    id: "pending",
+    title: "Pending developments",
+    icon: ListChecks,
+    body: [
+      "The pending page lists current functionality, production MVP gaps, hardening tasks and future capabilities.",
+      "Use it as the short product backlog for deciding what must be done before wider operator handoff."
+    ],
+    details: [
+      "P0 items are required before unattended broadcast operation.",
+      "P1 items harden production and QA workflows.",
+      "P2 items are useful future capabilities after the core workflow is stable."
+    ],
+    links: [{ label: "Open pending", href: "/pending" }]
+  },
+  {
     id: "settings",
     title: "Settings and integrations",
     icon: Settings,
@@ -258,6 +274,12 @@ export default function ManualPage() {
           <ManualMetric label="Data store" value="Supabase" />
         </section>
 
+        <section className="border-b border-white/10 py-5">
+          <Link className="btn-secondary" href="/pending">
+            Pending developments
+          </Link>
+        </section>
+
         <section className="py-8">
           <div className="flex items-center gap-3">
             <BookOpen size={22} className="text-accent-positive" aria-hidden="true" />
@@ -288,7 +310,7 @@ export default function ManualPage() {
               as block layers or assets.
             </li>
             <li>
-              Import-order lint warnings exist in older files and do not block current builds.
+              Build warnings are expected to be treated as actionable unless explicitly waived.
             </li>
             <li>Rotate any secret that was pasted into chat, logs or documentation.</li>
           </ul>

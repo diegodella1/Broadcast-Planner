@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   MonitorPlay,
   Music,
+  ListChecks,
   Video
 } from "lucide-react"
 import Link from "next/link"
@@ -52,6 +53,12 @@ export default function HomePage() {
       href: "/manual",
       detail: "Current guide for operators, output users and public-facing routes.",
       icon: BookOpen
+    },
+    {
+      label: "Pending",
+      href: "/pending",
+      detail: "Production backlog, missing features and next development work.",
+      icon: ListChecks
     }
   ]
   return (
