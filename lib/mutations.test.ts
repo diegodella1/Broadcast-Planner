@@ -779,6 +779,8 @@ describe("createMediaAsset", () => {
   })
 
   it("happy path: inserts media_assets and revalidates /admin/assets", async () => {
+    supabaseMock.setResult({ data: { id: "asset-1" }, error: null })
+
     await createMediaAsset({
       title: "Roxom Intro",
       sourceType: "vimeo",
@@ -814,10 +816,7 @@ describe("createMediaAsset", () => {
   })
 
   it("error path: throws when supabase insert fails", async () => {
-    ;(supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-      (resolve: (value: MockResult) => void) =>
-        Promise.resolve({ data: null, error: new Error("Media insert failed") }).then(resolve)
-    )
+    supabaseMock.setResult({ data: null, error: new Error("Media insert failed") })
 
     await expect(
       createMediaAsset({

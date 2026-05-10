@@ -1,11 +1,13 @@
-import Link from "next/link"
 import clsx from "clsx"
+import Link from "next/link"
+
 import { AdminShell } from "@/components/admin-shell"
+import { MediaUploadForm } from "@/components/media-upload-form"
 import { PlayoutTime } from "@/components/playout-time"
 import { ScheduleTimeline } from "@/components/schedule-timeline"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
-import { ButtonLink, EmptyState, FormHeader } from "@/components/ui"
+import { ButtonLink, EmptyState, FormHeader, Notice } from "@/components/ui"
 import { getScheduleForDate } from "@/lib/data"
 import { createLongTestSchedule, createProgramBlock, updateProgramDayStatus } from "@/lib/mutations"
 import { analyzeSchedule } from "@/lib/schedule-health"
@@ -17,10 +19,18 @@ import {
   PLAYOUT_TIMEZONE,
   secondsSinceMidnightInTimezone
 } from "@/lib/time"
+
 import type { MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from "@/lib/types"
 
-export default async function ScheduleDatePage({ params }: { params: Promise<{ date: string }> }) {
+export default async function ScheduleDatePage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ date: string }>
+  searchParams: Promise<{ uploaded?: string }>
+}) {
   const { date } = await params
+  const query = await searchParams
   const schedule = await getScheduleForDate(date)
   const blocks = schedule.blocks.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
   async function addBlock(formData: FormData) {
@@ -83,6 +93,7 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
       description="Operational schedule by time, media, continuity and pre-air warnings."
       actions={<ButtonLink href="/output/live?debug=true">Open live output</ButtonLink>}
     >
+      {query.uploaded ? <Notice tone="ok">Media uploaded and scheduled.</Notice> : null}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           {schedule.day && (
@@ -185,6 +196,16 @@ export default async function ScheduleDatePage({ params }: { params: Promise<{ d
         </div>
 
         <aside className="grid gap-5 content-start">
+          <MediaUploadForm
+            action="/rtvtime/api/assets/upload-schedule"
+            title="Upload and schedule"
+            detail="Add an image or short video directly to this day. Blank or 0 seconds uses detected video duration; images default to 25 seconds."
+            submitLabel="Upload and schedule"
+            returnTo={`/admin/schedule/${date}?uploaded=1`}
+            includeAudio={false}
+            scheduleDate={date}
+          />
+
           <section className="surface-panel p-4">
             <h2 className="font-semibold">Health check</h2>
             <div className="mt-4 grid gap-3">

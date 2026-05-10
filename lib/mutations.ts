@@ -460,18 +460,22 @@ export async function createMediaAsset(input: {
     throw new Error("Ads cannot be longer than 300 seconds")
   }
   const supabase = createServiceClient()
-  const { error } = await supabase.from("media_assets").insert({
-    title: input.title,
-    source_type: input.sourceType,
-    media_kind: input.mediaKind,
-    asset_type: input.assetType,
-    url: input.url || null,
-    storage_bucket: input.storageBucket || null,
-    storage_path: input.storagePath || null,
-    duration_seconds: input.durationSeconds || null,
-    metadata: input.metadata ?? {},
-    status: "ready"
-  })
+  const { data, error } = await supabase
+    .from("media_assets")
+    .insert({
+      title: input.title,
+      source_type: input.sourceType,
+      media_kind: input.mediaKind,
+      asset_type: input.assetType,
+      url: input.url || null,
+      storage_bucket: input.storageBucket || null,
+      storage_path: input.storagePath || null,
+      duration_seconds: input.durationSeconds || null,
+      metadata: input.metadata ?? {},
+      status: "ready"
+    })
+    .select("id")
+    .single()
   if (error) throw error
   await supabase.from("audit_log").insert({
     actor: "admin",
@@ -480,6 +484,7 @@ export async function createMediaAsset(input: {
     metadata: { title: input.title, source_type: input.sourceType }
   })
   revalidatePath("/admin/assets")
+  return String(data.id)
 }
 
 export async function updateMediaAsset(input: {

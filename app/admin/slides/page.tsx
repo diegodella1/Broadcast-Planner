@@ -7,6 +7,23 @@ import { SLIDE_TEMPLATES } from "@/lib/slides/registry"
 
 export const dynamic = "force-dynamic"
 
+const SYSTEM_SLIDE_PRESETS = [
+  {
+    title: "Markets overview",
+    templateId: "metals",
+    content: "System slide: markets overview with fallback data until feeds are finalized."
+  },
+  { title: "FX board", templateId: "fx", content: "System slide: FX and currency board." },
+  { title: "Metals board", templateId: "metals", content: "System slide: metals board." },
+  { title: "Gold board", templateId: "gold", content: "System slide: gold price board." },
+  { title: "Silver board", templateId: "silver", content: "System slide: silver price board." },
+  { title: "Oil board", templateId: "oil", content: "System slide: oil price board." },
+  { title: "STRC board", templateId: "strc", content: "System slide: STRC dashboard." },
+  { title: "SATA board", templateId: "sata", content: "System slide: SATA dashboard." },
+  { title: "News headline", templateId: "news", content: "System slide: headline fallback." },
+  { title: "Event calendar", templateId: "calendar", content: "System slide: event calendar." }
+] as const
+
 export default async function SlidesPage() {
   const slides = await getSlides()
   async function addSlide(formData: FormData) {
@@ -34,6 +51,17 @@ export default async function SlidesPage() {
       slideType: "template",
       templateId: "market",
       content: String(formData.get("content") || "Live market data"),
+      defaultDurationSeconds: Number(formData.get("default_duration_seconds") || 30),
+      status: "ready"
+    })
+  }
+  async function addSystemSlide(formData: FormData) {
+    "use server"
+    await createSlideAsset({
+      title: String(formData.get("title")),
+      slideType: "template",
+      templateId: String(formData.get("template_id")),
+      content: String(formData.get("content") || ""),
       defaultDurationSeconds: Number(formData.get("default_duration_seconds") || 30),
       status: "ready"
     })
@@ -132,6 +160,23 @@ export default async function SlidesPage() {
             <button className="btn-primary">Create market slide</button>
           </div>
         </form>
+      </section>
+      <section className="surface-panel mb-5 p-4">
+        <FormHeader
+          title="System slides"
+          detail="One-click dynamic slide presets for markets, prices, FX, financial boards, news and calendar."
+        />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {SYSTEM_SLIDE_PRESETS.map((preset) => (
+            <form key={preset.title} action={addSystemSlide}>
+              <input type="hidden" name="title" value={preset.title} />
+              <input type="hidden" name="template_id" value={preset.templateId} />
+              <input type="hidden" name="content" value={preset.content} />
+              <input type="hidden" name="default_duration_seconds" value="30" />
+              <button className="btn-secondary w-full">{preset.title}</button>
+            </form>
+          ))}
+        </div>
       </section>
       <div className="surface-panel overflow-hidden">
         {slides.map((slide) => (

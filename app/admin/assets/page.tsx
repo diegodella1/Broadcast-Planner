@@ -1,9 +1,11 @@
 import { AdminShell } from "@/components/admin-shell"
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button"
+import { MediaUploadForm } from "@/components/media-upload-form"
 import { StatusPill } from "@/components/status-pill"
 import { EmptyState, FilterLink, FormHeader, MetricTile, Notice } from "@/components/ui"
 import { getAssets } from "@/lib/data"
 import { createMediaAsset, deleteMediaAsset, updateMediaAsset } from "@/lib/mutations"
+
 import type { MediaAsset } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -98,53 +100,13 @@ export default async function AssetsPage({
       </section>
 
       <section className="mb-5 grid gap-5 xl:grid-cols-2">
-        <form
+        <MediaUploadForm
           action="/rtvtime/api/assets/upload"
-          method="post"
-          encType="multipart/form-data"
-          className="surface-panel p-4"
-        >
-          <FormHeader
-            title="Upload media"
-            detail="Store videos, images or MP3 files up to 500 MB for ads, promos, plates, music or fallbacks."
-          />
-          <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_170px_140px_120px]">
-            <input
-              name="title"
-              required
-              placeholder="Media title"
-              className="border border-line px-3 py-2 text-sm"
-            />
-            <select name="asset_type" className="border border-line px-3 py-2 text-sm">
-              <option value="video">Video</option>
-              <option value="ad">Ad</option>
-              <option value="promo">Promo</option>
-              <option value="fallback">Fallback</option>
-              <option value="image">Image</option>
-              <option value="music">Music</option>
-            </select>
-            <select name="orientation" className="border border-line px-3 py-2 text-sm">
-              <option value="auto">Auto</option>
-              <option value="horizontal">Horizontal</option>
-              <option value="vertical">Vertical blur</option>
-            </select>
-            <input
-              name="duration_seconds"
-              type="number"
-              min="1"
-              placeholder="Sec"
-              className="border border-line px-3 py-2 text-sm"
-            />
-            <input
-              name="media_file"
-              required
-              type="file"
-              accept="video/mp4,video/webm,image/png,image/jpeg,image/webp,image/gif,audio/mpeg,audio/mp3"
-              className="border border-line bg-surface px-3 py-2 text-sm lg:col-span-3"
-            />
-            <button className="btn-primary">Upload</button>
-          </div>
-        </form>
+          title="Upload media"
+          detail="Store videos, images or MP3 files up to 500 MB. Browser checks duration, dimensions and file details before upload."
+          returnTo="/admin/assets?uploaded=1"
+          includeAudio
+        />
 
         <form action={addAsset} className="surface-panel p-4">
           <FormHeader
@@ -378,14 +340,17 @@ function AssetEditForm({
         <option value="horizontal">Horizontal</option>
         <option value="vertical">Vertical blur</option>
       </select>
-      <input
-        name="duration_seconds"
-        type="number"
-        min="1"
-        defaultValue={asset.durationSeconds ?? ""}
-        placeholder="Sec"
-        className="border border-line px-3 py-2 text-sm"
-      />
+      <label className="grid gap-1 text-xs font-semibold text-muted">
+        On-air seconds
+        <input
+          name="duration_seconds"
+          type="number"
+          min="1"
+          defaultValue={asset.durationSeconds ?? ""}
+          placeholder="Sec"
+          className="border border-line px-3 py-2 text-sm font-normal text-ink"
+        />
+      </label>
       <input
         name="thumbnail_url"
         defaultValue={asset.thumbnailUrl ?? ""}
@@ -399,6 +364,9 @@ function AssetEditForm({
         className="border border-line px-3 py-2 text-sm lg:col-span-2"
       />
       <button className="btn-primary lg:col-span-4">Save changes</button>
+      <div className="lg:col-span-4 rounded-md border border-line bg-surface px-3 py-2 text-xs leading-5 text-muted">
+        <span className="font-semibold text-ink">File details:</span> {fileDetailLine(asset)}
+      </div>
     </form>
   )
 }
@@ -414,7 +382,37 @@ function assetNeedsAttention(asset: MediaAsset) {
     !asset.url
   )
     return true
-  if (asset.mediaKind === "video" && !asset.durationSeconds) return true
+  if (
+    (asset.mediaKind === "video" || asset.mediaKind === "audio" || asset.mediaKind === "image") &&
+    !asset.durationSeconds
+  )
+    return true
   if (asset.assetType === "ad" && asset.durationSeconds && asset.durationSeconds > 300) return true
   return false
+}
+
+function fileDetailLine(asset: MediaAsset) {
+  const metadata = asset.metadata ?? {}
+  const parts = [
+    metadata.original_file_name ? `file ${metadata.original_file_name}` : null,
+    metadata.mime_type ? `mime ${metadata.mime_type}` : null,
+    typeof metadata.size === "number" ? `size ${formatBytes(metadata.size)}` : null,
+    metadata.detected_duration_seconds ? `detected ${metadata.detected_duration_seconds}s` : null,
+    metadata.duration_source ? `duration source ${metadata.duration_source}` : null,
+    metadata.width && metadata.height ? `${metadata.width}x${metadata.height}` : null,
+    metadata.aspect_ratio ? `ratio ${metadata.aspect_ratio}` : null
+  ].filter(Boolean)
+  return parts.length ? parts.join(" · ") : "No uploaded file metadata yet."
+}
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B"
+  const units = ["B", "KB", "MB", "GB"]
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`
 }
