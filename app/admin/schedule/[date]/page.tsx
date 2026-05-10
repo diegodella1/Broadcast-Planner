@@ -338,8 +338,7 @@ export default async function ScheduleDatePage({
                   <option value="">No asset</option>
                   {schedule.mediaAssets.map((asset) => (
                     <option key={asset.id} value={asset.id}>
-                      {asset.title} · {asset.status}
-                      {asset.durationSeconds ? ` · ${formatTimecode(asset.durationSeconds)}` : ""}
+                      {assetOptionLabel(asset)}
                     </option>
                   ))}
                 </select>
@@ -557,6 +556,16 @@ function assetLabel(asset: MediaAsset | null | undefined, slide: SlideAsset | nu
   if (asset) return `${asset.title} (${asset.status})`
   if (slide) return `${slide.title} (${slide.status})`
   return "No asset"
+}
+
+function assetOptionLabel(asset: MediaAsset) {
+  const showName =
+    typeof asset.metadata?.vimeo_show_name === "string"
+      ? `${asset.metadata.vimeo_show_name} · `
+      : ""
+  return `${showName}${asset.title} · ${asset.sourceType} · ${asset.status}${
+    asset.durationSeconds ? ` · ${formatTimecode(asset.durationSeconds)}` : ""
+  }`
 }
 
 function panelTone(tone: "ok" | "warn" | "danger" | "neutral") {

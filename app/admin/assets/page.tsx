@@ -19,6 +19,9 @@ export default async function AssetsPage({
     kind?: string
     q?: string
     sort?: string
+    show_name?: string
+    month?: string
+    year?: string
   }>
 }) {
   const params = await searchParams
@@ -47,13 +50,32 @@ export default async function AssetsPage({
         return false
       if (
         query &&
-        ![asset.title, asset.description, asset.sourceType, asset.mediaKind, asset.assetType]
+        ![
+          asset.title,
+          asset.description,
+          asset.sourceType,
+          asset.mediaKind,
+          asset.assetType,
+          getMetadataText(asset, "vimeo_show_name")
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase()
           .includes(query)
       )
         return false
+      if (params.show_name && asset.sourceType === "vimeo") {
+        const showName = getMetadataText(asset, "vimeo_show_name").toLowerCase()
+        if (!showName.includes(params.show_name.toLowerCase())) return false
+      }
+      if ((params.month || params.year) && asset.sourceType === "vimeo") {
+        const date = parseDate(getMetadataText(asset, "vimeo_created_time"))
+        if (!date) return false
+        if (params.year && String(date.getUTCFullYear()) !== params.year) return false
+        if (params.month && String(date.getUTCMonth() + 1).padStart(2, "0") !== params.month) {
+          return false
+        }
+      }
       return true
     })
     .sort((a, b) => sortAssets(a, b, params.sort))
@@ -98,7 +120,7 @@ export default async function AssetsPage({
       description="Operational media library for videos, Vimeo sources, stills, ads, promos, music beds and fallbacks."
       actions={
         <a className="btn-primary" href="/admin/vimeo">
-          Import Vimeo episode
+          Sync Vimeo
         </a>
       }
     >
@@ -107,7 +129,7 @@ export default async function AssetsPage({
         <WorkflowStep
           number="1"
           title="Library"
-          detail="Upload or import media. Metadata and duration must be visible here first."
+          detail="Upload media or sync Vimeo. Metadata and duration must be visible here first."
         />
         <WorkflowStep
           number="2"
@@ -201,7 +223,10 @@ export default async function AssetsPage({
       </section>
 
       <section className="mb-4 rounded-lg border border-line bg-surface p-3">
-        <form className="mb-3 grid gap-3 md:grid-cols-[1fr_160px_120px]" action="/admin/assets">
+        <form
+          className="mb-3 grid gap-3 md:grid-cols-[1fr_170px_120px_120px_160px_120px]"
+          action="/admin/assets"
+        >
           <input type="hidden" name="status" value={params.status ?? ""} />
           <input type="hidden" name="kind" value={params.kind ?? ""} />
           <Field label="Search">
@@ -209,6 +234,40 @@ export default async function AssetsPage({
               name="q"
               defaultValue={params.q ?? ""}
               placeholder="Title, type, source"
+              className="border border-line px-3 py-2 text-sm font-normal text-ink"
+            />
+          </Field>
+          <Field label="Vimeo show">
+            <input
+              name="show_name"
+              defaultValue={params.show_name ?? ""}
+              placeholder="Show name"
+              className="border border-line px-3 py-2 text-sm font-normal text-ink"
+            />
+          </Field>
+          <Field label="Month">
+            <select
+              name="month"
+              defaultValue={params.month ?? ""}
+              className="border border-line px-3 py-2 text-sm font-normal text-ink"
+            >
+              <option value="">Any</option>
+              {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0")).map(
+                (month) => (
+                  <option key={month} value={month}>
+                    {month}
+                  </option>
+                )
+              )}
+            </select>
+          </Field>
+          <Field label="Year">
+            <input
+              name="year"
+              defaultValue={params.year ?? ""}
+              placeholder="2026"
+              inputMode="numeric"
+              pattern="[0-9]{4}"
               className="border border-line px-3 py-2 text-sm font-normal text-ink"
             />
           </Field>
@@ -512,6 +571,13 @@ function AssetPreview({ asset }: { asset: MediaAsset }) {
 function fileDetailLine(asset: MediaAsset) {
   const metadata = asset.metadata ?? {}
   const parts = [
+    metadata.vimeo_show_name ? `show ${metadata.vimeo_show_name}` : null,
+    metadata.vimeo_created_time
+      ? `vimeo date ${formatDate(String(metadata.vimeo_created_time))}`
+      : null,
+    metadata.vimeo_last_synced_at
+      ? `synced ${formatDate(String(metadata.vimeo_last_synced_at))}`
+      : null,
     metadata.original_file_name ? `file ${metadata.original_file_name}` : null,
     metadata.mime_type ? `mime ${metadata.mime_type}` : null,
     typeof metadata.size === "number" ? `size ${formatBytes(metadata.size)}` : null,
@@ -521,6 +587,28 @@ function fileDetailLine(asset: MediaAsset) {
     metadata.aspect_ratio ? `ratio ${metadata.aspect_ratio}` : null
   ].filter(Boolean)
   return parts.length ? parts.join(" · ") : "No uploaded file metadata yet."
+}
+
+function getMetadataText(asset: MediaAsset, key: string) {
+  const value = asset.metadata?.[key]
+  return typeof value === "string" ? value : ""
+}
+
+function parseDate(value: string) {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function formatDate(value: string) {
+  const date = parseDate(value)
+  if (!date) return value
+  return new Intl.DateTimeFormat("en", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    timeZone: "UTC"
+  }).format(date)
 }
 
 function formatBytes(bytes: number) {

@@ -75,7 +75,7 @@ const operatorSections = [
       "Operators upload files, filter by source/status/type/search, inspect thumbnails, duration and file metadata, and edit asset metadata used by the renderer."
     ],
     details: [
-      "Library order is intentional: upload/import media first, review readiness, then schedule it as a show/block on a programming day.",
+      "Library order is intentional: upload media or sync Vimeo first, review readiness, then schedule it as a show/block on a programming day.",
       "Images default to 25 seconds unless overridden. Video/audio use detected metadata duration unless overridden.",
       "Ready assets are eligible for playout. Draft, syncing, failed and archived assets need review before they should be scheduled.",
       "Fallback assets protect the output when primary media is missing or playback fails.",
@@ -85,18 +85,18 @@ const operatorSections = [
   },
   {
     id: "vimeo-import",
-    title: "Vimeo episode import",
+    title: "Vimeo sync",
     icon: StepForward,
     body: [
-      "The Vimeo import page lets operators choose exactly one episode before importing it into the library.",
-      "Use filters for episode title, show name, month and year. Pick a show/folder from the left, inspect episode duration/privacy/date, then press Import this episode."
+      "The Vimeo sync page mirrors account shows and uploaded episodes into the Library as playable Vimeo assets.",
+      "Use filters for episode title, show name, month, year and status. Schedule from the synced Library asset, not from raw Vimeo API results."
     ],
     details: [
-      "No bulk import happens from the library button anymore.",
-      "Imported Vimeo episodes become media assets with duration, thumbnail, privacy and status metadata.",
-      "After import, schedule the episode from the programming day as an existing asset/show."
+      "Daily sync should run from the production host; Sync now handles urgent uploads.",
+      "Synced Vimeo episodes include duration, thumbnail, show name, created date, privacy and status metadata.",
+      "If Vimeo removes an item, sync marks the Library asset stale/archived instead of deleting it."
     ],
-    links: [{ label: "Import Vimeo episode", href: "/admin/vimeo" }]
+    links: [{ label: "Open Vimeo sync", href: "/admin/vimeo" }]
   },
   {
     id: "music",
@@ -149,7 +149,7 @@ const operatorSections = [
       "A Vimeo token can come from infrastructure environment variables or encrypted database settings. Environment variables take priority."
     ],
     details: [
-      "The Vimeo browser/search area lists shows, episodes and account search results when a token is configured.",
+      "The Vimeo sync area reports the last sync, updated count and stale count.",
       "The health check reports whether required environment, Supabase, storage and Vimeo token checks pass."
     ],
     links: [
@@ -219,7 +219,7 @@ const publicSections = [
 ]
 
 const workflowSteps = [
-  "Upload media in Library or import one Vimeo episode from the Vimeo picker.",
+  "Upload media in Library or sync Vimeo from the Vimeo sync page.",
   "Confirm duration, thumbnail, metadata and ready/review state in Library.",
   "Create or open the programming day.",
   "Use Add show to timeline for a new upload or Schedule existing asset / show for existing media.",

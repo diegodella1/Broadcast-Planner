@@ -13,8 +13,8 @@ This is not a public website or a video library. It is an operations console for
 ## What It Does
 
 - Builds daily programming by date.
-- Organizes media assets, uploaded videos, remote media, fallback assets, and Vimeo imports.
-- Imports Vimeo one episode at a time through a searchable show/episode picker.
+- Organizes media assets, uploaded videos, remote media, fallback assets, and Vimeo sync.
+- Syncs Vimeo shows and episodes into the Library for scheduling and playback.
 - Manages slides and graphic content used by the output renderer.
 - Generates long schedule grids for broadcast programming.
 - Checks schedule health: gaps, overlaps, missing assets, unready assets, and missing fallback.
@@ -40,7 +40,7 @@ This is not a public website or a video library. It is an operations console for
 - `/admin/calendar` - programming calendar
 - `/admin/schedule/[date]` - daily schedule view
 - `/admin/assets` - media asset library
-- `/admin/vimeo` - Vimeo show/episode picker and one-episode import
+- `/admin/vimeo` - Vimeo sync monitor and synced episode catalog
 - `/admin/slides` - slide library
 - `/admin/output` - operator output control panel
 - `/admin/settings` - integrations and app settings
@@ -77,7 +77,7 @@ NEXT_PUBLIC_APP_BASE_URL=http://roxomtv.local
 SUPABASE_FETCH_TIMEOUT_MS=4000
 ```
 
-Optional Vimeo import:
+Optional Vimeo sync:
 
 ```bash
 VIMEO_ACCESS_TOKEN=replace-with-vimeo-token
@@ -156,8 +156,8 @@ Production container health check:
 
 - Admin screens are for operators, producers, and content administrators.
 - Normal show workflow is: Library -> Programming day -> Timeline block -> Output control.
-- To schedule a show, first upload/import the media, then open `/admin/calendar`, pick the day, and use “Schedule existing asset / show” or “Add show to timeline”.
-- Vimeo import is intentionally one episode at a time. Use `/admin/vimeo` to filter by episode title, show name, month and year before importing.
+- To schedule a show, first upload media or sync Vimeo, then open `/admin/calendar`, pick the day, and use “Schedule existing asset / show” or “Add show to timeline”.
+- Vimeo sync is the source for Vimeo playback assets. Use `/admin/vimeo` to sync and filter by episode title, show name, month, year and status.
 - Output screens should stay clean, fullscreen, and safe for browser capture.
 - `.env` contains secrets and must not be committed.
 - `ADMIN_BOOTSTRAP_TOKEN` is used for protected admin access.
@@ -173,14 +173,14 @@ Implemented:
 - Calendar
 - Daily schedule
 - Asset library
-- Vimeo show/episode picker
+- Vimeo sync monitor and synced catalog
 - Slide library
 - Settings
 - Live output route
 - Timeline output route
 - Block preview route
 - Supabase schema and seed data
-- Vimeo import endpoint and one-episode import UI
+- Vimeo sync endpoint and synced Library catalog
 - Schedule generation and health checks
 
 Known next priority:
@@ -239,6 +239,17 @@ npm run cf:dev      # Build then start local emulator via wrangler dev
 npm run cf:deploy   # Build then deploy to production
 npm run cf:preview  # Build then upload as a version preview (no traffic shift)
 ```
+
+### Daily Vimeo sync
+
+The sync endpoint mirrors Vimeo videos into `media_assets`; operators schedule from Library, not raw Vimeo API results. Run manually:
+
+```bash
+bash scripts/sync_vimeo.sh
+```
+
+For daily production sync, run that script from a systemd timer or cron on the host that has `.env` and can reach the local app service.
+Systemd unit templates are in `deploy/systemd/rtvplanner-vimeo-sync.*`.
 
 ### Incremental static regeneration (ISR) with R2
 

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
+
 import { appUrl } from "@/lib/app-url"
 import { requireAdmin } from "@/lib/auth"
-import { getVimeoToken, markVimeoStatus } from "@/lib/settings"
+import { getVimeoToken, markVimeoStatus, recordVimeoSyncStatus } from "@/lib/settings"
 import { getVimeoVideo, listVimeoAccountVideos, upsertVimeoVideos } from "@/lib/vimeo"
 
 export async function POST(request: Request) {
@@ -21,6 +22,12 @@ export async function POST(request: Request) {
       : await listVimeoAccountVideos(token)
     await upsertVimeoVideos(videos)
     await markVimeoStatus("connected")
+    await recordVimeoSyncStatus({
+      status: "connected",
+      syncedCount: videos.length,
+      staleCount: 0,
+      failedCount: 0
+    })
     return NextResponse.redirect(appUrl(returnTo || "/admin/assets?imported=1"), 303)
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {

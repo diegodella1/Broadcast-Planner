@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import type { ReactNode } from "react"
+
 import { AdminShell } from "@/components/admin-shell"
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button"
 import { PlayoutTime } from "@/components/playout-time"
@@ -17,7 +17,9 @@ import {
 } from "@/lib/mutations"
 import { analyzeSchedule, getAssetReadiness } from "@/lib/schedule-health"
 import { formatTimecode } from "@/lib/time"
+
 import type { MediaAsset } from "@/lib/types"
+import type { ReactNode } from "react"
 
 export default async function BlockPage({
   params
@@ -269,8 +271,7 @@ export default async function BlockPage({
               <option value="">No asset</option>
               {schedule.mediaAssets.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.title} · {item.status}
-                  {item.durationSeconds ? ` · ${formatTimecode(item.durationSeconds)}` : ""}
+                  {assetOptionLabel(item)}
                 </option>
               ))}
             </select>
@@ -472,7 +473,7 @@ export default async function BlockPage({
               <option value="">No asset</option>
               {schedule.mediaAssets.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.title}
+                  {assetOptionLabel(item)}
                 </option>
               ))}
             </select>
@@ -678,4 +679,14 @@ function Info({ label, value }: { label: string; value: ReactNode }) {
       <dd className="mt-1 text-lg font-semibold">{value}</dd>
     </div>
   )
+}
+
+function assetOptionLabel(asset: MediaAsset) {
+  const showName =
+    typeof asset.metadata?.vimeo_show_name === "string"
+      ? `${asset.metadata.vimeo_show_name} · `
+      : ""
+  return `${showName}${asset.title} · ${asset.sourceType} · ${asset.status}${
+    asset.durationSeconds ? ` · ${formatTimecode(asset.durationSeconds)}` : ""
+  }`
 }

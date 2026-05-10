@@ -22,6 +22,8 @@ export type VimeoVideo = {
   pictures?: { sizes?: Array<{ link: string; width: number }> }
   privacy?: { view?: string; embed?: string }
   status?: string
+  showUri?: string | null
+  showName?: string | null
 }
 
 export type VimeoPlayback = {
@@ -32,6 +34,14 @@ export type VimeoPlayback = {
 
 type VimeoPage<T> = {
   data?: T[]
+  paging?: { next?: string | null }
+}
+
+export type VimeoSyncResult = {
+  syncedCount: number
+  staleCount: number
+  failedCount: number
+  showCount: number
 }
 
 export async function listVimeoShows(token: string): Promise<VimeoShow[]> {
@@ -64,7 +74,7 @@ export async function listVimeoEpisodes(token: string, showUri: string): Promise
 }
 
 export async function listVimeoAccountVideos(token: string): Promise<VimeoVideo[]> {
-  return listVimeoVideos(token, `/me/videos?per_page=25&fields=${videoFields()}`)
+  return listVimeoVideos(token, `/me/videos?per_page=100&fields=${videoFields()}`)
 }
 
 export async function searchVimeoAccountVideos(
@@ -99,7 +109,7 @@ export async function getVimeoPlayback(token: string, videoId: string): Promise<
 
 export async function upsertVimeoVideos(videos: VimeoVideo[]) {
   const supabase = createServiceClient()
-  const rows = videos.map(vimeoVideoToAssetRow)
+  const rows = videos.map((video) => vimeoVideoToAssetRow(video))
   if (rows.length) {
     const { error } = await supabase.from("media_assets").upsert(rows, { onConflict: "vimeo_id" })
     if (error) throw error
@@ -107,30 +117,160 @@ export async function upsertVimeoVideos(videos: VimeoVideo[]) {
   revalidatePath("/admin/assets")
 }
 
-function vimeoVideoToAssetRow(video: VimeoVideo) {
+export async function syncVimeoCatalog(token: string, scopeUri?: string): Promise<VimeoSyncResult> {
+  const supabase = createServiceClient()
+  const now = new Date().toISOString()
+  const shows = scopeUri ? [] : await listVimeoShows(token)
+  const scopedShow = scopeUri ? { uri: scopeUri, name: scopeUri } : null
+  const seen = new Set<string>()
+  const merged = new Map<string, VimeoVideo>()
+
+  const accountVideos = scopeUri
+    ? await listVimeoVideos(token, `${scopeUri}/videos?per_page=100&fields=${videoFields()}`)
+    : await listVimeoAccountVideos(token)
+  for (const video of accountVideos) {
+    merged.set(video.uri, scopedShow ? withShow(video, scopedShow) : video)
+  }
+
+  for (const show of shows) {
+    const episodes = await listVimeoEpisodes(token, show.uri)
+    for (const episode of episodes) {
+      merged.set(episode.uri, withShow(episode, show))
+    }
+  }
+
+  const videos = [...merged.values()]
+  const { data: existingRows, error: existingError } = await supabase
+    .from("media_assets")
+    .select("id,title,asset_type,status,vimeo_id,metadata")
+    .eq("source_type", "vimeo")
+  if (existingError) throw existingError
+  const existingByVimeoId = new Map(
+    (existingRows ?? [])
+      .filter((row) => row.vimeo_id)
+      .map((row) => [String(row.vimeo_id), row as Record<string, unknown>])
+  )
+
+  const rows = videos.map((video) => {
+    const vimeoId = video.uri.split("/").pop()
+    if (vimeoId) seen.add(vimeoId)
+    return vimeoVideoToAssetRow(video, now, vimeoId ? existingByVimeoId.get(vimeoId) : undefined)
+  })
+
+  let failedCount = 0
+  if (rows.length) {
+    const { error } = await supabase.from("media_assets").upsert(rows, { onConflict: "vimeo_id" })
+    if (error) {
+      failedCount = rows.length
+      throw error
+    }
+  }
+
+  let staleCount = 0
+  const staleRows = (existingRows ?? []).filter((row) => {
+    const vimeoId = row.vimeo_id ? String(row.vimeo_id) : ""
+    if (!vimeoId || seen.has(vimeoId)) return false
+    if (!scopeUri) return true
+    const metadata = row.metadata as Record<string, unknown> | null
+    return metadata?.vimeo_show_uri === scopeUri
+  })
+  for (const row of staleRows) {
+    const metadata =
+      typeof row.metadata === "object" && row.metadata !== null
+        ? (row.metadata as Record<string, unknown>)
+        : {}
+    const { error } = await supabase
+      .from("media_assets")
+      .update({
+        status: "archived",
+        metadata: {
+          ...metadata,
+          vimeo_sync_status: "stale",
+          vimeo_last_synced_at: now
+        },
+        updated_at: now
+      })
+      .eq("id", String(row.id))
+    if (error) failedCount += 1
+    else staleCount += 1
+  }
+
+  revalidatePath("/admin/assets")
+  revalidatePath("/admin/vimeo")
+  revalidatePath("/admin/settings")
+
+  return {
+    syncedCount: rows.length,
+    staleCount,
+    failedCount,
+    showCount: scopeUri ? 1 : shows.length
+  }
+}
+
+function vimeoVideoToAssetRow(
+  video: VimeoVideo,
+  syncedAt = new Date().toISOString(),
+  existing?: Record<string, unknown>
+) {
   const vimeoId = video.uri.split("/").pop()
   const thumbnail = video.pictures?.sizes?.sort((a, b) => b.width - a.width)[0]?.link ?? null
+  const existingMetadata =
+    typeof existing?.metadata === "object" && existing.metadata !== null
+      ? (existing.metadata as Record<string, unknown>)
+      : {}
+  const existingStatus = typeof existing?.status === "string" ? existing.status : null
+  const hasDuration = typeof video.duration === "number" && video.duration > 0
+  const status =
+    existingStatus === "archived"
+      ? "archived"
+      : video.status === "available" && hasDuration
+        ? "ready"
+        : "syncing"
+  const existingAssetType =
+    typeof existing?.asset_type === "string" && existing.asset_type ? existing.asset_type : null
+  const assetType =
+    existingAssetType && !(existingAssetType === "ad" && video.duration > 300)
+      ? existingAssetType
+      : hasDuration && video.duration <= 300
+        ? "ad"
+        : "video"
   return {
-    title: video.name,
+    title: typeof existing?.title === "string" && existing.title ? existing.title : video.name,
     source_type: "vimeo",
     media_kind: "video",
-    asset_type: video.duration <= 300 ? "ad" : "video",
+    asset_type: assetType,
     url: video.link,
     thumbnail_url: thumbnail,
-    duration_seconds: video.duration,
-    status: video.status === "available" ? "ready" : "syncing",
+    duration_seconds: hasDuration ? video.duration : null,
+    status,
     vimeo_id: vimeoId,
     vimeo_uri: video.uri,
     vimeo_privacy: video.privacy?.view ?? null,
     vimeo_embed_status: video.privacy?.embed ?? null,
-    metadata: video,
-    updated_at: new Date().toISOString()
+    metadata: {
+      ...existingMetadata,
+      ...video,
+      vimeo_show_uri: video.showUri ?? existingMetadata.vimeo_show_uri ?? null,
+      vimeo_show_name: video.showName ?? existingMetadata.vimeo_show_name ?? null,
+      vimeo_created_time: video.created_time ?? existingMetadata.vimeo_created_time ?? null,
+      vimeo_last_synced_at: syncedAt,
+      vimeo_sync_status: status === "ready" ? "synced" : "review"
+    },
+    updated_at: syncedAt
   }
 }
 
 async function listVimeoVideos(token: string, path: string): Promise<VimeoVideo[]> {
-  const page = await vimeoFetch<VimeoPage<VimeoVideo>>(path, token)
-  return page.data ?? []
+  const videos: VimeoVideo[] = []
+  let nextPath: string | null = path
+  let pageCount = 0
+  while (nextPath && pageCount < 20) {
+    const page = await vimeoFetch<VimeoPage<VimeoVideo>>(nextPath, token)
+    videos.push(...(page.data ?? []))
+    nextPath = normalizeVimeoPath(page.paging?.next)
+    pageCount += 1
+  }
+  return videos
 }
 
 async function vimeoFetch<T>(path: string, token: string): Promise<T> {
@@ -146,4 +286,14 @@ async function vimeoFetch<T>(path: string, token: string): Promise<T> {
 
 function videoFields() {
   return "uri,name,link,duration,created_time,pictures,privacy,status"
+}
+
+function withShow(video: VimeoVideo, show: Pick<VimeoShow, "uri" | "name">): VimeoVideo {
+  return { ...video, showUri: show.uri, showName: show.name }
+}
+
+function normalizeVimeoPath(value: string | null | undefined) {
+  if (!value) return null
+  if (value.startsWith("https://api.vimeo.com")) return value.slice(VIMEO_API.length)
+  return value
 }

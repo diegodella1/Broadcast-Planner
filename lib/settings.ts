@@ -89,3 +89,43 @@ export async function markVimeoStatus(
     .update({ status, last_checked_at: new Date().toISOString(), last_error: errorMessage ?? null })
     .eq("provider", "vimeo")
 }
+
+export async function recordVimeoSyncStatus(input: {
+  status: "connected" | "invalid" | "failed"
+  syncedCount?: number
+  staleCount?: number
+  failedCount?: number
+  errorMessage?: string
+}) {
+  const supabase = createServiceClient()
+  const now = new Date().toISOString()
+  const { data } = await supabase
+    .from("integration_settings")
+    .select("public_config")
+    .eq("provider", "vimeo")
+    .maybeSingle()
+  const publicConfig =
+    typeof data?.public_config === "object" && data.public_config !== null
+      ? (data.public_config as Record<string, unknown>)
+      : {}
+
+  const payload = {
+    provider: "vimeo",
+    public_config: {
+      ...publicConfig,
+      last_sync_at: now,
+      last_sync_count: input.syncedCount ?? 0,
+      last_sync_stale_count: input.staleCount ?? 0,
+      last_sync_failed_count: input.failedCount ?? 0
+    },
+    status: input.status,
+    last_checked_at: now,
+    last_error: input.errorMessage ?? null,
+    updated_at: now
+  }
+
+  const { error } = await supabase
+    .from("integration_settings")
+    .upsert(payload, { onConflict: "provider" })
+  if (error) throw error
+}
