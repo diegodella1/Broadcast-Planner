@@ -4,8 +4,9 @@ set -euo pipefail
 npm run build
 
 mkdir -p .next/standalone/.next
-rm -rf .next/standalone/.next/static .next/standalone/public
-cp -R .next/static .next/standalone/.next/static
+mkdir -p .next/standalone/.next/static
+cp -R .next/static/. .next/standalone/.next/static/
+rm -rf .next/standalone/public
 cp -R public .next/standalone/public
 
 sudo systemctl restart rtvplanner.service
