@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { appUrl } from "@/lib/app-url"
 import { requireAdmin } from "@/lib/auth"
 import { OUTPUT_COOKIE } from "@/lib/output-auth"
 
@@ -9,10 +10,10 @@ export async function GET(request: Request) {
   try {
     await requireAdmin()
     const token = process.env.OUTPUT_CAPTURE_TOKEN
-    const { searchParams, origin } = new URL(request.url)
+    const { searchParams } = new URL(request.url)
     const returnTo = safeReturnTo(searchParams.get("return_to") ?? "/output/live")
     const debug = searchParams.get("debug") === "true"
-    const target = new URL(returnTo, origin)
+    const target = appUrl(returnTo)
     if (debug) target.searchParams.set("debug", "true")
 
     const response = NextResponse.redirect(target, 303)

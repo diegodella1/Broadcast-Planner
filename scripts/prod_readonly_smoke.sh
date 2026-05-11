@@ -45,6 +45,22 @@ echo "admin authenticated"
 curl -fsS --cookie "rpm_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" "$base_url/admin/calendar" >"$tmp_dir/admin.html"
 grep -qi "admin\\|calendar\\|program" "$tmp_dir/admin.html"
 
+echo "output session"
+session_headers="$tmp_dir/output-session.headers"
+session_status="$(curl -sS -D "$session_headers" -o /dev/null -w "%{http_code}" \
+  --cookie "rpm_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" \
+  "$base_url/api/output/session?debug=true&return_to=/output/live")"
+case "$session_status" in
+  301|302|303|307|308) ;;
+  *) echo "Expected output session redirect, got $session_status" >&2; exit 1 ;;
+esac
+grep -qi '^set-cookie: rpm_output_token=' "$session_headers"
+location="$(awk 'tolower($1)=="location:" {print $2}' "$session_headers" | tr -d '\r' | tail -n 1)"
+if [[ "$location" == *"0.0.0.0"* || "$location" == *"localhost"* || "$location" == *":3450"* ]]; then
+  echo "Output session redirected to private origin: $location" >&2
+  exit 1
+fi
+
 echo "playout schedule"
 schedule_query=""
 if [[ -n "${OUTPUT_CAPTURE_TOKEN:-}" ]]; then
