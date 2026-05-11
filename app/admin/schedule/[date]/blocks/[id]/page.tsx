@@ -58,7 +58,9 @@ export default async function BlockPage({
       status: String(formData.get("status")),
       hideOverlays: formData.get("hide_overlays") === "on",
       fallbackAssetId: String(formData.get("fallback_asset_id") || ""),
-      notes: String(formData.get("notes") || "")
+      notes: String(formData.get("notes") || ""),
+      conflictResolution:
+        formData.get("conflict_resolution") === "archive_conflicts" ? "archive_conflicts" : "none"
     })
   }
 
@@ -105,6 +107,7 @@ export default async function BlockPage({
       thumbnailUrl: String(formData.get("thumbnail_url") || ""),
       ...(durationSeconds !== undefined ? { durationSeconds } : {}),
       status: String(formData.get("status")),
+      lifecycleState: String(formData.get("lifecycle_state") || "reviewed"),
       orientation: String(formData.get("orientation") || "auto"),
       revalidatePaths: [
         `/admin/schedule/${date}`,
@@ -298,6 +301,13 @@ export default async function BlockPage({
               className="min-h-20 border border-line px-3 py-2 text-sm lg:col-span-2"
             />
             <button className="btn-primary lg:col-span-2">Save block</button>
+            <button
+              className="btn-secondary lg:col-span-2"
+              name="conflict_resolution"
+              value="archive_conflicts"
+            >
+              Archive conflicting blocks and save
+            </button>
           </form>
 
           <section className="mt-6 rounded-md bg-panel p-4">
@@ -595,6 +605,18 @@ function AssignedAssetEditForm({
             <option value="ready">Ready</option>
             <option value="failed">Failed</option>
             <option value="archived">Archived</option>
+          </select>
+          <select
+            name="lifecycle_state"
+            defaultValue={asset.lifecycleState ?? "reviewed"}
+            className="border border-line px-3 py-2 text-sm"
+          >
+            <option value="synced">Synced</option>
+            <option value="reviewed">Reviewed</option>
+            <option value="rejected">Rejected</option>
+            <option value="stale">Stale</option>
+            <option value="expired">Expired</option>
+            <option value="scheduled_in_use">Scheduled in use</option>
           </select>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">

@@ -17,59 +17,10 @@ const mvpNeeded: PendingItem[] = [
     owner: "Admin",
     detail:
       "Replace single bootstrap token with named users, operator/admin roles, sessions, revoke, and audit identity."
-  },
-  {
-    title: "Richer schedule conflict UX",
-    priority: "P0",
-    status: "needed",
-    owner: "Programming",
-    detail:
-      "Keep the DB overlap trigger and app conflict checks, then add inline suggested safe starts, resize options and preempt/replace flows."
   }
 ]
 
-const productionHardening: PendingItem[] = [
-  {
-    title: "Forced bad-media fallback fixture",
-    priority: "P1",
-    status: "planned",
-    owner: "QA",
-    detail:
-      "Add a staging/local fixture that intentionally fails primary media playback and proves output switches to fallback instead of black/loading."
-  },
-  {
-    title: "Staging write smoke cleanup",
-    priority: "P1",
-    status: "planned",
-    owner: "QA",
-    detail:
-      "Extend staging write smoke to archive/delete sandbox media and blocks after upload, schedule, preview and audit checks pass."
-  },
-  {
-    title: "Backup and restore drill",
-    priority: "P1",
-    status: "planned",
-    owner: "Ops",
-    detail:
-      "Document Supabase backup frequency, restore test, storage bucket recovery, and rollback steps."
-  },
-  {
-    title: "Output observability",
-    priority: "P1",
-    status: "planned",
-    owner: "Output",
-    detail:
-      "Expose current block, asset, fallback reason, media errors, Vimeo playback failures, and clock skew in one monitor."
-  },
-  {
-    title: "Asset lifecycle states",
-    priority: "P1",
-    status: "planned",
-    owner: "Media",
-    detail:
-      "Add clear states for synced, reviewed, rejected, stale, expired, and scheduled-in-use to avoid accidental deletion."
-  }
-]
+const productionHardening: PendingItem[] = []
 
 const futureCapabilities: PendingItem[] = [
   {
@@ -79,22 +30,6 @@ const futureCapabilities: PendingItem[] = [
     owner: "Graphics",
     detail:
       "Define market, FX, prices, charts, events, and financial data provider contracts for generated slides."
-  },
-  {
-    title: "Rundown drag/drop editor",
-    priority: "P2",
-    status: "later",
-    owner: "Programming",
-    detail:
-      "Allow timeline reorder, resize, duplicate, bulk status changes, and keyboard editing for long programming days."
-  },
-  {
-    title: "Operator runbook mode",
-    priority: "P2",
-    status: "later",
-    owner: "Operator",
-    detail:
-      "Provide step-by-step preflight, live, incident, and shutdown checklists inside the admin console."
   }
 ]
 
@@ -107,11 +42,18 @@ const currentFunctions = [
   "System slide library and template slides",
   "Schedule health checks for gaps, overlaps, missing assets and readiness",
   "App-level and DB-level per-day schedule overlap prevention",
+  "Inline schedule conflict suggestions, resize action and archive-conflicts replacement flow",
+  "Rundown drag/drop editor with keyboard reorder, resize, duplicate, archive and bulk status",
+  "Operator runbook mode with persisted per-day preflight, live, incident and shutdown checks",
   "Protected live output, debug output and block preview routes",
   "Output session cookie for normal admin launches",
-  "Output control panel with status, lower-third controls and stop broadcast",
+  "Output control panel with status, lower-third controls, live observability and stop broadcast",
   "Audit page and audited critical mutations",
   "CSRF protection for mutating admin forms and APIs",
+  "Asset lifecycle states for synced, reviewed, rejected, stale, expired and scheduled-in-use",
+  "Forced bad-media fallback fixture for Playwright output smoke",
+  "Staging write smoke cleanup for sandbox blocks and assets",
+  "Backup and restore drill",
   "Production read-only smoke and Playwright browser playout smoke",
   "Production deployment behind cloudflared at the root domain"
 ]
@@ -177,6 +119,11 @@ function PendingGroup({ title, items }: { title: string; items: PendingItem[] })
     <section className="py-8">
       <h2 className="text-2xl font-semibold">{title}</h2>
       <div className="mt-5 grid gap-4">
+        {items.length === 0 ? (
+          <div className="surface-panel p-5 text-sm leading-6 text-white/70">
+            No open items in this group.
+          </div>
+        ) : null}
         {items.map((item) => (
           <article key={item.title} className="surface-panel p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">

@@ -29,13 +29,49 @@ if [[ -z "${OUTPUT_CAPTURE_TOKEN:-}" ]]; then
   echo "OUTPUT_CAPTURE_TOKEN is required" >&2
   exit 1
 fi
+if [[ -z "${NEXT_PUBLIC_SUPABASE_URL:-}" || -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]]; then
+  echo "NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for cleanup." >&2
+  exit 1
+fi
 
 tmp_dir="$(mktemp -d)"
-trap 'rm -rf "$tmp_dir"' EXIT
 cookie_jar="$tmp_dir/cookies.txt"
 run_id="staging-smoke-$(date -u +%Y%m%d%H%M%S)"
 asset_file="$tmp_dir/pixel.png"
 printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=' | base64 -d >"$asset_file"
+cleanup_done="false"
+
+archive_sandbox_rows() {
+  echo "cleanup sandbox rows"
+  curl -fsS -X PATCH \
+    -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+    -H "Content-Type: application/json" \
+    -H "Prefer: return=minimal" \
+    --data '{"status":"archived"}' \
+    "${NEXT_PUBLIC_SUPABASE_URL%/}/rest/v1/program_blocks?title=eq.${run_id}" >/dev/null || {
+      echo "cleanup warning: program_blocks title=${run_id} not archived" >&2
+    }
+  curl -fsS -X PATCH \
+    -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+    -H "Content-Type: application/json" \
+    -H "Prefer: return=minimal" \
+    --data '{"status":"archived","lifecycle_state":"expired"}' \
+    "${NEXT_PUBLIC_SUPABASE_URL%/}/rest/v1/media_assets?title=eq.${run_id}" >/dev/null || {
+      echo "cleanup warning: media_assets title=${run_id} not archived" >&2
+    }
+}
+
+cleanup() {
+  local status=$?
+  if [[ "$cleanup_done" != "true" ]]; then
+    archive_sandbox_rows
+  fi
+  rm -rf "$tmp_dir"
+  exit "$status"
+}
+trap cleanup EXIT
 
 echo "csrf"
 csrf="$(curl -fsS -c "$cookie_jar" -b "rpm_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" "$base_url/api/csrf" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>process.stdout.write(JSON.parse(s).csrfToken))')"
@@ -66,4 +102,6 @@ echo "verify audit"
 curl -fsS --cookie "rpm_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" "$base_url/admin/audit" >"$tmp_dir/audit.html"
 grep -q "$run_id" "$tmp_dir/audit.html"
 
+archive_sandbox_rows
+cleanup_done="true"
 echo "staging write smoke ok: $run_id"

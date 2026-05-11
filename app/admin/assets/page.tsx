@@ -24,6 +24,7 @@ export default async function AssetsPage({
     month?: string
     year?: string
     page?: string
+    lifecycle?: string
   }>
 }) {
   const params = await searchParams
@@ -39,6 +40,7 @@ export default async function AssetsPage({
         asset.status !== params.status
       )
         return false
+      if (params.lifecycle && lifecycleState(asset) !== params.lifecycle) return false
       if (params.kind === "vimeo" && asset.sourceType !== "vimeo") return false
       if (params.kind === "video" && asset.mediaKind !== "video") return false
       if (params.kind === "image" && asset.mediaKind !== "image") return false
@@ -119,12 +121,16 @@ export default async function AssetsPage({
       thumbnailUrl: String(formData.get("thumbnail_url") || ""),
       ...(durationSeconds !== undefined ? { durationSeconds } : {}),
       status: String(formData.get("status")),
+      lifecycleState: String(formData.get("lifecycle_state") || "reviewed"),
       orientation: String(formData.get("orientation") || "auto")
     })
   }
   async function deleteAsset(formData: FormData) {
     "use server"
-    await deleteMediaAsset({ id: String(formData.get("id")) })
+    await deleteMediaAsset({
+      id: String(formData.get("id")),
+      force: formData.get("force_delete") === "on"
+    })
   }
   return (
     <AdminShell
@@ -236,7 +242,7 @@ export default async function AssetsPage({
 
       <section className="mb-4 rounded-lg border border-line bg-surface p-3">
         <form
-          className="mb-3 grid gap-3 md:grid-cols-[1fr_170px_120px_120px_160px_120px]"
+          className="mb-3 grid gap-3 md:grid-cols-[1fr_150px_150px_110px_110px_140px_110px]"
           action="/admin/assets"
         >
           <input type="hidden" name="status" value={params.status ?? ""} />
@@ -256,6 +262,21 @@ export default async function AssetsPage({
               placeholder="Show name"
               className="border border-line px-3 py-2 text-sm font-normal text-ink"
             />
+          </Field>
+          <Field label="Lifecycle">
+            <select
+              name="lifecycle"
+              defaultValue={params.lifecycle ?? ""}
+              className="border border-line px-3 py-2 text-sm font-normal text-ink"
+            >
+              <option value="">Any</option>
+              <option value="synced">Synced</option>
+              <option value="reviewed">Reviewed</option>
+              <option value="rejected">Rejected</option>
+              <option value="stale">Stale</option>
+              <option value="expired">Expired</option>
+              <option value="scheduled_in_use">Scheduled in use</option>
+            </select>
           </Field>
           <Field label="Month">
             <select
@@ -292,6 +313,7 @@ export default async function AssetsPage({
               <option value="title">Title</option>
               <option value="duration">Duration</option>
               <option value="status">Status</option>
+              <option value="lifecycle">Lifecycle</option>
             </select>
           </Field>
           <button className="btn-secondary self-end">Apply</button>
@@ -351,6 +373,9 @@ export default async function AssetsPage({
                   {asset.sourceType} · {asset.mediaKind} · {asset.assetType}
                   {asset.metadata?.presentation === "vertical_blur" ? " · vertical blur" : ""}
                 </p>
+                <p className="mt-1 text-xs font-semibold uppercase text-muted">
+                  {lifecycleState(asset).replaceAll("_", " ")}
+                </p>
               </div>
               <span className="text-sm text-muted">
                 {asset.durationSeconds ? `${asset.durationSeconds}s` : "No duration"}
@@ -389,6 +414,12 @@ export default async function AssetsPage({
                   Delete asset
                 </ConfirmSubmitButton>
               </div>
+              {lifecycleState(asset) === "scheduled_in_use" ? (
+                <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-danger-strong">
+                  <input name="force_delete" type="checkbox" />
+                  Force delete even though this asset is scheduled in use.
+                </label>
+              ) : null}
             </form>
           </details>
         ))}
@@ -471,7 +502,7 @@ function paginationWindow(currentPage: number, totalPages: number) {
 
 function assetPageHref(params: Record<string, string | undefined>, page: number) {
   const query = new URLSearchParams()
-  for (const key of ["status", "kind", "q", "sort", "show_name", "month", "year"]) {
+  for (const key of ["status", "kind", "q", "sort", "show_name", "month", "year", "lifecycle"]) {
     const value = params[key]
     if (value) query.set(key, value)
   }
@@ -559,6 +590,18 @@ function AssetEditForm({
         <option value="archived">Archived</option>
       </select>
       <select
+        name="lifecycle_state"
+        defaultValue={lifecycleState(asset)}
+        className="border border-line px-3 py-2 text-sm"
+      >
+        <option value="synced">Synced</option>
+        <option value="reviewed">Reviewed</option>
+        <option value="rejected">Rejected</option>
+        <option value="stale">Stale</option>
+        <option value="expired">Expired</option>
+        <option value="scheduled_in_use">Scheduled in use</option>
+      </select>
+      <select
         name="orientation"
         defaultValue={orientation}
         className="border border-line px-3 py-2 text-sm"
@@ -599,6 +642,7 @@ function AssetEditForm({
 }
 
 function assetNeedsAttention(asset: MediaAsset) {
+  if (["rejected", "stale", "expired"].includes(lifecycleState(asset))) return true
   if (asset.status !== "ready") return true
   if (
     (asset.sourceType === "remote_image" ||
@@ -619,6 +663,9 @@ function assetNeedsAttention(asset: MediaAsset) {
 }
 
 function assetAttentionReason(asset: MediaAsset) {
+  if (["rejected", "stale", "expired"].includes(lifecycleState(asset))) {
+    return `Lifecycle: ${lifecycleState(asset).replaceAll("_", " ")}`
+  }
   if (asset.status !== "ready") return `Status: ${asset.status}`
   if (
     (asset.sourceType === "remote_image" ||
@@ -642,7 +689,13 @@ function assetAttentionReason(asset: MediaAsset) {
 function sortAssets(a: MediaAsset, b: MediaAsset, sort: string | undefined) {
   if (sort === "duration") return (b.durationSeconds ?? 0) - (a.durationSeconds ?? 0)
   if (sort === "status") return a.status.localeCompare(b.status) || a.title.localeCompare(b.title)
+  if (sort === "lifecycle")
+    return lifecycleState(a).localeCompare(lifecycleState(b)) || a.title.localeCompare(b.title)
   return a.title.localeCompare(b.title)
+}
+
+function lifecycleState(asset: MediaAsset) {
+  return asset.lifecycleState ?? "reviewed"
 }
 
 function AssetPreview({ asset }: { asset: MediaAsset }) {

@@ -21,7 +21,7 @@ export async function GET(request: Request) {
       response.cookies.set(OUTPUT_COOKIE, token, {
         httpOnly: true,
         sameSite: "lax",
-        secure: isSecureCookie(),
+        secure: isSecureCookie(request),
         path: "/",
         maxAge: 60 * 60 * 6
       })
@@ -39,9 +39,8 @@ function safeReturnTo(value: string) {
   return value.startsWith("/output/") || value === "/output/live" ? value : "/output/live"
 }
 
-function isSecureCookie() {
-  return (
-    process.env.NEXT_PUBLIC_APP_BASE_URL?.startsWith("https://") ||
-    process.env.NODE_ENV === "production"
-  )
+function isSecureCookie(request: Request) {
+  const configuredBase = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_BASE_URL
+  if (configuredBase) return configuredBase.startsWith("https://")
+  return new URL(request.url).protocol === "https:"
 }

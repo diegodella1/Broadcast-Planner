@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Clapperboard,
   FileClock,
+  ListChecks,
   LayoutDashboard,
   MonitorPlay,
   Music,
@@ -34,6 +35,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { label: "Dashboard", href: "/admin", icon: LayoutDashboard, match: "exact" },
       { label: "Control", href: "/admin/output", icon: Tv },
+      { label: "Runbook", href: "/admin/runbook", icon: ListChecks },
       { label: "Live monitor", href: "/output/live?debug=true", icon: MonitorPlay }
     ]
   },

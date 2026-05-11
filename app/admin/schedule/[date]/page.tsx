@@ -3,14 +3,24 @@ import Link from "next/link"
 
 import { AdminShell } from "@/components/admin-shell"
 import { MediaUploadForm } from "@/components/media-upload-form"
-import { PlayoutTime } from "@/components/playout-time"
+import { RundownEditor } from "@/components/rundown-editor"
 import { ScheduleTimeline } from "@/components/schedule-timeline"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
 import { ButtonLink, EmptyState, Field, FormHeader, Notice, StatusBanner } from "@/components/ui"
-import { getScheduleForDate } from "@/lib/data"
-import { createLongTestSchedule, createProgramBlock, updateProgramDayStatus } from "@/lib/mutations"
+import { getRunbookState, getScheduleForDate } from "@/lib/data"
+import {
+  archiveProgramBlock,
+  bulkUpdateProgramBlockStatus,
+  createLongTestSchedule,
+  createProgramBlock,
+  duplicateProgramBlock,
+  reorderProgramBlocks,
+  resizeProgramBlock,
+  updateProgramDayStatus
+} from "@/lib/mutations"
 import { liveOutputHref } from "@/lib/output-auth"
+import { criticalRunbookKeys } from "@/lib/runbook"
 import { analyzeSchedule } from "@/lib/schedule-health"
 import { findActiveSchedule } from "@/lib/scheduler"
 import {
@@ -21,7 +31,13 @@ import {
   secondsSinceMidnightInTimezone
 } from "@/lib/time"
 
-import type { MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from "@/lib/types"
+import type {
+  MediaAsset,
+  ProgramBlock,
+  ProgramStatus,
+  ScheduleBundle,
+  SlideAsset
+} from "@/lib/types"
 
 export default async function ScheduleDatePage({
   params,
@@ -46,7 +62,9 @@ export default async function ScheduleDatePage({
       durationSeconds: Number(formData.get("duration_seconds")),
       preRollSeconds: Number(formData.get("pre_roll_seconds") || 0),
       postRollSeconds: Number(formData.get("post_roll_seconds") || 0),
-      hideOverlays: formData.get("hide_overlays") === "on"
+      hideOverlays: formData.get("hide_overlays") === "on",
+      conflictResolution:
+        formData.get("conflict_resolution") === "archive_conflicts" ? "archive_conflicts" : "none"
     })
   }
   async function generateLongSchedule(formData: FormData) {
@@ -69,6 +87,34 @@ export default async function ScheduleDatePage({
       allowWarnings: formData.get("allow_warnings") === "on"
     })
   }
+  async function reorderRundown(input: { orderedBlockIds: string[] }) {
+    "use server"
+    await reorderProgramBlocks({ date, orderedBlockIds: input.orderedBlockIds })
+  }
+  async function resizeRundownBlock(input: { blockId: string; durationSeconds: number }) {
+    "use server"
+    await resizeProgramBlock({
+      date,
+      blockId: input.blockId,
+      durationSeconds: input.durationSeconds
+    })
+  }
+  async function duplicateRundownBlock(input: { blockId: string }) {
+    "use server"
+    await duplicateProgramBlock({ date, blockId: input.blockId })
+  }
+  async function archiveRundownBlock(input: { blockId: string }) {
+    "use server"
+    await archiveProgramBlock({ date, blockId: input.blockId })
+  }
+  async function bulkSetRundownStatus(input: { blockIds: string[]; status: ProgramStatus }) {
+    "use server"
+    await bulkUpdateProgramBlockStatus({
+      date,
+      blockIds: input.blockIds,
+      status: input.status
+    })
+  }
   const totalScheduledSeconds = blocks.reduce((total, block) => total + block.durationSeconds, 0)
   const timezone = schedule.day?.timezone ?? PLAYOUT_TIMEZONE
   const nowSeconds = secondsSinceMidnightInTimezone(new Date(), timezone)
@@ -82,6 +128,12 @@ export default async function ScheduleDatePage({
       ) ?? null)
     : null
   const health = analyzeSchedule(schedule, blocks)
+  const runbookState = schedule.day ? await getRunbookState(schedule.day.id) : []
+  const criticalKeys = criticalRunbookKeys()
+  const checkedRunbookKeys = new Set(
+    runbookState.filter((item) => item.checked).map((item) => `${item.section}:${item.itemKey}`)
+  )
+  const uncheckedCriticalRunbook = [...criticalKeys].filter((key) => !checkedRunbookKeys.has(key))
   const readyBlocks = blocks.filter(
     (block) => block.status === "ready" || block.status === "active"
   ).length
@@ -117,9 +169,20 @@ export default async function ScheduleDatePage({
             <ButtonLink href="/admin/output" variant="secondary">
               3. Control
             </ButtonLink>
+            <ButtonLink href={`/admin/runbook/${date}`} variant="secondary">
+              Runbook
+            </ButtonLink>
           </>
         }
       />
+      {schedule.day && uncheckedCriticalRunbook.length ? (
+        <Notice tone="warn">
+          {uncheckedCriticalRunbook.length} critical preflight runbook checks are still open.{" "}
+          <Link href={`/admin/runbook/${date}`} className="font-semibold underline">
+            Open operator runbook
+          </Link>
+        </Notice>
+      ) : null}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           {schedule.day && (
@@ -455,44 +518,24 @@ export default async function ScheduleDatePage({
         </form>
       </section>
 
-      <div className="surface-panel overflow-x-auto">
-        <div className="min-w-[560px]">
-          <div className="grid grid-cols-[120px_1fr_120px_120px] border-b border-line bg-panel-soft px-4 py-3 text-sm font-semibold text-muted">
-            <span>Start</span>
-            <span>Block</span>
-            <span>Duration</span>
-            <span>Status</span>
-          </div>
-          {blocks.map((block) => {
-            const asset = schedule.mediaAssets.find((item) => item.id === block.assetId)
-            const slide = schedule.slideAssets.find((item) => item.id === block.slideId)
-            return (
-              <Link
-                key={block.id}
-                href={`/admin/schedule/${date}/blocks/${block.id}`}
-                className="grid grid-cols-[120px_1fr_120px_120px] items-center border-b border-line px-4 py-4 text-sm last:border-b-0 hover:bg-panel-soft"
-              >
-                <PlayoutTime airDate={date} seconds={block.startTimeSeconds} />
-                <span>
-                  <span className="block font-semibold">{block.title}</span>
-                  <span className="text-muted">
-                    {block.blockType} · {asset?.title ?? slide?.title ?? "No asset"}
-                  </span>
-                </span>
-                <Timecode seconds={block.durationSeconds} />
-                <StatusPill status={block.status} />
-              </Link>
-            )
-          })}
-          {blocks.length === 0 ? (
-            <div className="p-4">
-              <EmptyState title="No blocks scheduled">
-                Add the first block or generate a long grid to test continuity.
-              </EmptyState>
-            </div>
-          ) : null}
+      {blocks.length === 0 ? (
+        <div className="surface-panel p-4">
+          <EmptyState title="No blocks scheduled">
+            Add the first block or generate a long grid to test continuity.
+          </EmptyState>
         </div>
-      </div>
+      ) : (
+        <RundownEditor
+          date={date}
+          blocks={blocks}
+          schedule={schedule}
+          reorderAction={reorderRundown}
+          resizeAction={resizeRundownBlock}
+          duplicateAction={duplicateRundownBlock}
+          archiveAction={archiveRundownBlock}
+          bulkStatusAction={bulkSetRundownStatus}
+        />
+      )}
     </AdminShell>
   )
 }

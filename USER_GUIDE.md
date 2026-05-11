@@ -80,8 +80,26 @@ Each row = one `ProgramBlock`:
 ### Block actions
 
 - **Click a row** → opens `/admin/schedule/<date>/blocks/<id>` (block detail editor: title, start, duration, category, asset, scheduled layers, lower-third overrides).
+- **Drag a row** → reorders the active rundown and recalculates start times from the first block.
+- **Up / Down** → keyboard-safe reorder controls for the same server-side reorder path.
+- **Minus / Plus** → resize duration in 5-minute steps. Server conflict checks and the DB trigger reject overlaps.
+- **Duplicate** → creates a draft copy after the source block and shifts following blocks when the day still fits.
+- **Archive** → removes the block from the active rundown without hard-deleting it.
+- **Bulk status** → select rows and set draft, ready, active or archived.
 - **Add block** form below the rundown — manual creation.
 - **Generate 12 hr grid** button — bulk create test blocks for a window.
+
+### Operator runbook
+
+Open `/admin/runbook/<date>` from the schedule header or admin nav.
+
+- **Preflight** — critical checks for schedule health, fallback readiness, output monitor and media readiness.
+- **Live** — active block, next block, fallback reason and clock-skew verification.
+- **Incident** — operator notes and mitigation confirmation.
+- **Shutdown** — off-air/handoff, day archive and audit review.
+
+Runbook checks and notes persist per `ProgramDay` in Supabase and write audit events. Critical
+preflight items show a warning on the schedule page, but they do not block live output.
 
 ### Operations panel sections (right rail, in order)
 
@@ -143,6 +161,7 @@ For deep edits.
 | Slide assignment | dropdown of `slide_assets`.                                                                                                                               |
 | Scheduled layers | list of overlays attached to this block: lower-thirds, custom layers (logo bug, sidebar widgets, fullscreen takeovers). Add/remove inline.                |
 | Readiness        | rolled-up signal: green if asset+slide+layers all ready; red/amber otherwise with reason list.                                                            |
+| Conflict action  | normal save rejects overlaps; explicit "Archive conflicting blocks and save" archives overlapping blocks and writes audit events.                         |
 
 All copy translated. Token-safe palette (no raw `bg-red-50` etc.).
 
@@ -162,7 +181,8 @@ Filters:
 - Kind/source: video, Vimeo, fallbacks, ads, promos, images, audio.
 - Text search: title, description, source, kind, asset type and Vimeo show metadata.
 - Vimeo show, month, year.
-- Sort: title, duration, status.
+- Lifecycle: synced, reviewed, rejected, stale, expired, scheduled-in-use.
+- Sort: title, duration, status, lifecycle.
 
 ### Common actions
 
@@ -170,8 +190,8 @@ Filters:
 - **Upload and schedule** — from a day schedule, upload directly to `/api/assets/upload-schedule` and create a block.
 - **Add remote URL** — register remote image, MP4, HLS, RTMP or Vimeo source without uploading.
 - **Sync Vimeo** — use `/admin/vimeo` to mirror account videos into Library.
-- **Edit** an existing row → opens inline form: title · URL · duration override · source type · media kind · asset type · status · orientation · thumbnail · description.
-- **Delete** → confirm modal removes the Library row; scheduled blocks using it will show missing asset warnings.
+- **Edit** an existing row → opens inline form: title · URL · duration override · source type · media kind · asset type · status · lifecycle · orientation · thumbnail · description.
+- **Delete** → confirm modal removes the Library row. Assets marked scheduled-in-use require an explicit force checkbox.
 
 ### Live chip rule
 
@@ -211,6 +231,7 @@ The operator's broadcast cockpit. **NOT** the same as `/output/live` — that's 
 | Preview pane (16:9)   | Renders the currently active block via `findActiveSchedule`. Shows fallback "No active broadcast" when idle.                                                                 |
 | ON AIR / OFF AIR pill | Red pulsing when broadcasting, dim when not.                                                                                                                                 |
 | Broadcast status      | Live / Paused / Idle text.                                                                                                                                                   |
+| Observability         | Polls current block, asset, fallback reason, media/Vimeo errors and clock skew from `/api/output/monitor`.                                                                   |
 | Source switcher       | Currently a stubbed select (Vimeo / Reuters / Slide / HLS / Remote image) — wire to real mutation in §11.5.                                                                  |
 | Lower-third editor    | Reuses `OperationsPanelLowerThird` from §4.3.                                                                                                                                |
 | **Stop broadcast**    | Big red button. Click → `confirm()` modal → server action flips `ProgramDay.status` to `"ready"` and clears any manual override block. Disabled when no broadcast is active. |
@@ -265,7 +286,7 @@ Form fields: client ID · client secret · refresh token (all encrypted).
 #### 11.1 Vimeo manual broadcast
 
 - ✅ Search + go-live + schedule shipped.
-- 🔧 **Conflict resolution**: when scheduled time overlaps an existing block, action throws via `hasBaseBlockConflict`. UI shows error string but no "preempt and replace" option.
+- ✅ Conflict resolution shows safe move/resize options and explicit archive-conflicts replacement.
 - 🔧 No "cancel pending broadcast" (must navigate to block detail and delete).
 - 🔧 No multi-asset queue (e.g. schedule 3 sequential clips).
 
@@ -295,15 +316,16 @@ Form fields: client ID · client secret · refresh token (all encrypted).
 #### 11.5 Operator panel `/admin/output`
 
 - ✅ Stop broadcast w/ confirm.
+- ✅ Observability panel for current block, asset, fallback, Vimeo errors and clock skew.
 - ❌ Source switcher is a stub — needs to call real mutation.
 - 🔧 No manual-override-block clearing logic on Stop.
 
 #### 11.6 Schedule rundown
 
 - ✅ Vertical rows + now-line + right rail.
-- ❌ Drag-and-drop reorder (deferred — needs `@dnd-kit/core`).
-- ❌ Inline edit from rundown row (must open block detail page).
-- ❌ Bulk operations (multi-select, change category, delete N).
+- ✅ Drag-and-drop reorder via `@dnd-kit/core`.
+- ✅ Keyboard reorder, duration resize, duplicate, archive and bulk status.
+- ✅ Server conflict checks plus DB trigger enforcement.
 - ❌ Block templates / recurring blocks (e.g. "every weekday 09:00").
 
 #### 11.7 Health widget
@@ -315,7 +337,7 @@ Form fields: client ID · client secret · refresh token (all encrypted).
 
 #### 11.8 Assets
 
-- ✅ Paginated Library list, search, filters, month/year/show filters and Live chip.
+- ✅ Paginated Library list, search, filters, lifecycle states, month/year/show filters and Live chip.
 - 🔧 No asset preview modal (click a tile → popup).
 - ❌ Tag system / categories (currently just status + source).
 

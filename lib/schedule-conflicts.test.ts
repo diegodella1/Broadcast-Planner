@@ -28,10 +28,25 @@ describe("schedule conflict helpers", () => {
 
     expect(result.hasConflict).toBe(false)
     expect(result.suggestedStartSeconds).toBeNull()
+    expect(result.maxSafeDurationSeconds).toBe(1800)
   })
 
   it("finds the nearest safe slot when preferred start is occupied", () => {
     expect(findNearestSafeStart(blocks, "day-1", 1200, 3500)).toBe(1800)
+  })
+
+  it("returns same-day gap options for conflict resolution", () => {
+    const result = findScheduleConflicts(blocks, {
+      programDayId: "day-1",
+      startTimeSeconds: 900,
+      durationSeconds: 1800
+    })
+
+    expect(result.gapOptions.slice(0, 3)).toEqual([
+      { startTimeSeconds: 1800, durationSeconds: 1800 },
+      { startTimeSeconds: 5400, durationSeconds: 1800 },
+      { startTimeSeconds: 9000, durationSeconds: 77400 }
+    ])
   })
 })
 

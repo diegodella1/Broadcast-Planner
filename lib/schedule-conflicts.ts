@@ -13,6 +13,11 @@ export type ScheduleConflictResult = {
   hasConflict: boolean
   conflicts: ScheduleConflict[]
   suggestedStartSeconds: number | null
+  maxSafeDurationSeconds: number | null
+  gapOptions: Array<{
+    startTimeSeconds: number
+    durationSeconds: number
+  }>
 }
 
 const DAY_SECONDS = 86400
@@ -40,6 +45,7 @@ export function findScheduleConflicts(
       endTimeSeconds: block.startTimeSeconds + block.durationSeconds
     }))
 
+  const gapOptions = findSameDayGaps(blocks, candidate.programDayId)
   return {
     hasConflict: conflicts.length > 0,
     conflicts,
@@ -50,7 +56,14 @@ export function findScheduleConflicts(
           candidate.durationSeconds,
           candidateEnd
         )
-      : null
+      : null,
+    maxSafeDurationSeconds: findMaxSafeDuration(
+      blocks,
+      candidate.programDayId,
+      candidate.startTimeSeconds,
+      candidate.id
+    ),
+    gapOptions
   }
 }
 
@@ -87,4 +100,37 @@ export function scheduleConflictMessage(result: ScheduleConflictResult) {
       ? "No safe same-day slot found."
       : `Try ${formatTimecode(result.suggestedStartSeconds)}.`
   return `Conflicts with ${names}. ${suggestion}`
+}
+
+export function findMaxSafeDuration(
+  blocks: ProgramBlock[],
+  programDayId: string,
+  startTimeSeconds: number,
+  ignoredBlockId?: string
+) {
+  if (startTimeSeconds < 0 || startTimeSeconds >= DAY_SECONDS) return null
+  const next = blocks
+    .filter((block) => block.programDayId === programDayId && block.id !== ignoredBlockId)
+    .filter((block) => block.startTimeSeconds >= startTimeSeconds)
+    .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)[0]
+  const end = next ? next.startTimeSeconds : DAY_SECONDS
+  return Math.max(0, end - startTimeSeconds)
+}
+
+export function findSameDayGaps(blocks: ProgramBlock[], programDayId: string) {
+  const sorted = blocks
+    .filter((block) => block.programDayId === programDayId && block.status !== "archived")
+    .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
+  const gaps: Array<{ startTimeSeconds: number; durationSeconds: number }> = []
+  let cursor = 0
+  for (const block of sorted) {
+    if (block.startTimeSeconds > cursor) {
+      gaps.push({ startTimeSeconds: cursor, durationSeconds: block.startTimeSeconds - cursor })
+    }
+    cursor = Math.max(cursor, block.startTimeSeconds + block.durationSeconds)
+  }
+  if (cursor < DAY_SECONDS) {
+    gaps.push({ startTimeSeconds: cursor, durationSeconds: DAY_SECONDS - cursor })
+  }
+  return gaps
 }

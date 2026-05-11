@@ -1,6 +1,7 @@
 import { headers } from "next/headers"
 import { EmergencySlate, OutputRenderer } from "@/components/output-renderer"
 import { getLivePlaybackSchedule } from "@/lib/data"
+import { forcedBadMediaSchedule, outputFixturesEnabled } from "@/lib/output-fixtures"
 import { isOutputRequestAllowed, outputAccessDeniedReason } from "@/lib/output-auth"
 import { secondsSinceMidnightInTimezone } from "@/lib/time"
 import { prefetchSlideData } from "@/lib/slides/prefetch"
@@ -10,26 +11,30 @@ import type { ScheduleBundle } from "@/lib/types"
 export default async function OutputLivePage({
   searchParams
 }: {
-  searchParams: Promise<{ debug?: string; startAt?: string; token?: string }>
+  searchParams: Promise<{ debug?: string; startAt?: string; token?: string; fixture?: string }>
 }) {
   const params = await searchParams
   if (!(await isOutputRequestAllowed(params))) {
     return <EmergencySlate reason={outputAccessDeniedReason()} />
   }
-  const schedule = await getScheduleOrEmergency(getLivePlaybackSchedule)
+  const schedule =
+    params.fixture === "bad-media" && outputFixturesEnabled()
+      ? forcedBadMediaSchedule()
+      : await getScheduleOrEmergency(getLivePlaybackSchedule)
   const startAt = params.startAt ? Number(params.startAt) : null
   if (!schedule) return <EmergencySlate reason="Schedule data unavailable" />
 
   const enriched = await enrichTemplateSlides(schedule)
 
-  return (
-    <OutputRenderer
-      initialSchedule={enriched}
-      initialSeconds={Number.isFinite(startAt) ? startAt! : secondsSinceMidnightInTimezone()}
-      debug={params.debug === "true"}
-      outputToken={params.token}
-    />
-  )
+  const rendererProps = {
+    initialSchedule: enriched,
+    initialSeconds: Number.isFinite(startAt) ? startAt! : secondsSinceMidnightInTimezone(),
+    debug: params.debug === "true",
+    outputToken: params.token,
+    ...(params.fixture === "bad-media" ? { forcedBlockId: "fixture-bad-media" } : {})
+  }
+
+  return <OutputRenderer {...rendererProps} />
 }
 
 async function enrichTemplateSlides(schedule: ScheduleBundle): Promise<ScheduleBundle> {

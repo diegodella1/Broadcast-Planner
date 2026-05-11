@@ -6,9 +6,11 @@ import { buildLongTestSchedule } from "./schedule-builder"
 import { findScheduleConflicts } from "./schedule-conflicts"
 import { analyzeSchedule } from "./schedule-health"
 import { createServiceClient } from "./supabase/server"
-import { parseTimecode, PLAYOUT_TIMEZONE } from "./time"
+import { formatTimecode, parseTimecode, PLAYOUT_TIMEZONE } from "./time"
 
-import type { BlockCategory, ProgramBlock } from "./types"
+import type { BlockCategory, ProgramBlock, ProgramStatus, RunbookSection } from "./types"
+
+type ConflictResolutionMode = "none" | "archive_conflicts"
 
 export async function ensureProgramDay(date: string) {
   const supabase = createServiceClient()
@@ -43,6 +45,7 @@ export async function createProgramBlock(input: {
   preRollSeconds?: number
   postRollSeconds?: number
   hideOverlays: boolean
+  conflictResolution?: ConflictResolutionMode
 }) {
   const dayId = await ensureProgramDay(input.date)
   const startTimeSeconds = parseTimecode(input.startTime)
@@ -74,7 +77,16 @@ export async function createProgramBlock(input: {
     updatedAt: ""
   }
   const conflict = findScheduleConflicts(schedule.blocks, candidate)
-  if (conflict.hasConflict) throw new Error("El bloque se solapa con otro bloque")
+  if (conflict.hasConflict && input.conflictResolution !== "archive_conflicts") {
+    throw new Error("El bloque se solapa con otro bloque")
+  }
+  if (conflict.hasConflict) {
+    await archiveConflictingBlocks({
+      date: input.date,
+      conflicts: conflict.conflicts,
+      reason: "program_block.conflict_replaced"
+    })
+  }
   await auditedMutation(
     {
       action: "program_block.created",
@@ -180,6 +192,7 @@ export async function updateProgramBlock(input: {
   hideOverlays: boolean
   fallbackAssetId?: string
   notes?: string
+  conflictResolution?: ConflictResolutionMode
 }) {
   if (!["video", "image", "slide", "ad", "promo", "fallback"].includes(input.blockType)) {
     throw new Error("Tipo de bloque invalido")
@@ -202,7 +215,16 @@ export async function updateProgramBlock(input: {
     startTimeSeconds,
     durationSeconds
   })
-  if (conflict.hasConflict) throw new Error("El bloque se solapa con otro bloque")
+  if (conflict.hasConflict && input.conflictResolution !== "archive_conflicts") {
+    throw new Error("El bloque se solapa con otro bloque")
+  }
+  if (conflict.hasConflict) {
+    await archiveConflictingBlocks({
+      date: input.date,
+      conflicts: conflict.conflicts,
+      reason: "program_block.conflict_replaced"
+    })
+  }
   const supabase = createServiceClient()
   await auditedMutation(
     {
@@ -247,6 +269,308 @@ export async function updateProgramBlock(input: {
   )
   revalidatePath(`/admin/schedule/${input.date}`)
   revalidatePath(`/admin/schedule/${input.date}/blocks/${input.blockId}`)
+}
+
+export async function reorderProgramBlocks(input: { date: string; orderedBlockIds: string[] }) {
+  const schedule = await getScheduleForDate(input.date)
+  const activeBlocks = schedule.blocks
+    .filter((block) => block.status !== "archived")
+    .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
+  const orderedSet = new Set(input.orderedBlockIds)
+  if (orderedSet.size !== input.orderedBlockIds.length) {
+    throw new Error("Hay bloques repetidos en el orden del rundown")
+  }
+  if (activeBlocks.length !== input.orderedBlockIds.length) {
+    throw new Error("El rundown cambio. Recarga antes de reordenar")
+  }
+  const byId = new Map(activeBlocks.map((block) => [block.id, block]))
+  if (input.orderedBlockIds.some((id) => !byId.has(id))) {
+    throw new Error("El rundown incluye un bloque inexistente")
+  }
+  const startSeconds = activeBlocks[0]?.startTimeSeconds ?? 0
+  let cursor = startSeconds
+  const updates = input.orderedBlockIds.map((id) => {
+    const block = byId.get(id)!
+    const next = {
+      id,
+      startTimeSeconds: cursor,
+      startTime: formatTimecode(cursor)
+    }
+    cursor += block.durationSeconds
+    return next
+  })
+  if (cursor > 86400) {
+    throw new Error("El rundown excede las 24 horas")
+  }
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "program_blocks.reordered",
+      entityType: "program_blocks",
+      metadata: { date: input.date, blocks: updates.length },
+      previous: {
+        blocks: activeBlocks.map((block) => ({ id: block.id, start_time: block.startTime }))
+      },
+      next: { blocks: updates }
+    },
+    async () => {
+      for (let index = 0; index < updates.length; index += 1) {
+        const update = updates[index]!
+        const { error } = await supabase
+          .from("program_blocks")
+          .update({
+            start_time: formatTimecode(200000 + index * 100000),
+            start_time_seconds: 200000 + index * 100000,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", update.id)
+        if (error) throw error
+      }
+      for (const update of updates) {
+        const { error } = await supabase
+          .from("program_blocks")
+          .update({
+            start_time: update.startTime,
+            start_time_seconds: update.startTimeSeconds,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", update.id)
+        if (error) throw error
+      }
+    }
+  )
+  revalidateSchedule(input.date)
+}
+
+export async function resizeProgramBlock(input: {
+  date: string
+  blockId: string
+  durationSeconds: number
+}) {
+  const schedule = await getScheduleForDate(input.date)
+  const block = schedule.blocks.find((item) => item.id === input.blockId)
+  if (!block) throw new Error("Bloque no encontrado")
+  const durationSeconds = Math.max(1, Math.round(Number(input.durationSeconds || 0) / 300) * 300)
+  const conflict = findScheduleConflicts(
+    schedule.blocks.filter((item) => item.status !== "archived"),
+    {
+      id: block.id,
+      programDayId: block.programDayId,
+      startTimeSeconds: block.startTimeSeconds,
+      durationSeconds
+    }
+  )
+  if (conflict.hasConflict) {
+    throw new Error("El nuevo largo se solapa con otro bloque")
+  }
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "program_block.resized",
+      entityType: "program_blocks",
+      entityId: block.id,
+      metadata: { date: input.date },
+      previous: { duration_seconds: block.durationSeconds },
+      next: { duration_seconds: durationSeconds }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("program_blocks")
+        .update({ duration_seconds: durationSeconds, updated_at: new Date().toISOString() })
+        .eq("id", block.id)
+      if (error) throw error
+    }
+  )
+  revalidateSchedule(input.date)
+}
+
+export async function duplicateProgramBlock(input: { date: string; blockId: string }) {
+  const schedule = await getScheduleForDate(input.date)
+  const block = schedule.blocks.find((item) => item.id === input.blockId)
+  if (!block) throw new Error("Bloque no encontrado")
+  const insertStart = block.startTimeSeconds + block.durationSeconds
+  const followingBlocks = schedule.blocks
+    .filter((item) => item.status !== "archived" && item.startTimeSeconds >= insertStart)
+    .sort((a, b) => b.startTimeSeconds - a.startTimeSeconds)
+  const dayEnd = Math.max(
+    insertStart + block.durationSeconds,
+    ...followingBlocks.map(
+      (item) => item.startTimeSeconds + item.durationSeconds + block.durationSeconds
+    )
+  )
+  if (dayEnd > 86400) {
+    throw new Error("Duplicar el bloque excede las 24 horas")
+  }
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "program_block.duplicated",
+      entityType: "program_blocks",
+      entityId: block.id,
+      metadata: { date: input.date, shifted_blocks: followingBlocks.length },
+      next: { title: `${block.title} copy`, start_time: formatTimecode(insertStart) }
+    },
+    async () => {
+      for (const item of followingBlocks) {
+        const shiftedStart = item.startTimeSeconds + block.durationSeconds
+        const { error } = await supabase
+          .from("program_blocks")
+          .update({
+            start_time: formatTimecode(shiftedStart),
+            start_time_seconds: shiftedStart,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", item.id)
+        if (error) throw error
+      }
+      const { error } = await supabase.from("program_blocks").insert({
+        program_day_id: block.programDayId,
+        title: `${block.title} copy`,
+        block_type: block.blockType,
+        category: block.category,
+        asset_id: block.assetId || null,
+        slide_id: block.slideId || null,
+        start_time: formatTimecode(insertStart),
+        start_time_seconds: insertStart,
+        duration_seconds: block.durationSeconds,
+        status: "draft",
+        hide_overlays: block.hideOverlays,
+        fallback_asset_id: block.fallbackAssetId || null,
+        notes: block.notes || null
+      })
+      if (error) throw error
+    }
+  )
+  revalidateSchedule(input.date)
+}
+
+export async function archiveProgramBlock(input: { date: string; blockId: string }) {
+  await bulkUpdateProgramBlockStatus({
+    date: input.date,
+    blockIds: [input.blockId],
+    status: "archived"
+  })
+}
+
+export async function bulkUpdateProgramBlockStatus(input: {
+  date: string
+  blockIds: string[]
+  status: ProgramStatus
+}) {
+  assertProgramStatus(input.status)
+  const blockIds = [...new Set(input.blockIds)].filter(Boolean)
+  if (!blockIds.length) throw new Error("Selecciona al menos un bloque")
+  const schedule = await getScheduleForDate(input.date)
+  const existing = schedule.blocks.filter((block) => blockIds.includes(block.id))
+  if (existing.length !== blockIds.length) throw new Error("Uno o mas bloques no existen")
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "program_blocks.bulk_status_updated",
+      entityType: "program_blocks",
+      metadata: { date: input.date, blocks: blockIds.length },
+      previous: { blocks: existing.map((block) => ({ id: block.id, status: block.status })) },
+      next: { status: input.status }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("program_blocks")
+        .update({ status: input.status, updated_at: new Date().toISOString() })
+        .in("id", blockIds)
+      if (error) throw error
+    }
+  )
+  revalidateSchedule(input.date)
+}
+
+export async function updateRunbookCheck(input: {
+  date: string
+  programDayId: string
+  section: RunbookSection
+  itemKey: string
+  checked: boolean
+  notes?: string
+}) {
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "operator_runbook.updated",
+      entityType: "operator_runbook_checks",
+      metadata: {
+        date: input.date,
+        section: input.section,
+        item_key: input.itemKey
+      },
+      next: { checked: input.checked, notes: input.notes || null }
+    },
+    async () => {
+      const { error } = await supabase.from("operator_runbook_checks").upsert(
+        {
+          program_day_id: input.programDayId,
+          section: input.section,
+          item_key: input.itemKey,
+          checked: input.checked,
+          notes: input.notes || null,
+          checked_at: input.checked ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: "program_day_id,section,item_key" }
+      )
+      if (error) throw error
+    }
+  )
+  revalidatePath(`/admin/runbook/${input.date}`)
+  revalidatePath(`/admin/schedule/${input.date}`)
+  revalidatePath("/admin/output")
+}
+
+function assertProgramStatus(status: ProgramStatus) {
+  if (!["draft", "ready", "active", "archived"].includes(status)) {
+    throw new Error("Estado invalido")
+  }
+}
+
+function revalidateSchedule(date: string) {
+  revalidatePath(`/admin/schedule/${date}`)
+  revalidatePath("/admin/calendar")
+  revalidatePath("/admin/output")
+}
+
+async function archiveConflictingBlocks(input: {
+  date: string
+  conflicts: Array<{
+    blockId: string
+    title: string
+    startTimeSeconds: number
+    endTimeSeconds: number
+  }>
+  reason: string
+}) {
+  const supabase = createServiceClient()
+  for (const conflict of input.conflicts) {
+    await auditedMutation(
+      {
+        action: "program_block.archived_for_replacement",
+        entityType: "program_blocks",
+        entityId: conflict.blockId,
+        metadata: {
+          date: input.date,
+          reason: input.reason,
+          start_seconds: conflict.startTimeSeconds,
+          end_seconds: conflict.endTimeSeconds
+        },
+        previous: { title: conflict.title },
+        next: { status: "archived" }
+      },
+      async () => {
+        const { error } = await supabase
+          .from("program_blocks")
+          .update({ status: "archived", updated_at: new Date().toISOString() })
+          .eq("id", conflict.blockId)
+        if (error) throw error
+      }
+    )
+  }
 }
 
 export async function deleteProgramBlock(input: { date: string; blockId: string }) {
@@ -509,6 +833,7 @@ export async function createMediaAsset(input: {
   storagePath?: string | undefined
   durationSeconds?: number | undefined
   metadata?: Record<string, unknown> | undefined
+  lifecycleState?: string | undefined
 }) {
   if (input.assetType === "ad" && input.durationSeconds && input.durationSeconds > 300) {
     throw new Error("Ads cannot be longer than 300 seconds")
@@ -533,7 +858,8 @@ export async function createMediaAsset(input: {
           storage_path: input.storagePath || null,
           duration_seconds: input.durationSeconds || null,
           metadata: input.metadata ?? {},
-          status: "ready"
+          status: "ready",
+          lifecycle_state: input.lifecycleState ?? "reviewed"
         })
         .select("id")
         .single()
@@ -556,6 +882,7 @@ export async function updateMediaAsset(input: {
   thumbnailUrl?: string | undefined
   durationSeconds?: number | undefined
   status: string
+  lifecycleState?: string | undefined
   orientation?: string | undefined
   playlistOrder?: number | undefined
   revalidatePaths?: string[] | undefined
@@ -596,7 +923,8 @@ export async function updateMediaAsset(input: {
         title: input.title,
         source_type: input.sourceType,
         asset_type: input.assetType,
-        status: input.status
+        status: input.status,
+        lifecycle_state: input.lifecycleState ?? "reviewed"
       }
     },
     async () => {
@@ -612,6 +940,7 @@ export async function updateMediaAsset(input: {
           thumbnail_url: input.thumbnailUrl || null,
           duration_seconds: input.durationSeconds || null,
           status: input.status,
+          lifecycle_state: input.lifecycleState ?? "reviewed",
           metadata,
           updated_at: new Date().toISOString()
         })
@@ -625,15 +954,20 @@ export async function updateMediaAsset(input: {
   }
 }
 
-export async function deleteMediaAsset(input: { id: string }) {
+export async function deleteMediaAsset(input: { id: string; force?: boolean }) {
   if (!input.id) throw new Error("Asset missing")
   const supabase = createServiceClient()
   const { data: asset, error: assetError } = await supabase
     .from("media_assets")
-    .select("title, storage_bucket, storage_path")
+    .select("title, storage_bucket, storage_path, lifecycle_state")
     .eq("id", input.id)
     .single()
   if (assetError) throw assetError
+  const scheduledInUse =
+    asset.lifecycle_state === "scheduled_in_use" || (await isAssetScheduled(input.id))
+  if (scheduledInUse && !input.force) {
+    throw new Error("Asset is scheduled in use. Confirm force delete to continue.")
+  }
 
   const storageBucket = asset.storage_bucket ? String(asset.storage_bucket) : ""
   const storagePath = asset.storage_path ? String(asset.storage_path) : ""
@@ -656,6 +990,25 @@ export async function deleteMediaAsset(input: { id: string }) {
   )
   revalidatePath("/admin/assets")
   revalidatePath("/admin/music")
+}
+
+async function isAssetScheduled(assetId: string) {
+  const supabase = createServiceClient()
+  const [{ data: blocks, error: blocksError }, { data: layers, error: layersError }] =
+    await Promise.all([
+      supabase.from("program_blocks").select("asset_id, fallback_asset_id, status"),
+      supabase.from("scheduled_layers").select("asset_id, enabled")
+    ])
+  if (blocksError) throw blocksError
+  if (layersError) throw layersError
+  const blockRows = (blocks ?? []) as Array<Record<string, unknown>>
+  const layerRows = (layers ?? []) as Array<Record<string, unknown>>
+  return (
+    blockRows.some(
+      (row) =>
+        row.status !== "archived" && (row.asset_id === assetId || row.fallback_asset_id === assetId)
+    ) || layerRows.some((row) => row.enabled !== false && row.asset_id === assetId)
+  )
 }
 
 function lowerThirdHtml(primaryText: string, secondaryText?: string) {

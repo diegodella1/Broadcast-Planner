@@ -1,5 +1,12 @@
 export type ProgramStatus = "draft" | "ready" | "active" | "archived"
 export type AssetStatus = "draft" | "syncing" | "ready" | "failed" | "archived"
+export type AssetLifecycleState =
+  | "synced"
+  | "reviewed"
+  | "rejected"
+  | "stale"
+  | "expired"
+  | "scheduled_in_use"
 export type PlaybackReadinessStatus = "unchecked" | "ready" | "failed"
 export type SourceType =
   | "vimeo"
@@ -55,6 +62,7 @@ export type MediaAsset = {
   thumbnailUrl?: string | null
   durationSeconds?: number | null
   status: AssetStatus
+  lifecycleState?: AssetLifecycleState
   vimeoId?: string | null
   vimeoUri?: string | null
   vimeoPrivacy?: string | null
@@ -137,6 +145,33 @@ export type ScheduleBundle = {
   layers: ScheduledLayer[]
   mediaAssets: MediaAsset[]
   slideAssets: SlideAsset[]
+}
+
+export type RunbookSection = "preflight" | "live" | "incident" | "shutdown"
+
+export type RunbookCheckState = {
+  id: string
+  programDayId: string
+  section: RunbookSection
+  itemKey: string
+  checked: boolean
+  notes?: string | null
+  checkedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type RunbookItem = {
+  key: string
+  label: string
+  detail: string
+  critical?: boolean
+}
+
+export type RunbookSectionDefinition = {
+  section: RunbookSection
+  title: string
+  items: RunbookItem[]
 }
 
 export type ActiveSchedule = {

@@ -5,7 +5,7 @@ Goal: close the P0/P1 failure modes from `premortem-report-20260510-203403.html`
 ## Gate 1: Prove Real Playout, Not Just HTTP
 
 Status: implemented for the release gate. Production browser smoke passes against the public tunnel.
-Forced-bad-media fallback fixture remains follow-up.
+Forced-bad-media fallback fixture is available for local/staging with `ALLOW_OUTPUT_FIXTURES=true`.
 
 - Add `@playwright/test` and replace the Node-only `npm run e2e` with Playwright smoke.
 - Test `/output/live` with a real browser against local production build and the public
@@ -22,7 +22,8 @@ Acceptance:
 
 - `npm run e2e` fails if output is stuck on "Loading Vimeo stream".
 - `npm run e2e` fails on black frame.
-- CI runs HTTP smoke; release checklist runs browser smoke against preview.
+- CI runs HTTP smoke; release checklist runs browser smoke against production/staging.
+- `npm run e2e:fallback` proves bad media reaches intentional fallback in fixture-enabled environments.
 
 ## Gate 2: Replace Query Token With Output Session
 
@@ -94,29 +95,31 @@ Acceptance:
 
 ## Gate 5: Enforce Schedule Invariants Below App Layer
 
-Status: implemented with a Supabase trigger migration.
+Status: implemented with a Supabase trigger migration and richer conflict UX.
 
 - Add Supabase migration for per-day no-overlap enforcement.
 - Use either:
   - PostgreSQL exclusion constraint with range type, if extension support is available
   - trigger function that rejects overlapping `program_blocks`
-- Keep app-level `findScheduleConflicts()` for friendly UX and suggested safe time.
+- Keep app-level `findScheduleConflicts()` for friendly UX, suggested safe time, safe resize and archive-conflicts replacement.
 - Add tests for same-day overlap, cross-day non-overlap, update self, and concurrent write simulation.
 
 Acceptance:
 
 - Database rejects overlapping blocks regardless of API path.
-- App still shows readable conflict message before submit.
+- App shows readable conflict message, move/resize actions, and explicit archive-conflicts submit.
 
 ## Gate 6: Add Staging Write Smoke
 
-Status: implemented as a guarded staging-only smoke script.
+Status: implemented as a guarded staging-only smoke script with sandbox cleanup.
 
 - Create `npm run smoke:staging-write`.
 - Required env:
   - `RTV_STAGING_BASE_URL`
   - `ADMIN_BOOTSTRAP_TOKEN`
   - `OUTPUT_CAPTURE_TOKEN`
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
 - Use a reserved future sandbox date.
 - Test:
   - get CSRF
@@ -132,6 +135,7 @@ Acceptance:
 
 - Auth, CSRF, writes, audit, and preview are tested in staging.
 - Production smoke remains read-only.
+- Sandbox media and blocks are archived on success and attempted on failure.
 
 ## Gate 7: Canonicalize Release Runtime
 

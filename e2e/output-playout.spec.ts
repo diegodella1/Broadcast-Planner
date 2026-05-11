@@ -47,6 +47,23 @@ test("output session route mints cookie for admin users", async ({ page, baseURL
   expect(cookies.find((cookie) => cookie.name === "rpm_output_token")?.value).toBe(token)
 })
 
+test("forced bad-media fixture switches to fallback instead of black", async ({
+  page,
+  baseURL
+}) => {
+  test.skip(process.env.ALLOW_OUTPUT_FIXTURES !== "true", "requires ALLOW_OUTPUT_FIXTURES=true")
+  const url = outputUrl(baseURL ?? "http://127.0.0.1:3450", "/output/live", true)
+  const fixtureUrl = new URL(url)
+  fixtureUrl.searchParams.set("fixture", "bad-media")
+
+  await page.goto(fixtureUrl.toString(), { waitUntil: "domcontentloaded" })
+  const root = page.getByTestId("output-root")
+  await expect(root).toBeVisible()
+  await expect(root).toHaveAttribute("data-output-state", "fallback", { timeout: 12_000 })
+  await expect(page.getByText("Fixture fallback slate", { exact: true }).first()).toBeVisible()
+  expectMostlyNonBlackPng(await root.screenshot())
+})
+
 function outputUrl(baseUrl: string, path: string, debug: boolean) {
   const url = new URL(path, baseUrl)
   if (debug) url.searchParams.set("debug", "true")

@@ -43,15 +43,32 @@ const operatorSections = [
     icon: RadioTower,
     body: [
       "The schedule page is the main rundown. Blocks appear in time order with category badges, status, duration, current/next indicators and a live now-line on today's date.",
-      "To add a show to the timeline, upload directly with Add show to timeline or choose Schedule existing asset / show, select the media asset or system slide, set start time, duration and block type, then save."
+      "To add a show to the timeline, upload directly with Add show to timeline or choose Schedule existing asset / show, select the media asset or system slide, set start time, duration and block type, then save.",
+      "Use the Rundown editor to drag reorder, keyboard move, resize in 5 minute steps, duplicate, archive and bulk change block status."
     ],
     details: [
       "Hierarchy: media asset or system slide -> scheduled block/show -> optional overlays -> output.",
       "Block categories: mercados, earthcam, clima, calendario, trending, deuda, reuters and broadcast.",
       "Schedule health detects overlaps, gaps, missing assets, unready assets, ad duration problems and missing fallback coverage.",
-      "The day readiness strip shows blockers before the day is marked active."
+      "The day readiness strip shows blockers before the day is marked active.",
+      "All rundown edits go through server conflict checks and the database overlap trigger."
     ],
     links: [{ label: "Open today's schedule", href: "/admin/calendar" }]
+  },
+  {
+    id: "operator-runbook",
+    title: "Operator runbook",
+    icon: ListChecks,
+    body: [
+      "The runbook page stores per-day operator checks and notes for preflight, live operation, incidents and shutdown.",
+      "Critical preflight checks warn on the schedule page but do not block output, so operators can still recover during live conditions."
+    ],
+    details: [
+      "Preflight covers schedule health, fallback readiness, output monitor, audio/video and Vimeo/storage readiness.",
+      "Live checks cover active block, next block, fallback reason and clock skew.",
+      "Incident and shutdown notes are persisted in Supabase and audited."
+    ],
+    links: [{ label: "Open runbook", href: "/admin/runbook" }]
   },
   {
     id: "block-editor",

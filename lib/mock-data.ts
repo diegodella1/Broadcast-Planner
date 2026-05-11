@@ -25,6 +25,7 @@ export const mockSchedule: ScheduleBundle = {
       thumbnailUrl: null,
       durationSeconds: 7200,
       status: "ready",
+      lifecycleState: "reviewed",
       vimeoId: "76979871",
       createdAt: now,
       updatedAt: now
@@ -39,6 +40,7 @@ export const mockSchedule: ScheduleBundle = {
       thumbnailUrl: null,
       durationSeconds: 30,
       status: "ready",
+      lifecycleState: "reviewed",
       createdAt: now,
       updatedAt: now
     },
@@ -52,6 +54,7 @@ export const mockSchedule: ScheduleBundle = {
       thumbnailUrl: null,
       durationSeconds: null,
       status: "ready",
+      lifecycleState: "reviewed",
       createdAt: now,
       updatedAt: now
     },
@@ -65,6 +68,7 @@ export const mockSchedule: ScheduleBundle = {
       thumbnailUrl: null,
       durationSeconds: null,
       status: "ready",
+      lifecycleState: "reviewed",
       createdAt: now,
       updatedAt: now
     },
@@ -78,6 +82,7 @@ export const mockSchedule: ScheduleBundle = {
       thumbnailUrl: null,
       durationSeconds: 180,
       status: "ready",
+      lifecycleState: "reviewed",
       metadata: { playlist_order: 1 },
       createdAt: now,
       updatedAt: now

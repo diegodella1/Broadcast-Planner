@@ -199,11 +199,19 @@ Implemented:
 - Assets pagination
 - Vimeo playback readiness fields
 - Database trigger for per-day schedule overlap prevention
+- Rich schedule conflict UX with suggested starts, safe resize and archive-conflicts replacement
+- Rundown drag/drop editor with keyboard reorder, resize controls, duplicate, archive and bulk status
+- Operator runbook mode with persisted per-day preflight/live/incident/shutdown checks
+- Asset lifecycle states and scheduled-in-use delete protection
+- Output observability monitor
+- Forced bad-media fallback fixture
+- Staging write smoke cleanup
+- Backup and restore drill
 - Production read-only smoke and browser playout smoke
 
 Known next priority:
 
-- P0/P1 backlog in `/pending`: multi-user roles, richer conflict UX, staging write cleanup/archive, forced bad-media fallback fixture, backup/restore drill and operational monitoring.
+- P0 backlog in `/pending`: multi-user roles and role-aware audit identity.
 
 ## Repository
 
@@ -227,17 +235,18 @@ The public tunnel service is managed outside the repo by `cloudflared.service`. 
 
 Set these values in `.env` on any new host:
 
-| Variable                        | Source                                                              |
-| ------------------------------- | ------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project API settings                                       |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project API anon key                                       |
-| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase project API service role key                               |
-| `APP_ENCRYPTION_KEY`            | Generate base64 32-byte secret                                      |
-| `ADMIN_BOOTSTRAP_TOKEN`         | Generate/rotate admin login token                                   |
-| `OUTPUT_CAPTURE_TOKEN`          | Generate/rotate output capture token                                |
-| `NEXT_PUBLIC_APP_BASE_URL`      | Public URL, e.g. `https://rtvtime.diegodella.ar`                    |
-| `VIMEO_ACCESS_TOKEN`            | Vimeo developer/access token, optional only if DB settings are used |
-| Reuters variables               | Reuters provider account, only when `REUTERS_PROVIDER=real`         |
+| Variable                        | Source                                                                |
+| ------------------------------- | --------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project API settings                                         |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project API anon key                                         |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase project API service role key                                 |
+| `APP_ENCRYPTION_KEY`            | Generate base64 32-byte secret                                        |
+| `ADMIN_BOOTSTRAP_TOKEN`         | Generate/rotate admin login token                                     |
+| `OUTPUT_CAPTURE_TOKEN`          | Generate/rotate output capture token                                  |
+| `APP_BASE_URL`                  | Server-side public URL override, e.g. `https://rtvtime.diegodella.ar` |
+| `NEXT_PUBLIC_APP_BASE_URL`      | Public URL, e.g. `https://rtvtime.diegodella.ar`                      |
+| `VIMEO_ACCESS_TOKEN`            | Vimeo developer/access token, optional only if DB settings are used   |
+| Reuters variables               | Reuters provider account, only when `REUTERS_PROVIDER=real`           |
 
 Generate a local encryption key:
 

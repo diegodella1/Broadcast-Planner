@@ -183,6 +183,7 @@ function buildAssetInsertRow(channel: ReutersChannel, nowIso: string) {
     thumbnail_url: channel.thumbnailUrl ?? null,
     duration_seconds: null,
     status: "ready",
+    lifecycle_state: "synced",
     metadata: {
       reuters_channel_id: channel.id,
       reuters_category: channel.category ?? null
@@ -197,6 +198,7 @@ function buildAssetUpdateRow(channel: ReutersChannel, nowIso: string) {
     description: channel.description ?? null,
     thumbnail_url: channel.thumbnailUrl ?? null,
     status: "ready",
+    lifecycle_state: "synced",
     metadata: {
       reuters_channel_id: channel.id,
       reuters_category: channel.category ?? null

@@ -203,6 +203,7 @@ function SelectionCreatePanel({
   const [slideId, setSlideId] = useState("")
   const [preRollSeconds, setPreRollSeconds] = useState(0)
   const [postRollSeconds, setPostRollSeconds] = useState(0)
+  const [startTimeSeconds, setStartTimeSeconds] = useState(selection.start)
   const [durationSeconds, setDurationSeconds] = useState(selectionDuration)
   const selectedAsset = assetId ? schedule.mediaAssets.find((asset) => asset.id === assetId) : null
   const selectedSlide = slideId ? schedule.slideAssets.find((slide) => slide.id === slideId) : null
@@ -213,11 +214,21 @@ function SelectionCreatePanel({
   const conflict = dayId
     ? findScheduleConflicts(schedule.blocks, {
         programDayId: dayId,
-        startTimeSeconds: selection.start,
+        startTimeSeconds,
         durationSeconds: effectiveDuration
       })
-    : { hasConflict: false, conflicts: [], suggestedStartSeconds: null }
+    : {
+        hasConflict: false,
+        conflicts: [],
+        suggestedStartSeconds: null,
+        maxSafeDurationSeconds: null,
+        gapOptions: []
+      }
   const conflictMessage = scheduleConflictMessage(conflict)
+  const safeResizeSeconds =
+    conflict.maxSafeDurationSeconds && conflict.maxSafeDurationSeconds >= minimumDuration
+      ? conflict.maxSafeDurationSeconds
+      : null
 
   function setAsset(value: string) {
     setAssetId(value)
@@ -260,7 +271,8 @@ function SelectionCreatePanel({
           <div>
             <p className="font-semibold">Create block</p>
             <p className="mt-0.5 text-xs text-muted">
-              {formatPlayoutTimeLabel(selection.start)} to {formatPlayoutTimeLabel(selection.end)}
+              {formatPlayoutTimeLabel(startTimeSeconds)} to{" "}
+              {formatPlayoutTimeLabel(startTimeSeconds + effectiveDuration)}
             </p>
             {knownDuration ? (
               <p className="mt-0.5 text-xs text-muted">
@@ -268,9 +280,46 @@ function SelectionCreatePanel({
               </p>
             ) : null}
             {conflictMessage ? (
-              <p className="mt-1 rounded-md border border-danger-line bg-danger-soft px-2 py-1 text-xs font-semibold text-danger-strong">
-                {conflictMessage}
-              </p>
+              <div className="mt-2 rounded-md border border-danger-line bg-danger-soft px-2 py-2 text-xs text-danger-strong">
+                <p className="font-semibold">{conflictMessage}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {conflict.suggestedStartSeconds !== null ? (
+                    <button
+                      type="button"
+                      className="rounded border border-danger-line bg-surface px-2 py-1 font-semibold"
+                      onClick={() =>
+                        setStartTimeSeconds(conflict.suggestedStartSeconds ?? startTimeSeconds)
+                      }
+                    >
+                      Move to {formatTimecode(conflict.suggestedStartSeconds)}
+                    </button>
+                  ) : null}
+                  {safeResizeSeconds ? (
+                    <button
+                      type="button"
+                      className="rounded border border-danger-line bg-surface px-2 py-1 font-semibold"
+                      onClick={() => setDurationSeconds(safeResizeSeconds)}
+                    >
+                      Resize to {formatTimecode(safeResizeSeconds)}
+                    </button>
+                  ) : null}
+                  <span className="rounded border border-danger-line px-2 py-1 font-semibold">
+                    Or archive conflicts on submit
+                  </span>
+                </div>
+                {conflict.gapOptions.length ? (
+                  <p className="mt-2 text-[11px]">
+                    Open gaps:{" "}
+                    {conflict.gapOptions
+                      .slice(0, 3)
+                      .map(
+                        (gap) =>
+                          `${formatTimecode(gap.startTimeSeconds)} (${formatTimecode(gap.durationSeconds)})`
+                      )
+                      .join(", ")}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
           </div>
           <button
@@ -291,7 +340,8 @@ function SelectionCreatePanel({
         <input
           name="start_time"
           required
-          defaultValue={formatTimecode(conflict.suggestedStartSeconds ?? selection.start)}
+          value={formatTimecode(startTimeSeconds)}
+          onChange={(event) => setStartTimeSeconds(parseTimeInput(event.target.value))}
           title="San Francisco time"
           className="border border-line px-3 py-2 text-sm"
         />
@@ -361,12 +411,23 @@ function SelectionCreatePanel({
           <input name="hide_overlays" type="checkbox" />
           Hide overlays
         </label>
-        <button className="btn-primary lg:col-span-5">
-          {conflict.hasConflict ? "Create at suggested safe time" : "Create block"}
+        <button
+          className="btn-primary lg:col-span-5"
+          name="conflict_resolution"
+          value={conflict.hasConflict ? "archive_conflicts" : "none"}
+        >
+          {conflict.hasConflict ? "Archive conflicts and create block" : "Create block"}
         </button>
       </form>
     </div>
   )
+}
+
+function parseTimeInput(value: string) {
+  const [hours = "0", minutes = "0", seconds = "0"] = value.split(":")
+  const total = Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds)
+  if (!Number.isFinite(total)) return 0
+  return Math.max(0, Math.min(total, DAY_SECONDS - SNAP_SECONDS))
 }
 
 function normalizeSelection(start: number, end: number): Selection {

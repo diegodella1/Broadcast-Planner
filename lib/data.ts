@@ -7,6 +7,7 @@ import type {
   MediaAsset,
   ProgramBlock,
   ProgramDay,
+  RunbookCheckState,
   ScheduleBundle,
   ScheduledLayer,
   SlideAsset
@@ -44,7 +45,7 @@ export async function getScheduleForDate(date: string): Promise<ScheduleBundle> 
         day: null,
         blocks: [],
         layers: [],
-        mediaAssets: (mediaAssets ?? []).map(mapMediaAsset),
+        mediaAssets: (mediaAssets ?? []).map((row) => mapMediaAsset(row)),
         slideAssets: (slideAssets ?? []).map(mapSlide)
       }
     }
@@ -67,7 +68,7 @@ export async function getScheduleForDate(date: string): Promise<ScheduleBundle> 
       day: mapDay(day),
       blocks: (blocks ?? []).map(mapBlock),
       layers: (layers ?? []).map(mapLayer),
-      mediaAssets: (mediaAssets ?? []).map(mapMediaAsset),
+      mediaAssets: (mediaAssets ?? []).map((row) => mapMediaAsset(row)),
       slideAssets: (slideAssets ?? []).map(mapSlide)
     }
   } catch (error) {
@@ -95,7 +96,7 @@ export async function getPlaybackScheduleForDate(date: string): Promise<Schedule
         day: null,
         blocks: [],
         layers: [],
-        mediaAssets: (fallbackMedia ?? []).map(mapMediaAsset),
+        mediaAssets: (fallbackMedia ?? []).map((row) => mapMediaAsset(row)),
         slideAssets: []
       }
     }
@@ -154,7 +155,7 @@ export async function getPlaybackScheduleForDate(date: string): Promise<Schedule
         ...(referencedMedia ?? []),
         ...(fallbackMedia ?? []),
         ...(musicMedia ?? [])
-      ]).map(mapMediaAsset),
+      ]).map((row) => mapMediaAsset(row)),
       slideAssets: (referencedSlides ?? []).map(mapSlide)
     }
   } catch (error) {
@@ -196,15 +197,52 @@ export async function getLivePlaybackSchedule(now = new Date(), timezone = PLAYO
 export async function getAssets(): Promise<MediaAsset[]> {
   try {
     const supabase = createServiceClient()
-    const { data, error } = await supabase
-      .from("media_assets")
-      .select("*")
-      .order("updated_at", { ascending: false })
+    const [{ data, error }, usedAssetIds] = await Promise.all([
+      supabase.from("media_assets").select("*").order("updated_at", { ascending: false }),
+      getScheduledAssetIds()
+    ])
     if (error) throw error
-    return (data ?? []).map(mapMediaAsset)
+    return (data ?? []).map((row) => mapMediaAsset(row, usedAssetIds))
   } catch (error) {
     return handleDataFailure(error, mockSchedule.mediaAssets)
   }
+}
+
+export async function getRunbookState(programDayId: string): Promise<RunbookCheckState[]> {
+  try {
+    const supabase = createServiceClient()
+    const { data, error } = await supabase
+      .from("operator_runbook_checks")
+      .select("*")
+      .eq("program_day_id", programDayId)
+      .order("section")
+      .order("item_key")
+    if (error) throw error
+    return (data ?? []).map(mapRunbookCheck)
+  } catch (error) {
+    if (isMissingRunbookTable(error)) return []
+    return handleDataFailure(error, [])
+  }
+}
+
+async function getScheduledAssetIds() {
+  const supabase = createServiceClient()
+  const [{ data: blocks, error: blocksError }, { data: layers, error: layersError }] =
+    await Promise.all([
+      supabase.from("program_blocks").select("asset_id, fallback_asset_id, status"),
+      supabase.from("scheduled_layers").select("asset_id, enabled")
+    ])
+  if (blocksError) throw blocksError
+  if (layersError) throw layersError
+  const ids = [
+    ...((blocks ?? []) as Row[])
+      .filter((row) => text(row.status) !== "archived")
+      .flatMap((row) => [nullableText(row.asset_id), nullableText(row.fallback_asset_id)]),
+    ...((layers ?? []) as Row[])
+      .filter((row) => row.enabled !== false)
+      .map((row) => nullableText(row.asset_id))
+  ]
+  return new Set(ids.filter((id): id is string => Boolean(id)))
 }
 
 export async function getMediaAssetById(id: string): Promise<MediaAsset | null> {
@@ -345,9 +383,37 @@ function mapLayer(row: Row): ScheduledLayer {
   }
 }
 
-function mapMediaAsset(row: Row): MediaAsset {
+function mapRunbookCheck(row: Row): RunbookCheckState {
   return {
     id: text(row.id),
+    programDayId: text(row.program_day_id),
+    section: text(row.section) as RunbookCheckState["section"],
+    itemKey: text(row.item_key),
+    checked: Boolean(row.checked),
+    notes: nullableText(row.notes),
+    checkedAt: nullableText(row.checked_at),
+    createdAt: text(row.created_at),
+    updatedAt: text(row.updated_at)
+  }
+}
+
+function isMissingRunbookTable(error: unknown) {
+  if (!error || typeof error !== "object") return false
+  const row = error as Row
+  const code = nullableText(row.code)
+  const message = nullableText(row.message) ?? ""
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    message.includes("operator_runbook_checks") ||
+    message.includes("Could not find the table")
+  )
+}
+
+function mapMediaAsset(row: Row, scheduledAssetIds = new Set<string>()): MediaAsset {
+  const id = text(row.id)
+  return {
+    id,
     title: text(row.title),
     description: nullableText(row.description),
     sourceType: text(row.source_type) as MediaAsset["sourceType"],
@@ -359,6 +425,11 @@ function mapMediaAsset(row: Row): MediaAsset {
     thumbnailUrl: nullableText(row.thumbnail_url),
     durationSeconds: nullableNumber(row.duration_seconds),
     status: text(row.status) as MediaAsset["status"],
+    lifecycleState: (scheduledAssetIds.has(id)
+      ? "scheduled_in_use"
+      : (nullableText(row.lifecycle_state) ?? "reviewed")) as NonNullable<
+      MediaAsset["lifecycleState"]
+    >,
     vimeoId: nullableText(row.vimeo_id),
     vimeoUri: nullableText(row.vimeo_uri),
     vimeoPrivacy: nullableText(row.vimeo_privacy),

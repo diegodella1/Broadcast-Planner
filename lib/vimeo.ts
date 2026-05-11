@@ -331,6 +331,7 @@ function vimeoVideoToAssetRow(
     thumbnail_url: thumbnail,
     duration_seconds: hasDuration ? video.duration : null,
     status,
+    lifecycle_state: status === "archived" ? "expired" : "synced",
     vimeo_id: vimeoId,
     vimeo_uri: video.uri,
     vimeo_privacy: video.privacy?.view ?? null,

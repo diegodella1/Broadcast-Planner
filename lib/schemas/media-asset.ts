@@ -22,6 +22,14 @@ const assetTypeEnum = z.enum([
   "music"
 ])
 const assetStatusEnum = z.enum(["draft", "syncing", "ready", "failed", "archived"])
+const lifecycleStateEnum = z.enum([
+  "synced",
+  "reviewed",
+  "rejected",
+  "stale",
+  "expired",
+  "scheduled_in_use"
+])
 const orientationEnum = z.enum(["auto", "horizontal", "vertical"])
 
 const optionalString = (max = 2000) =>
@@ -45,7 +53,8 @@ export const createMediaAssetSchema = z.object({
   mediaKind: mediaKindEnum,
   assetType: assetTypeEnum,
   url: optionalString(2000),
-  durationSeconds: optionalDuration
+  durationSeconds: optionalDuration,
+  lifecycleState: lifecycleStateEnum.default("reviewed")
 })
 export type CreateMediaAssetInput = z.infer<typeof createMediaAssetSchema>
 
@@ -60,6 +69,7 @@ export const updateMediaAssetSchema = z.object({
   thumbnailUrl: optionalString(2000),
   durationSeconds: optionalDuration,
   status: assetStatusEnum,
+  lifecycleState: lifecycleStateEnum.default("reviewed"),
   orientation: orientationEnum.default("auto")
 })
 export type UpdateMediaAssetInput = z.infer<typeof updateMediaAssetSchema>

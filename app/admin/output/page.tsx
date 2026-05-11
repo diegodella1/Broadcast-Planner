@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server"
 
 import { AdminShell } from "@/components/admin-shell"
 import { OperationsPanelLowerThird } from "@/components/operations-panel/lower-third"
+import { OutputMonitorPanel } from "@/components/output-monitor-panel"
 import { StopBroadcastButton } from "@/components/stop-broadcast-button"
 import { StatusBanner } from "@/components/ui"
 import { recordAuditEvent } from "@/lib/audit"
@@ -41,6 +42,44 @@ export default async function AdminOutputPage() {
     ? (active.asset?.sourceType ?? active.slide?.slideType ?? "—")
     : "—"
   const activeBlockLabel = active.block?.title ?? t("output.fallback.noActiveBlock")
+  const initialMonitor = {
+    generatedAt: new Date().toISOString(),
+    timezone: liveBundle.day?.timezone ?? PLAYOUT_TIMEZONE,
+    serverSeconds: secondsSinceMidnightInTimezone(
+      new Date(),
+      liveBundle.day?.timezone ?? PLAYOUT_TIMEZONE
+    ),
+    day: liveBundle.day
+      ? {
+          airDate: liveBundle.day.airDate,
+          status: liveBundle.day.status
+        }
+      : null,
+    block: active.block
+      ? {
+          title: active.block.title,
+          status: active.block.status,
+          elapsedInBlock: active.elapsedInBlock,
+          durationSeconds: active.block.durationSeconds
+        }
+      : null,
+    asset: active.asset
+      ? {
+          title: active.asset.title,
+          sourceType: active.asset.sourceType,
+          status: active.asset.status,
+          lifecycleState: active.asset.lifecycleState ?? "reviewed",
+          playbackReadinessStatus: active.asset.playbackReadinessStatus ?? "unchecked",
+          playbackError: active.asset.playbackError ?? null
+        }
+      : null,
+    fallback: active.fallbackAsset ? { title: active.fallbackAsset.title } : null,
+    fallbackReason: active.reason ?? null,
+    mediaError:
+      active.asset?.sourceType === "vimeo" && active.asset.playbackReadinessStatus === "failed"
+        ? (active.asset.playbackError ?? "Vimeo playback failed")
+        : null
+  }
 
   // Server action: stop the broadcast by reverting day status to "ready"
   async function stopBroadcast() {
@@ -152,32 +191,7 @@ export default async function AdminOutputPage() {
           </ControlSection>
 
           <ControlSection title="Observability">
-            <dl className="grid gap-2 text-[11px]">
-              <MetricLine label="Block" value={active.block?.title ?? "none"} />
-              <MetricLine
-                label="Asset"
-                value={
-                  active.asset?.title ??
-                  active.slide?.title ??
-                  active.fallbackAsset?.title ??
-                  "none"
-                }
-              />
-              <MetricLine label="Fallback" value={active.fallbackAsset?.title ?? "none"} />
-              <MetricLine label="Reason" value={active.reason ?? "normal"} />
-              <MetricLine
-                label="Vimeo"
-                value={
-                  active.asset?.sourceType === "vimeo"
-                    ? (active.asset.playbackReadinessStatus ?? "unchecked")
-                    : "n/a"
-                }
-              />
-              <MetricLine
-                label="Clock"
-                value={`${secondsSinceMidnightInTimezone(new Date(), liveBundle.day?.timezone ?? PLAYOUT_TIMEZONE)}s`}
-              />
-            </dl>
+            <OutputMonitorPanel initial={initialMonitor} />
           </ControlSection>
 
           {/* Lower-third editor — reuse existing component */}
@@ -215,14 +229,5 @@ function ControlSection({ title, children }: { title: string; children: React.Re
       </h2>
       {children}
     </section>
-  )
-}
-
-function MetricLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <dt className="shrink-0 text-white/35">{label}</dt>
-      <dd className="min-w-0 truncate text-right font-medium text-white/75">{value}</dd>
-    </div>
   )
 }

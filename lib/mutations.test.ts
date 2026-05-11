@@ -38,6 +38,7 @@ function makeSupabaseMock() {
     eq: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
     lt: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     single: vi.fn().mockImplementation(function () {
       return Promise.resolve(_result)
     }),
@@ -150,6 +151,11 @@ import {
   updateProgramDayStatus,
   updateProgramBlock,
   createLongTestSchedule,
+  reorderProgramBlocks,
+  resizeProgramBlock,
+  duplicateProgramBlock,
+  bulkUpdateProgramBlockStatus,
+  updateRunbookCheck,
   createSlideAsset,
   createScheduledLayer,
   setScheduledLayerEnabled,
@@ -159,7 +165,7 @@ import {
 } from "./mutations"
 
 import type { GeneratedBlock } from "./schedule-builder"
-import type { ScheduleBundle } from "./types"
+import type { ProgramBlock, ScheduleBundle } from "./types"
 
 // Typed references to the mocked functions for easy use in tests
 const getScheduleForDateMock = vi.mocked(getScheduleForDate)
@@ -181,6 +187,7 @@ function resetMocks() {
   ;(supabaseMock.eq as ReturnType<typeof vi.fn>).mockReturnThis()
   ;(supabaseMock.gte as ReturnType<typeof vi.fn>).mockReturnThis()
   ;(supabaseMock.lt as ReturnType<typeof vi.fn>).mockReturnThis()
+  ;(supabaseMock.in as ReturnType<typeof vi.fn>).mockReturnThis()
   ;(supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() =>
     Promise.resolve(supabaseMock._result)
   )
@@ -222,6 +229,134 @@ describe("ensureProgramDay", () => {
     await expect(ensureProgramDay("2026-05-08")).rejects.toThrow("DB down")
   })
 })
+
+describe("rundown editor mutations", () => {
+  beforeEach(async () => {
+    await resetMocks()
+    getScheduleForDateMock.mockResolvedValue({
+      ...mockSchedule,
+      blocks: [
+        testBlock({ id: "block-1", title: "A", startTimeSeconds: 3600, durationSeconds: 900 }),
+        testBlock({ id: "block-2", title: "B", startTimeSeconds: 4500, durationSeconds: 600 }),
+        testBlock({ id: "block-3", title: "C", startTimeSeconds: 5100, durationSeconds: 300 })
+      ]
+    })
+  })
+
+  it("reorders blocks by moving them through temporary positions first", async () => {
+    await reorderProgramBlocks({
+      date: "2026-05-08",
+      orderedBlockIds: ["block-2", "block-1", "block-3"]
+    })
+
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ start_time_seconds: 200000 })
+    )
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ start_time: "01:00:00", start_time_seconds: 3600 })
+    )
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/schedule/2026-05-08")
+  })
+
+  it("resizes a block in 5 minute increments", async () => {
+    await resizeProgramBlock({
+      date: "2026-05-08",
+      blockId: "block-3",
+      durationSeconds: 430
+    })
+
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ duration_seconds: 300 })
+    )
+  })
+
+  it("duplicates a block and shifts following blocks", async () => {
+    await duplicateProgramBlock({ date: "2026-05-08", blockId: "block-1" })
+
+    expect(supabaseMock.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "A copy",
+        start_time: "01:15:00",
+        duration_seconds: 900,
+        status: "draft"
+      })
+    )
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ start_time_seconds: 5400 })
+    )
+  })
+
+  it("bulk updates selected block status", async () => {
+    await bulkUpdateProgramBlockStatus({
+      date: "2026-05-08",
+      blockIds: ["block-1", "block-3"],
+      status: "archived"
+    })
+
+    expect(supabaseMock.in).toHaveBeenCalledWith("id", ["block-1", "block-3"])
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "archived" })
+    )
+  })
+})
+
+describe("operator runbook mutations", () => {
+  beforeEach(async () => {
+    await resetMocks()
+  })
+
+  it("upserts a persisted per-day runbook check", async () => {
+    await updateRunbookCheck({
+      date: "2026-05-08",
+      programDayId: "day-1",
+      section: "preflight",
+      itemKey: "health-green",
+      checked: true,
+      notes: "OK"
+    })
+
+    expect(supabaseMock.from).toHaveBeenCalledWith("operator_runbook_checks")
+    expect(supabaseMock.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        program_day_id: "day-1",
+        section: "preflight",
+        item_key: "health-green",
+        checked: true,
+        notes: "OK"
+      }),
+      { onConflict: "program_day_id,section,item_key" }
+    )
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/runbook/2026-05-08")
+  })
+})
+
+function testBlock(input: Partial<ProgramBlock>): ProgramBlock {
+  return {
+    id: input.id ?? "block",
+    programDayId: input.programDayId ?? "day-1",
+    title: input.title ?? "Block",
+    blockType: input.blockType ?? "video",
+    category: input.category ?? "broadcast",
+    assetId: input.assetId ?? null,
+    slideId: input.slideId ?? null,
+    startTime: input.startTime ?? formatSeconds(input.startTimeSeconds ?? 0),
+    startTimeSeconds: input.startTimeSeconds ?? 0,
+    durationSeconds: input.durationSeconds ?? 300,
+    status: input.status ?? "ready",
+    hideOverlays: input.hideOverlays ?? false,
+    fallbackAssetId: input.fallbackAssetId ?? null,
+    notes: input.notes ?? null,
+    createdAt: "",
+    updatedAt: ""
+  }
+}
+
+function formatSeconds(seconds: number) {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const remainingSeconds = seconds % 60
+  return [hours, minutes, remainingSeconds].map((part) => String(part).padStart(2, "0")).join(":")
+}
 
 // ---------------------------------------------------------------------------
 // createProgramBlock
@@ -291,6 +426,47 @@ describe("createProgramBlock", () => {
         hideOverlays: false
       })
     ).rejects.toThrow("solapa")
+  })
+
+  it("archives conflicting blocks when replacement is explicit", async () => {
+    supabaseMock.setResult({ data: { id: "day-1" }, error: null })
+    getScheduleForDateMock.mockResolvedValue({
+      ...mockSchedule,
+      day: mockSchedule.day,
+      blocks: [
+        {
+          id: "block-existing",
+          programDayId: "day-1",
+          title: "Existing",
+          blockType: "video",
+          category: "mercados",
+          startTime: "10:00:00",
+          startTimeSeconds: 36000,
+          durationSeconds: 1800,
+          status: "ready",
+          hideOverlays: false,
+          createdAt: "",
+          updatedAt: ""
+        }
+      ]
+    })
+
+    await createProgramBlock({
+      date: "2026-05-08",
+      title: "Replacement",
+      blockType: "video",
+      startTime: "10:15:00",
+      durationSeconds: 600,
+      hideOverlays: false,
+      conflictResolution: "archive_conflicts"
+    })
+
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "archived" })
+    )
+    expect(supabaseMock.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Replacement" })
+    )
   })
 
   it("error path: throws when supabase insert fails", async () => {
