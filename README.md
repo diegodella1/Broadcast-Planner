@@ -40,6 +40,7 @@ This is not a public website or a video library. It is an operations console for
 - `/admin/login` - admin login
 - `/admin/calendar` - programming calendar
 - `/admin/schedule/[date]` - daily schedule view
+- `/admin/runbook/[date]` - operator preflight, live, incident and shutdown runbook
 - `/admin/assets` - media asset library
 - `/admin/audit` - broadcast-critical audit trail
 - `/admin/vimeo` - Vimeo sync monitor and synced episode catalog
@@ -165,6 +166,8 @@ Production container health check:
 - Admin screens are for operators, producers, and content administrators.
 - Normal show workflow is: Library -> Programming day -> Timeline block -> Output control.
 - To schedule a show, first upload media or sync Vimeo, then open `/admin/calendar`, pick the day, and use “Schedule existing asset / show” or “Add show to timeline”.
+- Use the Rundown editor on `/admin/schedule/[date]` for drag reorder, keyboard moves, 5-minute resize, duplicate, archive and bulk status. These edits are audited and still go through server conflict checks plus the database overlap trigger.
+- Before going live, open `/admin/runbook/[date]` and complete critical preflight checks. Runbook checks and notes persist per program day in Supabase and are written to audit.
 - Vimeo sync is the source for Vimeo playback assets. Use `/admin/vimeo` to sync and filter by episode title, show name, month, year and status.
 - Output screens should stay clean, fullscreen, and safe for browser capture.
 - `.env` contains secrets and must not be committed.
@@ -191,6 +194,7 @@ Implemented:
 - Timeline output route
 - Block preview route
 - Supabase schema and seed data
+- Operator runbook persistence migration
 - Vimeo sync endpoint and synced Library catalog
 - Schedule generation and health checks
 - Pending developments page

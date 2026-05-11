@@ -58,6 +58,12 @@ const currentFunctions = [
   "Production deployment behind cloudflared at the root domain"
 ]
 
+const operatorReadyNotes = [
+  "Controlled production operation is ready after applying Supabase migrations and completing the per-day runbook.",
+  "Unattended operation still waits on the P0 multi-user roles item because bootstrap-token access has no named operator identity.",
+  "Rundown drag/drop editor and operator runbook are shipped, so they are no longer future backlog items."
+]
+
 export default function PendingPage() {
   return (
     <main className="min-h-screen bg-surface-elevated-1 text-white/90">
@@ -82,6 +88,20 @@ export default function PendingPage() {
           <Metric label="P0 Needed" value={String(mvpNeeded.length)} icon={AlertTriangle} />
           <Metric label="P1 Planned" value={String(productionHardening.length)} icon={Clock} />
           <Metric label="P2 Later" value={String(futureCapabilities.length)} icon={WandSparkles} />
+        </section>
+
+        <section className="border-b border-white/10 py-6">
+          <div className="flex items-center gap-3">
+            <Shield size={22} className="text-accent-positive" aria-hidden="true" />
+            <h2 className="text-2xl font-semibold">Production Status</h2>
+          </div>
+          <div className="mt-5 grid gap-3">
+            {operatorReadyNotes.map((item) => (
+              <div key={item} className="surface-panel p-4 text-sm leading-6 text-white/72">
+                {item}
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="py-8">

@@ -101,6 +101,10 @@ Open `/admin/runbook/<date>` from the schedule header or admin nav.
 Runbook checks and notes persist per `ProgramDay` in Supabase and write audit events. Critical
 preflight items show a warning on the schedule page, but they do not block live output.
 
+Operational rule: finish the critical preflight checks before switching the day to active unless an
+operator explicitly accepts the risk. If runbook checks fail to save, the production database is
+missing the `operator_runbook_checks` migration.
+
 ### Operations panel sections (right rail, in order)
 
 #### 4.1 On air now

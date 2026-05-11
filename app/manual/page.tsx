@@ -61,12 +61,14 @@ const operatorSections = [
     icon: ListChecks,
     body: [
       "The runbook page stores per-day operator checks and notes for preflight, live operation, incidents and shutdown.",
-      "Critical preflight checks warn on the schedule page but do not block output, so operators can still recover during live conditions."
+      "Critical preflight checks warn on the schedule page but do not block output, so operators can still recover during live conditions.",
+      "Use this as the handoff surface: the next operator can see what was checked, what was reopened and what notes were left for the day."
     ],
     details: [
       "Preflight covers schedule health, fallback readiness, output monitor, audio/video and Vimeo/storage readiness.",
       "Live checks cover active block, next block, fallback reason and clock skew.",
-      "Incident and shutdown notes are persisted in Supabase and audited."
+      "Incident and shutdown notes are persisted in Supabase and audited.",
+      "If checks do not save, confirm the operator_runbook_checks Supabase migration has been applied."
     ],
     links: [{ label: "Open runbook", href: "/admin/runbook" }]
   },
@@ -260,12 +262,15 @@ const workflowSteps = [
   "Create or open the programming day.",
   "Use Add show to timeline for a new upload or Schedule existing asset / show for existing media.",
   "Set show title, start time, duration, block type and asset/slide.",
+  "Use the Rundown editor to reorder, resize, duplicate, archive or bulk-mark blocks before air.",
   "Assign fallback assets and overlays when needed.",
   "Review schedule health until critical items are clear.",
+  "Open the operator runbook for the day and complete critical preflight checks.",
   "Mark the day ready, then active when it should drive output.",
   "Open the live output from the admin link so /api/output/session mints the output cookie, or bootstrap capture with a temporary output token.",
+  "During live operation, use the output monitor and runbook live checks to verify current block, next block, fallback reason and clock skew.",
   "Use debug output or block preview for troubleshooting.",
-  "Stop broadcast from the output control panel when the day is done."
+  "Record incidents in the runbook, then complete shutdown checks and stop broadcast from the output control panel when the day is done."
 ]
 
 export default function ManualPage() {
@@ -324,6 +329,10 @@ export default function ManualPage() {
           <h2 className="text-xl font-semibold">Current Limits and Operating Notes</h2>
           <ul className="mt-4 grid gap-2 text-sm leading-6 text-white/70">
             <li>Admin authentication is a bootstrap-token flow, not a multi-user role system.</li>
+            <li>
+              Runbook persistence requires the `operator_runbook_checks` Supabase migration in the
+              target database.
+            </li>
             <li>Unmuted autoplay requires the capture browser to allow audio autoplay.</li>
             <li>
               Lower-third and music controls in some panels are local control surfaces unless saved
