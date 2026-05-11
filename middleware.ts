@@ -40,6 +40,7 @@ function rejectCrossSiteMutation(request: NextRequest) {
   }
   if (!origin) return null
   if (origin === request.nextUrl.origin) return null
+  if (origin === originFromEnv(process.env.NEXT_PUBLIC_APP_BASE_URL)) return null
   return NextResponse.json({ ok: false, error: "Invalid request origin" }, { status: 403 })
 }
 
@@ -106,7 +107,7 @@ function contentSecurityPolicy() {
     "img-src 'self' data: blob: https: http:",
     "media-src 'self' blob: https: http:",
     "connect-src 'self' https: http: wss:",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com",
     "style-src 'self' 'unsafe-inline'"
   ].join("; ")
 }
