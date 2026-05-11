@@ -13,9 +13,7 @@ rtk npm run security:service-role
 rtk npm run security:audit-trail
 rtk npm test -- --coverage --run
 rtk npm run build
-rtk npm run cf:build
 rtk npm run smoke:http
-rtk npm run e2e
 ```
 
 Run staging write smoke before production deploy:
@@ -40,6 +38,25 @@ rtk npm run smoke:prod
 The production smoke is intentionally read-only. It must not create days, upload media, publish a
 schedule, trigger sync jobs, or mutate Supabase.
 
+For the current `rtvtime.diegodella.ar` host, production deploy is local standalone Next.js behind
+`cloudflared`:
+
+```bash
+rtk npm run deploy:local
+```
+
+After deploy, run production browser playout smoke:
+
+```bash
+export RTV_BASE_URL="https://rtvtime.diegodella.ar"
+export ADMIN_BOOTSTRAP_TOKEN="..."
+export OUTPUT_CAPTURE_TOKEN="..."
+rtk npm run e2e
+```
+
+`cf:build` and `cf:*` commands remain available for Cloudflare Worker/OpenNext validation, but they
+are not the active production deploy path on this host.
+
 ## Output Token Rotation
 
 1. Set a new `OUTPUT_CAPTURE_TOKEN` in the target environment.
@@ -58,6 +75,7 @@ schedule, trigger sync jobs, or mutate Supabase.
 - Secrets: health checks and errors never include secret values.
 - Service role: every mutating API route that uses privileged Supabase access calls `requireAdmin`.
 - Output: protected output routes require `OUTPUT_CAPTURE_TOKEN` in production and use an `HttpOnly` output cookie for normal admin launches.
+- Output session: `/api/output/session` must redirect to the public app origin, never `0.0.0.0`, `localhost`, or `:3450`.
 - Dependencies: run `rtk npm audit --audit-level=high` and triage high/critical findings.
 
-MVP may ship only with no open P0/P1 findings.
+MVP may ship only with no open P0 findings and explicit owner/date for any P1 follow-up.

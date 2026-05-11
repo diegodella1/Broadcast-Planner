@@ -8,7 +8,7 @@ Internal playout / lineup manager for Roxom TV. Programs the on-air day, manages
 
 ## 1. Getting started
 
-**URL**: `https://<your-domain>/admin/calendar` (production) or `http://localhost:3000/admin/calendar` (local dev).
+**URL**: `https://rtvtime.diegodella.ar/admin/calendar` (production) or `http://localhost:3450/admin/calendar` (local dev).
 
 The app is served from the domain root. Old `/rtvtime/...` links redirect to root paths.
 
@@ -23,12 +23,12 @@ The app is served from the domain root. Old `/rtvtime/...` links redirect to roo
 
 ## 2. The chrome
 
-| Element                 | What                                                                                                                                                      |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **56px sidebar** (left) | Icon-only nav: Calendar / Schedule / Assets / Slides / Settings / Output. Hover any icon → tooltip shows label. Active route is green.                    |
-| **48px topbar** (top)   | Page title (left) · ON AIR pill / Locale switcher / Health / Output / page-action button (right).                                                         |
-| **ON AIR pill**         | Red + pulsing when day status is `active` AND a block is currently airing. Dim when off.                                                                  |
-| **Outage banner**       | Red strip above topbar if Supabase calls fail. Means: data shown may be stale or fixture-only. Operator should NOT trust the rundown until banner clears. |
+| Element                | What                                                                                                                                         |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Sidebar**            | Left navigation for Dashboard, Control, Programming, Library, Vimeo, Graphics, Music, Audit and Integrations. Active route is highlighted.   |
+| **Header**             | Page title, page description and primary action for the current admin screen.                                                                |
+| **Live capture card**  | Sidebar shortcut opens `/api/output/session?return_to=/output/live&debug=true`, which mints the output cookie before redirecting to capture. |
+| **Outage / health UI** | Health endpoints and schedule health panels show Supabase, storage, Vimeo and programming risks.                                             |
 
 ---
 
@@ -152,31 +152,26 @@ All copy translated. Token-safe palette (no raw `bg-red-50` etc.).
 
 Catalog of media that blocks can reference.
 
-### View modes
+### Pagination and filters
 
-URL params: `?view=list|tiles&source=all|vimeo|reuters|uploads`
+The Library is a server-rendered list with 50 assets per page. Pagination appears above and below the asset list, preserves all filters, and supports `?page=N`.
 
-**Tile grid** (`?view=tiles`): 16:9 thumbnails in `auto-fill minmax(150px, 1fr)`. Each tile = thumbnail + duration badge (or `Live` chip) + name + source pill.
+Filters:
 
-**List** (default): rich table with every column for editing.
-
-### Source pills (in tiles)
-
-| Source                                                   | Pill         |
-| -------------------------------------------------------- | ------------ |
-| `vimeo`                                                  | blue         |
-| `reuters`                                                | red (live)   |
-| `supabase_image` / `remote_image` / `remote_mp4` / `hls` | white-tinted |
-
-### Filter tabs
-
-`Todos / Vimeo / Reuters / Uploads` — combine with status filters AND-style.
+- Status: all, review, ready.
+- Kind/source: video, Vimeo, fallbacks, ads, promos, images, audio.
+- Text search: title, description, source, kind, asset type and Vimeo show metadata.
+- Vimeo show, month, year.
+- Sort: title, duration, status.
 
 ### Common actions
 
 - **Upload** — drag MP4/PNG into upload form → posts to `/api/assets/upload`, file goes to Supabase storage, row created in `media_assets`.
-- **Import from Vimeo** — paste a Vimeo video URI → `/api/vimeo/import` calls Vimeo API + upserts. (See also Settings §10.1 episode picker for bulk import.)
-- **Edit** an existing row → opens inline form: title · duration override · status · fallback flag · orientation.
+- **Upload and schedule** — from a day schedule, upload directly to `/api/assets/upload-schedule` and create a block.
+- **Add remote URL** — register remote image, MP4, HLS, RTMP or Vimeo source without uploading.
+- **Sync Vimeo** — use `/admin/vimeo` to mirror account videos into Library.
+- **Edit** an existing row → opens inline form: title · URL · duration override · source type · media kind · asset type · status · orientation · thumbnail · description.
+- **Delete** → confirm modal removes the Library row; scheduled blocks using it will show missing asset warnings.
 
 ### Live chip rule
 
@@ -233,7 +228,9 @@ Renders whatever block is active right now via `findActiveSchedule` + `output-re
 - `hls` / `reuters` → HLS player (`hls.js` lazy-loaded; Safari uses native)
 - `supabase_image` / `remote_image` → `<Image>`
 
-Append `?debug=true` to see overlays of clock, day, block id, elapsed seconds, asset, layer count. Useful for staging.
+Production output is protected by `OUTPUT_CAPTURE_TOKEN`. Normal admin flow uses `/api/output/session`, sets an `HttpOnly` `rpm_output_token` cookie, then redirects to `/output/live`. Direct `?token=` access remains for scripts and first-time capture bootstrap only.
+
+Append `?debug=true` to see overlays of clock, day, block id, elapsed seconds, asset, layer count. Useful for staging. Debug links from admin also go through `/api/output/session`.
 
 Layers (lower-thirds, sidebar widgets, fullscreen takeovers) render as absolutely positioned overlays on top of the base content.
 
@@ -268,7 +265,6 @@ Form fields: client ID · client secret · refresh token (all encrypted).
 #### 11.1 Vimeo manual broadcast
 
 - ✅ Search + go-live + schedule shipped.
-- ⚠️ **Pre-existing bug**: `app/api/vimeo/search/route.ts` returns `{results: [...]}` but client parses body as `VimeoVideo[]`. Currently returns 0 results until fixed. One-line fix.
 - 🔧 **Conflict resolution**: when scheduled time overlaps an existing block, action throws via `hasBaseBlockConflict`. UI shows error string but no "preempt and replace" option.
 - 🔧 No "cancel pending broadcast" (must navigate to block detail and delete).
 - 🔧 No multi-asset queue (e.g. schedule 3 sequential clips).
@@ -300,7 +296,6 @@ Form fields: client ID · client secret · refresh token (all encrypted).
 
 - ✅ Stop broadcast w/ confirm.
 - ❌ Source switcher is a stub — needs to call real mutation.
-- 🔧 Audit log for Stop broadcast is `console.log` only — should write to `audit_log` table.
 - 🔧 No manual-override-block clearing logic on Stop.
 
 #### 11.6 Schedule rundown
@@ -320,11 +315,9 @@ Form fields: client ID · client secret · refresh token (all encrypted).
 
 #### 11.8 Assets
 
-- ✅ Tile grid + source filter + Live chip.
+- ✅ Paginated Library list, search, filters, month/year/show filters and Live chip.
 - 🔧 No asset preview modal (click a tile → popup).
 - ❌ Tag system / categories (currently just status + source).
-- ❌ Search box (only filter chips).
-- ❌ Bulk import from Vimeo folder (only Settings episode picker).
 
 #### 11.9 Slides
 
@@ -345,7 +338,7 @@ Form fields: client ID · client secret · refresh token (all encrypted).
 #### 11.11 Settings
 
 - 🔧 No Vimeo connection-test button (need to save then refresh page).
-- 🔧 Audit log viewer (data exists in `audit_log` table; no UI).
+- ✅ Audit log viewer for critical mutation events.
 - ❌ Multi-operator support — currently single bootstrap token.
 - ❌ Roles (producer / director / admin).
 
@@ -363,7 +356,6 @@ Form fields: client ID · client secret · refresh token (all encrypted).
 
 - 🔧 `/admin/health` route doesn't exist — Health button currently temp-points at `/output/live`.
 - 🔧 `@keyframes blink` / `pd` / `bar-grow` definitions missing — `.anim-*` classes reference non-existent keyframes (silent fail; reduced-motion guard works).
-- 🔧 Repo-wide Prettier sweep needed — ~48 files unformatted; CI `format:check` is currently `continue-on-error`.
 - ❌ Background job queue (channel sync, asset re-cache currently manual).
 - ❌ Realtime Supabase channels for live operator updates (currently 5 s polling).
 
@@ -375,15 +367,16 @@ Form fields: client ID · client secret · refresh token (all encrypted).
 
 #### 11.15 Tests
 
-- ✅ 161 tests, mutations 99 % covered.
-- ❌ End-to-end Playwright tests.
+- ✅ Unit tests, HTTP smoke and Playwright playout smoke.
+- 🔧 Add richer authenticated Playwright flows for admin assets, Vimeo sync, schedule creation and output control.
 - ❌ Visual regression screenshots.
 - ❌ Performance benchmarks for `findActiveSchedule` over large schedules.
 
 #### 11.16 Security
 
 - 🔧 No rate limiting on `/api/*` endpoints.
-- 🔧 No CSRF protection on server actions.
+- ✅ CSRF protection on mutating admin forms and APIs.
+- ✅ Output routes protected by output token/cookie in production.
 - ❌ Multi-operator auth.
 - ❌ Audit log immutability (currently regular table).
 
@@ -459,11 +452,11 @@ Topbar → locale toggle → click EN or ES. Page refreshes; cookie `NEXT_LOCALE
 ## 14. Quick reference — keyboard / URL shortcuts
 
 | Where                        | Shortcut                                                                                           |
-| ---------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Any locale-prefix path       | `?lang=en                                                                                          | es` won't work; toggle via topbar (cookie-based). |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| Locale                       | Use the topbar toggle; `?lang=en/es` is not supported.                                             |
 | Schedule for today           | `/admin/schedule/<today's-iso-date-in-ARG-tz>` (Calendar's "Schedule today" button computes this). |
-| Output debug overlay         | append `?debug=true` to `/output/live`.                                                            |
-| Force Reuters provider       | env `REUTERS_PROVIDER=real                                                                         | fixtures`.                                        |
+| Output debug overlay         | Open admin debug link or append `?debug=true` after output session is minted.                      |
+| Force Reuters provider       | env `REUTERS_PROVIDER=real` or `REUTERS_PROVIDER=fixtures`.                                        |
 | Bypass admin gate (dev only) | unset `ADMIN_BOOTSTRAP_TOKEN` env var → middleware no-ops.                                         |
 
 ---

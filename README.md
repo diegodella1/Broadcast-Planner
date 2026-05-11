@@ -18,9 +18,10 @@ This is not a public website or a video library. It is an operations console for
 - Manages slides and graphic content used by the output renderer.
 - Generates long schedule grids for broadcast programming.
 - Checks schedule health: gaps, overlaps, missing assets, unready assets, and missing fallback.
-- Renders clean output routes for live playout and block previews.
+- Renders protected clean output routes for live playout and block previews.
+- Keeps audit records for broadcast-critical mutations.
 - Stores data in Supabase.
-- Provides tests for scheduling logic and schedule health rules.
+- Provides unit, HTTP smoke, and Playwright browser smoke tests.
 
 ## Stack
 
@@ -40,6 +41,7 @@ This is not a public website or a video library. It is an operations console for
 - `/admin/calendar` - programming calendar
 - `/admin/schedule/[date]` - daily schedule view
 - `/admin/assets` - media asset library
+- `/admin/audit` - broadcast-critical audit trail
 - `/admin/vimeo` - Vimeo sync monitor and synced episode catalog
 - `/admin/slides` - slide library
 - `/admin/output` - operator output control panel
@@ -132,7 +134,8 @@ npm run build    # Build production app
 npm run start    # Start production server
 npm run lint     # Run Next lint
 npm test         # Run Vitest unit tests
-npm run e2e      # Run Node-based read-only E2E smoke
+npm run e2e      # Run Playwright browser playout smoke
+npm run smoke:http # Run Node read-only HTTP smoke
 npm run smoke:local # Read-only runtime smoke against local app
 npm run smoke:prod  # Read-only pre-air smoke against production
 ```
@@ -166,8 +169,9 @@ Production container health check:
 - Output screens should stay clean, fullscreen, and safe for browser capture.
 - `.env` contains secrets and must not be committed.
 - `ADMIN_BOOTSTRAP_TOKEN` is used for protected admin access.
-- `OUTPUT_CAPTURE_TOKEN` protects `/output/live` and preview routes when configured. Leave it unset only for controlled public capture tests.
+- `OUTPUT_CAPTURE_TOKEN` is required in production and protects `/output/live`, preview, schedule and playback routes. Admin output links mint an `HttpOnly` `rpm_output_token` cookie through `/api/output/session`; query tokens are only for scripts/bootstrap.
 - `APP_ENCRYPTION_KEY` must be a strong 32-byte base64 key.
+- Mutating admin forms and APIs use CSRF protection. If server actions return 403 behind a tunnel, confirm `NEXT_PUBLIC_APP_BASE_URL` matches the public domain.
 - Fallback assets matter: schedules should not depend on a single fragile media URL.
 - Schedule health warnings should be treated as broadcast risks, not cosmetic errors.
 - Track production gaps in `/pending` and treat P0 items as required before unattended operation.
@@ -190,10 +194,16 @@ Implemented:
 - Vimeo sync endpoint and synced Library catalog
 - Schedule generation and health checks
 - Pending developments page
+- Audit page and audited mutation helper
+- CSRF and output token protection
+- Assets pagination
+- Vimeo playback readiness fields
+- Database trigger for per-day schedule overlap prevention
+- Production read-only smoke and browser playout smoke
 
 Known next priority:
 
-- P0 backlog in `/pending`: multi-user roles, broadcast audit trail, Vimeo playback readiness, protected output decision, and conflict-prevention UX.
+- P0/P1 backlog in `/pending`: multi-user roles, richer conflict UX, staging write cleanup/archive, forced bad-media fallback fixture, backup/restore drill and operational monitoring.
 
 ## Repository
 
@@ -203,9 +213,43 @@ Private GitHub repository:
 roxom-tv/RTV-TL-MANAGER
 ```
 
-## Cloudflare Deployment
+## Production Deployment
 
-The app deploys to Cloudflare Workers via the `@opennextjs/cloudflare` adapter. Static assets are served via the Workers Assets binding. The `nodejs_compat` compatibility flag enables Node.js built-ins (Buffer, crypto, streams) required by `@supabase/ssr` and `next-intl`.
+Current production for `rtvtime.diegodella.ar` runs on the local host through `rtvplanner.service`, with public traffic proxied by `cloudflared`. The deployment command builds the standalone Next.js app, copies static assets, restarts the service, and smokes health/manual/output/CSS.
+
+```bash
+npm run deploy:local
+```
+
+The public tunnel service is managed outside the repo by `cloudflared.service`. The app service reads `/home/diego/Documents/RTVplanner/.env`.
+
+### Clone-ready environment checklist
+
+Set these values in `.env` on any new host:
+
+| Variable                        | Source                                                              |
+| ------------------------------- | ------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project API settings                                       |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project API anon key                                       |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase project API service role key                               |
+| `APP_ENCRYPTION_KEY`            | Generate base64 32-byte secret                                      |
+| `ADMIN_BOOTSTRAP_TOKEN`         | Generate/rotate admin login token                                   |
+| `OUTPUT_CAPTURE_TOKEN`          | Generate/rotate output capture token                                |
+| `NEXT_PUBLIC_APP_BASE_URL`      | Public URL, e.g. `https://rtvtime.diegodella.ar`                    |
+| `VIMEO_ACCESS_TOKEN`            | Vimeo developer/access token, optional only if DB settings are used |
+| Reuters variables               | Reuters provider account, only when `REUTERS_PROVIDER=real`         |
+
+Generate a local encryption key:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+### Optional Cloudflare Workers/OpenNext path
+
+The repo still includes Cloudflare Workers tooling via `@opennextjs/cloudflare`. This is available for preview or future Worker deployment, but it is not the active production path for the current host.
+
+Static assets are served via the Workers Assets binding when this path is used. The `nodejs_compat` compatibility flag enables Node.js built-ins (Buffer, crypto, streams) required by `@supabase/ssr` and `next-intl`.
 
 > **Note on `output: "standalone"`**: `next.config.mjs` keeps `output: "standalone"` for Docker builds. The OpenNext adapter runs its own bundler and ignores that option — both deployment paths coexist without conflict.
 
@@ -240,12 +284,12 @@ These are not secrets but differ between staging and production. Set them in the
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project anon key   |
 | `NEXT_PUBLIC_APP_BASE_URL`      | `https://roxomtv.com`       |
 
-### Build and deploy commands
+### Cloudflare Worker build and deploy commands
 
 ```bash
 npm run cf:build    # Build for Cloudflare Workers (outputs to .open-next/)
 npm run cf:dev      # Build then start local emulator via wrangler dev
-npm run cf:deploy   # Build then deploy to production
+npm run cf:deploy   # Build then deploy to a Cloudflare Worker environment
 npm run cf:preview  # Build then upload as a version preview (no traffic shift)
 ```
 

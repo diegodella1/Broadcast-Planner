@@ -4,10 +4,12 @@ Goal: close the P0/P1 failure modes from `premortem-report-20260510-203403.html`
 
 ## Gate 1: Prove Real Playout, Not Just HTTP
 
-Status: implemented for the release gate. Forced-bad-media fixture remains follow-up.
+Status: implemented for the release gate. Production browser smoke passes against the public tunnel.
+Forced-bad-media fallback fixture remains follow-up.
 
 - Add `@playwright/test` and replace the Node-only `npm run e2e` with Playwright smoke.
-- Test `/output/live` with a real browser against local production build and Cloudflare preview.
+- Test `/output/live` with a real browser against local production build and the public
+  `cloudflared` tunnel.
 - Wait for one of these explicit outcomes:
   - media state reaches `playing`
   - branded fallback slate renders intentionally
@@ -133,23 +135,20 @@ Acceptance:
 
 ## Gate 7: Canonicalize Release Runtime
 
-Status: release docs now require Cloudflare build plus HTTP/browser/staging/prod smokes.
+Status: release docs now require local tunnel deploy plus HTTP/browser/staging/prod smokes.
 
-- Treat Cloudflare preview as the primary release candidate.
+- Treat `deploy:local` behind `cloudflared` as the current primary production path.
 - Release order:
   1. local type/lint/test/build
-  2. `cf:build`
-  3. deploy/upload preview
-  4. HTTP smoke against preview
-  5. browser playout smoke against preview
-  6. staging write smoke
-  7. production deploy
-  8. production read-only smoke
-- Keep Docker/local tunnel smoke as secondary, clearly labeled non-primary.
+  2. production deploy with `deploy:local`
+  3. production read-only smoke
+  4. production browser playout smoke
+  5. staging write smoke when a staging host exists
+- Keep Cloudflare Worker/OpenNext build as optional validation for future deploy strategy.
 
 Acceptance:
 
-- No production deploy without preview smoke.
+- No production deploy without local build and post-deploy smoke.
 - OpenNext warnings are triaged or documented with owner.
 
 ## Priority Order
@@ -167,7 +166,7 @@ Acceptance:
 MVP production-ready only when:
 
 - No open P0/P1 from premortem.
-- Browser playout smoke passes against preview.
+- Browser playout smoke passes against production tunnel.
 - Production read-only smoke passes pre-air.
 - Staging write smoke passes.
 - Output token is required and not stored long-term in capture URLs.

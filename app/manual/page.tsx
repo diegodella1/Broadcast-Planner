@@ -73,10 +73,11 @@ const operatorSections = [
     icon: Library,
     body: [
       "The asset library stores videos, Vimeo programs, Reuters channels, still images, HLS/MP4 links, ads, promos, fallbacks and music assets.",
-      "Operators upload files, filter by source/status/type/search, inspect thumbnails, duration and file metadata, and edit asset metadata used by the renderer."
+      "Operators upload files, add remote URLs, search and filter assets, inspect thumbnails, duration and file metadata, and edit asset metadata used by the renderer."
     ],
     details: [
       "Library order is intentional: upload media or sync Vimeo first, review readiness, then schedule it as a show/block on a programming day.",
+      "The Library renders a paginated server-side list of 50 assets per page and preserves search, source/type, Vimeo show, month, year and sort filters across page links.",
       "Images default to 25 seconds unless overridden. Video/audio use detected metadata duration unless overridden.",
       "Ready assets are eligible for playout. Draft, syncing, failed and archived assets need review before they should be scheduled.",
       "Fallback assets protect the output when primary media is missing or playback fails.",
@@ -146,8 +147,8 @@ const operatorSections = [
     title: "Pending developments",
     icon: ListChecks,
     body: [
-      "The pending page lists current functionality, production MVP gaps, hardening tasks and future capabilities.",
-      "Use it as the short product backlog for deciding what must be done before wider operator handoff."
+      "The pending page lists current functionality, remaining production MVP gaps, hardening tasks and future capabilities.",
+      "Use it as the short product backlog for deciding what must be done before unattended operation and wider operator handoff."
     ],
     details: [
       "P0 items are required before unattended broadcast operation.",
@@ -205,6 +206,8 @@ const publicSections = [
       "It renders the active schedule block, primary media or slide, scheduled overlays, fallback assets and background music where applicable."
     ],
     details: [
+      "Normal admin launches go through /api/output/session, which sets an HttpOnly rpm_output_token cookie and redirects to /output/live.",
+      "Direct ?token= access remains for scripts and capture bootstrap only.",
       "Vimeo videos are resolved through a server playback endpoint and rendered as HLS video.",
       "Remote MP4, HLS, Reuters and image sources use source-specific renderer paths.",
       "Use debug mode only for staging and troubleshooting."
@@ -228,8 +231,8 @@ const publicSections = [
     title: "Access model",
     icon: Shield,
     body: [
-      "Admin routes require the configured bootstrap token. Output routes are designed for capture and monitoring, so treat their URLs as operational endpoints.",
-      "Secrets such as Supabase service role keys, Vimeo tokens and encryption keys must remain in environment variables or encrypted settings, never in public documentation."
+      "Admin routes require the configured bootstrap token. Output routes require the output capture token in production, either by admin-minted cookie or temporary query token.",
+      "Secrets such as Supabase service role keys, Vimeo tokens, output tokens and encryption keys must remain in environment variables or encrypted settings, never in public documentation."
     ]
   }
 ]
@@ -243,7 +246,7 @@ const workflowSteps = [
   "Assign fallback assets and overlays when needed.",
   "Review schedule health until critical items are clear.",
   "Mark the day ready, then active when it should drive output.",
-  "Open /output/live on the capture machine and confirm audio/video.",
+  "Open the live output from the admin link so /api/output/session mints the output cookie, or bootstrap capture with a temporary output token.",
   "Use debug output or block preview for troubleshooting.",
   "Stop broadcast from the output control panel when the day is done."
 ]

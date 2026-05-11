@@ -19,47 +19,31 @@ const mvpNeeded: PendingItem[] = [
       "Replace single bootstrap token with named users, operator/admin roles, sessions, revoke, and audit identity."
   },
   {
-    title: "Broadcast action audit trail",
-    priority: "P0",
-    status: "needed",
-    owner: "Operator",
-    detail:
-      "Record activate day, stop broadcast, delete asset, schedule changes, Vimeo sync, and manual overrides with actor/time/result."
-  },
-  {
-    title: "Vimeo playback readiness",
-    priority: "P0",
-    status: "needed",
-    owner: "Media",
-    detail:
-      "Validate each synced Vimeo asset can resolve HLS playback, then mark unavailable items as review/failed before scheduling."
-  },
-  {
-    title: "Protected output mode",
-    priority: "P0",
-    status: "needed",
-    owner: "Output",
-    detail:
-      "Define whether live output stays public on the tunnel or requires a capture token; document and enforce the decision."
-  },
-  {
-    title: "Schedule conflict UX",
+    title: "Richer schedule conflict UX",
     priority: "P0",
     status: "needed",
     owner: "Programming",
     detail:
-      "Show conflicts before submit and offer nearest safe start/duration instead of returning a server error."
+      "Keep the DB overlap trigger and app conflict checks, then add inline suggested safe starts, resize options and preempt/replace flows."
   }
 ]
 
 const productionHardening: PendingItem[] = [
   {
-    title: "Automated browser smoke",
+    title: "Forced bad-media fallback fixture",
     priority: "P1",
     status: "planned",
     owner: "QA",
     detail:
-      "Run authenticated Playwright checks for admin assets, Vimeo sync, schedule, output control, manual and live output."
+      "Add a staging/local fixture that intentionally fails primary media playback and proves output switches to fallback instead of black/loading."
+  },
+  {
+    title: "Staging write smoke cleanup",
+    priority: "P1",
+    status: "planned",
+    owner: "QA",
+    detail:
+      "Extend staging write smoke to archive/delete sandbox media and blocks after upload, schedule, preview and audit checks pass."
   },
   {
     title: "Backup and restore drill",
@@ -116,13 +100,19 @@ const futureCapabilities: PendingItem[] = [
 
 const currentFunctions = [
   "Daily programming calendar and schedule blocks",
-  "Library for uploaded media, remote URLs, Vimeo-synced videos, music, ads, promos and fallbacks",
+  "Paginated Library for uploaded media, remote URLs, Vimeo-synced videos, music, ads, promos and fallbacks",
   "Vimeo daily sync with manual Sync now",
+  "Vimeo playback readiness and stale/review metadata",
   "Image/video/audio metadata detection during upload",
   "System slide library and template slides",
   "Schedule health checks for gaps, overlaps, missing assets and readiness",
-  "Live output, debug output and block preview routes",
+  "App-level and DB-level per-day schedule overlap prevention",
+  "Protected live output, debug output and block preview routes",
+  "Output session cookie for normal admin launches",
   "Output control panel with status, lower-third controls and stop broadcast",
+  "Audit page and audited critical mutations",
+  "CSRF protection for mutating admin forms and APIs",
+  "Production read-only smoke and Playwright browser playout smoke",
   "Production deployment behind cloudflared at the root domain"
 ]
 
@@ -139,8 +129,9 @@ export default function PendingPage() {
             Pending Developments and Functionality
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
-            Current implementation is usable for controlled production tests. The items below are
-            the needed work to make the MVP safer, faster and easier to operate at scale.
+            Current implementation is deployed and usable for controlled production operation. The
+            items below are remaining work for unattended operation, broader operator handoff and
+            future capability expansion.
           </p>
         </header>
 
@@ -172,8 +163,8 @@ export default function PendingPage() {
         <section className="mt-8 rounded-lg border border-warn-line bg-warn-soft p-5">
           <h2 className="text-xl font-semibold text-warn-strong">Operating Rule</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-white/75">
-            Treat P0 items as required before unattended broadcast operation. P1 items are required
-            before wider operator handoff. P2 items should wait until the core workflow is stable.
+            Treat P0 items as required before unattended broadcast operation. P1 items harden the
+            deployment, QA and handoff path. P2 items should wait until the core workflow is stable.
           </p>
         </section>
       </div>
