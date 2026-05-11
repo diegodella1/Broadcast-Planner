@@ -4,6 +4,7 @@ set -euo pipefail
 npm run build
 
 mkdir -p .next/standalone/.next
+rm -rf .next/standalone/.next/static
 mkdir -p .next/standalone/.next/static
 cp -R .next/static/. .next/standalone/.next/static/
 rm -rf .next/standalone/public
@@ -24,10 +25,14 @@ else
   esac
 fi
 
-css_file="$(find .next/static/css -type f -name '*.css' | head -n 1)"
-if [[ -n "${css_file}" ]]; then
-  css_name="$(basename "${css_file}")"
-  curl -fsS "http://127.0.0.1:3450/_next/static/css/${css_name}" >/dev/null
+login_html="$(curl -fsS http://127.0.0.1:3450/admin/login)"
+mapfile -t css_hrefs < <(printf '%s' "$login_html" | grep -oE '/_next/static/css/[^"]+\.css' | sort -u)
+if [[ "${#css_hrefs[@]}" -eq 0 ]]; then
+  echo "No CSS assets found in rendered login HTML" >&2
+  exit 1
 fi
+for css_href in "${css_hrefs[@]}"; do
+  curl -fsS "http://127.0.0.1:3450${css_href}" >/dev/null
+done
 
 echo "rtvplanner production deploy ok"
