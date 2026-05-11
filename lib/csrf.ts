@@ -1,24 +1,18 @@
 import { randomBytes, timingSafeEqual } from "crypto"
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
 
 export const CSRF_COOKIE = "rpm_csrf"
 export const CSRF_FIELD = "_csrf"
 export const CSRF_HEADER = "x-csrf-token"
+export const INTERNAL_CSRF_HEADER = "x-rtv-csrf-token"
 
 export async function getCsrfToken() {
   const cookieStore = await cookies()
   const existing = cookieStore.get(CSRF_COOKIE)?.value
   if (isValidTokenShape(existing)) return existing
-
-  const token = randomBytes(32).toString("base64url")
-  cookieStore.set(CSRF_COOKIE, token, {
-    httpOnly: false,
-    sameSite: "lax",
-    secure: isSecureCookie(),
-    path: "/",
-    maxAge: 60 * 60 * 12
-  })
-  return token
+  const headerToken = (await headers()).get(INTERNAL_CSRF_HEADER) ?? undefined
+  if (isValidTokenShape(headerToken)) return headerToken
+  return randomBytes(32).toString("base64url")
 }
 
 export async function verifyCsrfToken(request: Request) {
@@ -50,13 +44,6 @@ function constantTimeEqual(expected: string, actual: string) {
   return left.length === right.length && timingSafeEqual(left, right)
 }
 
-function isValidTokenShape(value: string | undefined) {
+function isValidTokenShape(value: string | undefined): value is string {
   return typeof value === "string" && value.length >= 32 && value.length <= 128
-}
-
-function isSecureCookie() {
-  return (
-    process.env.NEXT_PUBLIC_APP_BASE_URL?.startsWith("https://") ??
-    process.env.NODE_ENV === "production"
-  )
 }

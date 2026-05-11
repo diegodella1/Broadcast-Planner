@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const cookieMap = new Map<string, string>()
+const headerMap = new Map<string, string>()
 
 vi.mock("next/headers", () => ({
+  headers: vi.fn(async () => ({
+    get: (name: string) => headerMap.get(name) ?? null
+  })),
   cookies: vi.fn(async () => ({
     get: (name: string) => {
       const value = cookieMap.get(name)
@@ -17,17 +21,21 @@ vi.mock("next/headers", () => ({
 describe("csrf", () => {
   beforeEach(() => {
     cookieMap.clear()
+    headerMap.clear()
     vi.resetModules()
   })
 
-  it("issues and reuses a CSRF token", async () => {
-    const { CSRF_COOKIE, getCsrfToken } = await import("./csrf")
+  it("reads a CSRF token from middleware headers and reuses the cookie", async () => {
+    const { CSRF_COOKIE, INTERNAL_CSRF_HEADER, getCsrfToken } = await import("./csrf")
+    const issued = "a".repeat(48)
+    headerMap.set(INTERNAL_CSRF_HEADER, issued)
     const first = await getCsrfToken()
+    cookieMap.set(CSRF_COOKIE, first)
+    headerMap.clear()
     const second = await getCsrfToken()
 
-    expect(first).toHaveLength(43)
+    expect(first).toBe(issued)
     expect(second).toBe(first)
-    expect(cookieMap.get(CSRF_COOKIE)).toBe(first)
   })
 
   it("accepts a matching header token", async () => {

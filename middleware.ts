@@ -1,28 +1,30 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+import { CSRF_COOKIE, INTERNAL_CSRF_HEADER } from "@/lib/csrf"
+
 export function middleware(request: NextRequest) {
   const csrfResponse = rejectCrossSiteMutation(request)
-  if (csrfResponse) return withSecurityHeaders(csrfResponse)
+  if (csrfResponse) return withCsrfCookie(request, withSecurityHeaders(csrfResponse))
 
   if (request.nextUrl.pathname === "/rtvtime" || request.nextUrl.pathname.startsWith("/rtvtime/")) {
     const url = request.nextUrl.clone()
     url.pathname = request.nextUrl.pathname.replace(/^\/rtvtime/, "") || "/"
-    return withSecurityHeaders(NextResponse.redirect(url, 308))
+    return withCsrfCookie(request, withSecurityHeaders(NextResponse.redirect(url, 308)))
   }
 
   if (
     !request.nextUrl.pathname.startsWith("/admin") ||
     request.nextUrl.pathname === "/admin/login"
   ) {
-    return withSecurityHeaders(NextResponse.next())
+    return withSecurityHeaders(nextWithCsrfHeader(request))
   }
   const expected = process.env.ADMIN_BOOTSTRAP_TOKEN
-  if (!expected) return withSecurityHeaders(NextResponse.next())
+  if (!expected) return withSecurityHeaders(nextWithCsrfHeader(request))
   const actual = request.cookies.get("rpm_admin_token")?.value
-  if (actual === expected) return withSecurityHeaders(NextResponse.next())
+  if (actual === expected) return withSecurityHeaders(nextWithCsrfHeader(request))
   const url = request.nextUrl.clone()
   url.pathname = "/admin/login"
-  return withSecurityHeaders(NextResponse.redirect(url))
+  return withCsrfCookie(request, withSecurityHeaders(NextResponse.redirect(url)))
 }
 
 export const config = {
@@ -47,6 +49,49 @@ function withSecurityHeaders(response: NextResponse) {
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
   return response
+}
+
+function nextWithCsrfHeader(request: NextRequest) {
+  const token = csrfTokenFor(request)
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set(INTERNAL_CSRF_HEADER, token)
+  return withCsrfCookie(
+    request,
+    NextResponse.next({
+      request: { headers: requestHeaders }
+    }),
+    token
+  )
+}
+
+function withCsrfCookie(
+  request: NextRequest,
+  response: NextResponse,
+  token = csrfTokenFor(request)
+) {
+  if (!request.cookies.get(CSRF_COOKIE)?.value) {
+    response.cookies.set(CSRF_COOKIE, token, {
+      httpOnly: false,
+      sameSite: "lax",
+      secure: isSecureCookie(),
+      path: "/",
+      maxAge: 60 * 60 * 12
+    })
+  }
+  return response
+}
+
+function csrfTokenFor(request: NextRequest) {
+  const existing = request.cookies.get(CSRF_COOKIE)?.value
+  if (existing && existing.length >= 32 && existing.length <= 128) return existing
+  return `${crypto.randomUUID()}${crypto.randomUUID()}`
+}
+
+function isSecureCookie() {
+  return (
+    process.env.NEXT_PUBLIC_APP_BASE_URL?.startsWith("https://") ||
+    process.env.NODE_ENV === "production"
+  )
 }
 
 function contentSecurityPolicy() {
