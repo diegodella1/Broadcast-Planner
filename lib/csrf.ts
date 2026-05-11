@@ -1,10 +1,9 @@
 import { randomBytes, timingSafeEqual } from "crypto"
 import { cookies, headers } from "next/headers"
 
-export const CSRF_COOKIE = "rpm_csrf"
-export const CSRF_FIELD = "_csrf"
-export const CSRF_HEADER = "x-csrf-token"
-export const INTERNAL_CSRF_HEADER = "x-rtv-csrf-token"
+export { CSRF_COOKIE, CSRF_FIELD, CSRF_HEADER, INTERNAL_CSRF_HEADER } from "./csrf-constants"
+
+import { CSRF_COOKIE, CSRF_FIELD, CSRF_HEADER, INTERNAL_CSRF_HEADER } from "./csrf-constants"
 
 export async function getCsrfToken() {
   const cookieStore = await cookies()

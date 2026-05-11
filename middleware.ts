@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 
-import { CSRF_COOKIE, INTERNAL_CSRF_HEADER } from "@/lib/csrf"
+import { CSRF_COOKIE, INTERNAL_CSRF_HEADER } from "@/lib/csrf-constants"
 
 export function middleware(request: NextRequest) {
   const csrfResponse = rejectCrossSiteMutation(request)
