@@ -1,8 +1,9 @@
+import { CsrfInput } from "@/components/csrf-input"
 import { MediaFilePicker } from "@/components/media-file-picker"
 import { SubmitButton } from "@/components/submit-button"
 import { Field, FormHeader } from "@/components/ui"
 
-export function MediaUploadForm({
+export async function MediaUploadForm({
   action,
   title = "Upload media",
   detail = "Store videos, images or MP3 files with browser-checked metadata.",
@@ -21,6 +22,7 @@ export function MediaUploadForm({
 }) {
   return (
     <form action={action} method="post" encType="multipart/form-data" className="surface-panel p-4">
+      <CsrfInput />
       <FormHeader title={title} detail={detail} />
       {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
       {scheduleDate ? <input type="hidden" name="date" value={scheduleDate} /> : null}

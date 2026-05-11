@@ -21,6 +21,8 @@ type MediaState =
   | "ended"
   | "fallback"
 
+type OutputState = "idle" | "loading" | "playing" | "fallback" | "emergency"
+
 type MarketItem = {
   symbol: string
   label: string
@@ -34,12 +36,14 @@ export function OutputRenderer({
   initialSchedule,
   initialSeconds,
   debug = false,
-  forcedBlockId
+  forcedBlockId,
+  outputToken
 }: {
   initialSchedule: ScheduleBundle
   initialSeconds: number
   debug?: boolean
   forcedBlockId?: string
+  outputToken?: string | undefined
 }) {
   const [liveSchedule, setLiveSchedule] = useState(initialSchedule)
   const [secondsOfDay, setSecondsOfDay] = useState(initialSeconds)
@@ -67,7 +71,9 @@ export function OutputRenderer({
     let cancelled = false
     const refresh = async () => {
       try {
-        const response = await fetch("/api/playout/schedule", { cache: "no-store" })
+        const response = await fetch(authenticatedApiPath("/api/playout/schedule", outputToken), {
+          cache: "no-store"
+        })
         if (!response.ok) return
         const payload = (await response.json()) as {
           schedule: ScheduleBundle
@@ -86,7 +92,7 @@ export function OutputRenderer({
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [forcedBlockId])
+  }, [forcedBlockId, outputToken])
 
   const schedule = useMemo(() => {
     if (!forcedBlockId) return liveSchedule
@@ -116,6 +122,13 @@ export function OutputRenderer({
     ["stalled", "errored", "ended", "fallback"].includes(currentMediaState.state)
   const renderAsset = mediaFailed ? active.fallbackAsset : (active.asset ?? active.fallbackAsset)
   const renderSlide = active.slide
+  const outputState = resolveOutputState({
+    active,
+    currentMediaState,
+    mediaFailed,
+    renderAsset: renderAsset ?? null,
+    renderSlide: renderSlide ?? null
+  })
   const musicAssets = schedule.mediaAssets
     .filter((asset) => asset.assetType === "music" && asset.status === "ready" && asset.url)
     .sort((a, b) => playlistOrder(a) - playlistOrder(b) || a.title.localeCompare(b.title))
@@ -133,12 +146,20 @@ export function OutputRenderer({
   )
 
   return (
-    <main className="tv-output relative">
+    <main
+      className="tv-output relative"
+      data-testid="output-root"
+      data-output-state={outputState}
+      data-media-state={currentMediaState.state}
+      data-active-asset-id={active.asset?.id ?? ""}
+      data-fallback-asset-id={active.fallbackAsset?.id ?? ""}
+    >
       <BaseContent
         active={active}
         asset={renderAsset ?? null}
         slide={renderSlide ?? null}
         onMediaState={updateMediaState}
+        outputToken={outputToken}
       />
       {active.layers.map((layer) => (
         <Layer key={layer.id} layer={layer} schedule={schedule} />
@@ -147,6 +168,7 @@ export function OutputRenderer({
       {debug && (
         <DebugPanel
           active={active}
+          outputState={outputState}
           secondsOfDay={forcedBlockId ? secondsOfDay - initialSeconds : secondsOfDay}
           mediaState={currentMediaState}
           musicEnabled={playMusic}
@@ -159,7 +181,14 @@ export function OutputRenderer({
 
 export function EmergencySlate({ reason }: { reason: string }) {
   return (
-    <main className="tv-output relative">
+    <main
+      className="tv-output relative"
+      data-testid="output-root"
+      data-output-state="emergency"
+      data-media-state="idle"
+      data-active-asset-id=""
+      data-fallback-asset-id=""
+    >
       <Fallback asset={null} reason={reason} />
     </main>
   )
@@ -169,12 +198,14 @@ function BaseContent({
   active,
   asset,
   slide,
-  onMediaState
+  onMediaState,
+  outputToken
 }: {
   active: ActiveSchedule
   asset: MediaAsset | null
   slide: SlideAsset | null
   onMediaState: (state: MediaState, error?: string) => void
+  outputToken?: string | undefined
 }) {
   if (!active.block) {
     return <Fallback asset={asset} reason={active.reason ?? "No active block"} />
@@ -183,7 +214,7 @@ function BaseContent({
   if (!asset) return <Fallback asset={active.fallbackAsset ?? null} reason="Missing asset" />
   if (asset.mediaKind === "image") return <ImageAsset asset={asset} />
   if (asset.sourceType === "vimeo" && asset.vimeoId) {
-    return <VimeoHlsPlayer asset={asset} onMediaState={onMediaState} />
+    return <VimeoHlsPlayer asset={asset} onMediaState={onMediaState} outputToken={outputToken} />
   }
   if (asset.sourceType === "reuters")
     return <ReutersPlayer asset={asset} onMediaState={onMediaState} />
@@ -215,10 +246,12 @@ function Layer({ layer, schedule }: { layer: ScheduledLayer; schedule: ScheduleB
 
 function VimeoHlsPlayer({
   asset,
-  onMediaState
+  onMediaState,
+  outputToken
 }: {
   asset: MediaAsset
   onMediaState: (state: MediaState, error?: string) => void
+  outputToken?: string | undefined
 }) {
   const [playback, setPlayback] = useState<{
     assetId: string
@@ -230,7 +263,9 @@ function VimeoHlsPlayer({
   useEffect(() => {
     let cancelled = false
     onMediaState("loading")
-    fetch(apiPath(`/api/vimeo/playback/${asset.id}`), { cache: "no-store" })
+    fetch(authenticatedApiPath(`/api/vimeo/playback/${asset.id}`, outputToken), {
+      cache: "no-store"
+    })
       .then(async (response) => {
         if (!response.ok) {
           const payload = (await response.json().catch(() => null)) as { error?: string } | null
@@ -259,7 +294,7 @@ function VimeoHlsPlayer({
     return () => {
       cancelled = true
     }
-  }, [asset.id, asset.durationSeconds, asset.title, onMediaState])
+  }, [asset.id, asset.durationSeconds, asset.title, onMediaState, outputToken])
 
   if (!playback || playback.assetId !== asset.id) {
     return <Fallback asset={null} reason="Loading Vimeo stream" />
@@ -425,8 +460,10 @@ function VideoAsset({
   )
 }
 
-function apiPath(path: string) {
-  return path
+function authenticatedApiPath(path: string, token: string | undefined) {
+  if (!token) return path
+  const separator = path.includes("?") ? "&" : "?"
+  return `${path}${separator}token=${encodeURIComponent(token)}`
 }
 
 function RtmpNotice({ asset }: { asset: MediaAsset }) {
@@ -572,7 +609,7 @@ function Slide({ slide, fullscreen = false }: { slide: SlideAsset; fullscreen?: 
       <div>
         <div className="text-5xl font-semibold">{slide.title}</div>
         {slide.htmlContent && (
-          <div className="mt-4 text-2xl" dangerouslySetInnerHTML={{ __html: slide.htmlContent }} />
+          <p className="mt-4 whitespace-pre-wrap text-2xl">{slide.htmlContent}</p>
         )}
         {slide.content && <p className="mt-4 text-2xl">{slide.content}</p>}
       </div>
@@ -672,12 +709,14 @@ function Fallback({ asset, reason }: { asset: MediaAsset | null; reason: string 
 
 function DebugPanel({
   active,
+  outputState,
   secondsOfDay,
   mediaState,
   musicEnabled,
   musicCount
 }: {
   active: ActiveSchedule
+  outputState: OutputState
   secondsOfDay: number
   mediaState: { assetId: string | null; state: MediaState; lastError: string | null }
   musicEnabled: boolean
@@ -685,6 +724,7 @@ function DebugPanel({
 }) {
   return (
     <aside className="absolute right-4 top-4 z-[9999] w-96 rounded bg-black/80 p-4 font-mono text-xs text-white">
+      <p data-testid="output-state">outputState: {outputState}</p>
       <p>clock: {formatTimecode(secondsOfDay)}</p>
       <p>day: {active.day?.airDate ?? "none"}</p>
       <p>block: {active.block?.title ?? "fallback"}</p>
@@ -701,6 +741,35 @@ function DebugPanel({
       {active.reason && <p>reason: {active.reason}</p>}
     </aside>
   )
+}
+
+function resolveOutputState({
+  active,
+  currentMediaState,
+  mediaFailed,
+  renderAsset,
+  renderSlide
+}: {
+  active: ActiveSchedule
+  currentMediaState: { state: MediaState }
+  mediaFailed: boolean
+  renderAsset: MediaAsset | null
+  renderSlide: SlideAsset | null
+}): OutputState {
+  if (!active.block) return "emergency"
+  if (
+    mediaFailed ||
+    (renderAsset &&
+      renderAsset.id === active.fallbackAsset?.id &&
+      active.asset?.id !== renderAsset.id)
+  ) {
+    return "fallback"
+  }
+  if (renderSlide || renderAsset?.mediaKind === "image") return "playing"
+  if (currentMediaState.state === "playing") return "playing"
+  if (currentMediaState.state === "fallback") return "fallback"
+  if (currentMediaState.state === "idle") return "idle"
+  return "loading"
 }
 
 function shouldPlayBackgroundMusic(

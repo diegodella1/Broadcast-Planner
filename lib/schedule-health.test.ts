@@ -51,4 +51,19 @@ describe("schedule health", () => {
     expect(readiness.ready).toBe(false)
     expect(readiness.severity).toBe("critical")
   })
+
+  it("flags failed Vimeo playback readiness as critical", () => {
+    const asset: MediaAsset = {
+      ...firstAsset,
+      sourceType: "vimeo",
+      mediaKind: "video",
+      vimeoId: "123",
+      playbackReadinessStatus: "failed",
+      playbackError: "Vimeo playback URL unavailable"
+    }
+    const readiness = getAssetReadiness(asset)
+    expect(readiness.ready).toBe(false)
+    expect(readiness.severity).toBe("critical")
+    expect(readiness.messages).toContain("Vimeo playback URL unavailable")
+  })
 })

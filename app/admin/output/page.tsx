@@ -4,8 +4,10 @@ import { AdminShell } from "@/components/admin-shell"
 import { OperationsPanelLowerThird } from "@/components/operations-panel/lower-third"
 import { StopBroadcastButton } from "@/components/stop-broadcast-button"
 import { StatusBanner } from "@/components/ui"
+import { recordAuditEvent } from "@/lib/audit"
 import { getLiveSchedule } from "@/lib/data"
 import { updateProgramDayStatus } from "@/lib/mutations"
+import { liveOutputHref } from "@/lib/output-auth"
 import { findActiveSchedule } from "@/lib/scheduler"
 import { createDaySchema } from "@/lib/schemas"
 import { secondsSinceMidnightInTimezone, isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
@@ -25,6 +27,7 @@ export default async function AdminOutputPage() {
   const dayDate = liveBundle.day
     ? isoDateInTimezone(new Date(), liveBundle.day.timezone ?? PLAYOUT_TIMEZONE)
     : null
+  const monitorHref = liveOutputHref(true)
 
   // Status label derivation
   const broadcastStatusLabel = isLive
@@ -45,12 +48,17 @@ export default async function AdminOutputPage() {
     if (!dayDate) return
     const parsed = createDaySchema.safeParse({ date: dayDate })
     if (!parsed.success) return
-    console.log("[audit] stopBroadcast triggered", { dayId, dayDate: parsed.data.date })
     // TODO: if a manual override block concept is introduced, clear it here
     await updateProgramDayStatus({
       date: parsed.data.date,
       status: "ready",
       allowWarnings: true
+    })
+    await recordAuditEvent({
+      action: "broadcast.stopped",
+      entityType: "program_days",
+      entityId: dayId,
+      metadata: { date: parsed.data.date }
     })
   }
 
@@ -67,12 +75,7 @@ export default async function AdminOutputPage() {
               : (active.reason ?? "No active block")
           }
           action={
-            <a
-              className="btn-secondary"
-              href="/output/live?debug=true"
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a className="btn-secondary" href={monitorHref} target="_blank" rel="noreferrer">
               Open monitor
             </a>
           }
@@ -88,7 +91,7 @@ export default async function AdminOutputPage() {
           >
             <iframe
               title="Live output preview"
-              src="/output/live?debug=true"
+              src={monitorHref}
               className="h-full w-full border-0"
             />
           </div>
@@ -148,6 +151,35 @@ export default async function AdminOutputPage() {
             </p>
           </ControlSection>
 
+          <ControlSection title="Observability">
+            <dl className="grid gap-2 text-[11px]">
+              <MetricLine label="Block" value={active.block?.title ?? "none"} />
+              <MetricLine
+                label="Asset"
+                value={
+                  active.asset?.title ??
+                  active.slide?.title ??
+                  active.fallbackAsset?.title ??
+                  "none"
+                }
+              />
+              <MetricLine label="Fallback" value={active.fallbackAsset?.title ?? "none"} />
+              <MetricLine label="Reason" value={active.reason ?? "normal"} />
+              <MetricLine
+                label="Vimeo"
+                value={
+                  active.asset?.sourceType === "vimeo"
+                    ? (active.asset.playbackReadinessStatus ?? "unchecked")
+                    : "n/a"
+                }
+              />
+              <MetricLine
+                label="Clock"
+                value={`${secondsSinceMidnightInTimezone(new Date(), liveBundle.day?.timezone ?? PLAYOUT_TIMEZONE)}s`}
+              />
+            </dl>
+          </ControlSection>
+
           {/* Lower-third editor — reuse existing component */}
           <ControlSection title={tOps("lowerThird.title")}>
             <OperationsPanelLowerThird />
@@ -183,5 +215,14 @@ function ControlSection({ title, children }: { title: string; children: React.Re
       </h2>
       {children}
     </section>
+  )
+}
+
+function MetricLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <dt className="shrink-0 text-white/35">{label}</dt>
+      <dd className="min-w-0 truncate text-right font-medium text-white/75">{value}</dd>
+    </div>
   )
 }

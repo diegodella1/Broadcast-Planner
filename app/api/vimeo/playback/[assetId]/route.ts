@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server"
 
 import { getMediaAssetById } from "@/lib/data"
+import { isOutputRequestAllowed, outputAccessDeniedReason } from "@/lib/output-auth"
 import { getVimeoToken } from "@/lib/settings"
 import { getVimeoPlayback } from "@/lib/vimeo"
 
 export const dynamic = "force-dynamic"
 
-export async function GET(_request: Request, { params }: { params: Promise<{ assetId: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ assetId: string }> }) {
   try {
+    const { searchParams } = new URL(request.url)
+    const allowed = await isOutputRequestAllowed({
+      token: searchParams.get("token") ?? undefined
+    })
+    if (!allowed) {
+      return NextResponse.json({ error: outputAccessDeniedReason() }, { status: 401 })
+    }
     const { assetId } = await params
     const asset = await getMediaAssetById(assetId)
     if (!asset) {

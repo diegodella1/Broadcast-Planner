@@ -274,6 +274,13 @@ export function getAssetReadiness(asset: MediaAsset): AssetReadiness {
     severity = "critical"
     messages.push("missing Vimeo ID")
   }
+  if (asset.sourceType === "vimeo" && asset.playbackReadinessStatus === "failed") {
+    severity = "critical"
+    messages.push(asset.playbackError || "Vimeo playback readiness failed")
+  }
+  if (asset.sourceType === "vimeo" && asset.playbackReadinessStatus === "unchecked") {
+    messages.push("Vimeo playback readiness unchecked")
+  }
   if (
     (asset.sourceType === "remote_mp4" ||
       asset.sourceType === "hls" ||

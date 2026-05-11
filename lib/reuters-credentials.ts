@@ -1,4 +1,5 @@
 import { decryptSecret, encryptSecret, maskSecret } from "./crypto"
+import { auditedMutation } from "./audit"
 import { createServiceClient } from "./supabase/server"
 
 import type { IntegrationSetting } from "./settings"
@@ -44,21 +45,25 @@ export async function saveReutersSettings(input: {
     status: "unknown",
     updated_at: new Date().toISOString()
   }
-  const { error } = await supabase
-    .from("integration_settings")
-    .upsert(payload, { onConflict: "provider" })
-  if (error) throw error
-  await supabase.from("audit_log").insert({
-    actor: "admin",
-    action: "settings.reuters.updated",
-    entity_type: "integration_settings",
-    entity_id: PROVIDER,
-    metadata: {
-      client_id: maskSecret(merged.clientId),
-      client_secret: merged.clientSecret ? "set" : "unset",
-      refresh_token: merged.refreshToken ? "set" : "unset"
+  await auditedMutation(
+    {
+      actor: "admin",
+      action: "settings.reuters.updated",
+      entityType: "integration_settings",
+      entityId: PROVIDER,
+      next: {
+        client_id: maskSecret(merged.clientId),
+        client_secret: merged.clientSecret ? "set" : "unset",
+        refresh_token: merged.refreshToken ? "set" : "unset"
+      }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("integration_settings")
+        .upsert(payload, { onConflict: "provider" })
+      if (error) throw error
     }
-  })
+  )
 }
 
 export async function getReutersCredentials(): Promise<ReutersCredentials | null> {

@@ -1,7 +1,9 @@
 import { revalidatePath } from "next/cache"
 
+import { auditedMutation } from "./audit"
 import { getScheduleForDate } from "./data"
 import { buildLongTestSchedule } from "./schedule-builder"
+import { findScheduleConflicts } from "./schedule-conflicts"
 import { analyzeSchedule } from "./schedule-health"
 import { createServiceClient } from "./supabase/server"
 import { parseTimecode, PLAYOUT_TIMEZONE } from "./time"
@@ -71,33 +73,37 @@ export async function createProgramBlock(input: {
     createdAt: "",
     updatedAt: ""
   }
-  const conflict = schedule.blocks.some((block) => {
-    if (block.programDayId !== dayId) return false
-    const blockEnd = block.startTimeSeconds + block.durationSeconds
-    const candidateEnd = candidate.startTimeSeconds + candidate.durationSeconds
-    return candidate.startTimeSeconds < blockEnd && candidateEnd > block.startTimeSeconds
-  })
-  if (conflict) throw new Error("El bloque se solapa con otro bloque")
-  const { error } = await supabase.from("program_blocks").insert({
-    program_day_id: dayId,
-    title: input.title,
-    block_type: input.blockType,
-    category: input.category ?? "mercados",
-    asset_id: input.assetId || null,
-    slide_id: input.slideId || null,
-    start_time: input.startTime,
-    start_time_seconds: startTimeSeconds,
-    duration_seconds: durationSeconds,
-    status: "ready",
-    hide_overlays: input.hideOverlays
-  })
-  if (error) throw error
-  await supabase.from("audit_log").insert({
-    actor: "admin",
-    action: "program_block.created",
-    entity_type: "program_blocks",
-    metadata: { date: input.date, title: input.title, start_time: input.startTime }
-  })
+  const conflict = findScheduleConflicts(schedule.blocks, candidate)
+  if (conflict.hasConflict) throw new Error("El bloque se solapa con otro bloque")
+  await auditedMutation(
+    {
+      action: "program_block.created",
+      entityType: "program_blocks",
+      metadata: { date: input.date },
+      next: {
+        title: input.title,
+        start_time: input.startTime,
+        duration_seconds: durationSeconds,
+        status: "ready"
+      }
+    },
+    async () => {
+      const { error } = await supabase.from("program_blocks").insert({
+        program_day_id: dayId,
+        title: input.title,
+        block_type: input.blockType,
+        category: input.category ?? "mercados",
+        asset_id: input.assetId || null,
+        slide_id: input.slideId || null,
+        start_time: input.startTime,
+        start_time_seconds: startTimeSeconds,
+        duration_seconds: durationSeconds,
+        status: "ready",
+        hide_overlays: input.hideOverlays
+      })
+      if (error) throw error
+    }
+  )
   revalidatePath(`/admin/schedule/${input.date}`)
 }
 
@@ -126,6 +132,7 @@ export async function updateProgramDayStatus(input: {
   }
   const schedule = await getScheduleForDate(input.date)
   if (!schedule.day) throw new Error("Dia no encontrado")
+  const day = schedule.day
   const health = analyzeSchedule(schedule)
   if ((input.status === "ready" || input.status === "active") && health.criticalCount > 0) {
     throw new Error("No se puede publicar con alertas criticas")
@@ -138,18 +145,23 @@ export async function updateProgramDayStatus(input: {
     throw new Error("Hay advertencias pendientes")
   }
   const supabase = createServiceClient()
-  const { error } = await supabase
-    .from("program_days")
-    .update({ status: input.status, updated_at: new Date().toISOString() })
-    .eq("id", schedule.day.id)
-  if (error) throw error
-  await supabase.from("audit_log").insert({
-    actor: "admin",
-    action: "program_day.status_updated",
-    entity_type: "program_days",
-    entity_id: schedule.day.id,
-    metadata: { date: input.date, status: input.status }
-  })
+  await auditedMutation(
+    {
+      action: "program_day.status_updated",
+      entityType: "program_days",
+      entityId: day.id,
+      metadata: { date: input.date },
+      previous: { status: day.status },
+      next: { status: input.status }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("program_days")
+        .update({ status: input.status, updated_at: new Date().toISOString() })
+        .eq("id", day.id)
+      if (error) throw error
+    }
+  )
   revalidatePath("/admin/calendar")
   revalidatePath(`/admin/schedule/${input.date}`)
 }
@@ -184,40 +196,55 @@ export async function updateProgramBlock(input: {
   if (input.blockType === "ad" && durationSeconds > 300) {
     throw new Error("Ads cannot be longer than 300 seconds")
   }
-  const candidateEnd = startTimeSeconds + durationSeconds
-  const conflict = schedule.blocks.some((item) => {
-    if (item.id === input.blockId || item.programDayId !== block.programDayId) return false
-    const itemEnd = item.startTimeSeconds + item.durationSeconds
-    return startTimeSeconds < itemEnd && candidateEnd > item.startTimeSeconds
+  const conflict = findScheduleConflicts(schedule.blocks, {
+    id: input.blockId,
+    programDayId: block.programDayId,
+    startTimeSeconds,
+    durationSeconds
   })
-  if (conflict) throw new Error("El bloque se solapa con otro bloque")
+  if (conflict.hasConflict) throw new Error("El bloque se solapa con otro bloque")
   const supabase = createServiceClient()
-  const { error } = await supabase
-    .from("program_blocks")
-    .update({
-      title: input.title,
-      block_type: input.blockType,
-      category: input.category ?? block.category,
-      asset_id: input.assetId || null,
-      slide_id: input.slideId || null,
-      start_time: input.startTime,
-      start_time_seconds: startTimeSeconds,
-      duration_seconds: durationSeconds,
-      status: input.status,
-      hide_overlays: input.hideOverlays,
-      fallback_asset_id: input.fallbackAssetId || null,
-      notes: input.notes || null,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", input.blockId)
-  if (error) throw error
-  await supabase.from("audit_log").insert({
-    actor: "admin",
-    action: "program_block.updated",
-    entity_type: "program_blocks",
-    entity_id: input.blockId,
-    metadata: { date: input.date, title: input.title, start_time: input.startTime }
-  })
+  await auditedMutation(
+    {
+      action: "program_block.updated",
+      entityType: "program_blocks",
+      entityId: input.blockId,
+      metadata: { date: input.date },
+      previous: {
+        title: block.title,
+        start_time: block.startTime,
+        duration_seconds: block.durationSeconds,
+        status: block.status
+      },
+      next: {
+        title: input.title,
+        start_time: input.startTime,
+        duration_seconds: durationSeconds,
+        status: input.status
+      }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("program_blocks")
+        .update({
+          title: input.title,
+          block_type: input.blockType,
+          category: input.category ?? block.category,
+          asset_id: input.assetId || null,
+          slide_id: input.slideId || null,
+          start_time: input.startTime,
+          start_time_seconds: startTimeSeconds,
+          duration_seconds: durationSeconds,
+          status: input.status,
+          hide_overlays: input.hideOverlays,
+          fallback_asset_id: input.fallbackAssetId || null,
+          notes: input.notes || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", input.blockId)
+      if (error) throw error
+    }
+  )
   revalidatePath(`/admin/schedule/${input.date}`)
   revalidatePath(`/admin/schedule/${input.date}/blocks/${input.blockId}`)
 }
@@ -232,15 +259,19 @@ export async function deleteProgramBlock(input: { date: string; blockId: string 
     .delete()
     .eq("program_block_id", input.blockId)
   if (layerError) throw layerError
-  const { error } = await supabase.from("program_blocks").delete().eq("id", input.blockId)
-  if (error) throw error
-  await supabase.from("audit_log").insert({
-    actor: "admin",
-    action: "program_block.deleted",
-    entity_type: "program_blocks",
-    entity_id: input.blockId,
-    metadata: { date: input.date, title: block.title, start_time: block.startTime }
-  })
+  await auditedMutation(
+    {
+      action: "program_block.deleted",
+      entityType: "program_blocks",
+      entityId: input.blockId,
+      metadata: { date: input.date },
+      previous: { title: block.title, start_time: block.startTime, status: block.status }
+    },
+    async () => {
+      const { error } = await supabase.from("program_blocks").delete().eq("id", input.blockId)
+      if (error) throw error
+    }
+  )
   revalidatePath(`/admin/schedule/${input.date}`)
 }
 
@@ -282,34 +313,42 @@ export async function createLongTestSchedule(input: {
     if (deleteError) throw deleteError
   }
 
-  const { error } = await supabase.from("program_blocks").insert(
-    generatedBlocks.map((block) => ({
-      program_day_id: dayId,
-      title: block.title,
-      block_type: block.blockType,
-      category: "broadcast" satisfies BlockCategory,
-      asset_id: block.assetId || null,
-      slide_id: block.slideId || null,
-      start_time: block.startTime,
-      start_time_seconds: block.startTimeSeconds,
-      duration_seconds: block.durationSeconds,
-      status: "ready",
-      hide_overlays: false
-    }))
-  )
-  if (error) throw error
-  await supabase.from("audit_log").insert({
-    actor: "admin",
-    action: "program_blocks.generated",
-    entity_type: "program_blocks",
-    metadata: {
-      date: input.date,
-      start_time: input.startTime,
-      total_hours: input.totalHours,
-      blocks: generatedBlocks.length,
-      replace_window: input.replaceWindow
+  await auditedMutation(
+    {
+      action: "program_blocks.generated",
+      entityType: "program_blocks",
+      metadata: {
+        date: input.date,
+        start_time: input.startTime,
+        total_hours: input.totalHours,
+        blocks: generatedBlocks.length,
+        replace_window: input.replaceWindow
+      },
+      next: {
+        start_seconds: startSeconds,
+        end_seconds: endSeconds,
+        blocks: generatedBlocks.length
+      }
+    },
+    async () => {
+      const { error } = await supabase.from("program_blocks").insert(
+        generatedBlocks.map((block) => ({
+          program_day_id: dayId,
+          title: block.title,
+          block_type: block.blockType,
+          category: "broadcast" satisfies BlockCategory,
+          asset_id: block.assetId || null,
+          slide_id: block.slideId || null,
+          start_time: block.startTime,
+          start_time_seconds: block.startTimeSeconds,
+          duration_seconds: block.durationSeconds,
+          status: "ready",
+          hide_overlays: false
+        }))
+      )
+      if (error) throw error
     }
-  })
+  )
   revalidatePath(`/admin/schedule/${input.date}`)
   revalidatePath("/admin/calendar")
 }
@@ -325,23 +364,26 @@ export async function createSlideAsset(input: {
   status?: string | undefined
 }) {
   const supabase = createServiceClient()
-  const { error } = await supabase.from("slide_assets").insert({
-    title: input.title,
-    slide_type: input.slideType,
-    content: input.content || null,
-    image_url: input.imageUrl || null,
-    html_content: input.htmlContent || null,
-    template_id: input.templateId || null,
-    default_duration_seconds: input.defaultDurationSeconds || null,
-    status: input.status || "ready"
-  })
-  if (error) throw error
-  await supabase.from("audit_log").insert({
-    actor: "admin",
-    action: "slide_asset.created",
-    entity_type: "slide_assets",
-    metadata: { title: input.title, slide_type: input.slideType }
-  })
+  await auditedMutation(
+    {
+      action: "slide_asset.created",
+      entityType: "slide_assets",
+      next: { title: input.title, slide_type: input.slideType, status: input.status || "ready" }
+    },
+    async () => {
+      const { error } = await supabase.from("slide_assets").insert({
+        title: input.title,
+        slide_type: input.slideType,
+        content: input.content || null,
+        image_url: input.imageUrl || null,
+        html_content: input.htmlContent || null,
+        template_id: input.templateId || null,
+        default_duration_seconds: input.defaultDurationSeconds || null,
+        status: input.status || "ready"
+      })
+      if (error) throw error
+    }
+  )
   revalidatePath("/admin/slides")
 }
 
@@ -359,25 +401,33 @@ export async function createScheduledLayer(input: {
 }) {
   const startTimeSeconds = parseTimecode(input.startTime)
   const supabase = createServiceClient()
-  const { error } = await supabase.from("scheduled_layers").insert({
-    program_block_id: input.blockId,
-    title: input.title,
-    layer_type: input.layerType,
-    asset_id: input.assetId || null,
-    slide_id: input.slideId || null,
-    start_time_seconds: startTimeSeconds,
-    duration_seconds: input.durationSeconds,
-    z_index: input.zIndex,
-    position: input.position,
-    enabled: true
-  })
-  if (error) throw error
-  await supabase.from("audit_log").insert({
-    actor: "admin",
-    action: "scheduled_layer.created",
-    entity_type: "scheduled_layers",
-    metadata: { block_id: input.blockId, title: input.title, start_time: input.startTime }
-  })
+  await auditedMutation(
+    {
+      action: "scheduled_layer.created",
+      entityType: "scheduled_layers",
+      metadata: { block_id: input.blockId },
+      next: {
+        title: input.title,
+        start_time: input.startTime,
+        duration_seconds: input.durationSeconds
+      }
+    },
+    async () => {
+      const { error } = await supabase.from("scheduled_layers").insert({
+        program_block_id: input.blockId,
+        title: input.title,
+        layer_type: input.layerType,
+        asset_id: input.assetId || null,
+        slide_id: input.slideId || null,
+        start_time_seconds: startTimeSeconds,
+        duration_seconds: input.durationSeconds,
+        z_index: input.zIndex,
+        position: input.position,
+        enabled: true
+      })
+      if (error) throw error
+    }
+  )
   revalidatePath(`/admin/schedule/${input.date}/blocks/${input.blockId}`)
   revalidatePath(`/admin/schedule/${input.date}`)
 }
@@ -389,18 +439,22 @@ export async function setScheduledLayerEnabled(input: {
   enabled: boolean
 }) {
   const supabase = createServiceClient()
-  const { error } = await supabase
-    .from("scheduled_layers")
-    .update({ enabled: input.enabled, updated_at: new Date().toISOString() })
-    .eq("id", input.layerId)
-  if (error) throw error
-  await supabase.from("audit_log").insert({
-    actor: "admin",
-    action: input.enabled ? "scheduled_layer.enabled" : "scheduled_layer.disabled",
-    entity_type: "scheduled_layers",
-    entity_id: input.layerId,
-    metadata: { block_id: input.blockId }
-  })
+  await auditedMutation(
+    {
+      action: input.enabled ? "scheduled_layer.enabled" : "scheduled_layer.disabled",
+      entityType: "scheduled_layers",
+      entityId: input.layerId,
+      metadata: { block_id: input.blockId },
+      next: { enabled: input.enabled }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("scheduled_layers")
+        .update({ enabled: input.enabled, updated_at: new Date().toISOString() })
+        .eq("id", input.layerId)
+      if (error) throw error
+    }
+  )
   revalidatePath(`/admin/schedule/${input.date}`)
   revalidatePath(`/admin/schedule/${input.date}/blocks/${input.blockId}`)
 }
@@ -460,29 +514,33 @@ export async function createMediaAsset(input: {
     throw new Error("Ads cannot be longer than 300 seconds")
   }
   const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from("media_assets")
-    .insert({
-      title: input.title,
-      source_type: input.sourceType,
-      media_kind: input.mediaKind,
-      asset_type: input.assetType,
-      url: input.url || null,
-      storage_bucket: input.storageBucket || null,
-      storage_path: input.storagePath || null,
-      duration_seconds: input.durationSeconds || null,
-      metadata: input.metadata ?? {},
-      status: "ready"
-    })
-    .select("id")
-    .single()
-  if (error) throw error
-  await supabase.from("audit_log").insert({
-    actor: "admin",
-    action: "media_asset.created",
-    entity_type: "media_assets",
-    metadata: { title: input.title, source_type: input.sourceType }
-  })
+  const data = await auditedMutation(
+    {
+      action: "media_asset.created",
+      entityType: "media_assets",
+      next: { title: input.title, source_type: input.sourceType, status: "ready" }
+    },
+    async () => {
+      const { data, error } = await supabase
+        .from("media_assets")
+        .insert({
+          title: input.title,
+          source_type: input.sourceType,
+          media_kind: input.mediaKind,
+          asset_type: input.assetType,
+          url: input.url || null,
+          storage_bucket: input.storageBucket || null,
+          storage_path: input.storagePath || null,
+          duration_seconds: input.durationSeconds || null,
+          metadata: input.metadata ?? {},
+          status: "ready"
+        })
+        .select("id")
+        .single()
+      if (error) throw error
+      return data
+    }
+  )
   revalidatePath("/admin/assets")
   return String(data.id)
 }
@@ -526,30 +584,41 @@ export async function updateMediaAsset(input: {
     metadata.playlist_order = input.playlistOrder
   }
 
-  const { error } = await supabase
-    .from("media_assets")
-    .update({
-      title: input.title,
-      description: input.description || null,
-      source_type: input.sourceType,
-      media_kind: input.mediaKind,
-      asset_type: input.assetType,
-      url: input.url || null,
-      thumbnail_url: input.thumbnailUrl || null,
-      duration_seconds: input.durationSeconds || null,
-      status: input.status,
-      metadata,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", input.id)
-  if (error) throw error
-  await supabase.from("audit_log").insert({
-    actor: "admin",
-    action: "media_asset.updated",
-    entity_type: "media_assets",
-    entity_id: input.id,
-    metadata: { title: input.title, source_type: input.sourceType }
-  })
+  await auditedMutation(
+    {
+      action: "media_asset.updated",
+      entityType: "media_assets",
+      entityId: input.id,
+      ...(typeof current === "object" && current !== null
+        ? { previous: { metadata: current.metadata ?? null } }
+        : {}),
+      next: {
+        title: input.title,
+        source_type: input.sourceType,
+        asset_type: input.assetType,
+        status: input.status
+      }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("media_assets")
+        .update({
+          title: input.title,
+          description: input.description || null,
+          source_type: input.sourceType,
+          media_kind: input.mediaKind,
+          asset_type: input.assetType,
+          url: input.url || null,
+          thumbnail_url: input.thumbnailUrl || null,
+          duration_seconds: input.durationSeconds || null,
+          status: input.status,
+          metadata,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", input.id)
+      if (error) throw error
+    }
+  )
   revalidatePath("/admin/assets")
   for (const path of input.revalidatePaths ?? []) {
     revalidatePath(path)
@@ -573,15 +642,18 @@ export async function deleteMediaAsset(input: { id: string }) {
     if (storageError) throw storageError
   }
 
-  const { error } = await supabase.from("media_assets").delete().eq("id", input.id)
-  if (error) throw error
-  await supabase.from("audit_log").insert({
-    actor: "admin",
-    action: "media_asset.deleted",
-    entity_type: "media_assets",
-    entity_id: input.id,
-    metadata: { title: String(asset.title ?? "") }
-  })
+  await auditedMutation(
+    {
+      action: "media_asset.deleted",
+      entityType: "media_assets",
+      entityId: input.id,
+      previous: { title: String(asset.title ?? "") }
+    },
+    async () => {
+      const { error } = await supabase.from("media_assets").delete().eq("id", input.id)
+      if (error) throw error
+    }
+  )
   revalidatePath("/admin/assets")
   revalidatePath("/admin/music")
 }

@@ -10,6 +10,7 @@ import { Timecode } from "@/components/timecode"
 import { ButtonLink, EmptyState, Field, FormHeader, Notice, StatusBanner } from "@/components/ui"
 import { getScheduleForDate } from "@/lib/data"
 import { createLongTestSchedule, createProgramBlock, updateProgramDayStatus } from "@/lib/mutations"
+import { liveOutputHref } from "@/lib/output-auth"
 import { analyzeSchedule } from "@/lib/schedule-health"
 import { findActiveSchedule } from "@/lib/scheduler"
 import {
@@ -91,7 +92,7 @@ export default async function ScheduleDatePage({
     <AdminShell
       title={`Programming day ${date}`}
       description="Operational schedule by time, media, continuity and pre-air warnings."
-      actions={<ButtonLink href="/output/live?debug=true">Open live output</ButtonLink>}
+      actions={<ButtonLink href={liveOutputHref(true)}>Open live output</ButtonLink>}
     >
       {query.uploaded ? <Notice tone="ok">Media uploaded and scheduled.</Notice> : null}
       <StatusBanner

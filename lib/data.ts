@@ -1,4 +1,5 @@
 import { mockSchedule } from "./mock-data"
+import { mapAuditEvent, type AuditEvent } from "./audit"
 import { createServiceClient } from "./supabase/server"
 import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "./time"
 
@@ -266,6 +267,30 @@ export async function getDays(): Promise<ProgramDay[]> {
   }
 }
 
+export async function getAuditEvents(
+  input: {
+    action?: string
+    entityType?: string
+    limit?: number
+  } = {}
+): Promise<AuditEvent[]> {
+  try {
+    const supabase = createServiceClient()
+    let query = supabase
+      .from("audit_log")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(Math.min(Math.max(input.limit ?? 100, 1), 250))
+    if (input.action) query = query.eq("action", input.action)
+    if (input.entityType) query = query.eq("entity_type", input.entityType)
+    const { data, error } = await query
+    if (error) throw error
+    return (data ?? []).map((row) => mapAuditEvent(row as Row))
+  } catch (error) {
+    return handleDataFailure(error, [])
+  }
+}
+
 function mapDay(row: Row): ProgramDay {
   return {
     id: text(row.id),
@@ -338,6 +363,10 @@ function mapMediaAsset(row: Row): MediaAsset {
     vimeoUri: nullableText(row.vimeo_uri),
     vimeoPrivacy: nullableText(row.vimeo_privacy),
     vimeoEmbedStatus: nullableText(row.vimeo_embed_status),
+    playbackReadinessStatus: (nullableText(row.playback_readiness_status) ??
+      "unchecked") as NonNullable<MediaAsset["playbackReadinessStatus"]>,
+    playbackCheckedAt: nullableText(row.playback_checked_at),
+    playbackError: nullableText(row.playback_error),
     metadata:
       typeof row.metadata === "object" && row.metadata !== null
         ? (row.metadata as Record<string, unknown>)

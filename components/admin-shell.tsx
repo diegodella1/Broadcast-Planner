@@ -2,6 +2,7 @@ import { MonitorPlay, Tv } from "lucide-react"
 import Link from "next/link"
 
 import { AdminNav } from "@/components/admin-nav"
+import { liveOutputHref } from "@/lib/output-auth"
 
 import type { ReactNode } from "react"
 
@@ -36,7 +37,7 @@ export function AdminShell({
           <p className="font-semibold text-ink">Live capture output</p>
           <p className="mt-1 break-all font-mono">/output/live</p>
           <Link
-            href="/output/live?debug=true"
+            href={liveOutputHref(true)}
             className="mt-3 inline-flex min-h-8 items-center gap-2 rounded-md border border-line bg-surface px-2 font-semibold text-ink hover:bg-panel"
           >
             <MonitorPlay size={14} aria-hidden="true" />

@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from "react"
 import clsx from "clsx"
 import { PlayoutTime } from "@/components/playout-time"
 import { formatPlayoutTimeLabel, formatTimecode } from "@/lib/time"
+import { findScheduleConflicts, scheduleConflictMessage } from "@/lib/schedule-conflicts"
 import type { ScheduleIssue } from "@/lib/schedule-health"
 import type { MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from "@/lib/types"
 
@@ -208,6 +209,15 @@ function SelectionCreatePanel({
   const knownDuration = selectedAsset?.durationSeconds ?? selectedSlide?.defaultDurationSeconds ?? 0
   const minimumDuration = Math.max(1, knownDuration + preRollSeconds + postRollSeconds)
   const effectiveDuration = Math.max(durationSeconds, minimumDuration)
+  const dayId = schedule.day?.id ?? ""
+  const conflict = dayId
+    ? findScheduleConflicts(schedule.blocks, {
+        programDayId: dayId,
+        startTimeSeconds: selection.start,
+        durationSeconds: effectiveDuration
+      })
+    : { hasConflict: false, conflicts: [], suggestedStartSeconds: null }
+  const conflictMessage = scheduleConflictMessage(conflict)
 
   function setAsset(value: string) {
     setAssetId(value)
@@ -257,6 +267,11 @@ function SelectionCreatePanel({
                 Min {formatTimecode(minimumDuration)} from selected content
               </p>
             ) : null}
+            {conflictMessage ? (
+              <p className="mt-1 rounded-md border border-danger-line bg-danger-soft px-2 py-1 text-xs font-semibold text-danger-strong">
+                {conflictMessage}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -276,7 +291,7 @@ function SelectionCreatePanel({
         <input
           name="start_time"
           required
-          defaultValue={formatTimecode(selection.start)}
+          defaultValue={formatTimecode(conflict.suggestedStartSeconds ?? selection.start)}
           title="San Francisco time"
           className="border border-line px-3 py-2 text-sm"
         />
@@ -346,7 +361,9 @@ function SelectionCreatePanel({
           <input name="hide_overlays" type="checkbox" />
           Hide overlays
         </label>
-        <button className="btn-primary lg:col-span-5">Create block</button>
+        <button className="btn-primary lg:col-span-5">
+          {conflict.hasConflict ? "Create at suggested safe time" : "Create block"}
+        </button>
       </form>
     </div>
   )

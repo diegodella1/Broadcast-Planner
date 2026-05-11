@@ -1,6 +1,7 @@
 import Link from "next/link"
 
 import { AdminShell } from "@/components/admin-shell"
+import { CsrfInput } from "@/components/csrf-input"
 import { FormHeader, MetricTile, Notice } from "@/components/ui"
 import { getVimeoSettings, getVimeoToken } from "@/lib/settings"
 import { PLAYOUT_TIMEZONE } from "@/lib/time"
@@ -59,6 +60,7 @@ export default async function SettingsPage({
       ) : null}
 
       <form action="/api/settings" method="post" className="surface-panel max-w-2xl p-5">
+        <CsrfInput />
         <FormHeader
           title="Vimeo integration"
           detail="Store a Vimeo API token for daily sync. Synced episodes appear in Library for scheduling."

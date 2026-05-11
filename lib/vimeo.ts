@@ -42,6 +42,7 @@ export type VimeoSyncResult = {
   staleCount: number
   failedCount: number
   showCount: number
+  readinessCheckedCount?: number
 }
 
 export async function listVimeoShows(token: string): Promise<VimeoShow[]> {
@@ -142,7 +143,7 @@ export async function syncVimeoCatalog(token: string, scopeUri?: string): Promis
   const videos = [...merged.values()]
   const { data: existingRows, error: existingError } = await supabase
     .from("media_assets")
-    .select("id,title,asset_type,status,vimeo_id,metadata")
+    .select("id,title,asset_type,status,vimeo_id,metadata,playback_readiness_status")
     .eq("source_type", "vimeo")
   if (existingError) throw existingError
   const existingByVimeoId = new Map(
@@ -165,6 +166,12 @@ export async function syncVimeoCatalog(token: string, scopeUri?: string): Promis
       throw error
     }
   }
+
+  const readiness = await validateSyncedVimeoPlayback(
+    token,
+    rows.map((row) => String(row.vimeo_id ?? "")).filter(Boolean)
+  )
+  failedCount += readiness.failedCount
 
   let staleCount = 0
   const staleRows = (existingRows ?? []).filter((row) => {
@@ -203,7 +210,88 @@ export async function syncVimeoCatalog(token: string, scopeUri?: string): Promis
     syncedCount: rows.length,
     staleCount,
     failedCount,
-    showCount: scopeUri ? 1 : shows.length
+    showCount: scopeUri ? 1 : shows.length,
+    readinessCheckedCount: readiness.checkedCount
+  }
+}
+
+export async function checkVimeoAssetPlayback(assetId: string, token: string) {
+  const supabase = createServiceClient()
+  const { data: asset, error } = await supabase
+    .from("media_assets")
+    .select("id,title,vimeo_id")
+    .eq("id", assetId)
+    .eq("source_type", "vimeo")
+    .maybeSingle()
+  if (error) throw error
+  if (!asset?.vimeo_id) throw new Error("Vimeo asset not found")
+  await validateOneVimeoPlayback(token, {
+    id: String(asset.id),
+    vimeoId: String(asset.vimeo_id),
+    title: String(asset.title ?? "")
+  })
+  revalidatePath("/admin/assets")
+  revalidatePath("/admin/vimeo")
+}
+
+async function validateSyncedVimeoPlayback(token: string, vimeoIds: string[]) {
+  const supabase = createServiceClient()
+  if (!vimeoIds.length) return { checkedCount: 0, failedCount: 0 }
+  const { data, error } = await supabase
+    .from("media_assets")
+    .select("id,title,vimeo_id")
+    .eq("source_type", "vimeo")
+    .in("vimeo_id", vimeoIds)
+  if (error) throw error
+
+  let failedCount = 0
+  for (const row of data ?? []) {
+    try {
+      await validateOneVimeoPlayback(token, {
+        id: String(row.id),
+        vimeoId: String(row.vimeo_id),
+        title: String(row.title ?? "")
+      })
+    } catch {
+      failedCount += 1
+    }
+  }
+  return { checkedCount: data?.length ?? 0, failedCount }
+}
+
+async function validateOneVimeoPlayback(
+  token: string,
+  asset: { id: string; vimeoId: string; title: string }
+) {
+  const supabase = createServiceClient()
+  const now = new Date().toISOString()
+  try {
+    const playback = await getVimeoPlayback(token, asset.vimeoId)
+    const { error } = await supabase
+      .from("media_assets")
+      .update({
+        status: "ready",
+        duration_seconds: playback.durationSeconds || null,
+        playback_readiness_status: "ready",
+        playback_checked_at: now,
+        playback_error: null,
+        updated_at: now
+      })
+      .eq("id", asset.id)
+    if (error) throw error
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown Vimeo playback error"
+    await supabase
+      .from("media_assets")
+      .update({
+        status: "failed",
+        playback_readiness_status: "failed",
+        playback_checked_at: now,
+        playback_error: message,
+        updated_at: now
+      })
+      .eq("id", asset.id)
+    throw error
   }
 }
 
@@ -224,7 +312,7 @@ function vimeoVideoToAssetRow(
     existingStatus === "archived"
       ? "archived"
       : video.status === "available" && hasDuration
-        ? "ready"
+        ? "syncing"
         : "syncing"
   const existingAssetType =
     typeof existing?.asset_type === "string" && existing.asset_type ? existing.asset_type : null
@@ -247,6 +335,11 @@ function vimeoVideoToAssetRow(
     vimeo_uri: video.uri,
     vimeo_privacy: video.privacy?.view ?? null,
     vimeo_embed_status: video.privacy?.embed ?? null,
+    playback_readiness_status:
+      typeof existing?.playback_readiness_status === "string"
+        ? existing.playback_readiness_status
+        : "unchecked",
+    playback_error: null,
     metadata: {
       ...existingMetadata,
       ...video,
@@ -254,7 +347,7 @@ function vimeoVideoToAssetRow(
       vimeo_show_name: video.showName ?? existingMetadata.vimeo_show_name ?? null,
       vimeo_created_time: video.created_time ?? existingMetadata.vimeo_created_time ?? null,
       vimeo_last_synced_at: syncedAt,
-      vimeo_sync_status: status === "ready" ? "synced" : "review"
+      vimeo_sync_status: "review"
     },
     updated_at: syncedAt
   }

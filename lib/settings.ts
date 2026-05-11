@@ -1,4 +1,5 @@
 import { decryptSecret, encryptSecret, maskSecret } from "./crypto"
+import { auditedMutation } from "./audit"
 import { createServiceClient } from "./supabase/server"
 import { PLAYOUT_TIMEZONE } from "./time"
 
@@ -30,20 +31,24 @@ export async function saveVimeoSettings(input: {
     updated_at: new Date().toISOString()
   }
   if (encrypted_secret) payload.encrypted_secret = encrypted_secret
-  const { error } = await supabase
-    .from("integration_settings")
-    .upsert(payload, { onConflict: "provider" })
-  if (error) throw error
-  await supabase.from("audit_log").insert({
-    actor: "admin",
-    action: "settings.vimeo.updated",
-    entity_type: "integration_settings",
-    entity_id: "vimeo",
-    metadata: {
-      token: encrypted_secret ? maskSecret(input.token) : "unchanged",
-      folder_uri: input.folderUri ?? null
+  await auditedMutation(
+    {
+      actor: "admin",
+      action: "settings.vimeo.updated",
+      entityType: "integration_settings",
+      entityId: "vimeo",
+      next: {
+        token: encrypted_secret ? maskSecret(input.token) : "unchanged",
+        folder_uri: input.folderUri ?? null
+      }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("integration_settings")
+        .upsert(payload, { onConflict: "provider" })
+      if (error) throw error
     }
-  })
+  )
 }
 
 export async function getVimeoToken(): Promise<string | null> {

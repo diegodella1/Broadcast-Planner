@@ -1,6 +1,7 @@
 import { headers } from "next/headers"
 import { EmergencySlate, OutputRenderer } from "@/components/output-renderer"
 import { getLivePlaybackSchedule } from "@/lib/data"
+import { isOutputRequestAllowed, outputAccessDeniedReason } from "@/lib/output-auth"
 import { secondsSinceMidnightInTimezone } from "@/lib/time"
 import { prefetchSlideData } from "@/lib/slides/prefetch"
 import type { SlideTemplateId } from "@/lib/slides/registry"
@@ -9,9 +10,12 @@ import type { ScheduleBundle } from "@/lib/types"
 export default async function OutputLivePage({
   searchParams
 }: {
-  searchParams: Promise<{ debug?: string; startAt?: string }>
+  searchParams: Promise<{ debug?: string; startAt?: string; token?: string }>
 }) {
   const params = await searchParams
+  if (!(await isOutputRequestAllowed(params))) {
+    return <EmergencySlate reason={outputAccessDeniedReason()} />
+  }
   const schedule = await getScheduleOrEmergency(getLivePlaybackSchedule)
   const startAt = params.startAt ? Number(params.startAt) : null
   if (!schedule) return <EmergencySlate reason="Schedule data unavailable" />
@@ -23,6 +27,7 @@ export default async function OutputLivePage({
       initialSchedule={enriched}
       initialSeconds={Number.isFinite(startAt) ? startAt! : secondsSinceMidnightInTimezone()}
       debug={params.debug === "true"}
+      outputToken={params.token}
     />
   )
 }

@@ -3,6 +3,7 @@
 import {
   CalendarDays,
   Clapperboard,
+  FileClock,
   LayoutDashboard,
   MonitorPlay,
   Music,
@@ -51,7 +52,10 @@ export const navGroups: NavGroup[] = [
   },
   {
     label: "System",
-    items: [{ label: "Integrations", href: "/admin/settings", icon: Settings }]
+    items: [
+      { label: "Audit", href: "/admin/audit", icon: FileClock },
+      { label: "Integrations", href: "/admin/settings", icon: Settings }
+    ]
   }
 ]
 

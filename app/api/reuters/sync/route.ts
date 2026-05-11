@@ -1,6 +1,9 @@
 import { revalidatePath } from "next/cache"
 import { NextResponse } from "next/server"
 
+import { recordAuditEvent } from "@/lib/audit"
+import { requireAdmin } from "@/lib/auth"
+import { verifyCsrfToken } from "@/lib/csrf"
 import { getReutersClient, type ReutersChannel } from "@/lib/reuters"
 import { createServiceClient } from "@/lib/supabase/server"
 
@@ -31,12 +34,19 @@ type ChannelsResponse = {
  */
 export async function GET(): Promise<NextResponse> {
   try {
+    await requireAdmin()
     const client = await getReutersClient()
     const channels = await client.listLiveChannels()
     const merged = await mergeWithCachedAssetIds(channels)
     const body: ChannelsResponse = { channels: merged }
     return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } })
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: { "Cache-Control": "no-store" } }
+      )
+    }
     const message = error instanceof Error ? error.message : "Unknown error"
     console.error("[api/reuters/sync:GET]", error)
     return NextResponse.json(
@@ -59,8 +69,10 @@ export async function GET(): Promise<NextResponse> {
  * inserted as a fresh asset and the stale row is left untouched (operator
  * cleanup task — out of scope for the scaffolding round).
  */
-export async function POST(): Promise<NextResponse> {
+export async function POST(request: Request): Promise<NextResponse> {
   try {
+    await requireAdmin()
+    await verifyCsrfToken(request)
     const client = await getReutersClient()
     const channels = await client.listLiveChannels()
     const supabase = createServiceClient()
@@ -102,10 +114,35 @@ export async function POST(): Promise<NextResponse> {
     revalidatePath("/admin/settings")
 
     const merged = await mergeWithCachedAssetIds(channels)
+    await recordAuditEvent({
+      actor: "reuters-sync",
+      action: "reuters.sync",
+      entityType: "media_assets",
+      metadata: { synced_count: channels.length }
+    })
     const body: SyncResponse = { synced: channels.length, channels: merged }
     return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } })
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: { "Cache-Control": "no-store" } }
+      )
+    }
+    if (error instanceof Error && error.message === "Invalid CSRF token") {
+      return NextResponse.json(
+        { error: "Invalid CSRF token" },
+        { status: 403, headers: { "Cache-Control": "no-store" } }
+      )
+    }
     const message = error instanceof Error ? error.message : "Unknown error"
+    await recordAuditEvent({
+      actor: "reuters-sync",
+      action: "reuters.sync",
+      entityType: "media_assets",
+      result: "failure",
+      metadata: { error: message }
+    }).catch(() => undefined)
     console.error("[api/reuters/sync:POST]", error)
     return NextResponse.json(
       { error: message },

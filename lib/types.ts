@@ -1,5 +1,6 @@
 export type ProgramStatus = "draft" | "ready" | "active" | "archived"
 export type AssetStatus = "draft" | "syncing" | "ready" | "failed" | "archived"
+export type PlaybackReadinessStatus = "unchecked" | "ready" | "failed"
 export type SourceType =
   | "vimeo"
   | "supabase_image"
@@ -58,6 +59,9 @@ export type MediaAsset = {
   vimeoUri?: string | null
   vimeoPrivacy?: string | null
   vimeoEmbedStatus?: string | null
+  playbackReadinessStatus?: PlaybackReadinessStatus
+  playbackCheckedAt?: string | null
+  playbackError?: string | null
   metadata?: Record<string, unknown> | null
   createdAt: string
   updatedAt: string

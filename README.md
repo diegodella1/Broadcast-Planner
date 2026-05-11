@@ -75,6 +75,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=replace-with-local-anon-key
 SUPABASE_SERVICE_ROLE_KEY=replace-with-local-service-role-key
 APP_ENCRYPTION_KEY=replace-with-32-byte-base64-key
 ADMIN_BOOTSTRAP_TOKEN=change-me
+OUTPUT_CAPTURE_TOKEN=optional-output-capture-token
 NEXT_PUBLIC_APP_BASE_URL=http://roxomtv.local
 SUPABASE_FETCH_TIMEOUT_MS=4000
 ```
@@ -131,7 +132,9 @@ npm run build    # Build production app
 npm run start    # Start production server
 npm run lint     # Run Next lint
 npm test         # Run Vitest unit tests
-npm run e2e      # Run Playwright tests
+npm run e2e      # Run Node-based read-only E2E smoke
+npm run smoke:local # Read-only runtime smoke against local app
+npm run smoke:prod  # Read-only pre-air smoke against production
 ```
 
 ## Docker
@@ -163,6 +166,7 @@ Production container health check:
 - Output screens should stay clean, fullscreen, and safe for browser capture.
 - `.env` contains secrets and must not be committed.
 - `ADMIN_BOOTSTRAP_TOKEN` is used for protected admin access.
+- `OUTPUT_CAPTURE_TOKEN` protects `/output/live` and preview routes when configured. Leave it unset only for controlled public capture tests.
 - `APP_ENCRYPTION_KEY` must be a strong 32-byte base64 key.
 - Fallback assets matter: schedules should not depend on a single fragile media URL.
 - Schedule health warnings should be treated as broadcast risks, not cosmetic errors.
@@ -219,6 +223,7 @@ Set all required secrets (do this once per environment; values are never stored 
 wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 wrangler secret put APP_ENCRYPTION_KEY
 wrangler secret put ADMIN_BOOTSTRAP_TOKEN
+wrangler secret put OUTPUT_CAPTURE_TOKEN         # optional; protects capture output routes
 wrangler secret put VIMEO_ACCESS_TOKEN          # optional; falls back to encrypted DB value
 wrangler secret put REUTERS_CLIENT_ID            # only when REUTERS_PROVIDER=real
 wrangler secret put REUTERS_CLIENT_SECRET        # only when REUTERS_PROVIDER=real
@@ -254,6 +259,17 @@ bash scripts/sync_vimeo.sh
 
 For daily production sync, run that script from a systemd timer or cron on the host that has `.env` and can reach the local app service.
 Systemd unit templates are in `deploy/systemd/rtvplanner-vimeo-sync.*`.
+
+## Production Readiness
+
+Production release gates and the OWASP red-team checklist live in:
+
+```txt
+docs/production-readiness.md
+```
+
+Production smoke is read-only by design. It checks health, admin auth, playout schedule, output,
+preview when available, and audit page access without mutating Supabase.
 
 ### Incremental static regeneration (ISR) with R2
 

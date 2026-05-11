@@ -37,7 +37,8 @@ function checkEnv(): HealthCheck {
     "NEXT_PUBLIC_SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
     "APP_ENCRYPTION_KEY",
-    "ADMIN_BOOTSTRAP_TOKEN"
+    "ADMIN_BOOTSTRAP_TOKEN",
+    ...(process.env.NODE_ENV === "production" ? ["OUTPUT_CAPTURE_TOKEN"] : [])
   ].filter((key) => !process.env[key])
   return missing.length
     ? { ok: false, status: "fail", message: `Missing required env: ${missing.join(", ")}` }

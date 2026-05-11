@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache"
 
+import { recordAuditEvent } from "./audit"
 import { getMediaAssetById, getMediaAssetByVimeoUri } from "./data"
 import { createProgramBlock } from "./mutations"
 import { getVimeoToken } from "./settings"
@@ -185,11 +186,10 @@ async function fetchInsertedBlockId(date: string, startSeconds: number): Promise
 
 async function logManualBroadcast(action: string, metadata: Record<string, unknown>) {
   try {
-    const supabase = createServiceClient()
-    await supabase.from("audit_log").insert({
+    await recordAuditEvent({
       actor: "admin",
       action,
-      entity_type: "program_blocks",
+      entityType: "program_blocks",
       metadata
     })
   } catch (error) {

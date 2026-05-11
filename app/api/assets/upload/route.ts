@@ -2,11 +2,13 @@ import { NextResponse } from "next/server"
 
 import { appUrl } from "@/lib/app-url"
 import { requireAdmin } from "@/lib/auth"
+import { verifyCsrfToken } from "@/lib/csrf"
 import { uploadedMediaFieldsFromForm, uploadMediaFile } from "@/lib/media-upload"
 
 export async function POST(request: Request) {
   try {
     await requireAdmin()
+    await verifyCsrfToken(request)
     const form = await request.formData()
     const file = form.get("media_file") ?? form.get("video_file")
     if (!(file instanceof File) || file.size === 0) {

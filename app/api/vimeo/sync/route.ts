@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server"
 
 import { appUrl } from "@/lib/app-url"
+import { recordAuditEvent } from "@/lib/audit"
 import { requireAdmin } from "@/lib/auth"
+import { verifyCsrfToken } from "@/lib/csrf"
 import { getVimeoSettings, getVimeoToken, recordVimeoSyncStatus } from "@/lib/settings"
 import { syncVimeoCatalog } from "@/lib/vimeo"
 
 export async function POST(request: Request) {
   try {
     await requireAdmin()
+    await verifyCsrfToken(request)
     const form = await request.formData().catch(() => new FormData())
     const returnTo = String(form.get("return_to") ?? "")
     const requestedScope = String(form.get("scope_uri") ?? "")
@@ -23,6 +26,19 @@ export async function POST(request: Request) {
     const configuredScope = String(settings?.publicConfig.folder_uri ?? "")
     const result = await syncVimeoCatalog(token, requestedScope || configuredScope || undefined)
     await recordVimeoSyncStatus({ status: "connected", ...result })
+    await recordAuditEvent({
+      actor: "vimeo-sync",
+      action: "vimeo.sync",
+      entityType: "media_assets",
+      result: result.failedCount ? "failure" : "success",
+      metadata: {
+        scope_uri: requestedScope || configuredScope || null,
+        synced_count: result.syncedCount,
+        stale_count: result.staleCount,
+        failed_count: result.failedCount,
+        readiness_checked_count: result.readinessCheckedCount ?? 0
+      }
+    })
 
     if (returnTo) {
       return NextResponse.redirect(
@@ -38,6 +54,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
     }
     const message = errorMessage(error)
+    await recordAuditEvent({
+      actor: "vimeo-sync",
+      action: "vimeo.sync",
+      entityType: "media_assets",
+      result: "failure",
+      metadata: { error: message }
+    }).catch(() => undefined)
     await recordVimeoSyncStatus({
       status: "failed",
       errorMessage: message

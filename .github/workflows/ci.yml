@@ -21,6 +21,8 @@ jobs:
         run: npm run typecheck
       - name: i18n catalogs
         run: npm run i18n:check
+      - name: Service-role auth guard
+        run: npm run security:service-role
       - name: Lint
         run: npm run lint
       - name: Format check

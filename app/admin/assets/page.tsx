@@ -7,6 +7,7 @@ import { getAssets } from "@/lib/data"
 import { createMediaAsset, deleteMediaAsset, updateMediaAsset } from "@/lib/mutations"
 
 import type { MediaAsset } from "@/lib/types"
+import type { ReactNode } from "react"
 
 export const dynamic = "force-dynamic"
 
@@ -22,6 +23,7 @@ export default async function AssetsPage({
     show_name?: string
     month?: string
     year?: string
+    page?: string
   }>
 }) {
   const params = await searchParams
@@ -79,6 +81,16 @@ export default async function AssetsPage({
       return true
     })
     .sort((a, b) => sortAssets(a, b, params.sort))
+  const pageSize = 50
+  const totalPages = Math.max(1, Math.ceil(filteredAssets.length / pageSize))
+  const requestedPage = Number.parseInt(params.page ?? "1", 10)
+  const currentPage = Math.min(
+    Math.max(Number.isFinite(requestedPage) ? requestedPage : 1, 1),
+    totalPages
+  )
+  const pageStart = (currentPage - 1) * pageSize
+  const pageEnd = pageStart + pageSize
+  const paginatedAssets = filteredAssets.slice(pageStart, pageEnd)
   const readyCount = assets.filter((asset) => asset.status === "ready").length
   const attentionCount = assets.filter(assetNeedsAttention).length
   async function addAsset(formData: FormData) {
@@ -318,7 +330,14 @@ export default async function AssetsPage({
         </div>
       </section>
       <div className="surface-panel overflow-hidden">
-        {filteredAssets.map((asset) => (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 text-sm text-muted">
+          <span>
+            Showing {filteredAssets.length ? pageStart + 1 : 0}-
+            {Math.min(pageEnd, filteredAssets.length)} of {filteredAssets.length} assets
+          </span>
+          <Pagination params={params} currentPage={currentPage} totalPages={totalPages} />
+        </div>
+        {paginatedAssets.map((asset) => (
           <details
             key={asset.id}
             id={`asset-${asset.id}`}
@@ -380,9 +399,85 @@ export default async function AssetsPage({
             </EmptyState>
           </div>
         )}
+        {filteredAssets.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 text-sm text-muted">
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
+            <Pagination params={params} currentPage={currentPage} totalPages={totalPages} />
+          </div>
+        )}
       </div>
     </AdminShell>
   )
+}
+
+function Pagination({
+  params,
+  currentPage,
+  totalPages
+}: {
+  params: Record<string, string | undefined>
+  currentPage: number
+  totalPages: number
+}) {
+  if (totalPages <= 1) return null
+  const pages = paginationWindow(currentPage, totalPages)
+  return (
+    <nav className="flex flex-wrap items-center gap-2" aria-label="Assets pagination">
+      <PageLink href={assetPageHref(params, currentPage - 1)} disabled={currentPage <= 1}>
+        Previous
+      </PageLink>
+      {pages.map((page) => (
+        <PageLink key={page} href={assetPageHref(params, page)} active={page === currentPage}>
+          {page}
+        </PageLink>
+      ))}
+      <PageLink href={assetPageHref(params, currentPage + 1)} disabled={currentPage >= totalPages}>
+        Next
+      </PageLink>
+    </nav>
+  )
+}
+
+function PageLink({
+  href,
+  active,
+  disabled,
+  children
+}: {
+  href: string
+  active?: boolean
+  disabled?: boolean
+  children: ReactNode
+}) {
+  const className = active
+    ? "rounded-md border border-ink bg-ink px-3 py-1.5 text-sm font-semibold text-white"
+    : disabled
+      ? "pointer-events-none rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-muted opacity-50"
+      : "rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-panel-soft"
+  return (
+    <a href={href} aria-current={active ? "page" : undefined} className={className}>
+      {children}
+    </a>
+  )
+}
+
+function paginationWindow(currentPage: number, totalPages: number) {
+  const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4))
+  const end = Math.min(totalPages, start + 4)
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index)
+}
+
+function assetPageHref(params: Record<string, string | undefined>, page: number) {
+  const query = new URLSearchParams()
+  for (const key of ["status", "kind", "q", "sort", "show_name", "month", "year"]) {
+    const value = params[key]
+    if (value) query.set(key, value)
+  }
+  if (page > 1) query.set("page", String(page))
+  const text = query.toString()
+  return `/admin/assets${text ? `?${text}` : ""}`
 }
 
 function AssetEditForm({

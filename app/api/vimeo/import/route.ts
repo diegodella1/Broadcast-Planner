@@ -2,12 +2,14 @@ import { NextResponse } from "next/server"
 
 import { appUrl } from "@/lib/app-url"
 import { requireAdmin } from "@/lib/auth"
+import { verifyCsrfToken } from "@/lib/csrf"
 import { getVimeoToken, markVimeoStatus, recordVimeoSyncStatus } from "@/lib/settings"
 import { getVimeoVideo, listVimeoAccountVideos, upsertVimeoVideos } from "@/lib/vimeo"
 
 export async function POST(request: Request) {
   try {
     await requireAdmin()
+    await verifyCsrfToken(request)
     const form = await request.formData()
     const videoUri = String(form.get("video_uri") ?? "")
     const returnTo = String(form.get("return_to") ?? "")

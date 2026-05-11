@@ -1,9 +1,12 @@
 import Link from "next/link"
 
 import { AdminShell } from "@/components/admin-shell"
+import { CsrfInput } from "@/components/csrf-input"
 import { EmptyState, Field, FilterLink, MetricTile, Notice } from "@/components/ui"
+import { recordAuditEvent } from "@/lib/audit"
 import { getAssets } from "@/lib/data"
 import { getVimeoSettings, getVimeoToken } from "@/lib/settings"
+import { checkVimeoAssetPlayback } from "@/lib/vimeo"
 
 import type { MediaAsset } from "@/lib/types"
 
@@ -40,6 +43,31 @@ export default async function VimeoSyncPage({
   const staleCount = vimeoAssets.filter(
     (asset) => asset.metadata?.vimeo_sync_status === "stale"
   ).length
+  async function checkPlayback(formData: FormData) {
+    "use server"
+    const assetId = String(formData.get("asset_id") || "")
+    const token = await getVimeoToken()
+    if (!token) throw new Error("Missing Vimeo token")
+    try {
+      await checkVimeoAssetPlayback(assetId, token)
+      await recordAuditEvent({
+        actor: "vimeo-sync",
+        action: "vimeo.playback_checked",
+        entityType: "media_assets",
+        entityId: assetId
+      })
+    } catch (error) {
+      await recordAuditEvent({
+        actor: "vimeo-sync",
+        action: "vimeo.playback_checked",
+        entityType: "media_assets",
+        entityId: assetId,
+        result: "failure",
+        metadata: { error: error instanceof Error ? error.message : String(error) }
+      }).catch(() => undefined)
+      throw error
+    }
+  }
 
   return (
     <AdminShell
@@ -98,6 +126,7 @@ export default async function VimeoSyncPage({
             </p>
           </div>
           <form action="/api/vimeo/sync" method="post">
+            <CsrfInput />
             <input type="hidden" name="return_to" value="/admin/vimeo" />
             <button className="btn-primary" disabled={!token}>
               Sync now
@@ -196,7 +225,7 @@ export default async function VimeoSyncPage({
         </div>
         <div className="divide-y divide-line">
           {filteredAssets.map((asset) => (
-            <VimeoAssetRow key={asset.id} asset={asset} />
+            <VimeoAssetRow key={asset.id} asset={asset} checkPlayback={checkPlayback} />
           ))}
         </div>
         {filteredAssets.length === 0 ? (
@@ -211,7 +240,13 @@ export default async function VimeoSyncPage({
   )
 }
 
-function VimeoAssetRow({ asset }: { asset: MediaAsset }) {
+function VimeoAssetRow({
+  asset,
+  checkPlayback
+}: {
+  asset: MediaAsset
+  checkPlayback: (formData: FormData) => Promise<void>
+}) {
   const showName = getMetadataText(asset, "vimeo_show_name")
   const created = getMetadataText(asset, "vimeo_created_time")
   const syncedAt = getMetadataText(asset, "vimeo_last_synced_at")
@@ -236,8 +271,17 @@ function VimeoAssetRow({ asset }: { asset: MediaAsset }) {
           {asset.status}
         </p>
         <p className="mt-1 text-xs text-muted">Last synced {formatVimeoDate(syncedAt)}</p>
+        <p className="mt-1 text-xs text-muted">
+          Playback: {asset.playbackReadinessStatus ?? "unchecked"}
+          {asset.playbackCheckedAt ? ` · checked ${formatVimeoDate(asset.playbackCheckedAt)}` : ""}
+          {asset.playbackError ? ` · ${asset.playbackError}` : ""}
+        </p>
       </div>
       <div className="grid gap-2">
+        <form action={checkPlayback}>
+          <input type="hidden" name="asset_id" value={asset.id} />
+          <button className="btn-secondary w-full">Check playback</button>
+        </form>
         <Link
           className="btn-secondary"
           href={`/admin/assets?kind=vimeo&q=${encodeURIComponent(asset.title)}#asset-${asset.id}`}

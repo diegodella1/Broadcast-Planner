@@ -6,6 +6,7 @@ import type {
   ScheduledLayer,
   SlideAsset
 } from "./types"
+import { findScheduleConflicts } from "./schedule-conflicts"
 
 export function findActiveSchedule(bundle: ScheduleBundle, secondsOfDay: number): ActiveSchedule {
   let block: ProgramBlock | null = null
@@ -74,12 +75,7 @@ export function validateBlock(
 }
 
 export function hasBaseBlockConflict(blocks: ProgramBlock[], candidate: ProgramBlock): boolean {
-  const candidateEnd = candidate.startTimeSeconds + candidate.durationSeconds
-  return blocks.some((block) => {
-    if (block.id === candidate.id || block.programDayId !== candidate.programDayId) return false
-    const blockEnd = block.startTimeSeconds + block.durationSeconds
-    return candidate.startTimeSeconds < blockEnd && candidateEnd > block.startTimeSeconds
-  })
+  return findScheduleConflicts(blocks, candidate).hasConflict
 }
 
 function findAsset(assets: MediaAsset[], id: string): MediaAsset | null {
