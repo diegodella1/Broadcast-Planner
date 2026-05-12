@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+import { shouldFailClosedForMissingAdminToken } from "@/lib/auth"
 import { CSRF_COOKIE, INTERNAL_CSRF_HEADER } from "@/lib/csrf-constants"
 
 export function middleware(request: NextRequest) {
@@ -19,7 +20,17 @@ export function middleware(request: NextRequest) {
     return withSecurityHeaders(nextWithCsrfHeader(request))
   }
   const expected = process.env.ADMIN_BOOTSTRAP_TOKEN
-  if (!expected) return withSecurityHeaders(nextWithCsrfHeader(request))
+  if (!expected) {
+    if (shouldFailClosedForMissingAdminToken()) {
+      return withCsrfCookie(
+        request,
+        withSecurityHeaders(
+          NextResponse.json({ ok: false, error: "Admin auth not configured" }, { status: 503 })
+        )
+      )
+    }
+    return withSecurityHeaders(nextWithCsrfHeader(request))
+  }
   const actual = request.cookies.get("rpm_admin_token")?.value
   if (actual === expected) return withSecurityHeaders(nextWithCsrfHeader(request))
   const url = request.nextUrl.clone()

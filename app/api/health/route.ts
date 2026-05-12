@@ -15,10 +15,11 @@ export async function GET() {
   const checks = {
     env: checkEnv(),
     supabase: await checkSupabase(),
+    schema: await checkSchema(),
     storage: await checkStorage(),
     vimeo: await checkVimeoToken()
   } satisfies Record<string, HealthCheck>
-  const ok = checks.env.ok && checks.supabase.ok
+  const ok = checks.env.ok && checks.supabase.ok && checks.schema.ok && checks.storage.ok
   const degraded = ok && Object.values(checks).some((check) => check.status === "degraded")
   return NextResponse.json(
     {
@@ -40,6 +41,18 @@ function checkEnv(): HealthCheck {
     "ADMIN_BOOTSTRAP_TOKEN",
     ...(process.env.NODE_ENV === "production" ? ["OUTPUT_CAPTURE_TOKEN"] : [])
   ].filter((key) => !process.env[key])
+  if (
+    process.env.ALLOW_DEMO_DATA === "true" &&
+    (process.env.NODE_ENV === "production" ||
+      process.env.APP_BASE_URL?.startsWith("https://") ||
+      process.env.NEXT_PUBLIC_APP_BASE_URL?.startsWith("https://"))
+  ) {
+    return {
+      ok: false,
+      status: "fail",
+      message: "ALLOW_DEMO_DATA cannot be enabled in production"
+    }
+  }
   return missing.length
     ? { ok: false, status: "fail", message: `Missing required env: ${missing.join(", ")}` }
     : { ok: true, status: "ok", message: "Required env present" }
@@ -82,7 +95,25 @@ async function checkStorage(): Promise<HealthCheck> {
     }
     return { ok: true, status: "ok", message: "Storage buckets present" }
   } catch (error) {
-    return { ok: true, status: "degraded", message: `Storage check failed: ${errorMessage(error)}` }
+    return { ok: false, status: "fail", message: `Storage check failed: ${errorMessage(error)}` }
+  }
+}
+
+async function checkSchema(): Promise<HealthCheck> {
+  try {
+    const supabase = createServiceClient()
+    const { error } = await supabase
+      .from("media_assets")
+      .select("id,playback_readiness_status,playback_checked_at,playback_error")
+      .limit(1)
+    if (error) throw error
+    return { ok: true, status: "ok", message: "Required app columns present" }
+  } catch (error) {
+    return {
+      ok: true,
+      status: "degraded",
+      message: `Schema drift detected: ${errorMessage(error)}`
+    }
   }
 }
 
@@ -101,5 +132,9 @@ async function checkVimeoToken(): Promise<HealthCheck> {
 }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error)
+  if (error instanceof Error) return error.message
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String((error as { message: unknown }).message)
+  }
+  return String(error)
 }

@@ -23,9 +23,15 @@ jobs:
         run: npm run i18n:check
       - name: Service-role auth guard
         run: npm run security:service-role
+      - name: Audit trail guard
+        run: npm run security:audit-trail
       - name: Lint
         run: npm run lint
       - name: Format check
         run: npm run format:check
       - name: Tests + coverage
         run: npm test -- --coverage --run
+      - name: Build
+        run: npm run build
+      - name: Dependency audit
+        run: npm audit --audit-level=moderate || true

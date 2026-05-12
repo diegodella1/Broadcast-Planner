@@ -1,9 +1,11 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 
 import { AdminShell } from "@/components/admin-shell"
 import { CsrfInput } from "@/components/csrf-input"
 import { EmptyState, Field, FilterLink, MetricTile, Notice } from "@/components/ui"
 import { recordAuditEvent } from "@/lib/audit"
+import { requireAdmin } from "@/lib/auth"
 import { getAssets } from "@/lib/data"
 import { getVimeoSettings, getVimeoToken } from "@/lib/settings"
 import { checkVimeoAssetPlayback } from "@/lib/vimeo"
@@ -23,6 +25,8 @@ export default async function VimeoSyncPage({
     status?: string
     synced?: string
     count?: string
+    playback?: string
+    error?: string
   }>
 }) {
   const params = await searchParams
@@ -45,9 +49,13 @@ export default async function VimeoSyncPage({
   ).length
   async function checkPlayback(formData: FormData) {
     "use server"
+    await requireAdmin()
     const assetId = String(formData.get("asset_id") || "")
     const token = await getVimeoToken()
-    if (!token) throw new Error("Missing Vimeo token")
+    if (!token) {
+      redirect(vimeoPlaybackResultHref("failed", "Missing Vimeo token"))
+    }
+    let failureMessage: string | null = null
     try {
       await checkVimeoAssetPlayback(assetId, token)
       await recordAuditEvent({
@@ -57,16 +65,22 @@ export default async function VimeoSyncPage({
         entityId: assetId
       })
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      failureMessage = message
       await recordAuditEvent({
         actor: "vimeo-sync",
         action: "vimeo.playback_checked",
         entityType: "media_assets",
         entityId: assetId,
         result: "failure",
-        metadata: { error: error instanceof Error ? error.message : String(error) }
+        metadata: { error: message }
       }).catch(() => undefined)
-      throw error
     }
+    redirect(
+      failureMessage
+        ? vimeoPlaybackResultHref("failed", failureMessage)
+        : vimeoPlaybackResultHref("ready")
+    )
   }
 
   return (
@@ -92,6 +106,16 @@ export default async function VimeoSyncPage({
       {settings?.lastError ? (
         <Notice tone="warn" title="Last Vimeo sync error">
           {settings.lastError}
+        </Notice>
+      ) : null}
+      {params.playback === "ready" ? (
+        <Notice tone="ok" title="Playback ready">
+          Vimeo playback URL resolved successfully.
+        </Notice>
+      ) : null}
+      {params.playback === "failed" ? (
+        <Notice tone="danger" title="Playback check failed">
+          {params.error || "Vimeo playback URL unavailable"}
         </Notice>
       ) : null}
 
@@ -354,4 +378,10 @@ function formatVimeoDate(value: string | undefined) {
     day: "2-digit",
     timeZone: "UTC"
   }).format(date)
+}
+
+function vimeoPlaybackResultHref(status: "ready" | "failed", error?: string) {
+  const params = new URLSearchParams({ playback: status })
+  if (error) params.set("error", error.slice(0, 240))
+  return `/admin/vimeo?${params.toString()}`
 }

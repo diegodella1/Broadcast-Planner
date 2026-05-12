@@ -16,6 +16,9 @@ import type {
 type Row = Record<string, unknown>
 
 export function shouldUseDemoData() {
+  if (isProductionLikeRuntime() && process.env.ALLOW_DEMO_DATA === "true") {
+    throw new Error("ALLOW_DEMO_DATA cannot be enabled in production")
+  }
   return process.env.ALLOW_DEMO_DATA === "true"
 }
 
@@ -23,6 +26,14 @@ export function handleDataFailure<T>(error: unknown, demoValue: T): T {
   if (shouldUseDemoData()) return demoValue
   const message = error instanceof Error ? error.message : String(error)
   throw new Error(`Database unavailable: ${message}`)
+}
+
+function isProductionLikeRuntime() {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.APP_BASE_URL?.startsWith("https://") ||
+    process.env.NEXT_PUBLIC_APP_BASE_URL?.startsWith("https://")
+  )
 }
 
 export async function getScheduleForDate(date: string): Promise<ScheduleBundle> {
