@@ -240,88 +240,88 @@ export default async function AssetsPage({
           Add or import content
         </summary>
         <div className="grid gap-5 p-4 xl:grid-cols-2">
-        <MediaUploadForm
-          action="/api/assets/upload"
-          title="Add video / episode"
-          detail="Upload MP4/WebM videos up to 5 minutes, plus images or MP3 files up to 500 MB. Video duration is detected and used by output."
-          returnTo="/admin/assets?uploaded=1"
-          includeAudio
-        />
-
-        <section className="rounded-md border border-line bg-panel-soft p-4">
-          <FormHeader
-            title="Import Vimeo episode"
-            detail="Paste a Vimeo URL or ID. The episode is added to Library Videos and HLS playback is verified for output."
+          <MediaUploadForm
+            action="/api/assets/upload"
+            title="Add video / episode"
+            detail="Upload MP4/WebM videos up to 5 minutes, plus images or MP3 files up to 500 MB. Video duration is detected and used by output."
+            returnTo="/admin/assets?uploaded=1"
+            includeAudio
           />
-          <form
-            action="/api/vimeo/import"
-            method="post"
-            className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]"
-          >
-            <CsrfInput />
-            <input type="hidden" name="return_to" value="/admin/assets?kind=videos" />
-            <Field label="Vimeo URL or ID">
-              <input
-                name="video_uri"
-                required
-                placeholder="https://vimeo.com/123456789"
-                className="border border-line px-3 py-2 text-sm font-normal text-ink"
-              />
-            </Field>
-            <button className="btn-primary self-end">Import and verify</button>
-          </form>
-          <details className="mt-4 rounded-md border border-line bg-panel-soft p-3">
-            <summary className="cursor-pointer text-sm font-semibold">
-              Advanced: add direct URL
-            </summary>
-            <form action={addAsset} className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_130px]">
-              <Field label="Title">
+
+          <section className="rounded-md border border-line bg-panel-soft p-4">
+            <FormHeader
+              title="Import Vimeo episode"
+              detail="Paste a Vimeo URL or ID. The episode is added to Library Videos and HLS playback is verified for output."
+            />
+            <form
+              action="/api/vimeo/import"
+              method="post"
+              className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]"
+            >
+              <CsrfInput />
+              <input type="hidden" name="return_to" value="/admin/assets?kind=videos" />
+              <Field label="Vimeo URL or ID">
                 <input
-                  name="title"
+                  name="video_uri"
                   required
-                  placeholder="Title"
+                  placeholder="https://vimeo.com/123456789"
                   className="border border-line px-3 py-2 text-sm font-normal text-ink"
                 />
               </Field>
-              <Field label="URL">
-                <input
-                  name="url"
-                  placeholder="Image/video URL"
-                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
-                />
-              </Field>
-              <Field label="Seconds">
-                <input
-                  name="duration_seconds"
-                  type="number"
-                  min="1"
-                  placeholder="Sec"
-                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
-                />
-              </Field>
-              <select name="source_type" className="border border-line px-3 py-2 text-sm">
-                <option value="remote_image">Remote image</option>
-                <option value="remote_mp4">Remote MP4</option>
-                <option value="hls">HLS</option>
-                <option value="rtmp">RTMP</option>
-              </select>
-              <select name="media_kind" className="border border-line px-3 py-2 text-sm">
-                <option value="image">Image</option>
-                <option value="video">Video</option>
-                <option value="graphic">Graphic</option>
-              </select>
-              <select name="asset_type" className="border border-line px-3 py-2 text-sm">
-                <option value="image">Image</option>
-                <option value="video">Video</option>
-                <option value="ad">Ad</option>
-                <option value="promo">Promo</option>
-                <option value="fallback">Fallback</option>
-                <option value="music">Music</option>
-              </select>
-              <button className="btn-secondary lg:col-span-3">Save URL</button>
+              <button className="btn-primary self-end">Import and verify</button>
             </form>
-          </details>
-        </section>
+            <details className="mt-4 rounded-md border border-line bg-panel-soft p-3">
+              <summary className="cursor-pointer text-sm font-semibold">
+                Advanced: add direct URL
+              </summary>
+              <form action={addAsset} className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_130px]">
+                <Field label="Title">
+                  <input
+                    name="title"
+                    required
+                    placeholder="Title"
+                    className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                  />
+                </Field>
+                <Field label="URL">
+                  <input
+                    name="url"
+                    placeholder="Image/video URL"
+                    className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                  />
+                </Field>
+                <Field label="Seconds">
+                  <input
+                    name="duration_seconds"
+                    type="number"
+                    min="1"
+                    placeholder="Sec"
+                    className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                  />
+                </Field>
+                <select name="source_type" className="border border-line px-3 py-2 text-sm">
+                  <option value="remote_image">Remote image</option>
+                  <option value="remote_mp4">Remote MP4</option>
+                  <option value="hls">HLS</option>
+                  <option value="rtmp">RTMP</option>
+                </select>
+                <select name="media_kind" className="border border-line px-3 py-2 text-sm">
+                  <option value="image">Image</option>
+                  <option value="video">Video</option>
+                  <option value="graphic">Graphic</option>
+                </select>
+                <select name="asset_type" className="border border-line px-3 py-2 text-sm">
+                  <option value="image">Image</option>
+                  <option value="video">Video</option>
+                  <option value="ad">Ad</option>
+                  <option value="promo">Promo</option>
+                  <option value="fallback">Fallback</option>
+                  <option value="music">Music</option>
+                </select>
+                <button className="btn-secondary lg:col-span-3">Save URL</button>
+              </form>
+            </details>
+          </section>
         </div>
       </details>
 

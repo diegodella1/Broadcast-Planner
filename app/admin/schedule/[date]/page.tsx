@@ -263,7 +263,9 @@ export default async function ScheduleDatePage({
       {query.uploaded ? <Notice tone="ok">Media uploaded and scheduled.</Notice> : null}
       <PrimaryActionPanel
         eyebrow="Step 2"
-        title={blocks.length ? "Review the rundown and fill missing content" : "Add the first block"}
+        title={
+          blocks.length ? "Review the rundown and fill missing content" : "Add the first block"
+        }
         detail={
           blocks.length
             ? `${readyBlocks}/${blocks.length} blocks ready · ${formatTimecode(totalScheduledSeconds)} scheduled.`
