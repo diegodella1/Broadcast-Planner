@@ -1,3 +1,5 @@
+import { Film, Link as LinkIcon, UploadCloud } from "lucide-react"
+
 import { AdminShell } from "@/components/admin-shell"
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button"
 import { CsrfInput } from "@/components/csrf-input"
@@ -235,28 +237,35 @@ export default async function AssetsPage({
         />
       </section>
 
-      <details className="surface-panel mb-5 overflow-hidden">
-        <summary className="cursor-pointer border-b border-line px-4 py-3 font-semibold">
-          Add or import content
-        </summary>
-        <div className="grid gap-5 p-4 xl:grid-cols-2">
-          <MediaUploadForm
-            action="/api/assets/upload"
-            title="Add video / episode"
-            detail="Upload MP4/WebM videos up to 5 minutes, plus images or MP3 files up to 500 MB. Video duration is detected and used by output."
-            returnTo="/admin/assets?uploaded=1"
-            includeAudio
-          />
-
-          <section className="rounded-md border border-line bg-panel-soft p-4">
-            <FormHeader
-              title="Import Vimeo episode"
-              detail="Paste a Vimeo URL or ID. The episode is added to Library Videos and HLS playback is verified for output."
-            />
+      <section className="mb-5 overflow-hidden rounded-lg border border-accent-positive bg-surface-selected-positive shadow-accent-positive-glow">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-accent-positive/30 px-4 py-4">
+          <div>
+            <p className="eyebrow text-accent-positive">Add or Import Content</p>
+            <h2 className="mt-1 text-2xl font-semibold">Get media ready for scheduling</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">
+              Start here. Import Vimeo for episodes, upload files for local media, or use direct URL
+              only for advanced sources.
+            </p>
+          </div>
+          <ButtonLink href={`/admin/schedule/${today}`} variant="secondary">
+            Schedule Today
+          </ButtonLink>
+        </div>
+        <div className="grid gap-4 p-4 xl:grid-cols-[1.05fr_1fr]">
+          <section className="rounded-md border border-accent-positive bg-surface p-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-accent-positive text-surface-elevated-1">
+                <Film size={19} aria-hidden="true" />
+              </span>
+              <FormHeader
+                title="Import Vimeo episode"
+                detail="Recommended for shows. Paste a Vimeo URL or ID; the episode is added to Library Videos and playback is verified for VLC output."
+              />
+            </div>
             <form
               action="/api/vimeo/import"
               method="post"
-              className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]"
+              className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_190px]"
             >
               <CsrfInput />
               <input type="hidden" name="return_to" value="/admin/assets?kind=videos" />
@@ -270,8 +279,33 @@ export default async function AssetsPage({
               </Field>
               <button className="btn-primary self-end">Import and verify</button>
             </form>
-            <details className="mt-4 rounded-md border border-line bg-panel-soft p-3">
-              <summary className="cursor-pointer text-sm font-semibold">
+            <LinkIconRow href="/admin/vimeo" label="Open full Vimeo sync and catalog" />
+          </section>
+
+          <section className="grid gap-4">
+            <div className="rounded-md border border-line bg-surface p-4">
+              <div className="mb-4 flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-line bg-panel-soft text-muted">
+                  <UploadCloud size={19} aria-hidden="true" />
+                </span>
+                <FormHeader
+                  title="Upload file"
+                  detail="Use for local videos, images and MP3 music. Metadata is checked before the asset is saved."
+                />
+              </div>
+              <MediaUploadForm
+                action="/api/assets/upload"
+                title="Upload media"
+                detail="MP4/WebM videos up to 5 minutes, images or MP3 files up to 500 MB."
+                returnTo="/admin/assets?uploaded=1"
+                includeAudio
+                compact
+              />
+            </div>
+
+            <details className="rounded-md border border-line bg-surface p-4">
+              <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
+                <LinkIcon size={16} aria-hidden="true" />
                 Advanced: add direct URL
               </summary>
               <form action={addAsset} className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_130px]">
@@ -323,7 +357,7 @@ export default async function AssetsPage({
             </details>
           </section>
         </div>
-      </details>
+      </section>
 
       <section className="mb-4 rounded-lg border border-line bg-surface p-3">
         <form
@@ -563,6 +597,18 @@ function assetPageHref(params: Record<string, string | undefined>, page: number)
   if (page > 1) query.set("page", String(page))
   const text = query.toString()
   return `/admin/assets${text ? `?${text}` : ""}`
+}
+
+function LinkIconRow({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-md border border-line bg-panel-soft px-3 text-sm font-semibold text-ink hover:bg-panel"
+    >
+      <LinkIcon size={15} aria-hidden="true" />
+      {label}
+    </a>
+  )
 }
 
 function scheduleAssetHref(
