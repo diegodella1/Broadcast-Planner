@@ -126,8 +126,8 @@ export default async function AdminOutputPage() {
             <p className="text-xs font-bold uppercase tracking-wide text-muted">VLC output</p>
             <h2 className="mt-2 text-2xl font-semibold">Use HLS for playback</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              Browser playout is disabled. Use the active Vimeo HLS link from Observability and open
-              it in VLC as a network stream.
+              Browser playout is disabled. Copy the active VLC playlist from Observability and open
+              it as a network stream; it starts at the current block time.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               <StatusTile label="State" value={broadcastStatusLabel} />

@@ -71,21 +71,21 @@ export function OutputMonitorPanel({ initial }: { initial: MonitorPayload }) {
     if (!payload.asset?.id) return
     setHlsStatus("loading")
     try {
-      const response = await fetch(
-        `/api/output/hls?assetId=${encodeURIComponent(payload.asset.id)}`,
-        {
-          cache: "no-store"
-        }
-      )
+      const response = await fetch("/api/output/hls", {
+        cache: "no-store"
+      })
       const next = (await response.json().catch(() => null)) as {
         hlsUrl?: string
+        playlistUrl?: string
+        startOffsetSeconds?: number
         error?: string
       } | null
-      if (!response.ok || !next?.hlsUrl) {
+      const copyUrl = next?.playlistUrl ?? next?.hlsUrl
+      if (!response.ok || !copyUrl) {
         throw new Error(next?.error ?? `HLS returned ${response.status}`)
       }
-      await navigator.clipboard.writeText(next.hlsUrl)
-      setHlsUrl(next.hlsUrl)
+      await navigator.clipboard.writeText(copyUrl)
+      setHlsUrl(copyUrl)
       setHlsStatus("copied")
     } catch {
       setHlsStatus("error")
@@ -132,16 +132,16 @@ export function OutputMonitorPanel({ initial }: { initial: MonitorPayload }) {
             onClick={copyHlsUrl}
             disabled={hlsStatus === "loading"}
           >
-            {hlsStatus === "loading" ? "Generating HLS..." : "Copy HLS for VLC"}
+            {hlsStatus === "loading" ? "Generating VLC link..." : "Copy VLC playlist link"}
           </button>
           <p className="truncate text-[10px] text-white/35">
             {hlsStatus === "copied"
-              ? "Copied. Vimeo link can expire."
+              ? "Copied. Opens at current block time."
               : hlsStatus === "error"
-                ? "Could not generate HLS link."
+                ? "Could not generate VLC link."
                 : hlsUrl
                   ? hlsUrl
-                  : "Generates a fresh signed Vimeo HLS URL."}
+                  : "Generates a fresh VLC playlist with current offset."}
           </p>
         </div>
       )}
