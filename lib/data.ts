@@ -95,7 +95,10 @@ export async function getProgrammedSecondsByDate(days: Pick<ProgramDay, "id" | "
     const { data, error } = await supabase
       .from("program_blocks")
       .select("program_day_id,duration_seconds,status")
-      .in("program_day_id", days.map((day) => day.id))
+      .in(
+        "program_day_id",
+        days.map((day) => day.id)
+      )
     if (error) throw error
 
     const totals = new Map<string, number>()

@@ -105,11 +105,7 @@ export default async function CalendarPage({
             return (
               <Link
                 key={date}
-                href={
-                  day
-                    ? `/admin/schedule/${date}`
-                    : `/admin/schedule/${date}?setup=1`
-                }
+                href={day ? `/admin/schedule/${date}` : `/admin/schedule/${date}?setup=1`}
                 className={[
                   "min-h-28 border-b border-r border-line p-3 text-sm hover:bg-panel-soft",
                   inMonth ? "bg-surface" : "bg-panel-soft/60 text-muted",
