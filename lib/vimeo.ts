@@ -44,6 +44,7 @@ export type VimeoSyncResult = {
   showCount: number
   readinessCheckedCount?: number
   readinessSkipped?: boolean
+  readinessSkippedCount?: number
 }
 
 export async function listVimeoShows(token: string): Promise<VimeoShow[]> {
@@ -164,7 +165,15 @@ export async function syncVimeoCatalog(token: string, scopeUri?: string): Promis
   let failedCount = 0
   if (rows.length) {
     const { error } = await supabase.from("media_assets").upsert(rows, { onConflict: "vimeo_id" })
-    if (error) {
+    if (isMissingLifecycleStateError(error)) {
+      const { error: retryError } = await supabase
+        .from("media_assets")
+        .upsert(rows.map(withoutLifecycleState), { onConflict: "vimeo_id" })
+      if (retryError) {
+        failedCount = rows.length
+        throw retryError
+      }
+    } else if (error) {
       failedCount = rows.length
       throw error
     }
@@ -175,7 +184,7 @@ export async function syncVimeoCatalog(token: string, scopeUri?: string): Promis
         token,
         rows.map((row) => String(row.vimeo_id ?? "")).filter(Boolean)
       )
-    : { checkedCount: 0, failedCount: 0 }
+    : { checkedCount: 0, failedCount: 0, skippedCount: 0 }
   failedCount += readiness.failedCount
 
   let staleCount = 0
@@ -217,7 +226,8 @@ export async function syncVimeoCatalog(token: string, scopeUri?: string): Promis
     failedCount,
     showCount: scopeUri ? 1 : shows.length,
     readinessCheckedCount: readiness.checkedCount,
-    readinessSkipped: !hasPlaybackReadinessColumns
+    readinessSkipped: !hasPlaybackReadinessColumns || readiness.skippedCount > 0,
+    readinessSkippedCount: readiness.skippedCount
   }
 }
 
@@ -242,16 +252,24 @@ export async function checkVimeoAssetPlayback(assetId: string, token: string) {
 
 async function validateSyncedVimeoPlayback(token: string, vimeoIds: string[]) {
   const supabase = createServiceClient()
-  if (!vimeoIds.length) return { checkedCount: 0, failedCount: 0 }
-  const { data, error } = await supabase
-    .from("media_assets")
-    .select("id,title,vimeo_id")
-    .eq("source_type", "vimeo")
-    .in("vimeo_id", vimeoIds)
-  if (error) throw error
+  if (!vimeoIds.length) return { checkedCount: 0, failedCount: 0, skippedCount: 0 }
+  const maxInlineChecks = Number(process.env.VIMEO_INLINE_PLAYBACK_CHECK_LIMIT ?? 25)
+  if (vimeoIds.length > maxInlineChecks) {
+    return { checkedCount: 0, failedCount: 0, skippedCount: vimeoIds.length }
+  }
+  const data = []
+  for (const batch of chunks(vimeoIds, 50)) {
+    const { data: rows, error } = await supabase
+      .from("media_assets")
+      .select("id,title,vimeo_id")
+      .eq("source_type", "vimeo")
+      .in("vimeo_id", batch)
+    if (error) throw error
+    data.push(...(rows ?? []))
+  }
 
   let failedCount = 0
-  for (const row of data ?? []) {
+  for (const row of data) {
     try {
       await validateOneVimeoPlayback(token, {
         id: String(row.id),
@@ -262,7 +280,7 @@ async function validateSyncedVimeoPlayback(token: string, vimeoIds: string[]) {
       failedCount += 1
     }
   }
-  return { checkedCount: data?.length ?? 0, failedCount }
+  return { checkedCount: data.length, failedCount, skippedCount: 0 }
 }
 
 async function validateOneVimeoPlayback(
@@ -420,7 +438,34 @@ async function updateVimeoPlaybackFailure(
 function isMissingColumnError(error: unknown) {
   if (!error || typeof error !== "object") return false
   const item = error as { code?: unknown; message?: unknown }
-  return item.code === "42703" || String(item.message ?? "").includes("does not exist")
+  const message = String(item.message ?? "")
+  return (
+    item.code === "42703" ||
+    item.code === "PGRST204" ||
+    message.includes("does not exist") ||
+    message.includes("Could not find")
+  )
+}
+
+function isMissingLifecycleStateError(error: unknown) {
+  if (!isMissingColumnError(error)) return false
+  const message =
+    error && typeof error === "object" ? String((error as { message?: unknown }).message ?? "") : ""
+  return message.includes("lifecycle_state")
+}
+
+function withoutLifecycleState<T extends Record<string, unknown>>(row: T) {
+  const next = { ...row }
+  delete next.lifecycle_state
+  return next
+}
+
+function chunks<T>(items: T[], size: number) {
+  const batches: T[][] = []
+  for (let index = 0; index < items.length; index += size) {
+    batches.push(items.slice(index, index + size))
+  }
+  return batches
 }
 
 async function listVimeoVideos(token: string, path: string): Promise<VimeoVideo[]> {
