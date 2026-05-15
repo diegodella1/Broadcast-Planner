@@ -48,6 +48,9 @@ const currentFunctions = [
   "Protected output status and block preview routes",
   "Output session cookie for normal admin launches",
   "Output control panel with status, HLS copy, live observability and stop broadcast",
+  "Newcomer-oriented operator path UI across Dashboard, Library, Schedule and Output",
+  "Public English operation manual available outside admin login",
+  "Public English pending/backlog page available outside admin login",
   "Audit page and audited critical mutations",
   "CSRF protection for mutating admin forms and APIs",
   "Asset lifecycle states for synced, reviewed, rejected, stale, expired and scheduled-in-use",
@@ -60,6 +63,8 @@ const currentFunctions = [
 
 const operatorReadyNotes = [
   "Controlled production operation is ready after applying Supabase migrations and completing the per-day runbook.",
+  "The standard operator path is Library -> Schedule -> VLC Output. The UI now keeps that path visible for newcomers.",
+  "The operation manual and pending backlog are public documentation pages and do not require admin login.",
   "Unattended operation still waits on the P0 multi-user roles item because bootstrap-token access has no named operator identity.",
   "Rundown drag/drop editor and operator runbook are shipped, so they are no longer future backlog items."
 ]
@@ -79,7 +84,8 @@ export default function PendingPage() {
           <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
             Current implementation is deployed and usable for controlled production operation. The
             items below are remaining work for unattended operation, broader operator handoff and
-            future capability expansion.
+            future capability expansion. This page is public documentation and intentionally does
+            not require admin login.
           </p>
         </header>
 

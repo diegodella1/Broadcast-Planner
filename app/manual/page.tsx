@@ -22,8 +22,8 @@ const operatorSections = [
     title: "Dashboard",
     icon: Activity,
     body: [
-      "The dashboard is the operator starting point. It summarizes today's programming day, current block, next block, schedule health, ready assets, music, graphics and upcoming items.",
-      "Use it before a broadcast to identify missing media, timing gaps, warnings, and the fastest next action: edit today's timeline, review assets, check music, or open the output monitor."
+      "The dashboard is the operator starting point. It shows the next recommended action and keeps the three-step operator path visible: Library, Schedule, VLC Output.",
+      "Use it before a broadcast to identify missing content, timing gaps, warnings, and whether today's schedule is ready to test in VLC."
     ],
     links: [{ label: "Open dashboard", href: "/admin" }]
   },
@@ -32,7 +32,7 @@ const operatorSections = [
     title: "Programming calendar",
     icon: CalendarDays,
     body: [
-      "The calendar lists programming days by air date and status. Operators create days, open an existing schedule, and move between draft, ready, active and archived operating states.",
+      "The calendar lists programming days by air date and status. Operators create future days, open an existing schedule, and move between draft, ready, active and archived operating states.",
       "Each day owns its blocks, fallback asset, timezone and status. The broadcast output reads the active day and active block from this schedule."
     ],
     links: [{ label: "Open calendar", href: "/admin/calendar" }]
@@ -42,9 +42,9 @@ const operatorSections = [
     title: "Daily schedule and rundown",
     icon: RadioTower,
     body: [
-      "The schedule page is the main rundown. Blocks appear in time order with category badges, status, duration, current/next indicators and a live now-line on today's date.",
-      "To add a show to the timeline, upload directly with Add show to timeline or choose Schedule existing asset / show, select the media asset or system slide, set start time, duration and block type, then save.",
-      "Use the Rundown editor to drag reorder, keyboard move, resize in 5 minute steps, duplicate, archive and bulk change block status."
+      "The schedule page is the main rundown. Blocks appear in time order with status, duration, current/next indicators and a live now-line on today's date.",
+      "Use Add Block to choose the content type, pick ready Library content, confirm start time and duration, then save.",
+      "Use the Rundown editor to drag reorder, move with buttons or keyboard, resize in 5 minute steps, duplicate, archive and bulk change block status."
     ],
     details: [
       "Hierarchy: media asset or system slide -> scheduled block/show -> optional overlays -> output.",
@@ -95,7 +95,7 @@ const operatorSections = [
       "Operators upload files, add remote URLs, search and filter assets, inspect thumbnails, duration and file metadata, and edit asset metadata used by the renderer."
     ],
     details: [
-      "Library order is intentional: upload media or sync Vimeo first, review readiness, then schedule it as a show/block on a programming day.",
+      "Library order is intentional: upload media or sync Vimeo first, review readiness, then schedule it as a block on a programming day.",
       "The Library renders a paginated server-side list of 50 assets per page and preserves search, source/type, Vimeo show, month, year and sort filters across page links.",
       "Images default to 25 seconds unless overridden. Video/audio use detected metadata duration unless overridden.",
       "Ready assets are eligible for playout. Draft, syncing, failed and archived assets need review before they should be scheduled.",
@@ -198,7 +198,7 @@ const operatorSections = [
     title: "Output control panel",
     icon: MonitorPlay,
     body: [
-      "The admin output page is an operator control surface for current broadcast status, active source, HLS copy, live observability and stop-broadcast action.",
+      "The admin output page is an operator control surface for current broadcast status, active source, continuous VLC HLS copy, live observability and stop-broadcast action.",
       "Stopping broadcast moves the current day back to ready, which prevents the ON AIR state from continuing."
     ],
     links: [{ label: "Open output controls", href: "/admin/output" }]
@@ -222,7 +222,7 @@ const publicSections = [
     icon: MonitorPlay,
     body: [
       "The live output route is now a status-only compatibility surface.",
-      "Actual playback should use the fresh Vimeo HLS link copied from Admin Output and opened in VLC."
+      "Actual playback should use the continuous HLS link copied from Admin Output and opened in VLC."
     ],
     details: [
       "Normal admin launches can still go through /api/output/session for compatibility.",
@@ -248,24 +248,24 @@ const publicSections = [
     title: "Access model",
     icon: Shield,
     body: [
-      "Admin routes require the configured bootstrap token. Output routes require the output capture token in production, either by admin-minted cookie or temporary query token.",
+      "The manual and pending pages are public and do not require login. Admin routes require the configured bootstrap token. Output routes require the output capture token in production, either by admin-minted cookie or temporary query token.",
       "Secrets such as Supabase service role keys, Vimeo tokens, output tokens and encryption keys must remain in environment variables or encrypted settings, never in public documentation."
     ]
   }
 ]
 
 const workflowSteps = [
-  "Upload media in Library or sync Vimeo from the Vimeo sync page.",
-  "Confirm duration, thumbnail, metadata and ready/review state in Library.",
-  "Create or open the programming day.",
-  "Use Add show to timeline for a new upload or Schedule existing asset / show for existing media.",
-  "Set show title, start time, duration, block type and asset/slide.",
+  "Open Library and add content by uploading media, importing Vimeo, or creating slides.",
+  "Confirm each item is ready and has the right duration, thumbnail and metadata.",
+  "Open Schedule from the calendar and create the programming day if it does not exist.",
+  "Use Add Block, choose content type, search or filter content, then select the ready asset or slide.",
+  "Confirm start time and duration. Save the block to the rundown.",
   "Use the Rundown editor to reorder, resize, duplicate, archive or bulk-mark blocks before air.",
   "Assign fallback assets and overlays when needed.",
   "Review schedule health until critical items are clear.",
   "Open the operator runbook for the day and complete critical preflight checks.",
   "Mark the day ready, then active when it should drive output.",
-  "Open Admin Output and copy the active HLS link into VLC.",
+  "Open Output and copy the continuous VLC HLS link into VLC.",
   "During live operation, use the output monitor and runbook live checks to verify current block, next block, fallback reason and clock skew.",
   "Use output status routes or block preview for troubleshooting schedule state.",
   "Record incidents in the runbook, then complete shutdown checks and stop broadcast from the output control panel when the day is done."
@@ -284,16 +284,16 @@ export default function ManualPage() {
             RTV TL Manager Manual
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
-            Current feature guide for operators, producers, engineers and public output viewers. The
-            app programs the broadcast day, validates the signal and renders clean playout surfaces
-            for capture tools.
+            Public English guide for operators, producers, engineers and output viewers. This page
+            is available outside admin login. The app programs the broadcast day, validates the
+            signal and provides the continuous HLS link used by VLC.
           </p>
         </header>
 
         <section className="grid gap-3 border-b border-white/10 py-6 md:grid-cols-4">
           <ManualMetric label="Base path" value="/" />
-          <ManualMetric label="Admin access" value="Token" />
-          <ManualMetric label="Output" value="Fullscreen" />
+          <ManualMetric label="Manual access" value="Public" />
+          <ManualMetric label="Playback" value="VLC HLS" />
           <ManualMetric label="Data store" value="Supabase" />
         </section>
 
@@ -327,6 +327,7 @@ export default function ManualPage() {
           <h2 className="text-xl font-semibold">Current Limits and Operating Notes</h2>
           <ul className="mt-4 grid gap-2 text-sm leading-6 text-white/70">
             <li>Admin authentication is a bootstrap-token flow, not a multi-user role system.</li>
+            <li>The manual and pending backlog are public documentation pages.</li>
             <li>
               Runbook persistence requires the `operator_runbook_checks` Supabase migration in the
               target database.

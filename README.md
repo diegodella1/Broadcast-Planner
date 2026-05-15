@@ -8,7 +8,7 @@ Core idea:
 Program day -> Blocks -> Scheduled layers -> Broadcast output
 ```
 
-This is not a public website or a video library. It is an operations console for building and monitoring what goes on air.
+This is not a consumer video website or a public media catalog. It is an operations console for building and monitoring what goes on air. The public pages `/manual` and `/pending` are intentionally visible without login so operators, producers, and external reviewers can read the operating documentation and backlog.
 
 ## What It Does
 
@@ -47,8 +47,8 @@ This is not a public website or a video library. It is an operations console for
 - `/admin/slides` - slide library
 - `/admin/output` - operator output control panel
 - `/admin/settings` - integrations and app settings
-- `/manual` - operator and public output manual
-- `/pending` - pending developments, needed functionality and production backlog
+- `/manual` - public English operation and usage manual
+- `/pending` - public English backlog, current functionality and production readiness notes
 - `/output/live` - status-only compatibility output
 - `/output/[timelineId]` - status-only timeline compatibility output
 - `/output/preview/[blockId]` - status-only block preview output
@@ -164,12 +164,13 @@ Production container health check:
 ## Operational Notes
 
 - Admin screens are for operators, producers, and content administrators.
-- Normal show workflow is: Library -> Programming day -> Timeline block -> Output control.
-- To schedule a show, first upload media or sync Vimeo, then open `/admin/calendar`, pick the day, and use “Schedule existing asset / show” or “Add show to timeline”.
+- Public documentation is available without login at `/manual` and `/pending`; admin actions still require `/admin/login`.
+- Normal operator workflow is: Library -> Schedule -> VLC Output.
+- To schedule a show, first upload media or sync Vimeo in Library, then open `/admin/calendar`, pick the day, and use Add Block on the schedule.
 - Use the Rundown editor on `/admin/schedule/[date]` for drag reorder, keyboard moves, 5-minute resize, duplicate, archive and bulk status. These edits are audited and still go through server conflict checks plus the database overlap trigger.
 - Before going live, open `/admin/runbook/[date]` and complete critical preflight checks. Runbook checks and notes persist per program day in Supabase and are written to audit.
 - Vimeo sync is the source for Vimeo playback assets. Use `/admin/vimeo` to sync and filter by episode title, show name, month, year and status.
-- Use `/admin/output` to copy a fresh HLS link and open it in VLC.
+- Use `/admin/output` to copy the continuous HLS link and open it in VLC. Browser playout is not the primary output path.
 - `.env` contains secrets and must not be committed.
 - `ADMIN_BOOTSTRAP_TOKEN` is used for protected admin access.
 - `OUTPUT_CAPTURE_TOKEN` is required in production and protects `/output/live`, preview and schedule routes. Admin output links mint an `HttpOnly` `rpm_output_token` cookie through `/api/output/session`; query tokens are only for scripts/bootstrap.
@@ -212,6 +213,8 @@ Implemented:
 - Staging write smoke cleanup
 - Backup and restore drill
 - Production read-only smoke and output status smoke
+- Newcomer-oriented operator path UI: Library -> Schedule -> VLC Output
+- Public English operation manual
 
 Known next priority:
 

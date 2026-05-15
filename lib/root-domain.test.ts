@@ -26,4 +26,23 @@ describe("root-domain routing", () => {
     expect(response.status).toBe(308)
     expect(response.headers.get("location")).toBe("https://rtvtime.diegodella.ar/manual?x=1")
   })
+
+  it("keeps manual and pending public outside admin login", () => {
+    const previous = process.env.ADMIN_BOOTSTRAP_TOKEN
+    process.env.ADMIN_BOOTSTRAP_TOKEN = "required-admin-token"
+
+    for (const path of ["/manual", "/pending"]) {
+      const request = new NextRequest(`https://rtvtime.diegodella.ar${path}`)
+      const response = middleware(request)
+
+      expect(response.status, path).toBe(200)
+      expect(response.headers.get("location"), path).toBeNull()
+    }
+
+    if (previous === undefined) {
+      delete process.env.ADMIN_BOOTSTRAP_TOKEN
+    } else {
+      process.env.ADMIN_BOOTSTRAP_TOKEN = previous
+    }
+  })
 })
