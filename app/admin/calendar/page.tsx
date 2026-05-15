@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { ButtonLink, EmptyState, Field, FormHeader, MetricTile } from "@/components/ui"
-import { getDays, getScheduleForDate } from "@/lib/data"
+import { getDays, getProgrammedSecondsByDate } from "@/lib/data"
 import { DAY_TEMPLATES } from "@/lib/day-templates"
 import { createProgramDayFromTemplate, ensureProgramDay } from "@/lib/mutations"
 import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
@@ -20,18 +20,13 @@ export default async function CalendarPage({
   const today = isoDateInTimezone(new Date(), PLAYOUT_TIMEZONE)
   const selectedMonth = parseMonth(params.month ?? today.slice(0, 7))
   const monthDays = buildMonthGrid(selectedMonth.year, selectedMonth.month)
-  const schedules = await Promise.all(
-    days
-      .filter((day) => day.airDate.startsWith(monthKey(selectedMonth.year, selectedMonth.month)))
-      .map(async (day) => [day.airDate, await getScheduleForDate(day.airDate)] as const)
-  )
+  const selectedMonthKey = monthKey(selectedMonth.year, selectedMonth.month)
+  const daysInMonth = days.filter((day) => day.airDate.startsWith(selectedMonthKey))
+  const programmedSecondsByDate = await getProgrammedSecondsByDate(daysInMonth)
   const coverage = new Map(
-    schedules.map(([date, schedule]) => {
-      const programmedSeconds = schedule.blocks.reduce(
-        (total, block) => total + block.durationSeconds,
-        0
-      )
-      return [date, Math.min(100, Math.round((programmedSeconds / 86400) * 100))]
+    daysInMonth.map((day) => {
+      const programmedSeconds = programmedSecondsByDate.get(day.airDate) ?? 0
+      return [day.airDate, Math.min(100, Math.round((programmedSeconds / 86400) * 100))]
     })
   )
   const dayByDate = new Map(days.map((day) => [day.airDate, day]))
@@ -113,7 +108,7 @@ export default async function CalendarPage({
                 href={
                   day
                     ? `/admin/schedule/${date}`
-                    : `/admin/calendar?month=${monthKey(selectedMonth.year, selectedMonth.month)}&setup=${date}`
+                    : `/admin/schedule/${date}?setup=1`
                 }
                 className={[
                   "min-h-28 border-b border-r border-line p-3 text-sm hover:bg-panel-soft",

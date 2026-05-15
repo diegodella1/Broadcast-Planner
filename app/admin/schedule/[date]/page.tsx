@@ -1,5 +1,6 @@
 import clsx from "clsx"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 
 import { AgendaBlockForm } from "@/components/agenda-block-form"
 import { AdminShell } from "@/components/admin-shell"
@@ -9,13 +10,16 @@ import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
 import { ButtonLink, EmptyState, Field, FormHeader, Notice, StatusBanner } from "@/components/ui"
 import { getScheduleForDate } from "@/lib/data"
+import { DAY_TEMPLATES } from "@/lib/day-templates"
 import {
   archiveProgramBlock,
   bulkUpdateProgramBlockStatus,
   createLongTestSchedule,
+  createProgramDayFromTemplate,
   fillProgramBlockContent,
   createProgramBlock,
   duplicateProgramBlock,
+  ensureProgramDay,
   moveProgramBlock,
   reorderProgramBlocks,
   resizeProgramBlock,
@@ -143,6 +147,20 @@ export default async function ScheduleDatePage({
       status: input.status
     })
   }
+  async function createEmptyDay() {
+    "use server"
+    await ensureProgramDay(date)
+    redirect(`/admin/schedule/${date}`)
+  }
+  async function setupDayFromTemplate(formData: FormData) {
+    "use server"
+    await createProgramDayFromTemplate({
+      date,
+      templateId: String(formData.get("template_id")),
+      startTime: String(formData.get("start_time") || "00:00:00")
+    })
+    redirect(`/admin/schedule/${date}`)
+  }
   const totalScheduledSeconds = blocks.reduce((total, block) => total + block.durationSeconds, 0)
   const timezone = schedule.day?.timezone ?? PLAYOUT_TIMEZONE
   const nowSeconds = secondsSinceMidnightInTimezone(new Date(), timezone)
@@ -166,6 +184,61 @@ export default async function ScheduleDatePage({
   const firstBlock = blocks[0] ?? null
   const lastBlock = blocks[blocks.length - 1] ?? null
   const lastEnd = lastBlock ? lastBlock.startTimeSeconds + lastBlock.durationSeconds : 0
+  if (!schedule.day) {
+    return (
+      <AdminShell
+        title={`Set up ${date}`}
+        description="Create this day before adding blocks."
+        actions={
+          <>
+            <ButtonLink href="/admin/calendar" variant="secondary">
+              Calendar
+            </ButtonLink>
+            <ButtonLink href="/admin/assets" variant="secondary">
+              Library
+            </ButtonLink>
+          </>
+        }
+      >
+        <section className="surface-panel p-4">
+          <FormHeader
+            title="Create schedule day"
+            detail="Use a template for draft slots, or start empty and add blocks manually."
+          />
+          <form
+            action={setupDayFromTemplate}
+            className="mt-4 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)_150px]"
+          >
+            <Field label="Start">
+              <input
+                name="start_time"
+                defaultValue="00:00:00"
+                required
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              />
+            </Field>
+            <Field label="Template">
+              <select
+                name="template_id"
+                defaultValue={DAY_TEMPLATES[0]?.id}
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              >
+                {DAY_TEMPLATES.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} - {template.description}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <button className="btn-primary self-end">Create from template</button>
+          </form>
+          <form action={createEmptyDay} className="mt-3">
+            <button className="btn-secondary">Create empty day</button>
+          </form>
+        </section>
+      </AdminShell>
+    )
+  }
   return (
     <AdminShell
       title={`Schedule ${date}`}

@@ -87,6 +87,30 @@ export async function getScheduleForDate(date: string): Promise<ScheduleBundle> 
   }
 }
 
+export async function getProgrammedSecondsByDate(days: Pick<ProgramDay, "id" | "airDate">[]) {
+  if (!days.length) return new Map<string, number>()
+  try {
+    const supabase = createServiceClient()
+    const dayIdToDate = new Map(days.map((day) => [day.id, day.airDate]))
+    const { data, error } = await supabase
+      .from("program_blocks")
+      .select("program_day_id,duration_seconds,status")
+      .in("program_day_id", days.map((day) => day.id))
+    if (error) throw error
+
+    const totals = new Map<string, number>()
+    for (const row of data ?? []) {
+      if (text(row.status) === "archived") continue
+      const date = dayIdToDate.get(text(row.program_day_id))
+      if (!date) continue
+      totals.set(date, (totals.get(date) ?? 0) + number(row.duration_seconds))
+    }
+    return totals
+  } catch (error) {
+    return handleDataFailure(error, new Map<string, number>())
+  }
+}
+
 export async function getPlaybackScheduleForDate(date: string): Promise<ScheduleBundle> {
   try {
     const supabase = createServiceClient()
