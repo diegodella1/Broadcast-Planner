@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache"
 
 import { auditedMutation } from "./audit"
 import { getScheduleForDate } from "./data"
+import { buildTemplateBlocks, getDayTemplate } from "./day-templates"
 import { buildLongTestSchedule } from "./schedule-builder"
 import { findScheduleConflicts } from "./schedule-conflicts"
 import { analyzeSchedule } from "./schedule-health"
@@ -119,6 +120,119 @@ export async function createProgramBlock(input: {
   revalidatePath(`/admin/schedule/${input.date}`)
 }
 
+export async function createProgramDayFromTemplate(input: {
+  date: string
+  templateId: string
+  startTime: string
+}) {
+  const template = getDayTemplate(input.templateId)
+  if (!template) throw new Error("Unknown day template")
+  const dayId = await ensureProgramDay(input.date)
+  const blocks = buildTemplateBlocks(template, input.startTime)
+  const lastBlock = blocks[blocks.length - 1]
+  if (!lastBlock) throw new Error("Template has no blocks")
+  if (lastBlock.startTimeSeconds + lastBlock.durationSeconds > 86400) {
+    throw new Error("Template exceeds the 24 hour day")
+  }
+
+  const schedule = await getScheduleForDate(input.date)
+  const activeBlocks = schedule.blocks.filter((block) => block.status !== "archived")
+  if (activeBlocks.length) {
+    throw new Error("Day already has blocks. Open the schedule and edit it instead.")
+  }
+
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "program_day.template_created",
+      entityType: "program_blocks",
+      metadata: {
+        date: input.date,
+        template_id: template.id,
+        start_time: input.startTime,
+        blocks: blocks.length
+      },
+      next: { template: template.name, blocks: blocks.length }
+    },
+    async () => {
+      const { error } = await supabase.from("program_blocks").insert(
+        blocks.map((block) => ({
+          program_day_id: dayId,
+          title: block.title,
+          block_type: block.blockType,
+          category: block.category,
+          asset_id: null,
+          slide_id: null,
+          start_time: block.startTime,
+          start_time_seconds: block.startTimeSeconds,
+          duration_seconds: block.durationSeconds,
+          status: "draft",
+          hide_overlays: false
+        }))
+      )
+      if (error) throw error
+    }
+  )
+  revalidateSchedule(input.date)
+}
+
+export async function fillProgramBlockContent(input: {
+  date: string
+  blockId: string
+  assetId?: string
+  slideId?: string
+}) {
+  const schedule = await getScheduleForDate(input.date)
+  const block = schedule.blocks.find((item) => item.id === input.blockId)
+  if (!block) throw new Error("Bloque no encontrado")
+  const asset = input.assetId
+    ? schedule.mediaAssets.find((item) => item.id === input.assetId)
+    : null
+  const slide = input.slideId
+    ? schedule.slideAssets.find((item) => item.id === input.slideId)
+    : null
+  if (!asset && !slide) throw new Error("Choose content for this block")
+  if (asset && slide) throw new Error("Choose either media or slide, not both")
+  if (asset && asset.status !== "ready") throw new Error("Asset is not ready")
+  if (slide && slide.status !== "ready") throw new Error("Slide is not ready")
+  if (asset && !assetMatchesBlock(block.blockType, asset.assetType)) {
+    throw new Error("Asset type does not match this block")
+  }
+  if (slide && block.blockType !== "slide") {
+    throw new Error("Slides can only fill slide blocks")
+  }
+
+  const contentDuration = asset?.durationSeconds ?? slide?.defaultDurationSeconds ?? 0
+  const durationSeconds = Math.max(block.durationSeconds, contentDuration || 1)
+  const title = asset?.title ?? slide?.title ?? block.title
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "program_block.content_filled",
+      entityType: "program_blocks",
+      entityId: block.id,
+      metadata: { date: input.date },
+      previous: { title: block.title, status: block.status },
+      next: { title, status: "ready", duration_seconds: durationSeconds }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("program_blocks")
+        .update({
+          title,
+          asset_id: asset?.id ?? null,
+          slide_id: slide?.id ?? null,
+          duration_seconds: durationSeconds,
+          status: "ready",
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", block.id)
+      if (error) throw error
+    }
+  )
+  revalidateSchedule(input.date)
+}
+
 function getKnownContentDuration(
   schedule: Awaited<ReturnType<typeof getScheduleForDate>>,
   assetId?: string,
@@ -132,6 +246,15 @@ function getKnownContentDuration(
     ? schedule.slideAssets.find((slide) => slide.id === slideId)?.defaultDurationSeconds
     : null
   return slideDuration ?? 0
+}
+
+function assetMatchesBlock(blockType: ProgramBlock["blockType"], assetType: string) {
+  if (blockType === "video") return assetType === "video"
+  if (blockType === "image") return assetType === "image"
+  if (blockType === "ad") return assetType === "ad"
+  if (blockType === "promo") return assetType === "promo"
+  if (blockType === "fallback") return assetType === "fallback"
+  return false
 }
 
 export async function updateProgramDayStatus(input: {

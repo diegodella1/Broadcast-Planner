@@ -1,9 +1,11 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
-import { ButtonLink, EmptyState, MetricTile } from "@/components/ui"
+import { ButtonLink, EmptyState, Field, FormHeader, MetricTile } from "@/components/ui"
 import { getDays, getScheduleForDate } from "@/lib/data"
-import { ensureProgramDay } from "@/lib/mutations"
+import { DAY_TEMPLATES } from "@/lib/day-templates"
+import { createProgramDayFromTemplate, ensureProgramDay } from "@/lib/mutations"
 import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
 
 export const dynamic = "force-dynamic"
@@ -11,7 +13,7 @@ export const dynamic = "force-dynamic"
 export default async function CalendarPage({
   searchParams
 }: {
-  searchParams: Promise<{ month?: string }>
+  searchParams: Promise<{ month?: string; setup?: string }>
 }) {
   const params = await searchParams
   const days = await getDays()
@@ -39,6 +41,16 @@ export default async function CalendarPage({
   async function createDay(formData: FormData) {
     "use server"
     await ensureProgramDay(String(formData.get("date")))
+  }
+  async function setupDayFromTemplate(formData: FormData) {
+    "use server"
+    const date = String(formData.get("date"))
+    await createProgramDayFromTemplate({
+      date,
+      templateId: String(formData.get("template_id")),
+      startTime: String(formData.get("start_time") || "00:00:00")
+    })
+    redirect(`/admin/schedule/${date}?setup=1`)
   }
   return (
     <AdminShell
@@ -98,7 +110,11 @@ export default async function CalendarPage({
             return (
               <Link
                 key={date}
-                href={`/admin/schedule/${date}`}
+                href={
+                  day
+                    ? `/admin/schedule/${date}`
+                    : `/admin/calendar?month=${monthKey(selectedMonth.year, selectedMonth.month)}&setup=${date}`
+                }
                 className={[
                   "min-h-28 border-b border-r border-line p-3 text-sm hover:bg-panel-soft",
                   inMonth ? "bg-surface" : "bg-panel-soft/60 text-muted",
@@ -110,7 +126,7 @@ export default async function CalendarPage({
                   {day ? (
                     <StatusPill status={day.status} />
                   ) : (
-                    <span className="text-xs text-muted">Empty</span>
+                    <span className="text-xs text-muted">Setup</span>
                   )}
                 </div>
                 <div className="mt-5 h-2 overflow-hidden rounded-full bg-panel">
@@ -131,6 +147,48 @@ export default async function CalendarPage({
           })}
         </div>
       </section>
+      {params.setup ? (
+        <section className="surface-panel mb-5 p-4">
+          <FormHeader
+            title={`Set up ${params.setup}`}
+            detail="Choose a built-in clock template. The day opens with draft blocks ready to fill."
+          />
+          <form
+            action={setupDayFromTemplate}
+            className="mt-4 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)_160px_150px]"
+          >
+            <input type="hidden" name="date" value={params.setup} />
+            <Field label="Start">
+              <input
+                name="start_time"
+                defaultValue="00:00:00"
+                required
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              />
+            </Field>
+            <Field label="Template">
+              <select
+                name="template_id"
+                defaultValue={DAY_TEMPLATES[0]?.id}
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              >
+                {DAY_TEMPLATES.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} - {template.description}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <div className="rounded-md border border-line bg-panel-soft px-3 py-2 text-sm">
+              <p className="text-xs font-semibold uppercase text-muted">Blocks</p>
+              <p className="mt-1 font-semibold tabular-nums">
+                {DAY_TEMPLATES[0]?.slots.length ?? 0} in recommended preset
+              </p>
+            </div>
+            <button className="btn-primary self-end">Create day</button>
+          </form>
+        </section>
+      ) : null}
       <form action={createDay} className="surface-panel mb-5 flex max-w-xl gap-3 p-4">
         <input
           name="date"

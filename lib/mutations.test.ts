@@ -147,7 +147,9 @@ import { buildLongTestSchedule } from "@/lib/schedule-builder"
 
 import {
   ensureProgramDay,
+  createProgramDayFromTemplate,
   createProgramBlock,
+  fillProgramBlockContent,
   updateProgramDayStatus,
   updateProgramBlock,
   createLongTestSchedule,
@@ -227,6 +229,154 @@ describe("ensureProgramDay", () => {
     supabaseMock.setResult({ data: null, error: new Error("DB down") })
 
     await expect(ensureProgramDay("2026-05-08")).rejects.toThrow("DB down")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// createProgramDayFromTemplate
+// ---------------------------------------------------------------------------
+describe("createProgramDayFromTemplate", () => {
+  beforeEach(async () => {
+    await resetMocks()
+    supabaseMock.setResult({ data: { id: "day-1" }, error: null })
+  })
+
+  it("happy path: inserts draft placeholder blocks from a built-in template", async () => {
+    await createProgramDayFromTemplate({
+      date: "2026-05-08",
+      templateId: "short-test-day",
+      startTime: "09:00:00"
+    })
+
+    const insertCall = (supabaseMock.insert as ReturnType<typeof vi.fn>).mock.calls.find((call) =>
+      Array.isArray(call[0])
+    )
+    expect(insertCall).toBeDefined()
+    const inserted = insertCall![0] as Array<{
+      program_day_id: string
+      status: string
+      asset_id: string | null
+      slide_id: string | null
+      start_time: string
+    }>
+    expect(inserted).toHaveLength(4)
+    expect(inserted[0]).toEqual(
+      expect.objectContaining({
+        program_day_id: "day-1",
+        status: "draft",
+        asset_id: null,
+        slide_id: null,
+        start_time: "09:00:00"
+      })
+    )
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/calendar")
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/output")
+  })
+
+  it("error path: rejects unknown templates", async () => {
+    await expect(
+      createProgramDayFromTemplate({
+        date: "2026-05-08",
+        templateId: "missing-template",
+        startTime: "09:00:00"
+      })
+    ).rejects.toThrow("Unknown day template")
+  })
+
+  it("error path: rejects days that already have active blocks", async () => {
+    getScheduleForDateMock.mockResolvedValue({
+      ...mockSchedule,
+      blocks: [testBlock({ id: "block-existing", status: "ready" })]
+    })
+
+    await expect(
+      createProgramDayFromTemplate({
+        date: "2026-05-08",
+        templateId: "short-test-day",
+        startTime: "09:00:00"
+      })
+    ).rejects.toThrow("already has blocks")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// fillProgramBlockContent
+// ---------------------------------------------------------------------------
+describe("fillProgramBlockContent", () => {
+  beforeEach(async () => {
+    await resetMocks()
+  })
+
+  it("happy path: assigns a ready asset and expands duration when content is longer", async () => {
+    getScheduleForDateMock.mockResolvedValue({
+      ...mockSchedule,
+      blocks: [
+        testBlock({
+          id: "block-video",
+          title: "Market video slot",
+          blockType: "video",
+          status: "draft",
+          durationSeconds: 300
+        })
+      ],
+      mediaAssets: [
+        {
+          id: "asset-video",
+          title: "Long Video",
+          sourceType: "vimeo",
+          mediaKind: "video",
+          assetType: "video",
+          durationSeconds: 900,
+          status: "ready",
+          createdAt: "",
+          updatedAt: ""
+        }
+      ]
+    })
+
+    await fillProgramBlockContent({
+      date: "2026-05-08",
+      blockId: "block-video",
+      assetId: "asset-video"
+    })
+
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Long Video",
+        asset_id: "asset-video",
+        slide_id: null,
+        duration_seconds: 900,
+        status: "ready"
+      })
+    )
+  })
+
+  it("error path: rejects mismatched asset types", async () => {
+    getScheduleForDateMock.mockResolvedValue({
+      ...mockSchedule,
+      blocks: [testBlock({ id: "block-ad", blockType: "ad", status: "draft" })],
+      mediaAssets: [
+        {
+          id: "asset-video",
+          title: "Video",
+          sourceType: "vimeo",
+          mediaKind: "video",
+          assetType: "video",
+          durationSeconds: 300,
+          status: "ready",
+          createdAt: "",
+          updatedAt: ""
+        }
+      ]
+    })
+
+    await expect(
+      fillProgramBlockContent({
+        date: "2026-05-08",
+        blockId: "block-ad",
+        assetId: "asset-video"
+      })
+    ).rejects.toThrow("does not match")
   })
 })
 

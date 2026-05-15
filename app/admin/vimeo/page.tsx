@@ -86,10 +86,10 @@ export default async function VimeoSyncPage({
   return (
     <AdminShell
       title="Vimeo Sync"
-      description="Vimeo sync mirrors shows and episodes into the Library. Schedule playback from synced Library assets."
+      description="Vimeo sync mirrors shows and episodes into Library Videos. Schedule playback from synced Library assets."
       actions={
-        <Link className="btn-secondary" href="/admin/assets?kind=vimeo">
-          Open Vimeo library
+        <Link className="btn-secondary" href="/admin/assets?kind=videos">
+          Open Videos
         </Link>
       }
     >
@@ -308,7 +308,7 @@ function VimeoAssetRow({
         </form>
         <Link
           className="btn-secondary"
-          href={`/admin/assets?kind=vimeo&q=${encodeURIComponent(asset.title)}#asset-${asset.id}`}
+          href={`/admin/assets?kind=videos&q=${encodeURIComponent(asset.title)}#asset-${asset.id}`}
         >
           Edit in Library
         </Link>

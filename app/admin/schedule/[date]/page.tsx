@@ -13,6 +13,7 @@ import {
   archiveProgramBlock,
   bulkUpdateProgramBlockStatus,
   createLongTestSchedule,
+  fillProgramBlockContent,
   createProgramBlock,
   duplicateProgramBlock,
   reorderProgramBlocks,
@@ -64,6 +65,15 @@ export default async function ScheduleDatePage({
       hideOverlays: formData.get("hide_overlays") === "on",
       conflictResolution:
         formData.get("conflict_resolution") === "archive_conflicts" ? "archive_conflicts" : "none"
+    })
+  }
+  async function fillBlock(formData: FormData) {
+    "use server"
+    await fillProgramBlockContent({
+      date,
+      blockId: String(formData.get("block_id")),
+      assetId: String(formData.get("asset_id") || ""),
+      slideId: String(formData.get("slide_id") || "")
     })
   }
   async function generateLongSchedule(formData: FormData) {
@@ -248,6 +258,8 @@ export default async function ScheduleDatePage({
           }
         />
       </section>
+
+      <FillDayPanel schedule={schedule} blocks={blocks} action={fillBlock} />
 
       <AgendaBlockForm
         schedule={schedule}
@@ -546,6 +558,105 @@ export default async function ScheduleDatePage({
   )
 }
 
+function FillDayPanel({
+  schedule,
+  blocks,
+  action
+}: {
+  schedule: ScheduleBundle
+  blocks: ProgramBlock[]
+  action: (formData: FormData) => Promise<void>
+}) {
+  const fillableBlocks = blocks.filter(blockNeedsContent).sort((a, b) => {
+    if (a.status === "draft" && b.status !== "draft") return -1
+    if (a.status !== "draft" && b.status === "draft") return 1
+    return a.startTimeSeconds - b.startTimeSeconds
+  })
+  if (!fillableBlocks.length) return null
+  return (
+    <section className="surface-panel mb-5 overflow-hidden">
+      <div className="border-b border-line px-4 py-3">
+        <p className="eyebrow">Day setup</p>
+        <h2 className="mt-1 text-xl font-semibold">Fill this day</h2>
+        <p className="mt-1 text-sm text-muted">
+          Assign ready Library content to template slots. Filled slots become ready.
+        </p>
+      </div>
+      <div className="divide-y divide-line">
+        {fillableBlocks.map((block) => {
+          const mediaOptions = mediaOptionsForBlock(schedule.mediaAssets, block)
+          const slideOptions =
+            block.blockType === "slide"
+              ? schedule.slideAssets.filter((slide) => slide.status === "ready")
+              : []
+          const hasOptions = mediaOptions.length > 0 || slideOptions.length > 0
+          return (
+            <form
+              key={block.id}
+              action={action}
+              className="grid gap-3 p-4 lg:grid-cols-[130px_minmax(0,1fr)_minmax(0,1.2fr)_140px]"
+            >
+              <input type="hidden" name="block_id" value={block.id} />
+              <div className="text-sm">
+                <p className="font-semibold tabular-nums">
+                  {formatPlayoutTimeLabel(block.startTimeSeconds)}
+                </p>
+                <p className="mt-1 text-xs text-muted">{formatTimecode(block.durationSeconds)}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="truncate font-semibold">{block.title}</p>
+                <p className="mt-1 text-sm text-muted">
+                  {block.blockType} · {block.status}
+                </p>
+              </div>
+              {block.blockType === "slide" ? (
+                <select
+                  name="slide_id"
+                  required
+                  className="border border-line px-3 py-2 text-sm"
+                  disabled={!hasOptions}
+                >
+                  <option value="">Choose ready slide</option>
+                  {slideOptions.map((slide) => (
+                    <option key={slide.id} value={slide.id}>
+                      {slide.title}
+                      {slide.defaultDurationSeconds
+                        ? ` · ${formatTimecode(slide.defaultDurationSeconds)}`
+                        : ""}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  name="asset_id"
+                  required
+                  className="border border-line px-3 py-2 text-sm"
+                  disabled={!hasOptions}
+                >
+                  <option value="">Choose ready content</option>
+                  {mediaOptions.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {assetOptionLabel(asset)}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button className="btn-primary self-end" disabled={!hasOptions}>
+                Fill slot
+              </button>
+              {!hasOptions ? (
+                <p className="text-sm font-semibold text-warn-strong lg:col-span-4">
+                  No ready {block.blockType} content yet. Add it in Library first.
+                </p>
+              ) : null}
+            </form>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 function StatusPanel({
   title,
   primary,
@@ -606,6 +717,32 @@ function assetLabel(asset: MediaAsset | null | undefined, slide: SlideAsset | nu
   if (asset) return `${asset.title} (${asset.status})`
   if (slide) return `${slide.title} (${slide.status})`
   return "No asset"
+}
+
+function blockNeedsContent(block: ProgramBlock) {
+  if (block.status === "archived") return false
+  if (block.blockType === "slide") return block.status === "draft" || !block.slideId
+  return block.status === "draft" || !block.assetId
+}
+
+function mediaOptionsForBlock(assets: MediaAsset[], block: ProgramBlock) {
+  return assets
+    .filter(
+      (asset) => asset.status === "ready" && assetMatchesBlock(block.blockType, asset.assetType)
+    )
+    .sort((a, b) => a.title.localeCompare(b.title))
+}
+
+function assetMatchesBlock(
+  blockType: ProgramBlock["blockType"],
+  assetType: MediaAsset["assetType"]
+) {
+  if (blockType === "video") return assetType === "video"
+  if (blockType === "image") return assetType === "image"
+  if (blockType === "ad") return assetType === "ad"
+  if (blockType === "promo") return assetType === "promo"
+  if (blockType === "fallback") return assetType === "fallback"
+  return false
 }
 
 function assetOptionLabel(asset: MediaAsset) {

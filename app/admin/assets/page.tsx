@@ -48,8 +48,7 @@ export default async function AssetsPage({
         return false
       if (params.lifecycle && lifecycleState(asset) !== params.lifecycle) return false
       if (params.kind === "vimeo" && asset.sourceType !== "vimeo") return false
-      if (params.kind === "videos" && (asset.mediaKind !== "video" || asset.sourceType === "vimeo"))
-        return false
+      if (params.kind === "videos" && asset.mediaKind !== "video") return false
       if (
         params.kind === "graphics" &&
         asset.mediaKind !== "graphic" &&
@@ -148,7 +147,7 @@ export default async function AssetsPage({
   return (
     <AdminShell
       title="Library"
-      description="Videos, Vimeo episodes, graphics, music and fallbacks ready for scheduling."
+      description="Videos, including Vimeo episodes, graphics, music and fallbacks ready for scheduling."
       actions={
         <a className="btn-primary" href="/admin/vimeo">
           Vimeo
@@ -170,7 +169,7 @@ export default async function AssetsPage({
         <WorkflowStep
           number="1"
           title="Add"
-          detail="Upload a short video, register a playable URL, or import a Vimeo episode."
+          detail="Upload a short video, register a playable URL, or import a Vimeo episode into Videos."
         />
         <WorkflowStep
           number="2"
@@ -211,7 +210,7 @@ export default async function AssetsPage({
         <section className="surface-panel p-4">
           <FormHeader
             title="Import Vimeo episode"
-            detail="Paste a Vimeo URL or ID. The episode is added to the library and HLS playback is verified for output."
+            detail="Paste a Vimeo URL or ID. The episode is added to Library Videos and HLS playback is verified for output."
           />
           <form
             action="/api/vimeo/import"
@@ -219,7 +218,7 @@ export default async function AssetsPage({
             className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]"
           >
             <CsrfInput />
-            <input type="hidden" name="return_to" value="/admin/assets?kind=vimeo" />
+            <input type="hidden" name="return_to" value="/admin/assets?kind=videos" />
             <Field label="Vimeo URL or ID">
               <input
                 name="video_uri"
@@ -386,9 +385,6 @@ export default async function AssetsPage({
           </FilterLink>
           <FilterLink href="/admin/assets?kind=videos" active={params.kind === "videos"}>
             Videos
-          </FilterLink>
-          <FilterLink href="/admin/assets?kind=vimeo" active={params.kind === "vimeo"}>
-            Vimeo
           </FilterLink>
           <FilterLink href="/admin/assets?kind=fallback" active={params.kind === "fallback"}>
             Fallbacks
