@@ -1,16 +1,12 @@
 import clsx from "clsx"
-import Link from "next/link"
 import { redirect } from "next/navigation"
 
-import { AgendaBlockForm } from "@/components/agenda-block-form"
 import { AdminShell } from "@/components/admin-shell"
-import { RundownEditor } from "@/components/rundown-editor"
-import { ScheduleTimeline } from "@/components/schedule-timeline"
+import { ScheduleWorkspace } from "@/components/schedule-workspace"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
 import {
   ButtonLink,
-  EmptyState,
   Field,
   FormHeader,
   Notice,
@@ -21,16 +17,14 @@ import { getScheduleForDate } from "@/lib/data"
 import { DAY_TEMPLATES } from "@/lib/day-templates"
 import {
   archiveProgramBlock,
-  bulkUpdateProgramBlockStatus,
   createLongTestSchedule,
   createProgramDayFromTemplate,
-  fillProgramBlockContent,
   createProgramBlock,
   duplicateProgramBlock,
   ensureProgramDay,
-  moveProgramBlock,
   reorderProgramBlocks,
   resizeProgramBlock,
+  updateProgramBlock,
   updateProgramDayStatus
 } from "@/lib/mutations"
 import { liveOutputHref } from "@/lib/output-auth"
@@ -44,13 +38,7 @@ import {
   secondsSinceMidnightInTimezone
 } from "@/lib/time"
 
-import type {
-  MediaAsset,
-  ProgramBlock,
-  ProgramStatus,
-  ScheduleBundle,
-  SlideAsset
-} from "@/lib/types"
+import type { MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from "@/lib/types"
 
 export default async function ScheduleDatePage({
   params,
@@ -90,13 +78,23 @@ export default async function ScheduleDatePage({
         formData.get("conflict_resolution") === "archive_conflicts" ? "archive_conflicts" : "none"
     })
   }
-  async function fillBlock(formData: FormData) {
+  async function updateBlockInline(formData: FormData) {
     "use server"
-    await fillProgramBlockContent({
+    await updateProgramBlock({
       date,
       blockId: String(formData.get("block_id")),
+      title: String(formData.get("title")),
+      blockType: String(formData.get("block_type")),
       assetId: String(formData.get("asset_id") || ""),
-      slideId: String(formData.get("slide_id") || "")
+      slideId: String(formData.get("slide_id") || ""),
+      startTime: String(formData.get("start_time")),
+      durationSeconds: Number(formData.get("duration_seconds")),
+      status: String(formData.get("status")),
+      hideOverlays: formData.get("hide_overlays") === "on",
+      fallbackAssetId: String(formData.get("fallback_asset_id") || ""),
+      notes: String(formData.get("notes") || ""),
+      conflictResolution:
+        formData.get("conflict_resolution") === "archive_conflicts" ? "archive_conflicts" : "none"
     })
   }
   async function generateLongSchedule(formData: FormData) {
@@ -131,14 +129,6 @@ export default async function ScheduleDatePage({
       durationSeconds: input.durationSeconds
     })
   }
-  async function moveTimelineBlock(input: { blockId: string; startTimeSeconds: number }) {
-    "use server"
-    await moveProgramBlock({
-      date,
-      blockId: input.blockId,
-      startTimeSeconds: input.startTimeSeconds
-    })
-  }
   async function duplicateRundownBlock(input: { blockId: string }) {
     "use server"
     await duplicateProgramBlock({ date, blockId: input.blockId })
@@ -146,14 +136,6 @@ export default async function ScheduleDatePage({
   async function archiveRundownBlock(input: { blockId: string }) {
     "use server"
     await archiveProgramBlock({ date, blockId: input.blockId })
-  }
-  async function bulkSetRundownStatus(input: { blockIds: string[]; status: ProgramStatus }) {
-    "use server"
-    await bulkUpdateProgramBlockStatus({
-      date,
-      blockIds: input.blockIds,
-      status: input.status
-    })
   }
   async function createEmptyDay() {
     "use server"
@@ -185,10 +167,6 @@ export default async function ScheduleDatePage({
   const readyBlocks = blocks.filter(
     (block) => block.status === "ready" || block.status === "active"
   ).length
-  const readyAssets = schedule.mediaAssets.filter(
-    (asset) => asset.status === "ready" && asset.assetType !== "music"
-  )
-  const readySlides = schedule.slideAssets.filter((slide) => slide.status === "ready")
   const firstBlock = blocks[0] ?? null
   const lastBlock = blocks[blocks.length - 1] ?? null
   const lastEnd = lastBlock ? lastBlock.startTimeSeconds + lastBlock.durationSeconds : 0
@@ -380,217 +358,19 @@ export default async function ScheduleDatePage({
         />
       </section>
 
-      <FillDayPanel schedule={schedule} blocks={blocks} action={fillBlock} />
-
-      <AgendaBlockForm
+      <ScheduleWorkspace
+        date={date}
         schedule={schedule}
-        action={addBlock}
+        blocks={blocks}
+        createAction={addBlock}
+        updateAction={updateBlockInline}
+        reorderAction={reorderRundown}
+        resizeAction={resizeRundownBlock}
+        duplicateAction={duplicateRundownBlock}
+        archiveAction={archiveRundownBlock}
         initialContentValue={initialContentValue(query)}
         initialFilters={initialContentFilters(query)}
       />
-
-      <section className="mb-5 grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="surface-panel min-w-0 overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-            <div>
-              <h2 className="font-semibold">Daily timeline</h2>
-              <p className="mt-1 text-sm text-muted">
-                Hourly blocks with proportional duration and continuity warnings.
-              </p>
-            </div>
-            {health.issues.length ? (
-              <span className="rounded-full border border-warn-line bg-warn-soft px-3 py-1 text-xs font-semibold text-warn-strong">
-                {health.issues.length} alerts
-              </span>
-            ) : (
-              <span className="rounded-full border border-success-line bg-success-soft px-3 py-1 text-xs font-semibold text-success-strong">
-                No alerts
-              </span>
-            )}
-          </div>
-          <ScheduleTimeline
-            blocks={blocks}
-            schedule={schedule}
-            date={date}
-            nowSeconds={isToday ? nowSeconds : null}
-            issues={health.issues}
-            createBlockAction={addBlock}
-            moveBlockAction={moveTimelineBlock}
-          />
-        </div>
-
-        <aside className="grid min-w-0 grid-cols-1 content-start gap-5">
-          <section className="surface-panel p-4">
-            <h2 className="font-semibold">Library</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Upload videos, images and fallbacks before scheduling them. Ready content appears in
-              the main picker.
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-              <Metric label="Ready assets" value={String(readyAssets.length)} tone="ok" />
-              <Metric label="Ready slides" value={String(readySlides.length)} tone="ok" />
-            </div>
-            <div className="mt-4">
-              <ButtonLink href="/admin/assets" variant="secondary">
-                Open library
-              </ButtonLink>
-            </div>
-          </section>
-
-          <details className="surface-panel p-4">
-            <summary className="cursor-pointer font-semibold">Health check</summary>
-            <div className="mt-4 grid gap-3">
-              <Metric
-                label="Gaps"
-                value={String(health.gaps.length)}
-                tone={health.gaps.length ? "warn" : "ok"}
-              />
-              <Metric
-                label="Overlaps"
-                value={String(health.overlaps.length)}
-                tone={health.overlaps.length ? "danger" : "ok"}
-              />
-              <Metric
-                label="Missing assets"
-                value={String(health.missingAssets.length)}
-                tone={health.missingAssets.length ? "danger" : "ok"}
-              />
-              <Metric
-                label="Unready assets"
-                value={String(health.unreadyAssets.length)}
-                tone={health.unreadyAssets.length ? "warn" : "ok"}
-              />
-            </div>
-            <div className="mt-4 grid gap-2">
-              {health.issues.slice(0, 8).map((issue) => (
-                <Link
-                  key={issue.id}
-                  href={
-                    issue.blockId
-                      ? `/admin/schedule/${date}/blocks/${issue.blockId}`
-                      : `/admin/schedule/${date}`
-                  }
-                  className={clsx(
-                    "rounded-md border px-3 py-2 text-sm",
-                    issue.severity === "critical"
-                      ? "border-danger-line bg-danger-soft text-danger-strong"
-                      : "border-warn-line bg-warn-soft text-warn-strong"
-                  )}
-                >
-                  <span className="block font-semibold">{issue.title}</span>
-                  <span className="text-xs opacity-80">{issue.detail}</span>
-                </Link>
-              ))}
-              {health.issues.length === 0 && (
-                <p className="rounded-md bg-panel-soft px-3 py-2 text-sm text-muted">
-                  No conflicts detected for this schedule.
-                </p>
-              )}
-            </div>
-          </details>
-
-          <details className="surface-panel p-4">
-            <summary className="cursor-pointer font-semibold">Advanced form</summary>
-            <form action={addBlock} className="mt-4 grid grid-cols-1 gap-3">
-              <Field label="Show title">
-                <input
-                  name="title"
-                  required
-                  placeholder="Show title"
-                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
-                />
-              </Field>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field label="Start time">
-                  <input
-                    name="start_time"
-                    required
-                    defaultValue="00:00:00"
-                    title="San Francisco time. Tooltip equivalents appear on saved schedule times."
-                    className="border border-line px-3 py-2 text-sm font-normal text-ink"
-                  />
-                </Field>
-                <Field label="Duration seconds" hint="Save expands to media duration when needed.">
-                  <input
-                    name="duration_seconds"
-                    required
-                    type="number"
-                    min="1"
-                    defaultValue="30"
-                    className="border border-line px-3 py-2 text-sm font-normal text-ink"
-                  />
-                </Field>
-              </div>
-              <Field label="Block type">
-                <select
-                  name="block_type"
-                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
-                >
-                  <option value="video">Video show</option>
-                  <option value="image">Image plate</option>
-                  <option value="slide">System slide</option>
-                  <option value="ad">Ad</option>
-                  <option value="promo">Promo</option>
-                  <option value="fallback">Fallback</option>
-                </select>
-              </Field>
-              <Field label="Media asset">
-                <select
-                  name="asset_id"
-                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
-                >
-                  <option value="">No asset</option>
-                  {schedule.mediaAssets.map((asset) => (
-                    <option key={asset.id} value={asset.id}>
-                      {assetOptionLabel(asset)}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="System slide">
-                <select
-                  name="slide_id"
-                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
-                >
-                  <option value="">No slide</option>
-                  {schedule.slideAssets.map((slide) => (
-                    <option key={slide.id} value={slide.id}>
-                      {slide.title} · {slide.status}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <input
-                  name="pre_roll_seconds"
-                  type="number"
-                  min="0"
-                  defaultValue="0"
-                  placeholder="Before sec"
-                  className="border border-line px-3 py-2 text-sm"
-                />
-                <input
-                  name="post_roll_seconds"
-                  type="number"
-                  min="0"
-                  defaultValue="0"
-                  placeholder="After sec"
-                  className="border border-line px-3 py-2 text-sm"
-                />
-              </div>
-              <p className="text-xs leading-5 text-muted">
-                If the asset or slide has a known duration, save expands the block to at least
-                content plus before/after time.
-              </p>
-              <label className="flex min-h-10 items-center gap-2 rounded-md border border-line px-3 text-sm">
-                <input name="hide_overlays" type="checkbox" />
-                Hide overlays
-              </label>
-              <button className="btn-primary">Add block</button>
-            </form>
-          </details>
-        </aside>
-      </section>
 
       <details className="surface-panel mb-5 p-4">
         <summary className="cursor-pointer font-semibold">Advanced grid tools</summary>
@@ -658,125 +438,7 @@ export default async function ScheduleDatePage({
           <button className="btn-primary">Generate grid</button>
         </form>
       </details>
-
-      {blocks.length === 0 ? (
-        <div className="surface-panel p-4">
-          <EmptyState title="No blocks scheduled">
-            Add the first block from the agenda form above.
-          </EmptyState>
-        </div>
-      ) : (
-        <RundownEditor
-          date={date}
-          blocks={blocks}
-          schedule={schedule}
-          reorderAction={reorderRundown}
-          resizeAction={resizeRundownBlock}
-          duplicateAction={duplicateRundownBlock}
-          archiveAction={archiveRundownBlock}
-          bulkStatusAction={bulkSetRundownStatus}
-        />
-      )}
     </AdminShell>
-  )
-}
-
-function FillDayPanel({
-  schedule,
-  blocks,
-  action
-}: {
-  schedule: ScheduleBundle
-  blocks: ProgramBlock[]
-  action: (formData: FormData) => Promise<void>
-}) {
-  const fillableBlocks = blocks.filter(blockNeedsContent).sort((a, b) => {
-    if (a.status === "draft" && b.status !== "draft") return -1
-    if (a.status !== "draft" && b.status === "draft") return 1
-    return a.startTimeSeconds - b.startTimeSeconds
-  })
-  if (!fillableBlocks.length) return null
-  return (
-    <section className="surface-panel mb-5 overflow-hidden">
-      <div className="border-b border-line px-4 py-3">
-        <p className="eyebrow">Day setup</p>
-        <h2 className="mt-1 text-xl font-semibold">Fill this day</h2>
-        <p className="mt-1 text-sm text-muted">
-          Assign ready Library content to template slots. Filled slots become ready.
-        </p>
-      </div>
-      <div className="divide-y divide-line">
-        {fillableBlocks.map((block) => {
-          const mediaOptions = mediaOptionsForBlock(schedule.mediaAssets, block)
-          const slideOptions =
-            block.blockType === "slide"
-              ? schedule.slideAssets.filter((slide) => slide.status === "ready")
-              : []
-          const hasOptions = mediaOptions.length > 0 || slideOptions.length > 0
-          return (
-            <form
-              key={block.id}
-              action={action}
-              className="grid gap-3 p-4 lg:grid-cols-[130px_minmax(0,1fr)_minmax(0,1.2fr)_140px]"
-            >
-              <input type="hidden" name="block_id" value={block.id} />
-              <div className="text-sm">
-                <p className="font-semibold tabular-nums">
-                  {formatPlayoutTimeLabel(block.startTimeSeconds)}
-                </p>
-                <p className="mt-1 text-xs text-muted">{formatTimecode(block.durationSeconds)}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="truncate font-semibold">{block.title}</p>
-                <p className="mt-1 text-sm text-muted">
-                  {block.blockType} · {block.status}
-                </p>
-              </div>
-              {block.blockType === "slide" ? (
-                <select
-                  name="slide_id"
-                  required
-                  className="border border-line px-3 py-2 text-sm"
-                  disabled={!hasOptions}
-                >
-                  <option value="">Choose ready slide</option>
-                  {slideOptions.map((slide) => (
-                    <option key={slide.id} value={slide.id}>
-                      {slide.title}
-                      {slide.defaultDurationSeconds
-                        ? ` · ${formatTimecode(slide.defaultDurationSeconds)}`
-                        : ""}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <select
-                  name="asset_id"
-                  required
-                  className="border border-line px-3 py-2 text-sm"
-                  disabled={!hasOptions}
-                >
-                  <option value="">Choose ready content</option>
-                  {mediaOptions.map((asset) => (
-                    <option key={asset.id} value={asset.id}>
-                      {assetOptionLabel(asset)}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <button className="btn-primary self-end" disabled={!hasOptions}>
-                Fill slot
-              </button>
-              {!hasOptions ? (
-                <p className="text-sm font-semibold text-warn-strong lg:col-span-4">
-                  No ready {block.blockType} content yet. Add it in Library first.
-                </p>
-              ) : null}
-            </form>
-          )
-        })}
-      </div>
-    </section>
   )
 }
 
@@ -807,25 +469,6 @@ function StatusPanel({
   )
 }
 
-function Metric({
-  label,
-  value,
-  tone
-}: {
-  label: string
-  value: string
-  tone: "ok" | "warn" | "danger"
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-md bg-panel-soft px-3 py-2 text-sm">
-      <span className="text-muted">{label}</span>
-      <span className={clsx("rounded-full px-2 py-0.5 text-xs font-semibold", metricTone(tone))}>
-        {value}
-      </span>
-    </div>
-  )
-}
-
 function blockAssetLabel(schedule: ScheduleBundle, block: ProgramBlock) {
   const asset = block.assetId
     ? schedule.mediaAssets.find((item) => item.id === block.assetId)
@@ -840,42 +483,6 @@ function assetLabel(asset: MediaAsset | null | undefined, slide: SlideAsset | nu
   if (asset) return `${asset.title} (${asset.status})`
   if (slide) return `${slide.title} (${slide.status})`
   return "No asset"
-}
-
-function blockNeedsContent(block: ProgramBlock) {
-  if (block.status === "archived") return false
-  if (block.blockType === "slide") return block.status === "draft" || !block.slideId
-  return block.status === "draft" || !block.assetId
-}
-
-function mediaOptionsForBlock(assets: MediaAsset[], block: ProgramBlock) {
-  return assets
-    .filter(
-      (asset) => asset.status === "ready" && assetMatchesBlock(block.blockType, asset.assetType)
-    )
-    .sort((a, b) => a.title.localeCompare(b.title))
-}
-
-function assetMatchesBlock(
-  blockType: ProgramBlock["blockType"],
-  assetType: MediaAsset["assetType"]
-) {
-  if (blockType === "video") return assetType === "video"
-  if (blockType === "image") return assetType === "image"
-  if (blockType === "ad") return assetType === "ad"
-  if (blockType === "promo") return assetType === "promo"
-  if (blockType === "fallback") return assetType === "fallback"
-  return false
-}
-
-function assetOptionLabel(asset: MediaAsset) {
-  const showName =
-    typeof asset.metadata?.vimeo_show_name === "string"
-      ? `${asset.metadata.vimeo_show_name} · `
-      : ""
-  return `${showName}${asset.title} · ${asset.sourceType} · ${asset.status}${
-    asset.durationSeconds ? ` · ${formatTimecode(asset.durationSeconds)}` : ""
-  }`
 }
 
 function initialContentValue(query: { asset?: string; slide?: string }) {
@@ -920,16 +527,5 @@ function panelTone(tone: "ok" | "warn" | "danger" | "neutral") {
       return "border-danger-line"
     default:
       return "border-line"
-  }
-}
-
-function metricTone(tone: "ok" | "warn" | "danger") {
-  switch (tone) {
-    case "ok":
-      return "bg-success-soft text-success-strong"
-    case "warn":
-      return "bg-warn-soft text-warn-strong"
-    case "danger":
-      return "bg-danger-soft text-danger-strong"
   }
 }
