@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 
 import { Notice } from "@/components/ui"
 import { findScheduleConflicts, scheduleConflictMessage } from "@/lib/schedule-conflicts"
+import { slidePreviewHref } from "@/lib/slide-preview"
 import { formatPlayoutTimeLabel, formatTimecode } from "@/lib/time"
 
 import type { BlockType, MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from "@/lib/types"
@@ -28,6 +29,7 @@ type ContentOption = {
 
 const DEFAULT_MANUAL_DURATION = 30
 const ALL_FILTERS = "all"
+const DEFAULT_CONTENT_KIND = "video"
 
 type InitialContentFilters = {
   query?: string | undefined
@@ -52,7 +54,9 @@ export function AgendaBlockForm({
   const options = useMemo(() => buildContentOptions(schedule), [schedule])
   const initialOption = options.find((option) => option.value === initialContentValue) ?? options[0]
   const [query, setQuery] = useState(initialFilters?.query ?? "")
-  const [kind, setKind] = useState(initialFilters?.kind ?? ALL_FILTERS)
+  const [kind, setKind] = useState(
+    initialFilters?.kind ?? contentKind(initialOption) ?? DEFAULT_CONTENT_KIND
+  )
   const [source, setSource] = useState(initialFilters?.source ?? ALL_FILTERS)
   const [showName, setShowName] = useState(
     initialFilters?.showName ?? initialOption?.showName ?? ""
@@ -60,7 +64,15 @@ export function AgendaBlockForm({
   const [month, setMonth] = useState(initialFilters?.month ?? ALL_FILTERS)
   const [year, setYear] = useState(initialFilters?.year ?? ALL_FILTERS)
   const filteredOptions = useMemo(
-    () => filterContentOptions(options, { query, kind, source, showName, month, year }),
+    () =>
+      filterContentOptions(options, {
+        query,
+        kind,
+        source: kind === "video" ? source : ALL_FILTERS,
+        showName,
+        month,
+        year
+      }),
     [options, query, kind, source, showName, month, year]
   )
   const availableShows = useMemo(
@@ -107,13 +119,23 @@ export function AgendaBlockForm({
     setManualDuration(String(next?.durationSeconds ?? DEFAULT_MANUAL_DURATION))
   }
 
+  function chooseKind(value: string) {
+    setKind(value)
+    if (value !== "video") {
+      setSource(ALL_FILTERS)
+      setShowName("")
+      setMonth(ALL_FILTERS)
+      setYear(ALL_FILTERS)
+    }
+  }
+
   return (
     <section className="surface-panel mb-5 overflow-hidden">
       <div className="border-b border-line px-4 py-3">
-        <p className="eyebrow">Schedule content</p>
+        <p className="eyebrow">Schedule Content</p>
         <h2 className="mt-1 text-xl font-semibold">Add block to day</h2>
         <p className="mt-1 text-sm text-muted">
-          Pick a start time and content. Known media duration calculates the end time automatically.
+          Choose type, choose content, then confirm start and duration.
         </p>
       </div>
       <form
@@ -121,106 +143,87 @@ export function AgendaBlockForm({
         className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[160px_minmax(0,1fr)_160px_150px]"
       >
         <div className="grid gap-3 rounded-md border border-line bg-panel-soft p-3 lg:col-span-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_160px_160px]">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
             <label className="grid gap-1 text-xs font-semibold text-muted">
-              Search
+              1. Type
+              <select
+                value={kind}
+                onChange={(event) => chooseKind(event.target.value)}
+                className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
+              >
+                <option value="video">Video</option>
+                <option value="slide">Slide</option>
+                <option value="image">Image</option>
+                <option value="fallback">Fallback</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+              2. Search
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Title, show, source"
+                placeholder={kind === "video" ? "Title or show" : "Title"}
                 className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
               />
             </label>
-            <label className="grid gap-1 text-xs font-semibold text-muted">
-              Type
-              <select
-                value={kind}
-                onChange={(event) => setKind(event.target.value)}
-                className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
-              >
-                <option value={ALL_FILTERS}>All</option>
-                <option value="video">Video</option>
-                <option value="ad">Ad</option>
-                <option value="promo">Promo</option>
-                <option value="image">Image</option>
-                <option value="fallback">Fallback</option>
-                <option value="slide">Slides</option>
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs font-semibold text-muted">
-              Source
-              <select
-                value={source}
-                onChange={(event) => setSource(event.target.value)}
-                className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
-              >
-                <option value={ALL_FILTERS}>All</option>
-                <option value="vimeo">Vimeo</option>
-                <option value="remote_mp4">Remote MP4</option>
-                <option value="hls">HLS</option>
-                <option value="rtmp">RTMP</option>
-                <option value="reuters">Reuters</option>
-                <option value="supabase_image">Uploaded image</option>
-                <option value="remote_image">Remote image</option>
-                <option value="slide">System slide</option>
-              </select>
-            </label>
           </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_120px_120px]">
-            <label className="grid gap-1 text-xs font-semibold text-muted">
-              Vimeo show
-              <select
-                value={showName}
-                onChange={(event) => setShowName(event.target.value)}
-                className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
-              >
-                <option value="">All shows</option>
-                {availableShows.map((show) => (
-                  <option key={show} value={show}>
-                    {show}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs font-semibold text-muted">
-              Month
-              <select
-                value={month}
-                onChange={(event) => setMonth(event.target.value)}
-                className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
-              >
-                <option value={ALL_FILTERS}>All</option>
-                {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0")).map(
-                  (value) => (
+          {kind === "video" ? (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_120px_120px]">
+              <label className="grid gap-1 text-xs font-semibold text-muted">
+                Vimeo Show
+                <select
+                  value={showName}
+                  onChange={(event) => setShowName(event.target.value)}
+                  className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
+                >
+                  <option value="">All shows</option>
+                  {availableShows.map((show) => (
+                    <option key={show} value={show}>
+                      {show}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold text-muted">
+                Month
+                <select
+                  value={month}
+                  onChange={(event) => setMonth(event.target.value)}
+                  className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
+                >
+                  <option value={ALL_FILTERS}>All</option>
+                  {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0")).map(
+                    (value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    )
+                  )}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold text-muted">
+                Year
+                <select
+                  value={year}
+                  onChange={(event) => setYear(event.target.value)}
+                  className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
+                >
+                  <option value={ALL_FILTERS}>All</option>
+                  {availableYears.map((value) => (
                     <option key={value} value={value}>
                       {value}
                     </option>
-                  )
-                )}
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs font-semibold text-muted">
-              Year
-              <select
-                value={year}
-                onChange={(event) => setYear(event.target.value)}
-                className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
-              >
-                <option value={ALL_FILTERS}>All</option>
-                {availableYears.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+                  ))}
+                </select>
+              </label>
+            </div>
+          ) : null}
           <p className="text-xs font-semibold text-muted">
             Showing {filteredOptions.length} of {options.length} ready items
           </p>
         </div>
         <label className="grid gap-1 text-xs font-semibold text-muted">
-          Start
+          3. Start
           <input
             name="start_time"
             required
@@ -262,6 +265,16 @@ export function AgendaBlockForm({
           <p className="text-xs font-semibold uppercase text-muted">Ends</p>
           <p className="mt-1 font-semibold tabular-nums">{formatPlayoutTimeLabel(endSeconds)}</p>
         </div>
+        {selected?.slideId ? (
+          <a
+            className="btn-secondary self-end justify-center"
+            href={slidePreviewHref(selected.slideId)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View Slide
+          </a>
+        ) : null}
         <input type="hidden" name="title" value={selected?.title ?? ""} />
         <input type="hidden" name="block_type" value={selected?.blockType ?? "video"} />
         <input type="hidden" name="asset_id" value={selected?.assetId ?? ""} />
@@ -384,9 +397,7 @@ function filterContentOptions(options: ContentOption[], filters: Required<Initia
   return options.filter((option) => {
     if (normalizedQuery && !option.searchText.includes(normalizedQuery)) return false
     if (filters.kind !== ALL_FILTERS) {
-      if (filters.kind === "slide") {
-        if (option.kind !== "slide") return false
-      } else if (option.assetType !== filters.kind) return false
+      if (contentKind(option) !== filters.kind) return false
     }
     if (filters.source !== ALL_FILTERS) {
       if (filters.source === "slide") {
@@ -398,6 +409,14 @@ function filterContentOptions(options: ContentOption[], filters: Required<Initia
     if (filters.year !== ALL_FILTERS && option.year !== filters.year) return false
     return true
   })
+}
+
+function contentKind(option: ContentOption | undefined) {
+  if (!option) return undefined
+  if (option.kind === "slide") return "slide"
+  if (option.assetType === "fallback") return "fallback"
+  if (option.mediaKind === "image" || option.assetType === "image") return "image"
+  return "video"
 }
 
 function metadataText(asset: MediaAsset, key: string) {

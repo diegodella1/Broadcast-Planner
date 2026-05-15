@@ -802,7 +802,8 @@ function initialContentFilters(query: {
 
 function normalizeScheduleKind(kind?: string) {
   if (kind === "videos") return "video"
-  if (kind === "graphics") return "image"
+  if (kind === "graphics" || kind === "images") return "image"
+  if (kind === "slides") return "slide"
   if (kind === "all") return undefined
   return kind
 }

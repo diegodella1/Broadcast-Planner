@@ -20,9 +20,15 @@ describe("AgendaBlockForm", () => {
     const user = userEvent.setup()
     render(<AgendaBlockForm schedule={schedule()} action={vi.fn()} />)
 
+    await user.selectOptions(screen.getByLabelText("1. Type"), "slide")
     await user.selectOptions(screen.getByLabelText("Content"), "slide:slide-1")
 
     expect(screen.getByLabelText("Duration")).toHaveValue(30)
+    expect(screen.queryByLabelText("Vimeo Show")).not.toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "View Slide" })).toHaveAttribute(
+      "href",
+      "/output/slide/slide-1"
+    )
     expect(
       screen.getByText("This content has no duration. Set how many seconds it stays on air.")
     ).toBeInTheDocument()
@@ -32,8 +38,8 @@ describe("AgendaBlockForm", () => {
     const user = userEvent.setup()
     render(<AgendaBlockForm schedule={schedule({ withConflict: true })} action={vi.fn()} />)
 
-    await user.clear(screen.getByLabelText("Start"))
-    await user.type(screen.getByLabelText("Start"), "00:10:00")
+    await user.clear(screen.getByLabelText("3. Start"))
+    await user.type(screen.getByLabelText("3. Start"), "00:10:00")
 
     expect(screen.getByRole("button", { name: "Save to schedule" })).toBeDisabled()
     expect(screen.getByText("That time is already occupied")).toBeInTheDocument()
@@ -44,7 +50,7 @@ describe("AgendaBlockForm", () => {
     const user = userEvent.setup()
     render(<AgendaBlockForm schedule={schedule()} action={vi.fn()} />)
 
-    await user.selectOptions(screen.getByLabelText("Vimeo show"), "Market Wrap")
+    await user.selectOptions(screen.getByLabelText("Vimeo Show"), "Market Wrap")
 
     expect(screen.getByLabelText("Content")).toHaveDisplayValue(
       "Z Market episode - Market Wrap / video / vimeo / 00:03:00"

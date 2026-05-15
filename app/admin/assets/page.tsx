@@ -61,16 +61,11 @@ export default async function AssetsPage({
       if (params.lifecycle && lifecycleState(asset) !== params.lifecycle) return false
       if (params.kind === "vimeo" && asset.sourceType !== "vimeo") return false
       if (params.kind === "videos" && asset.mediaKind !== "video") return false
-      if (
-        params.kind === "graphics" &&
-        asset.mediaKind !== "graphic" &&
-        asset.mediaKind !== "image"
-      )
-        return false
+      if (params.kind === "images" && asset.mediaKind !== "image") return false
       if (params.kind === "image" && asset.mediaKind !== "image") return false
       if (
         params.kind &&
-        !["all", "vimeo", "videos", "graphics", "image", "audio"].includes(params.kind) &&
+        !["all", "vimeo", "videos", "images", "image", "audio"].includes(params.kind) &&
         asset.assetType !== params.kind
       )
         return false
@@ -161,7 +156,7 @@ export default async function AssetsPage({
   return (
     <AdminShell
       title="Library"
-      description="Videos, including Vimeo episodes, graphics, music and fallbacks ready for scheduling."
+      description="All schedulable content: videos, slides, images, audio and fallbacks."
       actions={
         <a className="btn-primary" href="/admin/vimeo">
           Vimeo
@@ -188,7 +183,7 @@ export default async function AssetsPage({
         <WorkflowStep
           number="2"
           title="Verify"
-          detail="Every item needs ready status, duration and a playable source."
+          detail="Ready content can be scheduled. Broken content shows exactly what to fix."
         />
         <WorkflowStep
           number="3"
@@ -211,7 +206,7 @@ export default async function AssetsPage({
         <MetricTile
           label="Review"
           value={String(attentionCount)}
-          detail="Missing URL, duration or ready status"
+          detail="Missing source, duration or ready status"
           tone={attentionCount ? "warn" : "ok"}
         />
       </section>
@@ -396,7 +391,7 @@ export default async function AssetsPage({
             All
           </FilterLink>
           <FilterLink href="/admin/assets?status=attention" active={params.status === "attention"}>
-            Review
+            Needs Fix
           </FilterLink>
           <FilterLink href="/admin/assets?status=ready" active={params.status === "ready"}>
             Ready
@@ -413,8 +408,11 @@ export default async function AssetsPage({
           <FilterLink href="/admin/assets?kind=promo" active={params.kind === "promo"}>
             Promos
           </FilterLink>
-          <FilterLink href="/admin/assets?kind=graphics" active={params.kind === "graphics"}>
-            Graphics
+          <FilterLink
+            href="/admin/assets?kind=images"
+            active={params.kind === "images" || params.kind === "image"}
+          >
+            Images
           </FilterLink>
           <FilterLink
             href="/admin/assets?kind=slides"
@@ -447,7 +445,7 @@ export default async function AssetsPage({
         ))}
         {filteredItems.length === 0 && (
           <div className="p-4">
-            <EmptyState title="No assets for this filter">
+            <EmptyState title="No content for this filter">
               Change the filter or add a video, image, promo, ad, music track or fallback.
             </EmptyState>
           </div>
@@ -569,7 +567,7 @@ function scheduleLibraryItemHref(
 function scheduleKind(kind?: string) {
   if (!kind || kind === "all" || kind === "vimeo") return undefined
   if (kind === "videos") return "video"
-  if (kind === "graphics") return "image"
+  if (kind === "images") return "image"
   if (kind === "slides") return "slide"
   if (kind === "audio") return undefined
   return kind
@@ -611,7 +609,7 @@ function LibraryItemRow({
               : "text-sm font-semibold text-success"
           }
         >
-          {libraryItemNeedsAttention(item) ? "Review" : "Playable"}
+          {libraryItemNeedsAttention(item) ? "Needs Fix" : "Ready"}
           <span className="block text-xs font-normal text-muted">
             {libraryItemAttentionReason(item)}
           </span>
@@ -622,28 +620,32 @@ function LibraryItemRow({
         </span>
       </summary>
       <div className="mt-4 flex flex-wrap gap-2">
-        {!libraryItemNeedsAttention(item) ? (
+        {!libraryItemNeedsAttention(item) && libraryItemCanSchedule(item) ? (
           <a className="btn-primary" href={scheduleLibraryItemHref(today, item, params)}>
-            Schedule today
+            Schedule
           </a>
-        ) : (
+        ) : libraryItemCanSchedule(item) ? (
           <span className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-sm font-semibold text-warn-strong">
             Fix before scheduling
           </span>
-        )}
-        <a className="btn-secondary" href="/admin/calendar">
-          Choose another day
-        </a>
-        {item.kind === "slide" ? (
+        ) : null}
+        {libraryItemViewHref(item) ? (
           <a
             className="btn-secondary"
-            href={slidePreviewHref(item.slide.id)}
+            href={libraryItemViewHref(item)!}
             target="_blank"
             rel="noreferrer"
           >
             View
           </a>
-        ) : null}
+        ) : (
+          <span className="rounded-md border border-line bg-panel-soft px-3 py-2 text-sm font-semibold text-muted">
+            No preview
+          </span>
+        )}
+        <a className="btn-secondary" href="/admin/calendar">
+          Choose Day
+        </a>
       </div>
       {item.kind === "asset" ? (
         <>
@@ -674,7 +676,7 @@ function LibraryItemRow({
         </>
       ) : (
         <div className="mt-4 rounded-md border border-line bg-panel-soft p-4 text-sm text-muted">
-          Edit or create slide templates in{" "}
+          Manage slide templates in{" "}
           <a className="font-semibold text-ink underline" href="/admin/slides">
             Graphics
           </a>
@@ -843,7 +845,7 @@ function libraryItemNeedsAttention(item: LibraryItem) {
 
 function libraryItemAttentionReason(item: LibraryItem) {
   if (item.kind === "slide") {
-    return item.slide.status === "ready" ? "Ready for schedule" : `Status: ${item.slide.status}`
+    return item.slide.status === "ready" ? "Ready" : `Status: ${item.slide.status}`
   }
   return assetAttentionReason(item.asset)
 }
@@ -870,6 +872,19 @@ function libraryItemDuration(item: LibraryItem) {
   return duration ? `${duration}s` : "No duration"
 }
 
+function libraryItemCanSchedule(item: LibraryItem) {
+  if (item.kind === "slide") return true
+  return item.asset.assetType !== "music" && item.asset.mediaKind !== "audio"
+}
+
+function libraryItemViewHref(item: LibraryItem) {
+  if (item.kind === "slide") return slidePreviewHref(item.slide.id)
+  const asset = item.asset
+  if (asset.url && (asset.mediaKind === "video" || asset.mediaKind === "image")) return asset.url
+  if (asset.thumbnailUrl) return asset.thumbnailUrl
+  return null
+}
+
 function assetAttentionReason(asset: MediaAsset) {
   if (["rejected", "stale", "expired"].includes(lifecycleState(asset))) {
     return `Lifecycle: ${lifecycleState(asset).replaceAll("_", " ")}`
@@ -891,7 +906,7 @@ function assetAttentionReason(asset: MediaAsset) {
     return "Missing duration"
   if (asset.assetType === "ad" && asset.durationSeconds && asset.durationSeconds > 300)
     return "Ad over 5 min"
-  return "Ready for schedule"
+  return "Ready"
 }
 
 function sortLibraryItems(a: LibraryItem, b: LibraryItem, sort: string | undefined) {
@@ -960,7 +975,7 @@ function slideMatchesFilters(
     return false
   if (params.lifecycle) return false
   if (params.show_name || params.month || params.year) return false
-  if (params.kind && !["all", "graphics", "slide", "slides"].includes(params.kind)) return false
+  if (params.kind && !["all", "slides", "slide"].includes(params.kind)) return false
   if (
     query &&
     ![slide.title, slide.slideType, slide.templateId, "slide", "graphic"]

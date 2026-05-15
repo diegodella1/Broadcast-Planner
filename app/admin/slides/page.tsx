@@ -38,10 +38,15 @@ export default async function SlidesPage() {
   }
   async function addSystemSlide(formData: FormData) {
     "use server"
+    const templateId = String(formData.get("template_id"))
+    const existing = await getSlides()
+    if (existing.some((slide) => slide.templateId === templateId && slide.status !== "archived")) {
+      return
+    }
     await createSlideAsset({
       title: String(formData.get("title")),
       slideType: "template",
-      templateId: String(formData.get("template_id")),
+      templateId,
       content: String(formData.get("content") || ""),
       defaultDurationSeconds: Number(formData.get("default_duration_seconds") || 30),
       status: "ready"
@@ -49,7 +54,15 @@ export default async function SlidesPage() {
   }
   async function addAllSystemSlides() {
     "use server"
+    const existing = await getSlides()
+    const existingTemplateIds = new Set(
+      existing
+        .filter((slide) => slide.status !== "archived")
+        .map((slide) => slide.templateId)
+        .filter(Boolean)
+    )
     for (const preset of SYSTEM_SLIDE_PRESETS) {
+      if (existingTemplateIds.has(preset.templateId)) continue
       await createSlideAsset({
         title: preset.title,
         slideType: "template",
