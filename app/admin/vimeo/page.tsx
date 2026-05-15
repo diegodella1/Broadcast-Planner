@@ -270,8 +270,8 @@ export default async function VimeoSyncPage({
             <h2 className="font-semibold">Synced Vimeo catalog</h2>
             <p className="mt-1 text-sm text-muted">
               Showing {filteredAssets.length ? pageStart + 1 : 0}-
-              {Math.min(pageEnd, filteredAssets.length)} of {filteredAssets.length}. Use Schedule
-              to place one on a programming day.
+              {Math.min(pageEnd, filteredAssets.length)} of {filteredAssets.length}. Use Schedule to
+              place one on a programming day.
             </p>
           </div>
           <Pagination params={params} currentPage={currentPage} totalPages={totalPages} />
