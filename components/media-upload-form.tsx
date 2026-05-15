@@ -28,9 +28,7 @@ export async function MediaUploadForm({
       method="post"
       encType="multipart/form-data"
       className={
-        compact
-          ? "w-full min-w-0 max-w-full"
-          : "surface-panel w-full min-w-0 max-w-full p-4"
+        compact ? "w-full min-w-0 max-w-full" : "surface-panel w-full min-w-0 max-w-full p-4"
       }
     >
       <CsrfInput />
