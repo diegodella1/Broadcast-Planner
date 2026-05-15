@@ -16,11 +16,9 @@ describe("OutputMonitorPanel", () => {
     })
     global.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === "/api/output/hls") {
+      if (url === "/api/output/channel/link") {
         return jsonResponse({
-          playlistUrl: "https://rtvtime.example/api/output/hls/playlist.m3u?token=output-token",
-          hlsUrl: "https://player.vimeo.test/live.m3u8",
-          startOffsetSeconds: 1800
+          playlistUrl: "https://rtvtime.example/api/output/channel/live.m3u8?token=output-token"
         })
       }
       return jsonResponse(initialPayload)
@@ -31,7 +29,7 @@ describe("OutputMonitorPanel", () => {
     vi.useRealTimers()
   })
 
-  it("copies the VLC playlist URL instead of the raw HLS URL", async () => {
+  it("copies the continuous VLC channel URL", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -39,14 +37,16 @@ describe("OutputMonitorPanel", () => {
     })
     render(<OutputMonitorPanel initial={initialPayload} />)
 
-    await user.click(screen.getByRole("button", { name: "Copy VLC playlist link" }))
+    await user.click(screen.getByRole("button", { name: "Copy continuous VLC link" }))
 
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(
-        "https://rtvtime.example/api/output/hls/playlist.m3u?token=output-token"
+        "https://rtvtime.example/api/output/channel/live.m3u8?token=output-token"
       )
     )
-    expect(screen.getByText("Copied. Opens at current block time.")).toBeInTheDocument()
+    expect(
+      screen.getByText("Copied. Same URL stays live through content changes.")
+    ).toBeInTheDocument()
   })
 })
 

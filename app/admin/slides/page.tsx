@@ -8,20 +8,11 @@ import { SLIDE_TEMPLATES } from "@/lib/slides/registry"
 export const dynamic = "force-dynamic"
 
 const SYSTEM_SLIDE_PRESETS = [
-  {
-    title: "Markets overview",
-    templateId: "metals",
-    content: "System slide: markets overview with fallback data until feeds are finalized."
-  },
-  { title: "FX board", templateId: "fx", content: "System slide: FX and currency board." },
-  { title: "Metals board", templateId: "metals", content: "System slide: metals board." },
-  { title: "Gold board", templateId: "gold", content: "System slide: gold price board." },
-  { title: "Silver board", templateId: "silver", content: "System slide: silver price board." },
-  { title: "Oil board", templateId: "oil", content: "System slide: oil price board." },
-  { title: "STRC board", templateId: "strc", content: "System slide: STRC dashboard." },
-  { title: "SATA board", templateId: "sata", content: "System slide: SATA dashboard." },
-  { title: "News headline", templateId: "news", content: "System slide: headline fallback." },
-  { title: "Event calendar", templateId: "calendar", content: "System slide: event calendar." }
+  ...SLIDE_TEMPLATES.map((template) => ({
+    title: `${template.label} plate`,
+    templateId: template.id,
+    content: `System slide: ${template.label}. Uses live data when available and mock fallback data otherwise.`
+  }))
 ] as const
 
 export default async function SlidesPage() {
@@ -44,17 +35,6 @@ export default async function SlidesPage() {
       status: String(formData.get("status") || "ready")
     })
   }
-  async function addMarketSlide(formData: FormData) {
-    "use server"
-    await createSlideAsset({
-      title: String(formData.get("title") || "Market board"),
-      slideType: "template",
-      templateId: "market",
-      content: String(formData.get("content") || "Live market data"),
-      defaultDurationSeconds: Number(formData.get("default_duration_seconds") || 30),
-      status: "ready"
-    })
-  }
   async function addSystemSlide(formData: FormData) {
     "use server"
     await createSlideAsset({
@@ -66,12 +46,25 @@ export default async function SlidesPage() {
       status: "ready"
     })
   }
+  async function addAllSystemSlides() {
+    "use server"
+    for (const preset of SYSTEM_SLIDE_PRESETS) {
+      await createSlideAsset({
+        title: preset.title,
+        slideType: "template",
+        templateId: preset.templateId,
+        content: preset.content,
+        defaultDurationSeconds: 30,
+        status: "ready"
+      })
+    }
+  }
   return (
     <AdminShell
       title="Graphics"
       description="Fullscreen slides and controlled HTML graphics for scheduled layers."
     >
-      <section className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <section className="mb-5">
         <form
           action={addSlide}
           className="surface-panel grid gap-3 p-4 lg:grid-cols-[1fr_150px_120px_120px]"
@@ -134,38 +127,15 @@ export default async function SlidesPage() {
           />
           <button className="btn-primary lg:col-span-4">Create graphic</button>
         </form>
-        <form action={addMarketSlide} className="surface-panel p-4">
-          <FormHeader
-            title="Market slide"
-            detail="Create a dynamic HTML slide backed by the market data feed."
-          />
-          <div className="mt-4 grid gap-3">
-            <input
-              name="title"
-              defaultValue="Market board"
-              className="border border-line px-3 py-2 text-sm"
-            />
-            <input
-              name="default_duration_seconds"
-              type="number"
-              min="1"
-              defaultValue="30"
-              className="border border-line px-3 py-2 text-sm"
-            />
-            <input
-              name="content"
-              defaultValue="Live market data"
-              className="border border-line px-3 py-2 text-sm"
-            />
-            <button className="btn-primary">Create market slide</button>
-          </div>
-        </form>
       </section>
       <section className="surface-panel mb-5 p-4">
         <FormHeader
           title="System slides"
           detail="One-click dynamic slide presets for markets, prices, FX, financial boards, news and calendar."
         />
+        <form action={addAllSystemSlides} className="mt-4">
+          <button className="btn-primary">Create all system slides</button>
+        </form>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {SYSTEM_SLIDE_PRESETS.map((preset) => (
             <form key={preset.title} action={addSystemSlide}>

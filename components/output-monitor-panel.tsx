@@ -68,19 +68,16 @@ export function OutputMonitorPanel({ initial }: { initial: MonitorPayload }) {
   }, [payload.asset?.id])
 
   const copyHlsUrl = async () => {
-    if (!payload.asset?.id) return
     setHlsStatus("loading")
     try {
-      const response = await fetch("/api/output/hls", {
+      const response = await fetch("/api/output/channel/link", {
         cache: "no-store"
       })
       const next = (await response.json().catch(() => null)) as {
-        hlsUrl?: string
         playlistUrl?: string
-        startOffsetSeconds?: number
         error?: string
       } | null
-      const copyUrl = next?.playlistUrl ?? next?.hlsUrl
+      const copyUrl = next?.playlistUrl
       if (!response.ok || !copyUrl) {
         throw new Error(next?.error ?? `HLS returned ${response.status}`)
       }
@@ -93,7 +90,7 @@ export function OutputMonitorPanel({ initial }: { initial: MonitorPayload }) {
   }
 
   const clockSkew = Math.abs(clientSeconds - payload.serverSeconds)
-  const canCopyHls = payload.asset?.sourceType === "vimeo" && Boolean(payload.asset.id)
+  const canCopyHls = Boolean(payload.day)
   return (
     <div className="grid gap-3">
       <dl className="grid gap-2 text-[11px]">
@@ -132,16 +129,16 @@ export function OutputMonitorPanel({ initial }: { initial: MonitorPayload }) {
             onClick={copyHlsUrl}
             disabled={hlsStatus === "loading"}
           >
-            {hlsStatus === "loading" ? "Generating VLC link..." : "Copy VLC playlist link"}
+            {hlsStatus === "loading" ? "Getting VLC link..." : "Copy continuous VLC link"}
           </button>
           <p className="truncate text-[10px] text-white/35">
             {hlsStatus === "copied"
-              ? "Copied. Opens at current block time."
+              ? "Copied. Same URL stays live through content changes."
               : hlsStatus === "error"
-                ? "Could not generate VLC link."
+                ? "Could not get VLC link."
                 : hlsUrl
                   ? hlsUrl
-                  : "Generates a fresh VLC playlist with current offset."}
+                  : "Stable channel URL for VLC."}
           </p>
         </div>
       )}

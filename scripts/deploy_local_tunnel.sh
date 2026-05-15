@@ -12,11 +12,15 @@ cp -R public .next/standalone/public
 
 sudo systemctl restart rtvplanner.service
 sleep 3
+if systemctl list-unit-files rtvplanner-output-channel.service >/dev/null 2>&1; then
+  sudo systemctl restart rtvplanner-output-channel.service
+fi
 
 curl -fsS http://127.0.0.1:3450/api/health >/dev/null
 curl -fsS http://127.0.0.1:3450/manual >/dev/null
 if [[ -n "${OUTPUT_CAPTURE_TOKEN:-}" ]]; then
   curl -fsS "http://127.0.0.1:3450/output/live?token=${OUTPUT_CAPTURE_TOKEN}" >/dev/null
+  curl -fsS "http://127.0.0.1:3450/api/output/channel/live.m3u8?token=${OUTPUT_CAPTURE_TOKEN}" >/dev/null
 else
   output_status="$(curl -sS -o /dev/null -w "%{http_code}" http://127.0.0.1:3450/output/live)"
   case "$output_status" in

@@ -1,0 +1,17 @@
+[Unit]
+Description=RTV Planner continuous VLC HLS output
+After=network-online.target rtvplanner.service
+Requires=rtvplanner.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/diego/Documents/RTVplanner
+EnvironmentFile=/home/diego/Documents/RTVplanner/.env
+Environment=OUTPUT_WORKER_BASE_URL=http://127.0.0.1:3450
+Environment=OUTPUT_CHANNEL_DIR=/tmp/rtvplanner-output-channel
+ExecStart=/usr/bin/node scripts/output_channel_worker.mjs
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
