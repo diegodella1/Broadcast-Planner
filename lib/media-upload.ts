@@ -3,6 +3,7 @@ import { createServiceClient } from "./supabase/server"
 
 export const SMALL_MEDIA_BUCKET = "small-media-assets"
 export const MAX_SMALL_MEDIA_BYTES = 500 * 1024 * 1024
+export const MAX_SHORT_VIDEO_SECONDS = 5 * 60
 export const SMALL_MEDIA_MIME_TYPES = [
   "video/mp4",
   "video/webm",
@@ -81,6 +82,9 @@ export function resolveUploadedMedia(
   }
   if (assetType === "ad" && durationSeconds > 300) {
     throw new Error("Ads cannot be longer than 300 seconds")
+  }
+  if (mediaKind === "video" && assetType === "video" && durationSeconds > MAX_SHORT_VIDEO_SECONDS) {
+    throw new Error("Uploaded videos cannot be longer than 5 minutes")
   }
 
   const width = parseOptionalPositiveNumber(fields.detectedWidth)

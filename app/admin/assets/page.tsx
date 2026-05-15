@@ -48,11 +48,18 @@ export default async function AssetsPage({
         return false
       if (params.lifecycle && lifecycleState(asset) !== params.lifecycle) return false
       if (params.kind === "vimeo" && asset.sourceType !== "vimeo") return false
-      if (params.kind === "video" && asset.mediaKind !== "video") return false
+      if (params.kind === "videos" && (asset.mediaKind !== "video" || asset.sourceType === "vimeo"))
+        return false
+      if (
+        params.kind === "graphics" &&
+        asset.mediaKind !== "graphic" &&
+        asset.mediaKind !== "image"
+      )
+        return false
       if (params.kind === "image" && asset.mediaKind !== "image") return false
       if (
         params.kind &&
-        !["all", "vimeo", "video", "image", "audio"].includes(params.kind) &&
+        !["all", "vimeo", "videos", "graphics", "image", "audio"].includes(params.kind) &&
         asset.assetType !== params.kind
       )
         return false
@@ -140,8 +147,8 @@ export default async function AssetsPage({
   }
   return (
     <AdminShell
-      title="Biblioteca"
-      description="Programas, episodios, placas y fallbacks listos para entrar en la programación."
+      title="Library"
+      description="Videos, Vimeo episodes, graphics, music and fallbacks ready for scheduling."
       actions={
         <a className="btn-primary" href="/admin/vimeo">
           Vimeo
@@ -150,30 +157,30 @@ export default async function AssetsPage({
     >
       {params.uploaded ? <Notice tone="ok">Media uploaded and saved as an asset.</Notice> : null}
       {params.imported ? (
-        <Notice tone={params.playback === "failed" ? "warn" : "ok"} title="Vimeo importado">
-          {params.count ?? "1"} episodio agregado a la biblioteca.
+        <Notice tone={params.playback === "failed" ? "warn" : "ok"} title="Vimeo imported">
+          {params.count ?? "1"} episode added to the library.
           {params.playback === "ready"
-            ? " Playback verificado: ya puede programarse."
+            ? " Playback verified: it can be scheduled."
             : params.playback === "failed"
-              ? " Revisá playback antes de programarlo."
+              ? " Check playback before scheduling."
               : null}
         </Notice>
       ) : null}
       <section className="mb-5 grid gap-3 lg:grid-cols-3">
         <WorkflowStep
           number="1"
-          title="Agregar"
-          detail="Subí un archivo, registrá una URL o importá un episodio Vimeo."
+          title="Add"
+          detail="Upload a short video, register a playable URL, or import a Vimeo episode."
         />
         <WorkflowStep
           number="2"
-          title="Verificar"
-          detail="Debe quedar ready, con duración y fuente reproducible."
+          title="Verify"
+          detail="Every item needs ready status, duration and a playable source."
         />
         <WorkflowStep
           number="3"
-          title="Programar"
-          detail="Usá Programar en el asset para llevarlo directo al día de hoy."
+          title="Schedule"
+          detail="Use Schedule today on the asset to send it straight into today's rundown."
         />
       </section>
       <section className="mb-5 grid gap-3 md:grid-cols-3">
@@ -195,16 +202,16 @@ export default async function AssetsPage({
       <section className="mb-5 grid gap-5 xl:grid-cols-2">
         <MediaUploadForm
           action="/api/assets/upload"
-          title="Agregar programa / episodio"
-          detail="Subí video, imagen o audio hasta 500 MB. Si es video, la duración se detecta y después se reproduce en la salida."
+          title="Add video / episode"
+          detail="Upload MP4/WebM videos up to 5 minutes, plus images or MP3 files up to 500 MB. Video duration is detected and used by output."
           returnTo="/admin/assets?uploaded=1"
           includeAudio
         />
 
         <form action={addAsset} className="surface-panel p-4">
           <FormHeader
-            title="Registrar URL reproducible"
-            detail="Usá esto para MP4/HLS/imagen directa. Para Vimeo, usá Importar Vimeo."
+            title="Register playable URL"
+            detail="Use this for direct MP4, HLS or image URLs. Use Vimeo import for Vimeo."
           />
           <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_130px]">
             <Field label="Title">
@@ -250,15 +257,15 @@ export default async function AssetsPage({
               <option value="fallback">Fallback</option>
               <option value="music">Music</option>
             </select>
-            <button className="btn-primary lg:col-span-3">Guardar URL</button>
+            <button className="btn-primary lg:col-span-3">Save URL</button>
           </div>
         </form>
       </section>
 
       <section className="surface-panel mb-5 p-4">
         <FormHeader
-          title="Importar episodio Vimeo"
-          detail="Pegá el link o ID del video. Se agrega a la biblioteca y se verifica playback HLS para salida."
+          title="Import Vimeo episode"
+          detail="Paste a Vimeo URL or ID. The episode is added to the library and HLS playback is verified for output."
         />
         <form
           action="/api/vimeo/import"
@@ -267,7 +274,7 @@ export default async function AssetsPage({
         >
           <CsrfInput />
           <input type="hidden" name="return_to" value="/admin/assets?kind=vimeo" />
-          <Field label="Vimeo URL o ID">
+          <Field label="Vimeo URL or ID">
             <input
               name="video_uri"
               required
@@ -275,7 +282,7 @@ export default async function AssetsPage({
               className="border border-line px-3 py-2 text-sm font-normal text-ink"
             />
           </Field>
-          <button className="btn-primary self-end">Importar y verificar</button>
+          <button className="btn-primary self-end">Import and verify</button>
         </form>
       </section>
 
@@ -367,7 +374,7 @@ export default async function AssetsPage({
           <FilterLink href="/admin/assets?status=ready" active={params.status === "ready"}>
             Ready
           </FilterLink>
-          <FilterLink href="/admin/assets?kind=video" active={params.kind === "video"}>
+          <FilterLink href="/admin/assets?kind=videos" active={params.kind === "videos"}>
             Videos
           </FilterLink>
           <FilterLink href="/admin/assets?kind=vimeo" active={params.kind === "vimeo"}>
@@ -382,11 +389,11 @@ export default async function AssetsPage({
           <FilterLink href="/admin/assets?kind=promo" active={params.kind === "promo"}>
             Promos
           </FilterLink>
-          <FilterLink href="/admin/assets?kind=image" active={params.kind === "image"}>
-            Images
+          <FilterLink href="/admin/assets?kind=graphics" active={params.kind === "graphics"}>
+            Graphics
           </FilterLink>
           <FilterLink href="/admin/assets?kind=audio" active={params.kind === "audio"}>
-            Audio
+            Music
           </FilterLink>
         </div>
       </section>
@@ -439,15 +446,15 @@ export default async function AssetsPage({
             <div className="mt-4 flex flex-wrap gap-2">
               {!assetNeedsAttention(asset) ? (
                 <a className="btn-primary" href={`/admin/schedule/${today}?asset=${asset.id}`}>
-                  Programar hoy
+                  Schedule today
                 </a>
               ) : (
                 <span className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-sm font-semibold text-warn-strong">
-                  Resolver antes de programar
+                  Fix before scheduling
                 </span>
               )}
               <a className="btn-secondary" href="/admin/calendar">
-                Elegir otro día
+                Choose another day
               </a>
             </div>
             <AssetEditForm asset={asset} action={editAsset} />

@@ -10,21 +10,21 @@ describe("AgendaBlockForm", () => {
   it("uses known asset duration and shows calculated end time", () => {
     render(<AgendaBlockForm schedule={schedule()} action={vi.fn()} />)
 
-    expect(screen.getByLabelText("Duración")).toHaveValue(120)
-    expect(screen.getByText("Finaliza")).toBeInTheDocument()
+    expect(screen.getByLabelText("Duration")).toHaveValue(120)
+    expect(screen.getByText("Ends")).toBeInTheDocument()
     expect(screen.getByText("00:02 SF")).toBeInTheDocument()
-    expect(screen.getByText("Duración automática: 00:02:00")).toBeInTheDocument()
+    expect(screen.getByText("Automatic duration: 00:02:00")).toBeInTheDocument()
   })
 
   it("lets operator enter duration when selected content has no known duration", async () => {
     const user = userEvent.setup()
     render(<AgendaBlockForm schedule={schedule()} action={vi.fn()} />)
 
-    await user.selectOptions(screen.getByLabelText("Contenido"), "slide:slide-1")
+    await user.selectOptions(screen.getByLabelText("Content"), "slide:slide-1")
 
-    expect(screen.getByLabelText("Duración")).toHaveValue(30)
+    expect(screen.getByLabelText("Duration")).toHaveValue(30)
     expect(
-      screen.getByText("Este contenido no trae duración. Definí cuántos segundos queda al aire.")
+      screen.getByText("This content has no duration. Set how many seconds it stays on air.")
     ).toBeInTheDocument()
   })
 
@@ -32,12 +32,12 @@ describe("AgendaBlockForm", () => {
     const user = userEvent.setup()
     render(<AgendaBlockForm schedule={schedule({ withConflict: true })} action={vi.fn()} />)
 
-    await user.clear(screen.getByLabelText("Inicio"))
-    await user.type(screen.getByLabelText("Inicio"), "00:10:00")
+    await user.clear(screen.getByLabelText("Start"))
+    await user.type(screen.getByLabelText("Start"), "00:10:00")
 
-    expect(screen.getByRole("button", { name: "Guardar en programación" })).toBeDisabled()
-    expect(screen.getByText("Ese horario ya está ocupado")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Usar 00:12 SF" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Save to schedule" })).toBeDisabled()
+    expect(screen.getByText("That time is already occupied")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Use 00:12 SF" })).toBeInTheDocument()
   })
 })
 

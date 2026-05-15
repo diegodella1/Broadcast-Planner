@@ -58,4 +58,15 @@ describe("resolveUploadedMedia", () => {
       )
     ).toThrow("Browser could not read media duration")
   })
+
+  it("limits uploaded short videos to 5 minutes", () => {
+    expect(() =>
+      resolveUploadedMedia(baseFile, {
+        title: "Long local clip",
+        assetType: "video",
+        orientation: "auto",
+        detectedDurationSeconds: "301"
+      })
+    ).toThrow("Uploaded videos cannot be longer than 5 minutes")
+  })
 })

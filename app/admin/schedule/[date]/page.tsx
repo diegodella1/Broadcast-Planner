@@ -146,14 +146,14 @@ export default async function ScheduleDatePage({
   const lastEnd = lastBlock ? lastBlock.startTimeSeconds + lastBlock.durationSeconds : 0
   return (
     <AdminShell
-      title={`Programación ${date}`}
-      description="Armá el día como una agenda: hora de inicio, contenido, duración y salida automática."
+      title={`Schedule ${date}`}
+      description="Build the day like an agenda: start time, content, duration and automatic output."
       actions={
         <>
           <ButtonLink href="/admin/assets" variant="secondary">
-            Biblioteca
+            Library
           </ButtonLink>
-          <ButtonLink href={liveOutputHref(true)}>Salida limpia</ButtonLink>
+          <ButtonLink href={liveOutputHref(true)}>Clean output</ButtonLink>
         </>
       }
     >
@@ -303,18 +303,18 @@ export default async function ScheduleDatePage({
 
         <aside className="grid min-w-0 grid-cols-1 content-start gap-5">
           <section className="surface-panel p-4">
-            <h2 className="font-semibold">Biblioteca</h2>
+            <h2 className="font-semibold">Library</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Cargá videos, imágenes y fallbacks antes de programarlos. Los contenidos listos
-              aparecen en el selector principal.
+              Upload videos, images and fallbacks before scheduling them. Ready content appears in
+              the main picker.
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-              <Metric label="Assets listos" value={String(readyAssets.length)} tone="ok" />
-              <Metric label="Slides listas" value={String(readySlides.length)} tone="ok" />
+              <Metric label="Ready assets" value={String(readyAssets.length)} tone="ok" />
+              <Metric label="Ready slides" value={String(readySlides.length)} tone="ok" />
             </div>
             <div className="mt-4">
               <ButtonLink href="/admin/assets" variant="secondary">
-                Abrir biblioteca
+                Open library
               </ButtonLink>
             </div>
           </section>
@@ -372,7 +372,7 @@ export default async function ScheduleDatePage({
           </section>
 
           <details className="surface-panel p-4">
-            <summary className="cursor-pointer font-semibold">Formulario avanzado</summary>
+            <summary className="cursor-pointer font-semibold">Advanced form</summary>
             <form action={addBlock} className="mt-4 grid grid-cols-1 gap-3">
               <Field label="Show title">
                 <input

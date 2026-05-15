@@ -67,10 +67,10 @@ export function AgendaBlockForm({
   return (
     <section className="surface-panel mb-5 overflow-hidden">
       <div className="border-b border-line px-4 py-3">
-        <p className="eyebrow">Programar contenido</p>
-        <h2 className="mt-1 text-xl font-semibold">Agregar bloque al día</h2>
+        <p className="eyebrow">Schedule content</p>
+        <h2 className="mt-1 text-xl font-semibold">Add block to day</h2>
         <p className="mt-1 text-sm text-muted">
-          Elegí inicio y contenido. Si el archivo tiene duración, el final se calcula solo.
+          Pick a start time and content. Known media duration calculates the end time automatically.
         </p>
       </div>
       <form
@@ -78,7 +78,7 @@ export function AgendaBlockForm({
         className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[160px_minmax(0,1fr)_160px_150px]"
       >
         <label className="grid gap-1 text-xs font-semibold text-muted">
-          Inicio
+          Start
           <input
             name="start_time"
             required
@@ -88,14 +88,14 @@ export function AgendaBlockForm({
           />
         </label>
         <label className="grid min-w-0 gap-1 text-xs font-semibold text-muted">
-          Contenido
+          Content
           <select
             required
             value={contentValue}
             onChange={(event) => chooseContent(event.target.value)}
             className="border border-line px-3 py-2 text-sm font-normal text-ink"
           >
-            {options.length ? null : <option value="">No hay contenido listo</option>}
+            {options.length ? null : <option value="">No ready content</option>}
             {options.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.title} - {option.meta}
@@ -104,7 +104,7 @@ export function AgendaBlockForm({
           </select>
         </label>
         <label className="grid gap-1 text-xs font-semibold text-muted">
-          Duración
+          Duration
           <input
             name="duration_seconds"
             required
@@ -117,7 +117,7 @@ export function AgendaBlockForm({
           />
         </label>
         <div className="rounded-md border border-line bg-panel-soft px-3 py-2 text-sm">
-          <p className="text-xs font-semibold uppercase text-muted">Finaliza</p>
+          <p className="text-xs font-semibold uppercase text-muted">Ends</p>
           <p className="mt-1 font-semibold tabular-nums">{formatPlayoutTimeLabel(endSeconds)}</p>
         </div>
         <input type="hidden" name="title" value={selected?.title ?? ""} />
@@ -129,15 +129,15 @@ export function AgendaBlockForm({
         <div className="grid gap-2 lg:col-span-4">
           {selected?.durationSeconds ? (
             <p className="rounded-md bg-success-soft px-3 py-2 text-sm font-semibold text-success-strong">
-              Duración automática: {formatTimecode(selected.durationSeconds)}
+              Automatic duration: {formatTimecode(selected.durationSeconds)}
             </p>
           ) : (
             <p className="rounded-md bg-info-soft px-3 py-2 text-sm font-semibold text-info-strong">
-              Este contenido no trae duración. Definí cuántos segundos queda al aire.
+              This content has no duration. Set how many seconds it stays on air.
             </p>
           )}
           {conflict?.hasConflict ? (
-            <Notice tone="warn" title="Ese horario ya está ocupado">
+            <Notice tone="warn" title="That time is already occupied">
               <div className="flex flex-wrap items-center gap-2">
                 <span>{conflictMessage}</span>
                 {conflict.suggestedStartSeconds !== null ? (
@@ -146,7 +146,7 @@ export function AgendaBlockForm({
                     className="btn-secondary min-h-8 px-2"
                     onClick={() => setStartTime(formatTimecode(conflict.suggestedStartSeconds!))}
                   >
-                    Usar {formatPlayoutTimeLabel(conflict.suggestedStartSeconds)}
+                    Use {formatPlayoutTimeLabel(conflict.suggestedStartSeconds)}
                   </button>
                 ) : null}
                 {!selected?.durationSeconds &&
@@ -157,14 +157,14 @@ export function AgendaBlockForm({
                     className="btn-secondary min-h-8 px-2"
                     onClick={() => setManualDuration(String(conflict.maxSafeDurationSeconds))}
                   >
-                    Recortar a {formatTimecode(conflict.maxSafeDurationSeconds)}
+                    Trim to {formatTimecode(conflict.maxSafeDurationSeconds)}
                   </button>
                 ) : null}
               </div>
             </Notice>
           ) : null}
           <button className="btn-primary w-full justify-center" disabled={!canSubmit}>
-            Guardar en programación
+            Save to schedule
           </button>
         </div>
       </form>

@@ -15,6 +15,8 @@ type MediaMetadata = {
   previewKind: "image" | "video" | "audio" | "none"
 }
 
+const MAX_SHORT_VIDEO_SECONDS = 5 * 60
+
 export function MediaFilePicker({
   includeAudio = true,
   compact = false
@@ -145,14 +147,17 @@ export function MediaFilePicker({
     video.preload = "metadata"
     video.onloadedmetadata = () => {
       const duration = Math.ceil(video.duration || 0)
+      const isTooLong = duration > MAX_SHORT_VIDEO_SECONDS
       setMetadata({
         durationSeconds: duration ? String(duration) : "",
         width: video.videoWidth ? String(video.videoWidth) : "",
         height: video.videoHeight ? String(video.videoHeight) : "",
-        message: duration
-          ? `Detected ${duration}s video (${video.videoWidth}x${video.videoHeight}).`
-          : "Video duration unreadable",
-        status: duration ? "ready" : "error",
+        message: isTooLong
+          ? `Detected ${duration}s video. Short video uploads must be 5 minutes or less.`
+          : duration
+            ? `Detected ${duration}s video (${video.videoWidth}x${video.videoHeight}).`
+            : "Video duration unreadable",
+        status: duration && !isTooLong ? "ready" : "error",
         ...baseDetails,
         previewKind: "video"
       })
@@ -177,7 +182,9 @@ export function MediaFilePicker({
           onChange={(event) => setManualDuration(event.target.value)}
           className="border border-line px-3 py-2 text-sm font-normal text-ink"
         />
-        <span className="text-[0.7rem] font-normal">Blank or 0 uses detected duration.</span>
+        <span className="text-[0.7rem] font-normal">
+          Blank or 0 uses detected duration. Short video uploads max out at 5 minutes.
+        </span>
       </label>
       <label
         className={[

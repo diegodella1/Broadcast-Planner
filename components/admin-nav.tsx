@@ -33,7 +33,7 @@ export const navGroups: NavGroup[] = [
   {
     label: "Operate",
     items: [
-      { label: "Inicio", href: "/admin", icon: LayoutDashboard, match: "exact" },
+      { label: "Home", href: "/admin", icon: LayoutDashboard, match: "exact" },
       { label: "Control", href: "/admin/output", icon: Tv },
       { label: "Runbook", href: "/admin/runbook", icon: ListChecks },
       { label: "Live monitor", href: "/output/live?debug=true", icon: MonitorPlay }
@@ -41,12 +41,12 @@ export const navGroups: NavGroup[] = [
   },
   {
     label: "Plan",
-    items: [{ label: "Programación", href: "/admin/calendar", icon: CalendarDays }]
+    items: [{ label: "Schedule", href: "/admin/calendar", icon: CalendarDays }]
   },
   {
     label: "Media",
     items: [
-      { label: "Biblioteca", href: "/admin/assets", icon: Video },
+      { label: "Library", href: "/admin/assets", icon: Video },
       { label: "Vimeo", href: "/admin/vimeo", icon: MonitorPlay },
       { label: "Graphics", href: "/admin/slides", icon: Clapperboard },
       { label: "Music", href: "/admin/music", icon: Music }
