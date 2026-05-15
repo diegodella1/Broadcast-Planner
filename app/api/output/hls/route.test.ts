@@ -52,6 +52,15 @@ describe("GET /api/output/hls", () => {
       title: "Roxom Report",
       durationSeconds: 3600
     })
+    global.fetch = vi.fn(async () => {
+      return new Response(
+        ["#EXTM3U", "#EXT-X-STREAM-INF:BANDWIDTH=2000000", "variant/playlist.m3u8", ""].join("\n"),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/vnd.apple.mpegurl" }
+        }
+      )
+    })
   })
 
   afterEach(() => {
@@ -78,8 +87,9 @@ describe("GET /api/output/hls", () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get("Content-Type")).toContain("audio/x-mpegurl")
+    expect(body).toContain("#EXT-X-START:TIME-OFFSET=1800,PRECISE=NO")
     expect(body).toContain("#EXTVLCOPT:start-time=1800")
-    expect(body).toContain("https://player.vimeo.test/live.m3u8")
+    expect(body).toContain("https://player.vimeo.test/variant/playlist.m3u8")
   })
 
   it("clamps the VLC start time near the end of the video", async () => {

@@ -49,7 +49,40 @@ export function renderVlcPlaylist(
   payload: Pick<OutputHlsPayload, "hlsUrl" | "startOffsetSeconds">
 ) {
   const startTime = Math.max(0, Math.floor(payload.startOffsetSeconds))
-  return ["#EXTM3U", `#EXTVLCOPT:start-time=${startTime}`, payload.hlsUrl, ""].join("\n")
+  return [
+    "#EXTM3U",
+    `#EXT-X-START:TIME-OFFSET=${startTime},PRECISE=NO`,
+    `#EXTVLCOPT:start-time=${startTime}`,
+    "#EXT-X-STREAM-INF:BANDWIDTH=1",
+    payload.hlsUrl,
+    ""
+  ].join("\n")
+}
+
+export async function renderVlcHlsManifest(
+  payload: Pick<OutputHlsPayload, "hlsUrl" | "startOffsetSeconds">
+) {
+  const upstream = await fetch(payload.hlsUrl, { cache: "no-store", redirect: "follow" })
+  if (!upstream.ok) return renderVlcPlaylist(payload)
+  const manifest = await upstream.text()
+  const baseUrl = upstream.url || payload.hlsUrl
+  const startTime = Math.max(0, Math.floor(payload.startOffsetSeconds))
+  const output: string[] = []
+  let insertedStart = false
+  for (const line of manifest.split(/\r?\n/)) {
+    output.push(rewriteManifestLine(line, baseUrl))
+    if (!insertedStart && line.trim() === "#EXTM3U") {
+      output.push(`#EXT-X-START:TIME-OFFSET=${startTime},PRECISE=NO`)
+      output.push(`#EXTVLCOPT:start-time=${startTime}`)
+      insertedStart = true
+    }
+  }
+  if (!insertedStart) {
+    output.unshift(`#EXTVLCOPT:start-time=${startTime}`)
+    output.unshift(`#EXT-X-START:TIME-OFFSET=${startTime},PRECISE=NO`)
+    output.unshift("#EXTM3U")
+  }
+  return `${output.join("\n")}\n`
 }
 
 export class OutputHlsError extends Error {
@@ -96,4 +129,10 @@ function outputPlaylistUrl(requestUrl: string) {
     playlist.host = url.host
   }
   return playlist
+}
+
+function rewriteManifestLine(line: string, baseUrl: string) {
+  const trimmed = line.trim()
+  if (!trimmed || trimmed.startsWith("#")) return line
+  return new URL(trimmed, baseUrl).toString()
 }

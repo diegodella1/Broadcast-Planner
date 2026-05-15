@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 import { isOutputRequestAllowed, outputAccessDeniedReason } from "@/lib/output-auth"
 
-import { OutputHlsError, renderVlcPlaylist, resolveOutputHls } from "../live"
+import { OutputHlsError, renderVlcHlsManifest, resolveOutputHls } from "../live"
 
 export const dynamic = "force-dynamic"
 
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: outputAccessDeniedReason() }, { status: 401 })
     }
     const payload = await resolveOutputHls({ requestUrl: request.url })
-    return new NextResponse(renderVlcPlaylist(payload), {
+    return new NextResponse(await renderVlcHlsManifest(payload), {
       headers: {
         "Cache-Control": "no-store",
         "Content-Disposition": 'inline; filename="rtv-live.m3u"',
