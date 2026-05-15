@@ -15,26 +15,69 @@ type ContentOption = {
   blockType: BlockType
   durationSeconds: number | null
   meta: string
+  searchText: string
+  sourceType?: MediaAsset["sourceType"] | undefined
+  mediaKind?: MediaAsset["mediaKind"] | undefined
+  assetType?: MediaAsset["assetType"] | undefined
+  showName?: string | undefined
+  month?: string | undefined
+  year?: string | undefined
   assetId?: string
   slideId?: string
 }
 
 const DEFAULT_MANUAL_DURATION = 30
+const ALL_FILTERS = "all"
+
+type InitialContentFilters = {
+  query?: string | undefined
+  kind?: string | undefined
+  source?: string | undefined
+  showName?: string | undefined
+  month?: string | undefined
+  year?: string | undefined
+}
 
 export function AgendaBlockForm({
   schedule,
   action,
-  initialContentValue
+  initialContentValue,
+  initialFilters
 }: {
   schedule: ScheduleBundle
   action: (formData: FormData) => Promise<void>
   initialContentValue?: string | undefined
+  initialFilters?: InitialContentFilters
 }) {
   const options = useMemo(() => buildContentOptions(schedule), [schedule])
   const initialOption = options.find((option) => option.value === initialContentValue) ?? options[0]
+  const [query, setQuery] = useState(initialFilters?.query ?? "")
+  const [kind, setKind] = useState(initialFilters?.kind ?? ALL_FILTERS)
+  const [source, setSource] = useState(initialFilters?.source ?? ALL_FILTERS)
+  const [showName, setShowName] = useState(
+    initialFilters?.showName ?? initialOption?.showName ?? ""
+  )
+  const [month, setMonth] = useState(initialFilters?.month ?? ALL_FILTERS)
+  const [year, setYear] = useState(initialFilters?.year ?? ALL_FILTERS)
+  const filteredOptions = useMemo(
+    () => filterContentOptions(options, { query, kind, source, showName, month, year }),
+    [options, query, kind, source, showName, month, year]
+  )
+  const availableShows = useMemo(
+    () => uniqueSorted(options.map((option) => option.showName)),
+    [options]
+  )
+  const availableYears = useMemo(
+    () => uniqueSorted(options.map((option) => option.year)),
+    [options]
+  )
   const [contentValue, setContentValue] = useState(initialOption?.value ?? "")
   const [startTime, setStartTime] = useState(nextSuggestedStart(schedule.blocks))
-  const selected = options.find((option) => option.value === contentValue) ?? null
+  const selectedFromState = options.find((option) => option.value === contentValue) ?? null
+  const selected =
+    selectedFromState && filteredOptions.some((option) => option.value === selectedFromState.value)
+      ? selectedFromState
+      : (filteredOptions[0] ?? null)
   const [manualDuration, setManualDuration] = useState(
     String(initialOption?.durationSeconds ?? DEFAULT_MANUAL_DURATION)
   )
@@ -77,6 +120,105 @@ export function AgendaBlockForm({
         action={action}
         className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[160px_minmax(0,1fr)_160px_150px]"
       >
+        <div className="grid gap-3 rounded-md border border-line bg-panel-soft p-3 lg:col-span-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_160px_160px]">
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+              Search
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Title, show, source"
+                className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
+              />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+              Type
+              <select
+                value={kind}
+                onChange={(event) => setKind(event.target.value)}
+                className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
+              >
+                <option value={ALL_FILTERS}>All</option>
+                <option value="video">Video</option>
+                <option value="ad">Ad</option>
+                <option value="promo">Promo</option>
+                <option value="image">Image</option>
+                <option value="fallback">Fallback</option>
+                <option value="slide">Slides</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+              Source
+              <select
+                value={source}
+                onChange={(event) => setSource(event.target.value)}
+                className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
+              >
+                <option value={ALL_FILTERS}>All</option>
+                <option value="vimeo">Vimeo</option>
+                <option value="remote_mp4">Remote MP4</option>
+                <option value="hls">HLS</option>
+                <option value="rtmp">RTMP</option>
+                <option value="reuters">Reuters</option>
+                <option value="supabase_image">Uploaded image</option>
+                <option value="remote_image">Remote image</option>
+                <option value="slide">System slide</option>
+              </select>
+            </label>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_120px_120px]">
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+              Vimeo show
+              <select
+                value={showName}
+                onChange={(event) => setShowName(event.target.value)}
+                className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
+              >
+                <option value="">All shows</option>
+                {availableShows.map((show) => (
+                  <option key={show} value={show}>
+                    {show}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+              Month
+              <select
+                value={month}
+                onChange={(event) => setMonth(event.target.value)}
+                className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
+              >
+                <option value={ALL_FILTERS}>All</option>
+                {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0")).map(
+                  (value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  )
+                )}
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+              Year
+              <select
+                value={year}
+                onChange={(event) => setYear(event.target.value)}
+                className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
+              >
+                <option value={ALL_FILTERS}>All</option>
+                {availableYears.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <p className="text-xs font-semibold text-muted">
+            Showing {filteredOptions.length} of {options.length} ready items
+          </p>
+        </div>
         <label className="grid gap-1 text-xs font-semibold text-muted">
           Start
           <input
@@ -91,12 +233,12 @@ export function AgendaBlockForm({
           Content
           <select
             required
-            value={contentValue}
+            value={selected?.value ?? ""}
             onChange={(event) => chooseContent(event.target.value)}
             className="border border-line px-3 py-2 text-sm font-normal text-ink"
           >
-            {options.length ? null : <option value="">No ready content</option>}
-            {options.map((option) => (
+            {filteredOptions.length ? null : <option value="">No ready content</option>}
+            {filteredOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.title} - {option.meta}
               </option>
@@ -184,13 +326,39 @@ function buildContentOptions(schedule: ScheduleBundle): ContentOption[] {
 }
 
 function assetOption(asset: MediaAsset): ContentOption {
+  const showName = metadataText(asset, "vimeo_show_name")
+  const createdDate = parseIsoDate(metadataText(asset, "vimeo_created_time"))
   return {
     value: `asset:${asset.id}`,
     title: asset.title,
     kind: "asset",
     blockType: normalizeBlockType(asset.assetType),
     durationSeconds: asset.durationSeconds ?? null,
-    meta: `${asset.assetType} / ${asset.sourceType}${asset.durationSeconds ? ` / ${formatTimecode(asset.durationSeconds)}` : ""}`,
+    meta: [
+      showName,
+      asset.assetType,
+      asset.sourceType,
+      asset.durationSeconds ? formatTimecode(asset.durationSeconds) : null
+    ]
+      .filter(Boolean)
+      .join(" / "),
+    searchText: [
+      asset.title,
+      asset.description,
+      asset.sourceType,
+      asset.mediaKind,
+      asset.assetType,
+      showName
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase(),
+    sourceType: asset.sourceType,
+    mediaKind: asset.mediaKind,
+    assetType: asset.assetType,
+    showName: showName || undefined,
+    month: createdDate ? String(createdDate.getUTCMonth() + 1).padStart(2, "0") : undefined,
+    year: createdDate ? String(createdDate.getUTCFullYear()) : undefined,
     assetId: asset.id
   }
 }
@@ -203,8 +371,50 @@ function slideOption(slide: SlideAsset): ContentOption {
     blockType: "slide",
     durationSeconds: slide.defaultDurationSeconds ?? null,
     meta: `slide${slide.defaultDurationSeconds ? ` / ${formatTimecode(slide.defaultDurationSeconds)}` : ""}`,
+    searchText: [slide.title, slide.slideType, "slide"].join(" ").toLowerCase(),
+    sourceType: undefined,
+    mediaKind: "graphic",
+    assetType: "overlay",
     slideId: slide.id
   }
+}
+
+function filterContentOptions(options: ContentOption[], filters: Required<InitialContentFilters>) {
+  const normalizedQuery = (filters.query ?? "").trim().toLowerCase()
+  return options.filter((option) => {
+    if (normalizedQuery && !option.searchText.includes(normalizedQuery)) return false
+    if (filters.kind !== ALL_FILTERS) {
+      if (filters.kind === "slide") {
+        if (option.kind !== "slide") return false
+      } else if (option.assetType !== filters.kind) return false
+    }
+    if (filters.source !== ALL_FILTERS) {
+      if (filters.source === "slide") {
+        if (option.kind !== "slide") return false
+      } else if (option.sourceType !== filters.source) return false
+    }
+    if (filters.showName && option.showName !== filters.showName) return false
+    if (filters.month !== ALL_FILTERS && option.month !== filters.month) return false
+    if (filters.year !== ALL_FILTERS && option.year !== filters.year) return false
+    return true
+  })
+}
+
+function metadataText(asset: MediaAsset, key: string) {
+  const value = asset.metadata?.[key]
+  return typeof value === "string" ? value : ""
+}
+
+function parseIsoDate(value: string) {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function uniqueSorted(values: Array<string | undefined>) {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))].sort((a, b) =>
+    a.localeCompare(b)
+  )
 }
 
 function normalizeBlockType(assetType: MediaAsset["assetType"]): BlockType {

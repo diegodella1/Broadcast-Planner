@@ -44,7 +44,17 @@ export default async function ScheduleDatePage({
   searchParams
 }: {
   params: Promise<{ date: string }>
-  searchParams: Promise<{ uploaded?: string; asset?: string; slide?: string }>
+  searchParams: Promise<{
+    uploaded?: string
+    asset?: string
+    slide?: string
+    q?: string
+    kind?: string
+    source?: string
+    show_name?: string
+    month?: string
+    year?: string
+  }>
 }) {
   const { date } = await params
   const query = await searchParams
@@ -265,6 +275,7 @@ export default async function ScheduleDatePage({
         schedule={schedule}
         action={addBlock}
         initialContentValue={initialContentValue(query)}
+        initialFilters={initialContentFilters(query)}
       />
 
       <section className="mb-5 grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -759,6 +770,31 @@ function initialContentValue(query: { asset?: string; slide?: string }) {
   if (query.asset) return `asset:${query.asset}`
   if (query.slide) return `slide:${query.slide}`
   return undefined
+}
+
+function initialContentFilters(query: {
+  q?: string
+  kind?: string
+  source?: string
+  show_name?: string
+  month?: string
+  year?: string
+}) {
+  return {
+    query: query.q,
+    kind: normalizeScheduleKind(query.kind),
+    source: query.source,
+    showName: query.show_name,
+    month: query.month,
+    year: query.year
+  }
+}
+
+function normalizeScheduleKind(kind?: string) {
+  if (kind === "videos") return "video"
+  if (kind === "graphics") return "image"
+  if (kind === "all") return undefined
+  return kind
 }
 
 function panelTone(tone: "ok" | "warn" | "danger" | "neutral") {

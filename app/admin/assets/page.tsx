@@ -451,7 +451,7 @@ export default async function AssetsPage({
             </summary>
             <div className="mt-4 flex flex-wrap gap-2">
               {!assetNeedsAttention(asset) ? (
-                <a className="btn-primary" href={`/admin/schedule/${today}?asset=${asset.id}`}>
+                <a className="btn-primary" href={scheduleAssetHref(today, asset, params)}>
                   Schedule today
                 </a>
               ) : (
@@ -575,6 +575,36 @@ function assetPageHref(params: Record<string, string | undefined>, page: number)
   if (page > 1) query.set("page", String(page))
   const text = query.toString()
   return `/admin/assets${text ? `?${text}` : ""}`
+}
+
+function scheduleAssetHref(
+  date: string,
+  asset: MediaAsset,
+  params: Record<string, string | undefined>
+) {
+  const query = new URLSearchParams({ asset: asset.id })
+  const source = params.kind === "vimeo" ? "vimeo" : undefined
+  const kind = scheduleKind(params.kind)
+  const showName = params.show_name || getMetadataText(asset, "vimeo_show_name")
+  for (const [key, value] of Object.entries({
+    q: params.q,
+    kind,
+    source,
+    show_name: showName,
+    month: params.month,
+    year: params.year
+  })) {
+    if (value) query.set(key, value)
+  }
+  return `/admin/schedule/${date}?${query.toString()}`
+}
+
+function scheduleKind(kind?: string) {
+  if (!kind || kind === "all" || kind === "vimeo") return undefined
+  if (kind === "videos") return "video"
+  if (kind === "graphics") return "image"
+  if (kind === "audio") return undefined
+  return kind
 }
 
 function AssetEditForm({

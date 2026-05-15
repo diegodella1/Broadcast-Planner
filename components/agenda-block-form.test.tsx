@@ -39,6 +39,19 @@ describe("AgendaBlockForm", () => {
     expect(screen.getByText("That time is already occupied")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Use 00:12 SF" })).toBeInTheDocument()
   })
+
+  it("filters ready schedule content by Vimeo show", async () => {
+    const user = userEvent.setup()
+    render(<AgendaBlockForm schedule={schedule()} action={vi.fn()} />)
+
+    await user.selectOptions(screen.getByLabelText("Vimeo show"), "Market Wrap")
+
+    expect(screen.getByLabelText("Content")).toHaveDisplayValue(
+      "Z Market episode - Market Wrap / video / vimeo / 00:03:00"
+    )
+    expect(screen.queryByRole("option", { name: /Z Other episode/ })).not.toBeInTheDocument()
+    expect(screen.getByText("Showing 1 of 4 ready items")).toBeInTheDocument()
+  })
 })
 
 function schedule({ withConflict = false }: { withConflict?: boolean } = {}): ScheduleBundle {
@@ -89,6 +102,42 @@ function schedule({ withConflict = false }: { withConflict?: boolean } = {}): Sc
         durationSeconds: 120,
         status: "ready",
         lifecycleState: "reviewed",
+        createdAt: "",
+        updatedAt: ""
+      },
+      {
+        id: "asset-2",
+        title: "Z Market episode",
+        sourceType: "vimeo",
+        mediaKind: "video",
+        assetType: "video",
+        url: "https://vimeo.com/1",
+        thumbnailUrl: null,
+        durationSeconds: 180,
+        status: "ready",
+        lifecycleState: "reviewed",
+        metadata: {
+          vimeo_show_name: "Market Wrap",
+          vimeo_created_time: "2025-07-01T00:00:00Z"
+        },
+        createdAt: "",
+        updatedAt: ""
+      },
+      {
+        id: "asset-3",
+        title: "Z Other episode",
+        sourceType: "vimeo",
+        mediaKind: "video",
+        assetType: "video",
+        url: "https://vimeo.com/2",
+        thumbnailUrl: null,
+        durationSeconds: 180,
+        status: "ready",
+        lifecycleState: "reviewed",
+        metadata: {
+          vimeo_show_name: "Other Show",
+          vimeo_created_time: "2025-07-02T00:00:00Z"
+        },
         createdAt: "",
         updatedAt: ""
       }
