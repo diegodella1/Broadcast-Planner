@@ -3,7 +3,16 @@ import { ConfirmSubmitButton } from "@/components/confirm-submit-button"
 import { CsrfInput } from "@/components/csrf-input"
 import { MediaUploadForm } from "@/components/media-upload-form"
 import { StatusPill } from "@/components/status-pill"
-import { EmptyState, Field, FilterLink, FormHeader, MetricTile, Notice } from "@/components/ui"
+import {
+  ButtonLink,
+  EmptyState,
+  Field,
+  FilterLink,
+  FormHeader,
+  MetricTile,
+  Notice,
+  PrimaryActionPanel
+} from "@/components/ui"
 import { getAssets, getSlides } from "@/lib/data"
 import { createMediaAsset, deleteMediaAsset, updateMediaAsset } from "@/lib/mutations"
 import { slidePreviewHref } from "@/lib/slide-preview"
@@ -156,10 +165,10 @@ export default async function AssetsPage({
   return (
     <AdminShell
       title="Library"
-      description="All schedulable content: videos, slides, images, audio and fallbacks."
+      description="Add and verify the content operators can place on Schedule."
       actions={
         <a className="btn-primary" href="/admin/vimeo">
-          Vimeo
+          Import Vimeo
         </a>
       }
     >
@@ -174,6 +183,21 @@ export default async function AssetsPage({
               : null}
         </Notice>
       ) : null}
+      <PrimaryActionPanel
+        eyebrow="Step 1"
+        title={attentionCount ? "Fix content before scheduling" : "Library content is ready"}
+        detail={
+          attentionCount
+            ? `${attentionCount} items need a source, duration or ready status. New blocks should use Ready content.`
+            : "Add Vimeo episodes, uploads, images or slides here, then schedule them from each row."
+        }
+        action={<ButtonLink href="/admin/vimeo">Import Vimeo</ButtonLink>}
+        secondary={
+          <ButtonLink href={`/admin/schedule/${today}`} variant="secondary">
+            Schedule Today
+          </ButtonLink>
+        }
+      />
       <section className="mb-5 grid gap-3 lg:grid-cols-3">
         <WorkflowStep
           number="1"
@@ -211,7 +235,11 @@ export default async function AssetsPage({
         />
       </section>
 
-      <section className="mb-5 grid gap-5 xl:grid-cols-2">
+      <details className="surface-panel mb-5 overflow-hidden">
+        <summary className="cursor-pointer border-b border-line px-4 py-3 font-semibold">
+          Add or import content
+        </summary>
+        <div className="grid gap-5 p-4 xl:grid-cols-2">
         <MediaUploadForm
           action="/api/assets/upload"
           title="Add video / episode"
@@ -220,7 +248,7 @@ export default async function AssetsPage({
           includeAudio
         />
 
-        <section className="surface-panel p-4">
+        <section className="rounded-md border border-line bg-panel-soft p-4">
           <FormHeader
             title="Import Vimeo episode"
             detail="Paste a Vimeo URL or ID. The episode is added to Library Videos and HLS playback is verified for output."
@@ -294,7 +322,8 @@ export default async function AssetsPage({
             </form>
           </details>
         </section>
-      </section>
+        </div>
+      </details>
 
       <section className="mb-4 rounded-lg border border-line bg-surface p-3">
         <form
@@ -399,15 +428,6 @@ export default async function AssetsPage({
           <FilterLink href="/admin/assets?kind=videos" active={params.kind === "videos"}>
             Videos
           </FilterLink>
-          <FilterLink href="/admin/assets?kind=fallback" active={params.kind === "fallback"}>
-            Fallbacks
-          </FilterLink>
-          <FilterLink href="/admin/assets?kind=ad" active={params.kind === "ad"}>
-            Ads
-          </FilterLink>
-          <FilterLink href="/admin/assets?kind=promo" active={params.kind === "promo"}>
-            Promos
-          </FilterLink>
           <FilterLink
             href="/admin/assets?kind=images"
             active={params.kind === "images" || params.kind === "image"}
@@ -423,6 +443,20 @@ export default async function AssetsPage({
           <FilterLink href="/admin/assets?kind=audio" active={params.kind === "audio"}>
             Music
           </FilterLink>
+          <details className="rounded-md border border-line bg-panel-soft px-3 py-2 text-sm">
+            <summary className="cursor-pointer font-semibold text-muted">More Types</summary>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <FilterLink href="/admin/assets?kind=fallback" active={params.kind === "fallback"}>
+                Fallbacks
+              </FilterLink>
+              <FilterLink href="/admin/assets?kind=ad" active={params.kind === "ad"}>
+                Ads
+              </FilterLink>
+              <FilterLink href="/admin/assets?kind=promo" active={params.kind === "promo"}>
+                Promos
+              </FilterLink>
+            </div>
+          </details>
         </div>
       </section>
       <div className="surface-panel overflow-hidden">

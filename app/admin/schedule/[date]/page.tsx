@@ -8,7 +8,15 @@ import { RundownEditor } from "@/components/rundown-editor"
 import { ScheduleTimeline } from "@/components/schedule-timeline"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
-import { ButtonLink, EmptyState, Field, FormHeader, Notice, StatusBanner } from "@/components/ui"
+import {
+  ButtonLink,
+  EmptyState,
+  Field,
+  FormHeader,
+  Notice,
+  PrimaryActionPanel,
+  StatusBanner
+} from "@/components/ui"
 import { getScheduleForDate } from "@/lib/data"
 import { DAY_TEMPLATES } from "@/lib/day-templates"
 import {
@@ -242,7 +250,7 @@ export default async function ScheduleDatePage({
   return (
     <AdminShell
       title={`Schedule ${date}`}
-      description="Build the day like an agenda: start time, content, duration and automatic output."
+      description="Place ready Library content on the day. Output follows the active schedule."
       actions={
         <>
           <ButtonLink href="/admin/assets" variant="secondary">
@@ -253,6 +261,25 @@ export default async function ScheduleDatePage({
       }
     >
       {query.uploaded ? <Notice tone="ok">Media uploaded and scheduled.</Notice> : null}
+      <PrimaryActionPanel
+        eyebrow="Step 2"
+        title={blocks.length ? "Review the rundown and fill missing content" : "Add the first block"}
+        detail={
+          blocks.length
+            ? `${readyBlocks}/${blocks.length} blocks ready · ${formatTimecode(totalScheduledSeconds)} scheduled.`
+            : "Choose ready Library content, confirm start time, then save it to the rundown."
+        }
+        action={
+          <a className="btn-primary" href="#add-block">
+            Add Block
+          </a>
+        }
+        secondary={
+          <ButtonLink href="/admin/output" variant="secondary">
+            VLC Output
+          </ButtonLink>
+        }
+      />
       <StatusBanner
         tone={health.criticalCount ? "danger" : health.warnCount ? "warn" : "ok"}
         label="Day readiness"

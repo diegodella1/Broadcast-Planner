@@ -30,13 +30,13 @@ export const navGroups: NavGroup[] = [
     label: "Core",
     items: [
       { label: "Home", href: "/admin", icon: LayoutDashboard, match: "exact" },
-      { label: "Schedule", href: "/admin/calendar", icon: CalendarDays },
       { label: "Library", href: "/admin/assets", icon: Video },
+      { label: "Schedule", href: "/admin/calendar", icon: CalendarDays },
       { label: "Output", href: "/admin/output", icon: MonitorPlay }
     ]
   },
   {
-    label: "Media",
+    label: "Advanced",
     items: [
       { label: "Vimeo", href: "/admin/vimeo", icon: MonitorPlay },
       { label: "Graphics", href: "/admin/slides", icon: Clapperboard },

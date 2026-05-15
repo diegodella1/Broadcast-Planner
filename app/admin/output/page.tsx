@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server"
 import { AdminShell } from "@/components/admin-shell"
 import { OutputMonitorPanel } from "@/components/output-monitor-panel"
 import { StopBroadcastButton } from "@/components/stop-broadcast-button"
-import { StatusBanner } from "@/components/ui"
+import { PrimaryActionPanel, StatusBanner } from "@/components/ui"
 import { recordAuditEvent } from "@/lib/audit"
 import { getLiveSchedule } from "@/lib/data"
 import { updateProgramDayStatus } from "@/lib/mutations"
@@ -103,6 +103,25 @@ export default async function AdminOutputPage() {
 
   return (
     <AdminShell title={t("chrome.output")} description={t("schedule.broadcast")}>
+      <PrimaryActionPanel
+        eyebrow="Official playback"
+        title="Use VLC with the continuous HLS link"
+        detail={
+          active.block
+            ? `${active.block.title} is the active scheduled block. The VLC URL stays the same when content changes.`
+            : "Copy the VLC link once the day has content. Browser playout is not the primary output."
+        }
+        action={
+          <a className="btn-primary" href="#vlc-output">
+            Copy VLC Link
+          </a>
+        }
+        secondary={
+          <a className="btn-secondary" href={monitorHref} target="_blank" rel="noreferrer">
+            Open Monitor
+          </a>
+        }
+      />
       <div className="mb-5">
         <StatusBanner
           tone={isLive ? "ok" : dayStatus === "active" ? "warn" : "info"}
@@ -114,15 +133,15 @@ export default async function AdminOutputPage() {
               : (active.reason ?? "No active block")
           }
           action={
-            <a className="btn-secondary" href={monitorHref} target="_blank" rel="noreferrer">
-              Open monitor
+            <a className="btn-secondary" href="#vlc-output">
+              VLC Link
             </a>
           }
         />
       </div>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">
-          <div className="surface-panel p-5">
+          <div className="surface-panel p-5" id="vlc-output">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">VLC output</p>
             <h2 className="mt-2 text-2xl font-semibold">Use HLS for playback</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
@@ -133,6 +152,9 @@ export default async function AdminOutputPage() {
               <StatusTile label="State" value={broadcastStatusLabel} />
               <StatusTile label="Source" value={activeSourceLabel} />
               <StatusTile label="Block" value={activeBlockLabel} />
+            </div>
+            <div className="mt-5">
+              <OutputMonitorPanel initial={initialMonitor} />
             </div>
           </div>
 
@@ -187,10 +209,6 @@ export default async function AdminOutputPage() {
             <p className="mt-1 text-[11px] leading-4 text-white/40">
               Change the active source from the scheduled block when needed.
             </p>
-          </ControlSection>
-
-          <ControlSection title="Observability">
-            <OutputMonitorPanel initial={initialMonitor} />
           </ControlSection>
 
           <ControlSection title="Actions">

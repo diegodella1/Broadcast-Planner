@@ -69,6 +69,36 @@ export function StatusBanner({
   )
 }
 
+export function PrimaryActionPanel({
+  eyebrow,
+  title,
+  detail,
+  action,
+  secondary
+}: {
+  eyebrow: string
+  title: string
+  detail: ReactNode
+  action: ReactNode
+  secondary?: ReactNode
+}) {
+  return (
+    <section className="mb-5 rounded-lg border border-accent-positive bg-surface-selected-positive p-4 shadow-accent-positive-glow">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="eyebrow text-accent-positive">{eyebrow}</p>
+          <h2 className="mt-1 text-xl font-semibold text-ink md:text-2xl">{title}</h2>
+          <div className="mt-1 max-w-3xl text-sm leading-6 text-muted">{detail}</div>
+        </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {action}
+          {secondary}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function EmptyState({
   title,
   children,

@@ -4,9 +4,7 @@ import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
-  Library,
   MonitorPlay,
-  Music,
   Plus,
   RadioTower
 } from "lucide-react"
@@ -14,7 +12,7 @@ import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
 import { PlayoutTime } from "@/components/playout-time"
-import { ButtonLink, EmptyState, MetricTile } from "@/components/ui"
+import { ButtonLink, EmptyState, MetricTile, PrimaryActionPanel } from "@/components/ui"
 import { getAssets, getDays, getScheduleForDate, getSlides } from "@/lib/data"
 import { analyzeSchedule } from "@/lib/schedule-health"
 import { findActiveSchedule } from "@/lib/scheduler"
@@ -50,9 +48,6 @@ export default async function AdminDashboardPage() {
   const reviewAssets = assets.filter(
     (asset) => asset.status !== "ready" || (asset.mediaKind === "video" && !asset.durationSeconds)
   ).length
-  const musicReady = assets.filter(
-    (asset) => asset.assetType === "music" && asset.status === "ready" && asset.url
-  ).length
   const videoAssets = assets.filter(
     (asset) => asset.mediaKind === "video" && asset.assetType !== "ad"
   ).length
@@ -66,16 +61,45 @@ export default async function AdminDashboardPage() {
   return (
     <AdminShell
       title="Dashboard"
-      description="Core operator path: schedule the day, manage content, verify output."
+      description="Simple operator path: add content, schedule the day, play the continuous VLC output."
       actions={
         <>
-          <ButtonLink href={`/admin/schedule/${today}`}>Program today</ButtonLink>
+          <ButtonLink href="/admin/assets">Add Content</ButtonLink>
           <ButtonLink href="/admin/output" variant="secondary">
-            Open output
+            VLC Output
           </ButtonLink>
         </>
       }
     >
+      <PrimaryActionPanel
+        eyebrow="Start here"
+        title={
+          !assets.length
+            ? "Add your first video or slide"
+            : blocks.length
+              ? "Check today, then copy the VLC link"
+              : "Build today's schedule"
+        }
+        detail={
+          !assets.length
+            ? "New operators only need three steps: add content to Library, place it on Schedule, then use Output for VLC."
+            : blocks.length
+              ? `${readyBlocksLabel(readyAssets, assets.length)} · ${blocks.length} blocks on today's rundown.`
+              : "Library has content. Add the first block to today and the output will follow the schedule."
+        }
+        action={
+          <ButtonLink href={!assets.length ? "/admin/assets" : `/admin/schedule/${today}`}>
+            {!assets.length ? "Open Library" : blocks.length ? "Open Today" : "Schedule Today"}
+          </ButtonLink>
+        }
+        secondary={
+          blocks.length ? (
+            <ButtonLink href="/admin/output" variant="secondary">
+              Copy VLC Link
+            </ButtonLink>
+          ) : null
+        }
+      />
       <section className="mb-5 grid gap-3 xl:grid-cols-[1.25fr_1fr]">
         <div className="surface-panel p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -135,31 +159,25 @@ export default async function AdminDashboardPage() {
         </div>
 
         <section className="surface-panel p-5">
-          <p className="eyebrow">Next actions</p>
+          <p className="eyebrow">Operator path</p>
           <div className="mt-4 grid gap-2">
             <ActionLink
-              href={`/admin/schedule/${today}`}
-              icon={<Plus size={17} />}
-              title={blocks.length ? "Edit today's schedule" : "Create today's first block"}
-              detail="Pick start time, content and save."
-            />
-            <ActionLink
               href="/admin/assets"
-              icon={<Library size={17} />}
-              title="Open library"
+              icon={<Plus size={17} />}
+              title="1. Library"
               detail={`${readyAssets} ready assets, ${reviewAssets} need review.`}
             />
             <ActionLink
-              href="/admin/music"
-              icon={<Music size={17} />}
-              title={musicReady ? "Check music playlist" : "Add background music"}
-              detail={`${musicReady} ready music tracks available.`}
+              href={`/admin/schedule/${today}`}
+              icon={<CalendarDays size={17} />}
+              title="2. Schedule"
+              detail={blocks.length ? "Edit today's rundown." : "Create today's first block."}
             />
             <ActionLink
               href="/admin/output"
               icon={<MonitorPlay size={17} />}
-              title="Check output"
-              detail="Preview the clean web player and current state."
+              title="3. VLC Output"
+              detail="Copy the stable HLS link for VLC."
             />
           </div>
         </section>
@@ -332,4 +350,8 @@ function signalTone(tone: "ok" | "warn" | "danger" | "neutral") {
     default:
       return "border-line bg-surface text-ink"
   }
+}
+
+function readyBlocksLabel(readyAssets: number, totalAssets: number) {
+  return `${readyAssets}/${totalAssets} library items ready`
 }

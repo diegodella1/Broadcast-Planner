@@ -2,6 +2,7 @@ import { MonitorPlay, Tv } from "lucide-react"
 import Link from "next/link"
 
 import { AdminNav } from "@/components/admin-nav"
+import { OperatorPath } from "@/components/operator-path"
 
 import type { ReactNode } from "react"
 
@@ -59,6 +60,7 @@ export function AdminShell({
           </div>
           <AdminNav mobile />
         </header>
+        <OperatorPath />
         <div className="min-w-0 p-4 md:p-6 xl:p-7">{children}</div>
       </main>
     </div>

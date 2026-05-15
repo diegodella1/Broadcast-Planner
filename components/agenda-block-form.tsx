@@ -130,12 +130,12 @@ export function AgendaBlockForm({
   }
 
   return (
-    <section className="surface-panel mb-5 overflow-hidden">
+    <section className="surface-panel mb-5 overflow-hidden" id="add-block">
       <div className="border-b border-line px-4 py-3">
-        <p className="eyebrow">Schedule Content</p>
-        <h2 className="mt-1 text-xl font-semibold">Add block to day</h2>
+        <p className="eyebrow">Add Block</p>
+        <h2 className="mt-1 text-xl font-semibold">Choose content, time, save</h2>
         <p className="mt-1 text-sm text-muted">
-          Choose type, choose content, then confirm start and duration.
+          The picker only shows ready Library items that match the selected type.
         </p>
       </div>
       <form
@@ -168,55 +168,60 @@ export function AgendaBlockForm({
             </label>
           </div>
           {kind === "video" ? (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_120px_120px]">
-              <label className="grid gap-1 text-xs font-semibold text-muted">
-                Vimeo Show
-                <select
-                  value={showName}
-                  onChange={(event) => setShowName(event.target.value)}
-                  className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
-                >
-                  <option value="">All shows</option>
-                  {availableShows.map((show) => (
-                    <option key={show} value={show}>
-                      {show}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-xs font-semibold text-muted">
-                Month
-                <select
-                  value={month}
-                  onChange={(event) => setMonth(event.target.value)}
-                  className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
-                >
-                  <option value={ALL_FILTERS}>All</option>
-                  {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0")).map(
-                    (value) => (
+            <details className="rounded-md border border-line bg-surface p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-muted">
+                Vimeo filters
+              </summary>
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_120px_120px]">
+                <label className="grid gap-1 text-xs font-semibold text-muted">
+                  Vimeo Show
+                  <select
+                    value={showName}
+                    onChange={(event) => setShowName(event.target.value)}
+                    className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
+                  >
+                    <option value="">All shows</option>
+                    {availableShows.map((show) => (
+                      <option key={show} value={show}>
+                        {show}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1 text-xs font-semibold text-muted">
+                  Month
+                  <select
+                    value={month}
+                    onChange={(event) => setMonth(event.target.value)}
+                    className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
+                  >
+                    <option value={ALL_FILTERS}>All</option>
+                    {Array.from({ length: 12 }, (_, index) =>
+                      String(index + 1).padStart(2, "0")
+                    ).map((value) => (
                       <option key={value} value={value}>
                         {value}
                       </option>
-                    )
-                  )}
-                </select>
-              </label>
-              <label className="grid gap-1 text-xs font-semibold text-muted">
-                Year
-                <select
-                  value={year}
-                  onChange={(event) => setYear(event.target.value)}
-                  className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
-                >
-                  <option value={ALL_FILTERS}>All</option>
-                  {availableYears.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1 text-xs font-semibold text-muted">
+                  Year
+                  <select
+                    value={year}
+                    onChange={(event) => setYear(event.target.value)}
+                    className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink"
+                  >
+                    <option value={ALL_FILTERS}>All</option>
+                    {availableYears.map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </details>
           ) : null}
           <p className="text-xs font-semibold text-muted">
             Showing {filteredOptions.length} of {options.length} ready items

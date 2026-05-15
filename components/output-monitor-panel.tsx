@@ -93,55 +93,58 @@ export function OutputMonitorPanel({ initial }: { initial: MonitorPayload }) {
   const canCopyHls = Boolean(payload.day)
   return (
     <div className="grid gap-3">
-      <dl className="grid gap-2 text-[11px]">
-        <MetricLine label="Day" value={payload.day?.airDate ?? "none"} />
-        <MetricLine label="Day status" value={payload.day?.status ?? "none"} />
-        <MetricLine label="Block" value={payload.block?.title ?? "none"} />
-        <MetricLine
-          label="Elapsed"
-          value={
-            payload.block
-              ? `${formatTimecode(payload.block.elapsedInBlock)} / ${formatTimecode(payload.block.durationSeconds)}`
-              : "n/a"
-          }
-        />
-        <MetricLine label="Asset" value={payload.asset?.title ?? "none"} />
-        <MetricLine label="Asset status" value={payload.asset?.status ?? "n/a"} />
-        <MetricLine label="Lifecycle" value={payload.asset?.lifecycleState ?? "n/a"} />
-        <MetricLine label="Fallback" value={payload.fallback?.title ?? "none"} />
-        <MetricLine label="Fallback reason" value={payload.fallbackReason ?? "normal"} />
-        <MetricLine label="Vimeo" value={payload.asset?.playbackReadinessStatus ?? "n/a"} />
-        <MetricLine
-          label="Media error"
-          value={payload.mediaError ?? payload.asset?.playbackError ?? "none"}
-        />
-        <MetricLine label="Clock skew" value={`${clockSkew}s`} />
-        <MetricLine
-          label="Monitor"
-          value={error ?? `ok ${new Date(payload.generatedAt).toLocaleTimeString()}`}
-        />
-      </dl>
       {canCopyHls && (
-        <div className="grid gap-2 rounded border border-white/10 bg-black/20 p-2">
+        <div className="grid gap-2 rounded-md border border-accent-positive bg-surface-selected-positive p-3">
           <button
             type="button"
-            className="btn-secondary w-full justify-center text-[11px]"
+            className="btn-primary w-full justify-center"
             onClick={copyHlsUrl}
             disabled={hlsStatus === "loading"}
           >
-            {hlsStatus === "loading" ? "Getting VLC link..." : "Copy continuous VLC link"}
+            {hlsStatus === "loading" ? "Getting VLC link…" : "Copy continuous VLC link"}
           </button>
-          <p className="truncate text-[10px] text-white/35">
+          <p className="truncate text-xs text-muted" aria-live="polite">
             {hlsStatus === "copied"
               ? "Copied. Same URL stays live through content changes."
               : hlsStatus === "error"
-                ? "Could not get VLC link."
+                ? "Could not get VLC link. Check output status and try again."
                 : hlsUrl
                   ? hlsUrl
                   : "Stable channel URL for VLC."}
           </p>
         </div>
       )}
+      <details className="rounded-md border border-line bg-panel-soft p-3">
+        <summary className="cursor-pointer text-sm font-semibold">Diagnostics</summary>
+        <dl className="mt-3 grid gap-2 text-[11px]">
+          <MetricLine label="Day" value={payload.day?.airDate ?? "none"} />
+          <MetricLine label="Day status" value={payload.day?.status ?? "none"} />
+          <MetricLine label="Block" value={payload.block?.title ?? "none"} />
+          <MetricLine
+            label="Elapsed"
+            value={
+              payload.block
+                ? `${formatTimecode(payload.block.elapsedInBlock)} / ${formatTimecode(payload.block.durationSeconds)}`
+                : "n/a"
+            }
+          />
+          <MetricLine label="Asset" value={payload.asset?.title ?? "none"} />
+          <MetricLine label="Asset status" value={payload.asset?.status ?? "n/a"} />
+          <MetricLine label="Lifecycle" value={payload.asset?.lifecycleState ?? "n/a"} />
+          <MetricLine label="Fallback" value={payload.fallback?.title ?? "none"} />
+          <MetricLine label="Fallback reason" value={payload.fallbackReason ?? "normal"} />
+          <MetricLine label="Vimeo" value={payload.asset?.playbackReadinessStatus ?? "n/a"} />
+          <MetricLine
+            label="Media error"
+            value={payload.mediaError ?? payload.asset?.playbackError ?? "none"}
+          />
+          <MetricLine label="Clock skew" value={`${clockSkew}s`} />
+          <MetricLine
+            label="Monitor"
+            value={error ?? `ok ${new Date(payload.generatedAt).toLocaleTimeString()}`}
+          />
+        </dl>
+      </details>
     </div>
   )
 }
