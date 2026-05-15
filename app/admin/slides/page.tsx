@@ -3,6 +3,7 @@ import { StatusPill } from "@/components/status-pill"
 import { EmptyState, FormHeader } from "@/components/ui"
 import { getSlides } from "@/lib/data"
 import { createSlideAsset } from "@/lib/mutations"
+import { slidePreviewHref } from "@/lib/slide-preview"
 import { SLIDE_TEMPLATES } from "@/lib/slides/registry"
 
 export const dynamic = "force-dynamic"
@@ -152,7 +153,7 @@ export default async function SlidesPage() {
         {slides.map((slide) => (
           <div
             key={slide.id}
-            className="grid gap-3 border-b border-line p-4 last:border-b-0 md:grid-cols-[1fr_120px_120px] md:items-center"
+            className="grid gap-3 border-b border-line p-4 last:border-b-0 md:grid-cols-[1fr_120px_120px_90px] md:items-center"
           >
             <div>
               <p className="font-semibold">{slide.title}</p>
@@ -169,6 +170,14 @@ export default async function SlidesPage() {
               {slide.imageUrl ? "Image" : slide.htmlContent ? "HTML" : "Text"}
             </span>
             <StatusPill status={slide.status} />
+            <a
+              className="btn-secondary justify-center"
+              href={slidePreviewHref(slide.id)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              View
+            </a>
           </div>
         ))}
         {slides.length === 0 && (

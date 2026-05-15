@@ -6,6 +6,7 @@ import { StatusPill } from "@/components/status-pill"
 import { EmptyState, Field, FilterLink, FormHeader, MetricTile, Notice } from "@/components/ui"
 import { getAssets, getSlides } from "@/lib/data"
 import { createMediaAsset, deleteMediaAsset, updateMediaAsset } from "@/lib/mutations"
+import { slidePreviewHref } from "@/lib/slide-preview"
 import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
 
 import type { MediaAsset, SlideAsset } from "@/lib/types"
@@ -633,6 +634,16 @@ function LibraryItemRow({
         <a className="btn-secondary" href="/admin/calendar">
           Choose another day
         </a>
+        {item.kind === "slide" ? (
+          <a
+            className="btn-secondary"
+            href={slidePreviewHref(item.slide.id)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View
+          </a>
+        ) : null}
       </div>
       {item.kind === "asset" ? (
         <>
