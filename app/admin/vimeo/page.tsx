@@ -2,10 +2,11 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { AdminShell } from "@/components/admin-shell"
-import { CsrfInput } from "@/components/csrf-input"
 import { EmptyState, Field, FilterLink, MetricTile, Notice } from "@/components/ui"
+import { VimeoSyncControl } from "@/components/vimeo-sync-control"
 import { recordAuditEvent } from "@/lib/audit"
 import { requireAdmin } from "@/lib/auth"
+import { getCsrfToken } from "@/lib/csrf"
 import { getAssets } from "@/lib/data"
 import { getVimeoSettings, getVimeoToken } from "@/lib/settings"
 import { checkVimeoAssetPlayback } from "@/lib/vimeo"
@@ -27,18 +28,31 @@ export default async function VimeoSyncPage({
     count?: string
     playback?: string
     error?: string
+    page?: string
+    page_size?: string
   }>
 }) {
   const params = await searchParams
-  const [settings, token, assets] = await Promise.all([
+  const [settings, token, assets, csrfToken] = await Promise.all([
     getVimeoSettings(),
     getVimeoToken(),
-    getAssets()
+    getAssets(),
+    getCsrfToken()
   ])
   const vimeoAssets = assets.filter((asset) => asset.sourceType === "vimeo")
   const filteredAssets = vimeoAssets
     .filter((asset) => matchesVimeoFilters(asset, params))
     .sort((a, b) => newestFirst(a, b))
+  const pageSize = pageSizeFromParam(params.page_size)
+  const totalPages = Math.max(1, Math.ceil(filteredAssets.length / pageSize))
+  const requestedPage = Number.parseInt(params.page ?? "1", 10)
+  const currentPage = Math.min(
+    Math.max(Number.isFinite(requestedPage) ? requestedPage : 1, 1),
+    totalPages
+  )
+  const pageStart = (currentPage - 1) * pageSize
+  const pageEnd = pageStart + pageSize
+  const paginatedAssets = filteredAssets.slice(pageStart, pageEnd)
   const shows = uniqueShowNames(vimeoAssets)
   const readyCount = vimeoAssets.filter((asset) => asset.status === "ready").length
   const reviewCount = vimeoAssets.filter((asset) => asset.status !== "ready").length
@@ -149,13 +163,12 @@ export default async function VimeoSyncPage({
               library: {shows.length}
             </p>
           </div>
-          <form action="/api/vimeo/sync" method="post">
-            <CsrfInput />
-            <input type="hidden" name="return_to" value="/admin/vimeo" />
-            <button className="btn-primary" disabled={!token}>
-              Sync now
-            </button>
-          </form>
+          <VimeoSyncControl
+            csrfToken={csrfToken}
+            disabled={!token}
+            lastSyncCount={Number(lastSyncCount || vimeoAssets.length || 0)}
+            showsCount={shows.length}
+          />
         </div>
       </section>
 
@@ -225,6 +238,17 @@ export default async function VimeoSyncPage({
               <option value="archived">Archived</option>
             </select>
           </Field>
+          <Field label="Per page">
+            <select
+              name="page_size"
+              defaultValue={String(pageSize)}
+              className="border border-line px-3 py-2 text-sm font-normal text-ink"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </Field>
           <button className="btn-secondary self-end">Filter</button>
         </form>
         <div className="flex flex-wrap gap-2">
@@ -241,14 +265,19 @@ export default async function VimeoSyncPage({
       </section>
 
       <div className="surface-panel overflow-hidden">
-        <div className="border-b border-line px-4 py-3">
-          <h2 className="font-semibold">Synced Vimeo catalog</h2>
-          <p className="mt-1 text-sm text-muted">
-            These are Library assets. Use Schedule to place one on a programming day.
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+          <div>
+            <h2 className="font-semibold">Synced Vimeo catalog</h2>
+            <p className="mt-1 text-sm text-muted">
+              Showing {filteredAssets.length ? pageStart + 1 : 0}-
+              {Math.min(pageEnd, filteredAssets.length)} of {filteredAssets.length}. Use Schedule
+              to place one on a programming day.
+            </p>
+          </div>
+          <Pagination params={params} currentPage={currentPage} totalPages={totalPages} />
         </div>
         <div className="divide-y divide-line">
-          {filteredAssets.map((asset) => (
+          {paginatedAssets.map((asset) => (
             <VimeoAssetRow key={asset.id} asset={asset} checkPlayback={checkPlayback} />
           ))}
         </div>
@@ -259,9 +288,90 @@ export default async function VimeoSyncPage({
             </EmptyState>
           </div>
         ) : null}
+        {filteredAssets.length > 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 text-sm text-muted">
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
+            <Pagination params={params} currentPage={currentPage} totalPages={totalPages} />
+          </div>
+        ) : null}
       </div>
     </AdminShell>
   )
+}
+
+function Pagination({
+  params,
+  currentPage,
+  totalPages
+}: {
+  params: Record<string, string | undefined>
+  currentPage: number
+  totalPages: number
+}) {
+  if (totalPages <= 1) return null
+  const pages = paginationWindow(currentPage, totalPages)
+  return (
+    <nav className="flex flex-wrap items-center gap-2" aria-label="Vimeo pagination">
+      <PageLink href={vimeoPageHref(params, currentPage - 1)} disabled={currentPage <= 1}>
+        Previous
+      </PageLink>
+      {pages.map((page) => (
+        <PageLink key={page} href={vimeoPageHref(params, page)} active={page === currentPage}>
+          {page}
+        </PageLink>
+      ))}
+      <PageLink href={vimeoPageHref(params, currentPage + 1)} disabled={currentPage >= totalPages}>
+        Next
+      </PageLink>
+    </nav>
+  )
+}
+
+function PageLink({
+  href,
+  active,
+  disabled,
+  children
+}: {
+  href: string
+  active?: boolean
+  disabled?: boolean
+  children: React.ReactNode
+}) {
+  const className = active
+    ? "rounded-md border border-ink bg-ink px-3 py-1.5 text-sm font-semibold text-white"
+    : disabled
+      ? "pointer-events-none rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-muted opacity-50"
+      : "rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-panel-soft"
+  return (
+    <Link href={href} aria-current={active ? "page" : undefined} className={className}>
+      {children}
+    </Link>
+  )
+}
+
+function paginationWindow(currentPage: number, totalPages: number) {
+  const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4))
+  const end = Math.min(totalPages, start + 4)
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index)
+}
+
+function vimeoPageHref(params: Record<string, string | undefined>, page: number) {
+  const query = new URLSearchParams()
+  for (const key of ["q", "show_name", "month", "year", "status", "page_size"]) {
+    const value = params[key]
+    if (value) query.set(key, value)
+  }
+  if (page > 1) query.set("page", String(page))
+  const text = query.toString()
+  return `/admin/vimeo${text ? `?${text}` : ""}`
+}
+
+function pageSizeFromParam(value?: string) {
+  const parsed = Number.parseInt(value ?? "20", 10)
+  return [10, 20, 50].includes(parsed) ? parsed : 20
 }
 
 function VimeoAssetRow({
