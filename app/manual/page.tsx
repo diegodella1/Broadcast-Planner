@@ -78,7 +78,7 @@ const operatorSections = [
     icon: Clapperboard,
     body: [
       "A block detail page edits one scheduled block. Operators manage title, start time, duration, block type, category, status, primary asset, slide, fallback asset, notes and overlay behavior.",
-      "The page also manages scheduled layers such as lower thirds, logo bugs, sidebars and slide/image overlays. Each layer has timing, duration, z-index, position and enabled state."
+      "The page also manages scheduled layers such as logo bugs, sidebars and slide/image overlays. Each layer has timing, duration, z-index, position and enabled state."
     ],
     details: [
       "Clean preview opens the block output without debug overlays.",
@@ -156,9 +156,9 @@ const operatorSections = [
       "Vimeo search uses the stored access token server-side. Selected Vimeo media is cached into the asset library before creating a broadcast block."
     ],
     details: [
-      "Vimeo output now uses direct HLS playback through the app, not a Vimeo iframe.",
+      "Vimeo output uses direct HLS links copied from Admin Output and opened in VLC.",
       "Reuters channels can be synced into media assets; real provider behavior depends on Reuters provider configuration.",
-      "If a browser blocks unmuted autoplay or playback fails, the output renderer moves to fallback instead of staying blank."
+      "Browser playout is disabled and kept only as a status route."
     ]
   },
   {
@@ -198,7 +198,7 @@ const operatorSections = [
     title: "Output control panel",
     icon: MonitorPlay,
     body: [
-      "The admin output page is an operator control surface, not the clean capture output. It summarizes current broadcast status, active source, lower-third controls and stop-broadcast action.",
+      "The admin output page is an operator control surface for current broadcast status, active source, HLS copy, live observability and stop-broadcast action.",
       "Stopping broadcast moves the current day back to ready, which prevents the ON AIR state from continuing."
     ],
     links: [{ label: "Open output controls", href: "/admin/output" }]
@@ -211,29 +211,27 @@ const publicSections = [
     title: "Public landing page",
     icon: Eye,
     body: [
-      "The root page is a simple internal navigation hub. It links to dashboard, programming, library, graphics, music, live output and this manual.",
+      "The root page is a simple internal navigation hub. It links to dashboard, programming, library, graphics, music, output control and this manual.",
       "It is not a public video website or consumer catalog. The product is an internal broadcast operations tool."
     ],
     links: [{ label: "Open home", href: "/" }]
   },
   {
     id: "live-output",
-    title: "Live output surface",
+    title: "Output status route",
     icon: MonitorPlay,
     body: [
-      "The live output route is the clean fullscreen surface intended for vMix, OBS or browser capture on the broadcast machine.",
-      "It renders the active schedule block, primary media or slide, scheduled overlays, fallback assets and background music where applicable."
+      "The live output route is now a status-only compatibility surface.",
+      "Actual playback should use the fresh Vimeo HLS link copied from Admin Output and opened in VLC."
     ],
     details: [
-      "Normal admin launches go through /api/output/session, which sets an HttpOnly rpm_output_token cookie and redirects to /output/live.",
-      "Direct ?token= access remains for scripts and capture bootstrap only.",
-      "Vimeo videos are resolved through a server playback endpoint and rendered as HLS video.",
-      "Remote MP4, HLS, Reuters and image sources use source-specific renderer paths.",
-      "Use debug mode only for staging and troubleshooting."
+      "Normal admin launches can still go through /api/output/session for compatibility.",
+      "Direct ?token= access remains for scripts and status checks only.",
+      "The route does not render video, audio, overlays or fallback media."
     ],
     links: [
-      { label: "Open clean output", href: "/output/live" },
-      { label: "Open debug output", href: "/output/live?debug=true" }
+      { label: "Open output controls", href: "/admin/output" },
+      { label: "Open status route", href: "/output/live?debug=true" }
     ]
   },
   {
@@ -241,8 +239,8 @@ const publicSections = [
     title: "Preview output",
     icon: Clapperboard,
     body: [
-      "Preview routes render a specific block independently from the current clock. They are used to test a scheduled item before it goes live.",
-      "Clean preview is useful for visual review. Debug preview adds state and timing diagnostics for operators and engineers."
+      "Preview routes show status for a specific block independently from the current clock.",
+      "They do not render media playback; use VLC HLS for media playback."
     ]
   },
   {
@@ -267,9 +265,9 @@ const workflowSteps = [
   "Review schedule health until critical items are clear.",
   "Open the operator runbook for the day and complete critical preflight checks.",
   "Mark the day ready, then active when it should drive output.",
-  "Open the live output from the admin link so /api/output/session mints the output cookie, or bootstrap capture with a temporary output token.",
+  "Open Admin Output and copy the active HLS link into VLC.",
   "During live operation, use the output monitor and runbook live checks to verify current block, next block, fallback reason and clock skew.",
-  "Use debug output or block preview for troubleshooting.",
+  "Use output status routes or block preview for troubleshooting schedule state.",
   "Record incidents in the runbook, then complete shutdown checks and stop broadcast from the output control panel when the day is done."
 ]
 
@@ -333,11 +331,7 @@ export default function ManualPage() {
               Runbook persistence requires the `operator_runbook_checks` Supabase migration in the
               target database.
             </li>
-            <li>Unmuted autoplay requires the capture browser to allow audio autoplay.</li>
-            <li>
-              Lower-third and music controls in some panels are local control surfaces unless saved
-              as block layers or assets.
-            </li>
+            <li>Browser playout is disabled; VLC HLS is the playback path.</li>
             <li>
               Build warnings are expected to be treated as actionable unless explicitly waived.
             </li>

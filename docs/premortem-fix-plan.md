@@ -4,26 +4,23 @@ Goal: close the P0/P1 failure modes from `premortem-report-20260510-203403.html`
 
 ## Gate 1: Prove Real Playout, Not Just HTTP
 
-Status: implemented for the release gate. Production browser smoke passes against the public tunnel.
-Forced-bad-media fallback fixture is available for local/staging with `ALLOW_OUTPUT_FIXTURES=true`.
+Status: superseded by the VLC HLS workflow. Production output status smoke passes against the public tunnel.
 
 - Add `@playwright/test` and replace the Node-only `npm run e2e` with Playwright smoke.
-- Test `/output/live` with a real browser against local production build and the public
+- Test `/output/live` status route against local production build and the public
   `cloudflared` tunnel.
 - Wait for one of these explicit outcomes:
   - media state reaches `playing`
   - branded fallback slate renders intentionally
   - schedule unavailable emergency slate renders with explicit reason
 - Capture screenshot and assert nonblack/nonblank pixels.
-- Add a local/staging forced-bad-media fixture that proves fallback engages.
+- Keep output status checks focused on schedule, auth and HLS availability.
 - Keep Node smoke as `npm run smoke:http` for fast endpoint checks.
 
 Acceptance:
 
-- `npm run e2e` fails if output is stuck on "Loading Vimeo stream".
-- `npm run e2e` fails on black frame.
-- CI runs HTTP smoke; release checklist runs browser smoke against production/staging.
-- `npm run e2e:fallback` proves bad media reaches intentional fallback in fixture-enabled environments.
+- `npm run e2e` proves the protected output status route renders.
+- CI runs HTTP smoke; release checklist verifies HLS copy against production/staging.
 
 ## Gate 2: Replace Query Token With Output Session
 
@@ -40,7 +37,7 @@ Acceptance:
 
 - Production health is `fail` when output token is unset.
 - `/output/live` works with output cookie and no query token.
-- No production docs require storing `?token=` in vMix/OBS long-term.
+- No production docs require storing `?token=` for playback.
 
 ## Gate 3: Close XSS/CSP P1s
 
@@ -146,7 +143,7 @@ Status: release docs now require local tunnel deploy plus HTTP/browser/staging/p
   1. local type/lint/test/build
   2. production deploy with `deploy:local`
   3. production read-only smoke
-  4. production browser playout smoke
+  4. production output status smoke
   5. staging write smoke when a staging host exists
 - Keep Cloudflare Worker/OpenNext build as optional validation for future deploy strategy.
 

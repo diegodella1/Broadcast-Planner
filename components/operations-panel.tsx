@@ -1,7 +1,6 @@
 import { getTranslations } from "next-intl/server"
 import { OperationsPanelOnAir } from "./operations-panel/on-air"
 import { OperationsPanelManualBroadcast } from "./operations-panel/manual-broadcast"
-import { OperationsPanelLowerThird } from "./operations-panel/lower-third"
 import { OperationsPanelHealth } from "./operations-panel/health"
 import { OperationsPanelMusic } from "./operations-panel/music"
 
@@ -17,9 +16,6 @@ export async function OperationsPanel() {
       </PanelSection>
       <PanelSection title={t("manualBroadcast.title")}>
         <OperationsPanelManualBroadcast />
-      </PanelSection>
-      <PanelSection title={t("lowerThird.title")}>
-        <OperationsPanelLowerThird />
       </PanelSection>
       <PanelSection title={t("health.title")}>
         <OperationsPanelHealth />

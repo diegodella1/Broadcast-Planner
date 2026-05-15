@@ -1,6 +1,7 @@
-import { EmergencySlate, OutputRenderer } from "@/components/output-renderer"
+import { EmergencyOutputStub, OutputStub } from "@/components/output-stub"
 import { getLivePlaybackSchedule } from "@/lib/data"
 import { isOutputRequestAllowed, outputAccessDeniedReason } from "@/lib/output-auth"
+import { findActiveSchedule } from "@/lib/scheduler"
 import { secondsSinceMidnightInTimezone } from "@/lib/time"
 
 export default async function OutputTimelineCompatPage({
@@ -10,26 +11,25 @@ export default async function OutputTimelineCompatPage({
 }) {
   const params = await searchParams
   if (!(await isOutputRequestAllowed(params))) {
-    return <EmergencySlate reason={outputAccessDeniedReason()} />
+    return <EmergencyOutputStub reason={outputAccessDeniedReason()} />
   }
-  const schedule = await getScheduleOrEmergency(getLivePlaybackSchedule)
+  const schedule = await getScheduleOrEmergency()
+  if (!schedule) return <EmergencyOutputStub reason="Schedule data unavailable" />
   const startAt = params.startAt ? Number(params.startAt) : null
-  if (!schedule) return <EmergencySlate reason="Schedule data unavailable" />
+  const secondsOfDay = Number.isFinite(startAt) ? startAt! : secondsSinceMidnightInTimezone()
   return (
-    <OutputRenderer
-      initialSchedule={schedule}
-      initialSeconds={Number.isFinite(startAt) ? startAt! : secondsSinceMidnightInTimezone()}
+    <OutputStub
+      active={findActiveSchedule(schedule, secondsOfDay)}
+      secondsOfDay={secondsOfDay}
       debug={params.debug === "true"}
-      outputToken={params.token}
+      label="Output compatibility status"
     />
   )
 }
 
-async function getScheduleOrEmergency(
-  loader: () => Promise<Awaited<ReturnType<typeof getLivePlaybackSchedule>>>
-) {
+async function getScheduleOrEmergency() {
   try {
-    return await loader()
+    return await getLivePlaybackSchedule()
   } catch {
     return null
   }

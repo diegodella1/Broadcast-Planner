@@ -50,7 +50,7 @@ For the current `rtvtime.diegodella.ar` host, production deploy is local standal
 rtk npm run deploy:local
 ```
 
-After deploy, run production browser playout smoke:
+After deploy, run production output status smoke:
 
 ```bash
 export RTV_BASE_URL="https://rtvtime.diegodella.ar"
@@ -62,14 +62,6 @@ rtk npm run e2e
 Before live operation, open `/admin/runbook/<air-date>` and complete the critical preflight checks:
 schedule health, fallback readiness, output monitor and media readiness. The app warns on open
 critical checks but does not block output, so the operator owns final go/no-go.
-
-Run the forced fallback browser fixture in local or staging environments that set
-`ALLOW_OUTPUT_FIXTURES=true`:
-
-```bash
-export ALLOW_OUTPUT_FIXTURES="true"
-rtk npm run e2e:fallback
-```
 
 `cf:build` and `cf:*` commands remain available for Cloudflare Worker/OpenNext validation, but they
 are not the active production deploy path on this host.
@@ -93,7 +85,6 @@ are not the active production deploy path on this host.
 - Service role: every mutating API route that uses privileged Supabase access calls `requireAdmin`.
 - Output: protected output routes require `OUTPUT_CAPTURE_TOKEN` in production and use an `HttpOnly` output cookie for normal admin launches.
 - Output session: `/api/output/session` must redirect to the public app origin from `APP_BASE_URL`/`NEXT_PUBLIC_APP_BASE_URL`, never `0.0.0.0`, `localhost`, or `:3450`.
-- Output fixture: `ALLOW_OUTPUT_FIXTURES` must remain unset in production.
 - Dependencies: run `rtk npm audit --audit-level=high` and triage high/critical findings.
 
 MVP may ship only with no open P0 findings and explicit owner/date for any P1 follow-up.

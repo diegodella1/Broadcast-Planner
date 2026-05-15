@@ -2,7 +2,6 @@ import { MonitorPlay, Tv } from "lucide-react"
 import Link from "next/link"
 
 import { AdminNav } from "@/components/admin-nav"
-import { liveOutputHref } from "@/lib/output-auth"
 
 import type { ReactNode } from "react"
 
@@ -34,14 +33,14 @@ export function AdminShell({
         </Link>
         <AdminNav />
         <div className="absolute bottom-5 left-4 right-4 rounded-md border border-line bg-panel-soft p-3 text-xs text-muted">
-          <p className="font-semibold text-ink">Live capture output</p>
-          <p className="mt-1 break-all font-mono">/output/live</p>
+          <p className="font-semibold text-ink">VLC output</p>
+          <p className="mt-1">Copy a fresh HLS link from Admin Output.</p>
           <Link
-            href={liveOutputHref(true)}
+            href="/admin/output"
             className="mt-3 inline-flex min-h-8 items-center gap-2 rounded-md border border-line bg-surface px-2 font-semibold text-ink hover:bg-panel"
           >
             <MonitorPlay size={14} aria-hidden="true" />
-            Open debug
+            Open output
           </Link>
         </div>
       </aside>

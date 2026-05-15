@@ -8,7 +8,6 @@ import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
 import { getScheduleForDate } from "@/lib/data"
 import {
-  createLowerThirdLayer,
   createScheduledLayer,
   deleteProgramBlock,
   setScheduledLayerEnabled,
@@ -77,19 +76,6 @@ export default async function BlockPage({
       durationSeconds: Number(formData.get("duration_seconds")),
       zIndex: Number(formData.get("z_index") || 10),
       position: String(formData.get("position"))
-    })
-  }
-
-  async function addLowerThird(formData: FormData) {
-    "use server"
-    await createLowerThirdLayer({
-      date,
-      blockId: id,
-      title: String(formData.get("title") || formData.get("primary_text") || "Lower third"),
-      primaryText: String(formData.get("primary_text")),
-      secondaryText: String(formData.get("secondary_text") || ""),
-      startTime: String(formData.get("start_time")),
-      durationSeconds: Number(formData.get("duration_seconds") || 0)
     })
   }
 
@@ -390,47 +376,6 @@ export default async function BlockPage({
 
         <section className="surface-panel p-5">
           <h3 className="font-semibold">Overlays</h3>
-          <form
-            action={addLowerThird}
-            className="mt-4 grid gap-3 rounded-md border border-line bg-surface p-3"
-          >
-            <p className="text-sm font-semibold">Quick lower third</p>
-            <input
-              name="title"
-              placeholder="Internal name"
-              className="border border-line px-3 py-2 text-sm"
-            />
-            <input
-              name="primary_text"
-              required
-              placeholder="Primary text"
-              className="border border-line px-3 py-2 text-sm"
-            />
-            <input
-              name="secondary_text"
-              placeholder="Secondary text"
-              className="border border-line px-3 py-2 text-sm"
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input
-                name="start_time"
-                required
-                defaultValue="00:00:05"
-                title="Offset inside the block"
-                className="border border-line px-3 py-2 text-sm"
-              />
-              <input
-                name="duration_seconds"
-                required
-                type="number"
-                min="1"
-                defaultValue="12"
-                className="border border-line px-3 py-2 text-sm"
-              />
-            </div>
-            <button className="btn-primary">Add lower third</button>
-          </form>
-
           <form action={addLayer} className="mt-4 grid gap-3 rounded-md bg-panel p-3">
             <input
               name="title"
@@ -459,12 +404,10 @@ export default async function BlockPage({
               <select name="layer_type" className="border border-line px-3 py-2 text-sm">
                 <option value="slide">Slide</option>
                 <option value="image">Image</option>
-                <option value="lower_third">Lower third</option>
                 <option value="logo_bug">Logo bug</option>
                 <option value="promo">Promo</option>
               </select>
               <select name="position" className="border border-line px-3 py-2 text-sm">
-                <option value="lower_third">Lower third</option>
                 <option value="top_right">Top right</option>
                 <option value="bottom_bar">Bottom bar</option>
                 <option value="sidebar">Sidebar</option>

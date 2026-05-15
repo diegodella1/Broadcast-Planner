@@ -161,7 +161,6 @@ import {
   createSlideAsset,
   createScheduledLayer,
   setScheduledLayerEnabled,
-  createLowerThirdLayer,
   createMediaAsset,
   updateMediaAsset
 } from "./mutations"
@@ -1048,51 +1047,6 @@ describe("setScheduledLayerEnabled", () => {
     await expect(
       setScheduledLayerEnabled({ date: "2026-05-08", blockId: "b", layerId: "l", enabled: true })
     ).rejects.toThrow("Layer update failed")
-  })
-})
-
-// ---------------------------------------------------------------------------
-// createLowerThirdLayer
-// ---------------------------------------------------------------------------
-describe("createLowerThirdLayer", () => {
-  beforeEach(async () => {
-    await resetMocks()
-  })
-
-  it("happy path: creates slide then schedules layer of type lower_third", async () => {
-    // .insert(...).select(...).single() must return a slide id
-    supabaseMock.setResult({ data: { id: "slide-new" }, error: null })
-
-    await createLowerThirdLayer({
-      date: "2026-05-08",
-      blockId: "block-1",
-      title: "Ticker",
-      primaryText: "BTC $100k",
-      secondaryText: "24h change +5%",
-      startTime: "10:00:00",
-      durationSeconds: 30
-    })
-
-    // First insert must target slide_assets
-    expect(supabaseMock.from).toHaveBeenCalledWith("slide_assets")
-    // Audit + scheduled_layers insert follows
-    expect(supabaseMock.from).toHaveBeenCalledWith("scheduled_layers")
-    expect(revalidatePath).toHaveBeenCalledWith("/admin/slides")
-  })
-
-  it("error path: throws when slide insert fails", async () => {
-    supabaseMock.setResult({ data: null, error: new Error("Slide create failed") })
-
-    await expect(
-      createLowerThirdLayer({
-        date: "2026-05-08",
-        blockId: "block-1",
-        title: "Ticker",
-        primaryText: "Test",
-        startTime: "10:00:00",
-        durationSeconds: 30
-      })
-    ).rejects.toThrow("Slide create failed")
   })
 })
 

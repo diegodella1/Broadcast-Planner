@@ -45,16 +45,16 @@ const currentFunctions = [
   "Inline schedule conflict suggestions, resize action and archive-conflicts replacement flow",
   "Rundown drag/drop editor with keyboard reorder, resize, duplicate, archive and bulk status",
   "Operator runbook mode with persisted per-day preflight, live, incident and shutdown checks",
-  "Protected live output, debug output and block preview routes",
+  "Protected output status and block preview routes",
   "Output session cookie for normal admin launches",
-  "Output control panel with status, lower-third controls, live observability and stop broadcast",
+  "Output control panel with status, HLS copy, live observability and stop broadcast",
   "Audit page and audited critical mutations",
   "CSRF protection for mutating admin forms and APIs",
   "Asset lifecycle states for synced, reviewed, rejected, stale, expired and scheduled-in-use",
-  "Forced bad-media fallback fixture for Playwright output smoke",
+  "HLS-first output workflow for VLC playback",
   "Staging write smoke cleanup for sandbox blocks and assets",
   "Backup and restore drill",
-  "Production read-only smoke and Playwright browser playout smoke",
+  "Production read-only smoke and output status checks",
   "Production deployment behind cloudflared at the root domain"
 ]
 

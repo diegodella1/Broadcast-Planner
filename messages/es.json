@@ -13,8 +13,8 @@
         "description": "Videos, imagenes, ads, promos y fallbacks."
       },
       "outputLive": {
-        "label": "Output live",
-        "description": "Salida para vMix/OBS con debug."
+        "label": "Output",
+        "description": "Estado y HLS para copiar en VLC."
       }
     }
   },
@@ -312,11 +312,6 @@
     },
     "overlays": {
       "title": "Overlays",
-      "lowerThirdQuick": "Lower third rapido",
-      "internalName": "Nombre interno",
-      "primaryText": "Texto principal",
-      "secondaryText": "Texto secundario",
-      "addLowerThird": "Agregar lower third",
       "overlayTitle": "Titulo overlay",
       "addOverlay": "Agregar overlay",
       "layerType": "Tipo de capa",
@@ -329,12 +324,10 @@
     "layerType": {
       "slide": "Slide",
       "image": "Imagen",
-      "lowerThird": "Lower third",
       "logoBug": "Logo bug",
       "promo": "Promo"
     },
     "position": {
-      "lowerThird": "Lower third",
       "topRight": "Top right",
       "bottomBar": "Bottom bar",
       "sidebar": "Sidebar",
@@ -366,14 +359,6 @@
     },
     "reuters": {
       "empty": "No hay canales Reuters disponibles."
-    },
-    "lowerThird": {
-      "title": "Lower third",
-      "titleLabel": "Título",
-      "titlePlaceholder": "p. ej. Jerome Powell — Fed Chair",
-      "subtitleLabel": "Subtítulo",
-      "subtitlePlaceholder": "p. ej. Conferencia FOMC · Mayo 2026",
-      "visible": "Visible en pantalla"
     },
     "health": {
       "title": "Health del schedule",

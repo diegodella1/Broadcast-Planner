@@ -69,7 +69,7 @@ export default async function SlidesPage() {
   return (
     <AdminShell
       title="Graphics"
-      description="Fullscreen slides, lower thirds and controlled HTML graphics for scheduled layers."
+      description="Fullscreen slides and controlled HTML graphics for scheduled layers."
     >
       <section className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <form

@@ -1,6 +1,6 @@
 # RTV TL Manager
 
-RTV TL Manager is Roxom TV's internal playout management app. It is used to program the broadcast day, organize media and slides, validate scheduling problems, and expose clean fullscreen output routes for tools like vMix, OBS, or a browser capture.
+RTV TL Manager is Roxom TV's internal playout management app. It is used to program the broadcast day, organize media and slides, validate scheduling problems, and expose fresh HLS links for VLC playback.
 
 Core idea:
 
@@ -15,13 +15,13 @@ This is not a public website or a video library. It is an operations console for
 - Builds daily programming by date.
 - Organizes media assets, uploaded videos, remote media, fallback assets, and Vimeo sync.
 - Syncs Vimeo shows and episodes into the Library for scheduling and playback.
-- Manages slides and graphic content used by the output renderer.
+- Manages slides and graphic content used by the rundown.
 - Generates long schedule grids for broadcast programming.
 - Checks schedule health: gaps, overlaps, missing assets, unready assets, and missing fallback.
-- Renders protected clean output routes for live playout and block previews.
+- Exposes protected output status routes and HLS copy controls for VLC playback.
 - Keeps audit records for broadcast-critical mutations.
 - Stores data in Supabase.
-- Provides unit, HTTP smoke, and Playwright browser smoke tests.
+- Provides unit, HTTP smoke, and Playwright status tests.
 
 ## Stack
 
@@ -49,9 +49,9 @@ This is not a public website or a video library. It is an operations console for
 - `/admin/settings` - integrations and app settings
 - `/manual` - operator and public output manual
 - `/pending` - pending developments, needed functionality and production backlog
-- `/output/live` - live fullscreen output
-- `/output/[timelineId]` - timeline output
-- `/output/preview/[blockId]` - block preview output
+- `/output/live` - status-only compatibility output
+- `/output/[timelineId]` - status-only timeline compatibility output
+- `/output/preview/[blockId]` - status-only block preview output
 - `/api/health` - app health check
 
 The app is configured for the domain root. Old `/rtvtime/...` links redirect to root paths.
@@ -135,7 +135,7 @@ npm run build    # Build production app
 npm run start    # Start production server
 npm run lint     # Run Next lint
 npm test         # Run Vitest unit tests
-npm run e2e      # Run Playwright browser playout smoke
+npm run e2e      # Run Playwright output status smoke
 npm run smoke:http # Run Node read-only HTTP smoke
 npm run smoke:local # Read-only runtime smoke against local app
 npm run smoke:prod  # Read-only pre-air smoke against production
@@ -169,10 +169,10 @@ Production container health check:
 - Use the Rundown editor on `/admin/schedule/[date]` for drag reorder, keyboard moves, 5-minute resize, duplicate, archive and bulk status. These edits are audited and still go through server conflict checks plus the database overlap trigger.
 - Before going live, open `/admin/runbook/[date]` and complete critical preflight checks. Runbook checks and notes persist per program day in Supabase and are written to audit.
 - Vimeo sync is the source for Vimeo playback assets. Use `/admin/vimeo` to sync and filter by episode title, show name, month, year and status.
-- Output screens should stay clean, fullscreen, and safe for browser capture.
+- Use `/admin/output` to copy a fresh HLS link and open it in VLC.
 - `.env` contains secrets and must not be committed.
 - `ADMIN_BOOTSTRAP_TOKEN` is used for protected admin access.
-- `OUTPUT_CAPTURE_TOKEN` is required in production and protects `/output/live`, preview, schedule and playback routes. Admin output links mint an `HttpOnly` `rpm_output_token` cookie through `/api/output/session`; query tokens are only for scripts/bootstrap.
+- `OUTPUT_CAPTURE_TOKEN` is required in production and protects `/output/live`, preview and schedule routes. Admin output links mint an `HttpOnly` `rpm_output_token` cookie through `/api/output/session`; query tokens are only for scripts/bootstrap.
 - `APP_ENCRYPTION_KEY` must be a strong 32-byte base64 key.
 - Mutating admin forms and APIs use CSRF protection. If server actions return 403 behind a tunnel, confirm `NEXT_PUBLIC_APP_BASE_URL` matches the public domain.
 - Fallback assets matter: schedules should not depend on a single fragile media URL.
@@ -211,7 +211,7 @@ Implemented:
 - Forced bad-media fallback fixture
 - Staging write smoke cleanup
 - Backup and restore drill
-- Production read-only smoke and browser playout smoke
+- Production read-only smoke and output status smoke
 
 Known next priority:
 
@@ -325,8 +325,8 @@ Production release gates and the OWASP red-team checklist live in:
 docs/production-readiness.md
 ```
 
-Production smoke is read-only by design. It checks health, admin auth, playout schedule, output,
-preview when available, and audit page access without mutating Supabase.
+Production smoke is read-only by design. It checks health, admin auth, playout schedule, output
+status, preview when available, and audit page access without mutating Supabase.
 
 ### Incremental static regeneration (ISR) with R2
 

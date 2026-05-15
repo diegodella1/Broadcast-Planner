@@ -1,6 +1,6 @@
 # RTV-TL-MANAGER — Operator User Guide
 
-Internal playout / lineup manager for Roxom TV. Programs the on-air day, manages assets, drives the broadcast composition surface for vMix/OBS capture.
+Internal playout / lineup manager for Roxom TV. Programs the on-air day, manages assets, and exposes fresh HLS links for VLC playback.
 
 > **Audience**: Roxom TV operators (producer, director, on-air ops). Read-only roles can browse but not mutate. Bootstrap auth = single token until multi-operator lands.
 
@@ -23,12 +23,12 @@ The app is served from the domain root. Old `/rtvtime/...` links redirect to roo
 
 ## 2. The chrome
 
-| Element                | What                                                                                                                                         |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Sidebar**            | Left navigation for Dashboard, Control, Programming, Library, Vimeo, Graphics, Music, Audit and Integrations. Active route is highlighted.   |
-| **Header**             | Page title, page description and primary action for the current admin screen.                                                                |
-| **Live capture card**  | Sidebar shortcut opens `/api/output/session?return_to=/output/live&debug=true`, which mints the output cookie before redirecting to capture. |
-| **Outage / health UI** | Health endpoints and schedule health panels show Supabase, storage, Vimeo and programming risks.                                             |
+| Element                | What                                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Sidebar**            | Left navigation for Dashboard, Control, Programming, Library, Vimeo, Graphics, Music, Audit and Integrations. Active route is highlighted. |
+| **Header**             | Page title, page description and primary action for the current admin screen.                                                              |
+| **Output card**        | Sidebar shortcut opens `/admin/output`, where operators copy the active HLS link for VLC.                                                  |
+| **Outage / health UI** | Health endpoints and schedule health panels show Supabase, storage, Vimeo and programming risks.                                           |
 
 ---
 
@@ -79,7 +79,7 @@ Each row = one `ProgramBlock`:
 
 ### Block actions
 
-- **Click a row** → opens `/admin/schedule/<date>/blocks/<id>` (block detail editor: title, start, duration, category, asset, scheduled layers, lower-third overrides).
+- **Click a row** → opens `/admin/schedule/<date>/blocks/<id>` (block detail editor: title, start, duration, category, asset and scheduled layers).
 - **Drag a row** → reorders the active rundown and recalculates start times from the first block.
 - **Up / Down** → keyboard-safe reorder controls for the same server-side reorder path.
 - **Minus / Plus** → resize duration in 5-minute steps. Server conflict checks and the DB trigger reject overlaps.
@@ -134,11 +134,7 @@ The fastest way to override the day's grid with something live.
 3. "Refresh channels" button → `POST /api/reuters/sync` to re-pull the catalog.
 4. Pick a channel + Now / Schedule, same as Vimeo.
 
-#### 4.3 Lower third
-
-Two text inputs (title + subtitle) + visibility toggle. Live preview renders in the same style as the on-air output (`output-renderer.tsx`). Currently **local state only** — does not persist to a `ScheduledLayer` yet (see §11.3 follow-up).
-
-#### 4.4 Schedule health
+#### 4.3 Schedule health
 
 Compact icon+text rows for every detected issue:
 
@@ -148,7 +144,7 @@ Compact icon+text rows for every detected issue:
 
 Each row reads from `lib/schedule-health.ts:analyzeSchedule()`. Refreshes when the page revalidates.
 
-#### 4.5 Background music
+#### 4.4 Background music
 
 Toggle + volume slider. **Local state only** — does not persist (see §11.4 follow-up).
 
@@ -163,7 +159,7 @@ For deep edits.
 | Form             | title · start time · duration · type (video/image/slide/ad/promo/fallback) · category · status · notes · `hide_overlays` toggle · fallback asset override |
 | Asset assignment | dropdown of compatible `media_assets`. Live chip shows `Live` for null-duration Reuters streams.                                                          |
 | Slide assignment | dropdown of `slide_assets`.                                                                                                                               |
-| Scheduled layers | list of overlays attached to this block: lower-thirds, custom layers (logo bug, sidebar widgets, fullscreen takeovers). Add/remove inline.                |
+| Scheduled layers | list of overlays attached to this block: custom layers (logo bug, sidebar widgets, fullscreen takeovers). Add/remove inline.                              |
 | Readiness        | rolled-up signal: green if asset+slide+layers all ready; red/amber otherwise with reason list.                                                            |
 | Conflict action  | normal save rejects overlaps; explicit "Archive conflicting blocks and save" archives overlapping blocks and writes audit events.                         |
 
@@ -228,36 +224,28 @@ All animations gated by `prefers-reduced-motion: reduce` — operators with redu
 
 ## 8. Output panel (`/admin/output`)
 
-The operator's broadcast cockpit. **NOT** the same as `/output/live` — that's the vMix capture surface.
+The operator's broadcast cockpit and the source of the active HLS link for VLC playback.
 
 | Section               | What                                                                                                                                                                         |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Preview pane (16:9)   | Renders the currently active block via `findActiveSchedule`. Shows fallback "No active broadcast" when idle.                                                                 |
 | ON AIR / OFF AIR pill | Red pulsing when broadcasting, dim when not.                                                                                                                                 |
 | Broadcast status      | Live / Paused / Idle text.                                                                                                                                                   |
 | Observability         | Polls current block, asset, fallback reason, media/Vimeo errors and clock skew from `/api/output/monitor`.                                                                   |
+| HLS copy              | Generates and copies a fresh signed Vimeo HLS URL for VLC.                                                                                                                   |
 | Source switcher       | Currently a stubbed select (Vimeo / Reuters / Slide / HLS / Remote image) — wire to real mutation in §11.5.                                                                  |
-| Lower-third editor    | Reuses `OperationsPanelLowerThird` from §4.3.                                                                                                                                |
 | **Stop broadcast**    | Big red button. Click → `confirm()` modal → server action flips `ProgramDay.status` to `"ready"` and clears any manual override block. Disabled when no broadcast is active. |
 
 ---
 
-## 9. The on-air composition surface (`/output/live`)
+## 9. Output status route (`/output/live`)
 
-**This is the URL vMix or OBS captures.** NOT for operators to interact with — open it in a browser source at the broadcast PC.
+This route is status-only compatibility. It does not render media playback.
 
-Renders whatever block is active right now via `findActiveSchedule` + `output-renderer.tsx`. Polls every second internally. Source-type-aware:
-
-- `vimeo` → iframe embed
-- `remote_mp4` → HTML5 `<video>`
-- `hls` / `reuters` → HLS player (`hls.js` lazy-loaded; Safari uses native)
-- `supabase_image` / `remote_image` → `<Image>`
+For playback, copy the active HLS URL from `/admin/output` and open it in VLC as a network stream.
 
 Production output is protected by `OUTPUT_CAPTURE_TOKEN`. Normal admin flow uses `/api/output/session`, sets an `HttpOnly` `rpm_output_token` cookie, then redirects to `/output/live`. Direct `?token=` access remains for scripts and first-time capture bootstrap only.
 
-Append `?debug=true` to see overlays of clock, day, block id, elapsed seconds, asset, layer count. Useful for staging. Debug links from admin also go through `/api/output/session`.
-
-Layers (lower-thirds, sidebar widgets, fullscreen takeovers) render as absolutely positioned overlays on top of the base content.
+Append `?debug=true` to see clock, block, asset and fallback status. Useful for staging.
 
 ---
 
@@ -304,18 +292,11 @@ Form fields: client ID · client secret · refresh token (all encrypted).
   - Background channel sync (currently button-triggered only).
 - 🔧 No per-channel preview before going live.
 
-#### 11.3 Lower-third editor
-
-- ✅ UI + live preview shipped.
-- ❌ Persist to `ScheduledLayer` — currently local state only.
-- ❌ Apply to currently airing block as live overlay.
-- ❌ Schedule a lower-third for a future block.
-
 #### 11.4 Background music
 
 - ✅ UI shipped.
 - ❌ Persistence to settings table.
-- ❌ Real audio playback hooks (audio source URL, ducking on lower-third, fade-in/out).
+- ❌ Real audio playback hooks (audio source URL, fade-in/out).
 
 #### 11.5 Operator panel `/admin/output`
 
@@ -370,8 +351,8 @@ Form fields: client ID · client secret · refresh token (all encrypted).
 
 #### 11.12 Output (broadcast composition)
 
-- ✅ Source-type-aware rendering (vimeo iframe, mp4 video, HLS player, image).
-- ❌ vMix integration via NDI / RTSP (currently relies on browser-source capture).
+- ✅ HLS copy for VLC playback.
+- ❌ vMix integration via NDI / RTSP.
 - ❌ Output recording (local DVR).
 - ❌ Multiple bitrate streams (low-bandwidth + HD).
 - ❌ Backup output failover.
@@ -462,11 +443,11 @@ Topbar → locale toggle → click EN or ES. Page refreshes; cookie `NEXT_LOCALE
 ## 13. Glossary
 
 - **Block / ProgramBlock**: a scheduled time slot on a `ProgramDay`. Owns one base asset (video / image / slide) + 0..N scheduled layers (overlays).
-- **Layer / ScheduledLayer**: an overlay layered on top of a block during its airtime — lower-third, logo bug, sidebar widget, fullscreen takeover.
+- **Layer / ScheduledLayer**: an overlay layered on top of a block during its airtime — logo bug, sidebar widget, fullscreen takeover.
 - **MediaAsset**: a piece of source content (video, image, graphic). Source types: `vimeo`, `reuters`, `supabase_image`, `remote_image`, `remote_mp4`, `hls`.
 - **SlideAsset**: editorial slide content (template, image, html, markdown). Distinct from `MediaAsset`.
 - **ProgramDay**: a date's worth of programming. Status: `draft` → `ready` → `active` → `archived`.
-- **Output / vMix capture surface**: the `/output/live` URL meant to be opened in a browser-source capture tool. Renders the active broadcast composition.
+- **Output status route**: the `/output/live` URL that reports active block status. VLC HLS is the playback path.
 - **Operations panel**: the right rail on the schedule page. Where operators control live state.
 - **Manual broadcast**: an operator-initiated override that pre-empts the scheduled grid. Inserts a `ProgramBlock` with `category=broadcast` at the current second (or scheduled time).
 - **Manual override block**: a block created via Manual broadcast. Cleared when Stop broadcast fires.
@@ -513,20 +494,19 @@ app/
 ├── hooks/
 │   └── useActiveBlock.ts              # client polling 5 s
 └── output/
-    ├── live/page.tsx                  # vMix capture surface
-    ├── [timelineId]/page.tsx          # alt timeline render
-    └── preview/[blockId]/page.tsx     # single-block preview
+    ├── live/page.tsx                  # status-only output
+    ├── [timelineId]/page.tsx          # status-only compat route
+    └── preview/[blockId]/page.tsx     # single-block status preview
 
 components/
 ├── admin-shell.tsx                    # 56px sidebar + 48px topbar + outage banner
 ├── admin-nav.tsx                      # client subcomponent for usePathname()
 ├── locale-switcher.tsx                # EN / ES toggle
-├── output-renderer.tsx                # broadcast composition (incl. ReutersPlayer)
+├── output-stub.tsx                    # status-only output surface
 ├── operations-panel.tsx               # 240px right rail wrapper
 ├── operations-panel/
 │   ├── on-air.tsx                     # progress bar + active block
 │   ├── manual-broadcast.tsx           # Vimeo + Reuters search + go-live
-│   ├── lower-third.tsx                # title/subtitle/visible + preview
 │   ├── health.tsx                     # compact issue rows
 │   └── music.tsx                      # toggle + slider
 ├── rundown-row.tsx
@@ -601,7 +581,7 @@ The `id` value is what gets persisted in `slide_assets.template_id` when an oper
 1. Go to `/admin/slides` and click **New slide**, then set kind to `template`.
 2. Pick a template from the dropdown — the dropdown is populated from `SLIDE_TEMPLATES` in `lib/slides/registry.ts`, so it stays in sync with this list automatically.
 3. Save. A new row is written to `slide_assets` with `kind: "template"` and `template_id` set to the chosen ID.
-4. Schedule a `ProgramBlock` that references the slide. At airtime the `output-renderer` mounts the matching React component (in `components/slides/`) and, if the registry entry has a `dataEndpoint`, fetches it once before render.
+4. Schedule a `ProgramBlock` that references the slide. Slides are managed in the schedule and can be used by future output integrations.
 
 ### 17.2 Required environment / secrets per template
 

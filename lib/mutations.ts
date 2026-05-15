@@ -906,46 +906,6 @@ export async function setScheduledLayerEnabled(input: {
   revalidatePath(`/admin/schedule/${input.date}/blocks/${input.blockId}`)
 }
 
-export async function createLowerThirdLayer(input: {
-  date: string
-  blockId: string
-  title: string
-  primaryText: string
-  secondaryText?: string
-  startTime: string
-  durationSeconds: number
-}) {
-  const supabase = createServiceClient()
-  const slideTitle = input.title || input.primaryText
-  const htmlContent = lowerThirdHtml(input.primaryText, input.secondaryText)
-  const { data: slide, error: slideError } = await supabase
-    .from("slide_assets")
-    .insert({
-      title: slideTitle,
-      slide_type: "html",
-      html_content: htmlContent,
-      content: input.secondaryText || null,
-      default_duration_seconds: input.durationSeconds,
-      status: "ready"
-    })
-    .select("id")
-    .single()
-  if (slideError) throw slideError
-
-  await createScheduledLayer({
-    date: input.date,
-    blockId: input.blockId,
-    title: slideTitle,
-    layerType: "lower_third",
-    slideId: String(slide.id),
-    startTime: input.startTime,
-    durationSeconds: input.durationSeconds,
-    zIndex: 30,
-    position: "lower_third"
-  })
-  revalidatePath("/admin/slides")
-}
-
 export async function createMediaAsset(input: {
   title: string
   sourceType: string
@@ -1132,27 +1092,4 @@ async function isAssetScheduled(assetId: string) {
         row.status !== "archived" && (row.asset_id === assetId || row.fallback_asset_id === assetId)
     ) || layerRows.some((row) => row.enabled !== false && row.asset_id === assetId)
   )
-}
-
-function lowerThirdHtml(primaryText: string, secondaryText?: string) {
-  const primary = escapeHtml(primaryText)
-  const secondary = secondaryText ? escapeHtml(secondaryText) : ""
-  return `
-    <div class="lower-third-card">
-      <div class="lower-third-accent"></div>
-      <div>
-        <div class="lower-third-primary">${primary}</div>
-        ${secondary ? `<div class="lower-third-secondary">${secondary}</div>` : ""}
-      </div>
-    </div>
-  `
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;")
 }

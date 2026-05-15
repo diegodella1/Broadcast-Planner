@@ -33,7 +33,7 @@ export default function HomePage() {
     {
       label: "Graphics",
       href: "/admin/slides",
-      detail: "Slides, lower thirds and reusable on-air graphics.",
+      detail: "Slides and reusable on-air graphics.",
       icon: Clapperboard
     },
     {
@@ -43,9 +43,9 @@ export default function HomePage() {
       icon: Music
     },
     {
-      label: "Live output",
-      href: "/output/live?debug=true",
-      detail: "vMix/OBS output route with debug overlay.",
+      label: "Output control",
+      href: "/admin/output",
+      detail: "Current block status and HLS link for VLC playback.",
       icon: MonitorPlay
     },
     {

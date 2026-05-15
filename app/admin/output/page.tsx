@@ -1,7 +1,6 @@
 import { getTranslations } from "next-intl/server"
 
 import { AdminShell } from "@/components/admin-shell"
-import { OperationsPanelLowerThird } from "@/components/operations-panel/lower-third"
 import { OutputMonitorPanel } from "@/components/output-monitor-panel"
 import { StopBroadcastButton } from "@/components/stop-broadcast-button"
 import { StatusBanner } from "@/components/ui"
@@ -122,21 +121,21 @@ export default async function AdminOutputPage() {
         />
       </div>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-        {/* ── Broadcast preview pane ────────────────────────────────────── */}
         <div className="min-w-0 flex-1">
-          {/* 16:9 frame */}
-          <div
-            className="relative w-full overflow-hidden rounded-md border border-white/10 bg-surface-elevated-1"
-            style={{ aspectRatio: "16 / 9" }}
-          >
-            <iframe
-              title="Live output preview"
-              src={monitorHref}
-              className="h-full w-full border-0"
-            />
+          <div className="surface-panel p-5">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">VLC output</p>
+            <h2 className="mt-2 text-2xl font-semibold">Use HLS for playback</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+              Browser playout is disabled. Use the active Vimeo HLS link from Observability and open
+              it in VLC as a network stream.
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <StatusTile label="State" value={broadcastStatusLabel} />
+              <StatusTile label="Source" value={activeSourceLabel} />
+              <StatusTile label="Block" value={activeBlockLabel} />
+            </div>
           </div>
 
-          {/* ON AIR / status banner below preview */}
           <div className="mt-2 flex items-center gap-2">
             {isLive ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-live px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-accent-live-text">
@@ -194,12 +193,6 @@ export default async function AdminOutputPage() {
             <OutputMonitorPanel initial={initialMonitor} />
           </ControlSection>
 
-          {/* Lower-third editor — reuse existing component */}
-          <ControlSection title={tOps("lowerThird.title")}>
-            <OperationsPanelLowerThird />
-          </ControlSection>
-
-          {/* Stop broadcast action */}
           <ControlSection title="Actions">
             <StopBroadcastButton
               action={stopBroadcast}
@@ -229,5 +222,14 @@ function ControlSection({ title, children }: { title: string; children: React.Re
       </h2>
       {children}
     </section>
+  )
+}
+
+function StatusTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-line bg-panel-soft p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold text-ink">{value}</p>
+    </div>
   )
 }
