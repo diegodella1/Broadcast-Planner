@@ -17,7 +17,18 @@ import {
   verticalListSortingStrategy
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { Archive, Copy, ExternalLink, GripVertical, Pencil, Plus, Search, X } from "lucide-react"
+import {
+  Archive,
+  CalendarDays,
+  Copy,
+  ExternalLink,
+  GripVertical,
+  List,
+  Pencil,
+  Plus,
+  Search,
+  X
+} from "lucide-react"
 import Link from "next/link"
 import { useMemo, useState, useTransition } from "react"
 
@@ -53,6 +64,7 @@ type ContentOption = {
 }
 
 type DrawerMode = "add" | "edit"
+type WorkspaceMode = "rundown" | "calendar"
 
 type InitialContentFilters = {
   query?: string | undefined
@@ -99,6 +111,7 @@ export function ScheduleWorkspace({
   const [selectedBlockId, setSelectedBlockId] = useState(activeBlocks[0]?.id ?? "")
   const [drawerOpen, setDrawerOpen] = useState(Boolean(initialOption) || activeBlocks.length === 0)
   const [message, setMessage] = useState<string | null>(null)
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("rundown")
   const [isPending, startTransition] = useTransition()
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -176,20 +189,56 @@ export function ScheduleWorkspace({
             <p className="eyebrow">One-page editor</p>
             <h2 className="mt-1 text-xl font-semibold">Rundown</h2>
             <p className="mt-1 text-sm text-muted">
-              Add, edit, move, duplicate and remove blocks without leaving this day.
+              {formatScheduleDate(date, schedule.day?.timezone)} ·{" "}
+              {schedule.day?.timezone ?? "Schedule timezone"}
             </p>
           </div>
-          <button className="btn-primary" type="button" onClick={openAdd}>
-            <Plus size={16} aria-hidden="true" />
-            Add Block
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex min-h-10 overflow-hidden rounded-md border border-line bg-surface text-sm font-semibold">
+              <button
+                type="button"
+                className={[
+                  "flex items-center gap-2 px-3",
+                  workspaceMode === "rundown" ? "bg-ink text-white" : "text-muted"
+                ].join(" ")}
+                onClick={() => setWorkspaceMode("rundown")}
+              >
+                <List size={15} aria-hidden="true" />
+                Rundown
+              </button>
+              <button
+                type="button"
+                className={[
+                  "flex items-center gap-2 border-l border-line px-3",
+                  workspaceMode === "calendar" ? "bg-ink text-white" : "text-muted"
+                ].join(" ")}
+                onClick={() => setWorkspaceMode("calendar")}
+              >
+                <CalendarDays size={15} aria-hidden="true" />
+                Calendar
+              </button>
+            </div>
+            <button className="btn-primary" type="button" onClick={openAdd}>
+              <Plus size={16} aria-hidden="true" />
+              Add Block
+            </button>
+          </div>
         </div>
         {message ? (
           <div className="border-b border-danger-line bg-danger-soft px-4 py-3 text-sm font-semibold text-danger-strong">
             {message}
           </div>
         ) : null}
-        {orderedBlocks.length ? (
+        {workspaceMode === "calendar" ? (
+          <CalendarScheduleView
+            date={date}
+            schedule={schedule}
+            blocks={orderedBlocks}
+            selectedBlockId={drawerOpen && drawerMode === "edit" ? selectedBlockId : ""}
+            onSelect={openEdit}
+            onAdd={openAdd}
+          />
+        ) : orderedBlocks.length ? (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={displayOrderedIds} strategy={verticalListSortingStrategy}>
               <div className="divide-y divide-line">
@@ -719,6 +768,121 @@ function SortableScheduleRow({
   )
 }
 
+function CalendarScheduleView({
+  date,
+  schedule,
+  blocks,
+  selectedBlockId,
+  onSelect,
+  onAdd
+}: {
+  date: string
+  schedule: ScheduleBundle
+  blocks: ProgramBlock[]
+  selectedBlockId: string
+  onSelect: (blockId: string) => void
+  onAdd: () => void
+}) {
+  if (!blocks.length) {
+    return (
+      <div className="p-4">
+        <button
+          type="button"
+          onClick={onAdd}
+          className="w-full rounded-md border border-dashed border-accent-positive bg-surface-selected-positive px-4 py-8 text-center"
+        >
+          <span className="block text-lg font-semibold text-accent-positive">
+            Add the first block
+          </span>
+          <span className="mt-1 block text-sm text-muted">
+            {formatScheduleDate(date, schedule.day?.timezone)}
+          </span>
+        </button>
+      </div>
+    )
+  }
+
+  const firstStart = Math.min(...blocks.map((block) => block.startTimeSeconds))
+  const lastEnd = Math.max(...blocks.map((block) => block.startTimeSeconds + block.durationSeconds))
+  const startHour = Math.max(0, Math.floor(firstStart / 3600) - 1)
+  const endHour = Math.min(24, Math.max(startHour + 2, Math.ceil(lastEnd / 3600) + 1))
+  const hourHeight = 72
+  const baseSeconds = startHour * 3600
+  const totalSeconds = Math.max(3600, (endHour - startHour) * 3600)
+  const canvasHeight = Math.max(hourHeight * 2, (totalSeconds / 3600) * hourHeight)
+  const hours = Array.from({ length: endHour - startHour + 1 }, (_, index) => startHour + index)
+
+  return (
+    <div className="bg-panel">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold">
+            {formatScheduleDate(date, schedule.day?.timezone)}
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            Calendar view · {schedule.day?.timezone ?? "schedule timezone"}
+          </p>
+        </div>
+        <button type="button" className="btn-secondary min-h-8 px-2" onClick={onAdd}>
+          <Plus size={14} aria-hidden="true" />
+          Add Block
+        </button>
+      </div>
+      <div className="max-h-[720px] overflow-y-auto p-4">
+        <div
+          className="relative border-l border-line"
+          style={{ minHeight: `${canvasHeight}px` }}
+          aria-label="Calendar schedule"
+        >
+          {hours.map((hour) => {
+            const top = (hour - startHour) * hourHeight
+            return (
+              <div
+                key={hour}
+                className="absolute left-0 right-0 border-t border-line"
+                style={{ top }}
+              >
+                <span className="absolute -left-1 top-2 -translate-x-full pr-3 text-xs font-semibold tabular-nums text-muted">
+                  {String(hour).padStart(2, "0")}:00
+                </span>
+              </div>
+            )
+          })}
+          <div className="absolute inset-y-0 left-4 right-0">
+            {blocks.map((block) => {
+              const top = ((block.startTimeSeconds - baseSeconds) / 3600) * hourHeight
+              const height = Math.max(42, (block.durationSeconds / 3600) * hourHeight)
+              const selected = selectedBlockId === block.id
+              return (
+                <button
+                  key={block.id}
+                  type="button"
+                  onClick={() => onSelect(block.id)}
+                  className={[
+                    "absolute left-0 right-2 overflow-hidden rounded-md border px-3 py-2 text-left text-sm shadow-sm",
+                    selected
+                      ? "border-accent-positive bg-surface-selected-positive text-accent-positive"
+                      : "border-line bg-surface text-ink hover:bg-panel-soft"
+                  ].join(" ")}
+                  style={{ top, height }}
+                >
+                  <span className="block font-semibold tabular-nums">
+                    {formatPlayoutTimeLabel(block.startTimeSeconds)}
+                  </span>
+                  <span className="block truncate font-semibold">{block.title}</span>
+                  <span className="mt-0.5 block truncate text-xs opacity-75">
+                    {blockAssetLabel(schedule, block)} · {formatTimecode(block.durationSeconds)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function buildContentOptions(schedule: ScheduleBundle): ContentOption[] {
   const assets = schedule.mediaAssets
     .filter((asset) => asset.status === "ready" && asset.assetType !== "music")
@@ -846,4 +1010,16 @@ function typeLabel(type: BlockType) {
     default:
       return "Video"
   }
+}
+
+function formatScheduleDate(date: string, timezone?: string) {
+  const day = new Date(`${date}T12:00:00`)
+  const formatted = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: timezone
+  }).format(day)
+  return formatted
 }
