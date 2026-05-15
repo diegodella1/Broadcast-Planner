@@ -208,87 +208,85 @@ export default async function AssetsPage({
           includeAudio
         />
 
-        <form action={addAsset} className="surface-panel p-4">
+        <section className="surface-panel p-4">
           <FormHeader
-            title="Register playable URL"
-            detail="Use this for direct MP4, HLS or image URLs. Use Vimeo import for Vimeo."
+            title="Import Vimeo episode"
+            detail="Paste a Vimeo URL or ID. The episode is added to the library and HLS playback is verified for output."
           />
-          <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_130px]">
-            <Field label="Title">
+          <form
+            action="/api/vimeo/import"
+            method="post"
+            className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]"
+          >
+            <CsrfInput />
+            <input type="hidden" name="return_to" value="/admin/assets?kind=vimeo" />
+            <Field label="Vimeo URL or ID">
               <input
-                name="title"
+                name="video_uri"
                 required
-                placeholder="Title"
+                placeholder="https://vimeo.com/123456789"
                 className="border border-line px-3 py-2 text-sm font-normal text-ink"
               />
             </Field>
-            <Field label="URL">
-              <input
-                name="url"
-                placeholder="Image/video URL"
-                className="border border-line px-3 py-2 text-sm font-normal text-ink"
-              />
-            </Field>
-            <Field label="Seconds">
-              <input
-                name="duration_seconds"
-                type="number"
-                min="1"
-                placeholder="Sec"
-                className="border border-line px-3 py-2 text-sm font-normal text-ink"
-              />
-            </Field>
-            <select name="source_type" className="border border-line px-3 py-2 text-sm">
-              <option value="remote_image">Remote image</option>
-              <option value="remote_mp4">Remote MP4</option>
-              <option value="hls">HLS</option>
-              <option value="rtmp">RTMP</option>
-            </select>
-            <select name="media_kind" className="border border-line px-3 py-2 text-sm">
-              <option value="image">Image</option>
-              <option value="video">Video</option>
-              <option value="graphic">Graphic</option>
-            </select>
-            <select name="asset_type" className="border border-line px-3 py-2 text-sm">
-              <option value="image">Image</option>
-              <option value="video">Video</option>
-              <option value="ad">Ad</option>
-              <option value="promo">Promo</option>
-              <option value="fallback">Fallback</option>
-              <option value="music">Music</option>
-            </select>
-            <button className="btn-primary lg:col-span-3">Save URL</button>
-          </div>
-        </form>
-      </section>
-
-      <section className="surface-panel mb-5 p-4">
-        <FormHeader
-          title="Import Vimeo episode"
-          detail="Paste a Vimeo URL or ID. The episode is added to the library and HLS playback is verified for output."
-        />
-        <form
-          action="/api/vimeo/import"
-          method="post"
-          className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]"
-        >
-          <CsrfInput />
-          <input type="hidden" name="return_to" value="/admin/assets?kind=vimeo" />
-          <Field label="Vimeo URL or ID">
-            <input
-              name="video_uri"
-              required
-              placeholder="https://vimeo.com/123456789"
-              className="border border-line px-3 py-2 text-sm font-normal text-ink"
-            />
-          </Field>
-          <button className="btn-primary self-end">Import and verify</button>
-        </form>
+            <button className="btn-primary self-end">Import and verify</button>
+          </form>
+          <details className="mt-4 rounded-md border border-line bg-panel-soft p-3">
+            <summary className="cursor-pointer text-sm font-semibold">
+              Advanced: add direct URL
+            </summary>
+            <form action={addAsset} className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_130px]">
+              <Field label="Title">
+                <input
+                  name="title"
+                  required
+                  placeholder="Title"
+                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                />
+              </Field>
+              <Field label="URL">
+                <input
+                  name="url"
+                  placeholder="Image/video URL"
+                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                />
+              </Field>
+              <Field label="Seconds">
+                <input
+                  name="duration_seconds"
+                  type="number"
+                  min="1"
+                  placeholder="Sec"
+                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                />
+              </Field>
+              <select name="source_type" className="border border-line px-3 py-2 text-sm">
+                <option value="remote_image">Remote image</option>
+                <option value="remote_mp4">Remote MP4</option>
+                <option value="hls">HLS</option>
+                <option value="rtmp">RTMP</option>
+              </select>
+              <select name="media_kind" className="border border-line px-3 py-2 text-sm">
+                <option value="image">Image</option>
+                <option value="video">Video</option>
+                <option value="graphic">Graphic</option>
+              </select>
+              <select name="asset_type" className="border border-line px-3 py-2 text-sm">
+                <option value="image">Image</option>
+                <option value="video">Video</option>
+                <option value="ad">Ad</option>
+                <option value="promo">Promo</option>
+                <option value="fallback">Fallback</option>
+                <option value="music">Music</option>
+              </select>
+              <button className="btn-secondary lg:col-span-3">Save URL</button>
+            </form>
+          </details>
+        </section>
       </section>
 
       <section className="mb-4 rounded-lg border border-line bg-surface p-3">
         <form
-          className="mb-3 grid grid-cols-1 gap-3 xl:grid-cols-[1fr_150px_150px_110px_110px_140px_110px]"
+          className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-[1fr_120px]"
           action="/admin/assets"
         >
           <input type="hidden" name="status" value={params.status ?? ""} />
@@ -301,69 +299,81 @@ export default async function AssetsPage({
               className="border border-line px-3 py-2 text-sm font-normal text-ink"
             />
           </Field>
-          <Field label="Vimeo show">
-            <input
-              name="show_name"
-              defaultValue={params.show_name ?? ""}
-              placeholder="Show name"
-              className="border border-line px-3 py-2 text-sm font-normal text-ink"
-            />
-          </Field>
-          <Field label="Lifecycle">
-            <select
-              name="lifecycle"
-              defaultValue={params.lifecycle ?? ""}
-              className="border border-line px-3 py-2 text-sm font-normal text-ink"
-            >
-              <option value="">Any</option>
-              <option value="synced">Synced</option>
-              <option value="reviewed">Reviewed</option>
-              <option value="rejected">Rejected</option>
-              <option value="stale">Stale</option>
-              <option value="expired">Expired</option>
-              <option value="scheduled_in_use">Scheduled in use</option>
-            </select>
-          </Field>
-          <Field label="Month">
-            <select
-              name="month"
-              defaultValue={params.month ?? ""}
-              className="border border-line px-3 py-2 text-sm font-normal text-ink"
-            >
-              <option value="">Any</option>
-              {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0")).map(
-                (month) => (
-                  <option key={month} value={month}>
-                    {month}
-                  </option>
-                )
-              )}
-            </select>
-          </Field>
-          <Field label="Year">
-            <input
-              name="year"
-              defaultValue={params.year ?? ""}
-              placeholder="2026"
-              inputMode="numeric"
-              pattern="[0-9]{4}"
-              className="border border-line px-3 py-2 text-sm font-normal text-ink"
-            />
-          </Field>
-          <Field label="Sort">
-            <select
-              name="sort"
-              defaultValue={params.sort ?? "title"}
-              className="border border-line px-3 py-2 text-sm font-normal text-ink"
-            >
-              <option value="title">Title</option>
-              <option value="duration">Duration</option>
-              <option value="status">Status</option>
-              <option value="lifecycle">Lifecycle</option>
-            </select>
-          </Field>
           <button className="btn-secondary self-end">Apply</button>
         </form>
+        <details className="mb-3 rounded-md border border-line bg-panel-soft p-3">
+          <summary className="cursor-pointer text-sm font-semibold">Advanced filters</summary>
+          <form
+            className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-[1fr_150px_110px_110px_140px_110px]"
+            action="/admin/assets"
+          >
+            <input type="hidden" name="status" value={params.status ?? ""} />
+            <input type="hidden" name="kind" value={params.kind ?? ""} />
+            <input type="hidden" name="q" value={params.q ?? ""} />
+            <Field label="Vimeo show">
+              <input
+                name="show_name"
+                defaultValue={params.show_name ?? ""}
+                placeholder="Show name"
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              />
+            </Field>
+            <Field label="Lifecycle">
+              <select
+                name="lifecycle"
+                defaultValue={params.lifecycle ?? ""}
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              >
+                <option value="">Any</option>
+                <option value="synced">Synced</option>
+                <option value="reviewed">Reviewed</option>
+                <option value="rejected">Rejected</option>
+                <option value="stale">Stale</option>
+                <option value="expired">Expired</option>
+                <option value="scheduled_in_use">Scheduled in use</option>
+              </select>
+            </Field>
+            <Field label="Month">
+              <select
+                name="month"
+                defaultValue={params.month ?? ""}
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              >
+                <option value="">Any</option>
+                {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0")).map(
+                  (month) => (
+                    <option key={month} value={month}>
+                      {month}
+                    </option>
+                  )
+                )}
+              </select>
+            </Field>
+            <Field label="Year">
+              <input
+                name="year"
+                defaultValue={params.year ?? ""}
+                placeholder="2026"
+                inputMode="numeric"
+                pattern="[0-9]{4}"
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              />
+            </Field>
+            <Field label="Sort">
+              <select
+                name="sort"
+                defaultValue={params.sort ?? "title"}
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              >
+                <option value="title">Title</option>
+                <option value="duration">Duration</option>
+                <option value="status">Status</option>
+                <option value="lifecycle">Lifecycle</option>
+              </select>
+            </Field>
+            <button className="btn-secondary self-end">Apply</button>
+          </form>
+        </details>
         <div className="flex flex-wrap items-center gap-2">
           <FilterLink href="/admin/assets" active={!params.status && !params.kind}>
             All

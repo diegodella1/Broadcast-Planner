@@ -8,7 +8,7 @@ import { ScheduleTimeline } from "@/components/schedule-timeline"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
 import { ButtonLink, EmptyState, Field, FormHeader, Notice, StatusBanner } from "@/components/ui"
-import { getRunbookState, getScheduleForDate } from "@/lib/data"
+import { getScheduleForDate } from "@/lib/data"
 import {
   archiveProgramBlock,
   bulkUpdateProgramBlockStatus,
@@ -20,7 +20,6 @@ import {
   updateProgramDayStatus
 } from "@/lib/mutations"
 import { liveOutputHref } from "@/lib/output-auth"
-import { criticalRunbookKeys } from "@/lib/runbook"
 import { analyzeSchedule } from "@/lib/schedule-health"
 import { findActiveSchedule } from "@/lib/scheduler"
 import {
@@ -128,12 +127,6 @@ export default async function ScheduleDatePage({
       ) ?? null)
     : null
   const health = analyzeSchedule(schedule, blocks)
-  const runbookState = schedule.day ? await getRunbookState(schedule.day.id) : []
-  const criticalKeys = criticalRunbookKeys()
-  const checkedRunbookKeys = new Set(
-    runbookState.filter((item) => item.checked).map((item) => `${item.section}:${item.itemKey}`)
-  )
-  const uncheckedCriticalRunbook = [...criticalKeys].filter((key) => !checkedRunbookKeys.has(key))
   const readyBlocks = blocks.filter(
     (block) => block.status === "ready" || block.status === "active"
   ).length
@@ -180,20 +173,9 @@ export default async function ScheduleDatePage({
             <ButtonLink href="/admin/output" variant="secondary">
               3. Control
             </ButtonLink>
-            <ButtonLink href={`/admin/runbook/${date}`} variant="secondary">
-              Runbook
-            </ButtonLink>
           </>
         }
       />
-      {schedule.day && uncheckedCriticalRunbook.length ? (
-        <Notice tone="warn">
-          {uncheckedCriticalRunbook.length} critical preflight runbook checks are still open.{" "}
-          <Link href={`/admin/runbook/${date}`} className="font-semibold underline">
-            Open operator runbook
-          </Link>
-        </Notice>
-      ) : null}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           {schedule.day && (
@@ -203,8 +185,9 @@ export default async function ScheduleDatePage({
             </p>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <form action={setDayStatus} className="flex flex-wrap items-center gap-2">
+        <details className="rounded-md border border-line bg-surface px-3 py-2">
+          <summary className="cursor-pointer text-sm font-semibold">Day status</summary>
+          <form action={setDayStatus} className="mt-3 flex flex-wrap items-center gap-2">
             <label className="flex min-h-10 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium">
               <input name="allow_warnings" type="checkbox" />
               Allow warnings
@@ -219,7 +202,7 @@ export default async function ScheduleDatePage({
               Active
             </button>
           </form>
-        </div>
+        </details>
       </div>
 
       <section className="mb-5 mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[1.2fr_1fr_1fr]">
@@ -319,8 +302,8 @@ export default async function ScheduleDatePage({
             </div>
           </section>
 
-          <section className="surface-panel p-4">
-            <h2 className="font-semibold">Health check</h2>
+          <details className="surface-panel p-4">
+            <summary className="cursor-pointer font-semibold">Health check</summary>
             <div className="mt-4 grid gap-3">
               <Metric
                 label="Gaps"
@@ -369,7 +352,7 @@ export default async function ScheduleDatePage({
                 </p>
               )}
             </div>
-          </section>
+          </details>
 
           <details className="surface-panel p-4">
             <summary className="cursor-pointer font-semibold">Advanced form</summary>
@@ -474,8 +457,9 @@ export default async function ScheduleDatePage({
         </aside>
       </section>
 
-      <section className="surface-panel mb-5 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <details className="surface-panel mb-5 p-4">
+        <summary className="cursor-pointer font-semibold">Advanced grid tools</summary>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <FormHeader
               title="Long grid generator"
@@ -538,12 +522,12 @@ export default async function ScheduleDatePage({
           </label>
           <button className="btn-primary">Generate grid</button>
         </form>
-      </section>
+      </details>
 
       {blocks.length === 0 ? (
         <div className="surface-panel p-4">
           <EmptyState title="No blocks scheduled">
-            Add the first block or generate a long grid to test continuity.
+            Add the first block from the agenda form above.
           </EmptyState>
         </div>
       ) : (

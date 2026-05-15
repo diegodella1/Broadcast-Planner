@@ -185,8 +185,7 @@ export default async function AdminOutputPage() {
           <ControlSection title="Active source">
             <p className="text-xs font-semibold text-white/80">{activeSourceLabel}</p>
             <p className="mt-1 text-[11px] leading-4 text-white/40">
-              Source switching is hidden until mutation is wired. Use timeline block edit to change
-              source.
+              Change the active source from the scheduled block when needed.
             </p>
           </ControlSection>
 

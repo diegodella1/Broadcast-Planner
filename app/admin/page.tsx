@@ -66,11 +66,11 @@ export default async function AdminDashboardPage() {
   return (
     <AdminShell
       title="Dashboard"
-      description="Start here: what is on air, what is next, what needs attention, and where to go."
+      description="Core operator path: schedule the day, manage content, verify output."
       actions={
         <>
           <ButtonLink href={`/admin/schedule/${today}`}>Program today</ButtonLink>
-          <ButtonLink href="/output/live?debug=true" variant="secondary">
+          <ButtonLink href="/admin/output" variant="secondary">
             Open output
           </ButtonLink>
         </>
@@ -140,14 +140,14 @@ export default async function AdminDashboardPage() {
             <ActionLink
               href={`/admin/schedule/${today}`}
               icon={<Plus size={17} />}
-              title={blocks.length ? "Edit today's timeline" : "Create today's first block"}
-              detail="Drag on the timeline, add media, validate timing."
+              title={blocks.length ? "Edit today's schedule" : "Create today's first block"}
+              detail="Pick start time, content and save."
             />
             <ActionLink
-              href="/admin/assets?status=attention"
+              href="/admin/assets"
               icon={<Library size={17} />}
-              title={reviewAssets ? "Review media assets" : "Media library clear"}
-              detail={`${reviewAssets} assets need attention.`}
+              title="Open library"
+              detail={`${readyAssets} ready assets, ${reviewAssets} need review.`}
             />
             <ActionLink
               href="/admin/music"
@@ -156,10 +156,10 @@ export default async function AdminDashboardPage() {
               detail={`${musicReady} ready music tracks available.`}
             />
             <ActionLink
-              href="/output/live?debug=true"
+              href="/admin/output"
               icon={<MonitorPlay size={17} />}
-              title="Open output monitor"
-              detail="Verify renderer state, fallback and music debug."
+              title="Check output"
+              detail="Preview the clean web player and current state."
             />
           </div>
         </section>
@@ -232,7 +232,7 @@ export default async function AdminDashboardPage() {
                 title="No blocks today"
                 action={<ButtonLink href={`/admin/schedule/${today}`}>Open timeline</ButtonLink>}
               >
-                Create blocks by dragging on the timeline or generate a long grid.
+                Create the first block from the agenda form.
               </EmptyState>
             </div>
           )}
