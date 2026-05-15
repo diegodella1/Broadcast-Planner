@@ -368,8 +368,13 @@ function VideoAsset({
         playbackStartedRef.current = true
       })
       .catch((error) => {
-        clearStartupTimeout()
+        if (isPlaybackInterrupted(error)) {
+          onMediaState("loading")
+          window.requestAnimationFrame(() => startPlaybackRef.current())
+          return
+        }
         if (isAutoplayBlocked(error)) {
+          clearStartupTimeout()
           onMediaState("waiting", "Autoplay blocked: click or press a key to start output")
           if (autoplayRetryCleanupRef.current) return
           const retry = () => {
@@ -384,6 +389,7 @@ function VideoAsset({
           }
           return
         }
+        clearStartupTimeout()
         onMediaState(
           "fallback",
           error instanceof Error
@@ -540,6 +546,12 @@ function isAutoplayBlocked(error: unknown) {
     error.message.includes("user didn't interact") ||
     error.message.toLowerCase().includes("autoplay")
   )
+}
+
+function isPlaybackInterrupted(error: unknown) {
+  if (!(error instanceof Error)) return false
+  const message = error.message.toLowerCase()
+  return error.name === "AbortError" || message.includes("interrupted")
 }
 
 function RtmpNotice({ asset }: { asset: MediaAsset }) {

@@ -317,7 +317,7 @@ function vimeoVideoToAssetRow(
     existingStatus === "archived"
       ? "archived"
       : video.status === "available" && hasDuration
-        ? "syncing"
+        ? "ready"
         : "syncing"
   const existingAssetType =
     typeof existing?.asset_type === "string" && existing.asset_type ? existing.asset_type : null

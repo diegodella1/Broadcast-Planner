@@ -218,6 +218,54 @@ describe("OutputRenderer", () => {
     expect(screen.getByTestId("output-root")).toHaveAttribute("data-media-state", "waiting")
   })
 
+  it("keeps loading when playback is interrupted by element replacement", async () => {
+    const error = new Error("The play() request was interrupted because the media was removed")
+    error.name = "AbortError"
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockRejectedValue(error)
+
+    const bundle = bundleWithActiveBlock({
+      blocks: [
+        {
+          id: "block-1",
+          programDayId: "day-1",
+          title: "Video Block",
+          blockType: "video",
+          category: "broadcast",
+          assetId: "asset-1",
+          startTimeSeconds: 0,
+          durationSeconds: 7200,
+          status: "active",
+          hideOverlays: false,
+          startTime: "00:00:00",
+          createdAt: "2026-05-08T00:00:00Z",
+          updatedAt: "2026-05-08T00:00:00Z"
+        }
+      ],
+      mediaAssets: [
+        {
+          id: "asset-1",
+          title: "Interrupted Video",
+          sourceType: "remote_mp4",
+          mediaKind: "video",
+          assetType: "video",
+          url: "https://example.com/video.mp4",
+          status: "ready",
+          createdAt: "2026-05-08T00:00:00Z",
+          updatedAt: "2026-05-08T00:00:00Z"
+        }
+      ]
+    })
+
+    render(renderWithIntl(<OutputRenderer initialSchedule={bundle} initialSeconds={100} debug />))
+    const video = document.querySelector("video")
+    expect(video).toBeInTheDocument()
+    fireEvent.loadedData(video as HTMLVideoElement)
+    await waitFor(() => {
+      expect(screen.getByTestId("output-root")).toHaveAttribute("data-media-state", "loading")
+    })
+    expect(screen.queryByText(/media was removed/)).not.toBeInTheDocument()
+  })
+
   it("does not trigger startup timeout after media starts playing", () => {
     vi.useFakeTimers()
     const bundle = bundleWithActiveBlock({
