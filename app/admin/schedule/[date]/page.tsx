@@ -16,6 +16,7 @@ import {
   fillProgramBlockContent,
   createProgramBlock,
   duplicateProgramBlock,
+  moveProgramBlock,
   reorderProgramBlocks,
   resizeProgramBlock,
   updateProgramDayStatus
@@ -116,6 +117,14 @@ export default async function ScheduleDatePage({
       date,
       blockId: input.blockId,
       durationSeconds: input.durationSeconds
+    })
+  }
+  async function moveTimelineBlock(input: { blockId: string; startTimeSeconds: number }) {
+    "use server"
+    await moveProgramBlock({
+      date,
+      blockId: input.blockId,
+      startTimeSeconds: input.startTimeSeconds
     })
   }
   async function duplicateRundownBlock(input: { blockId: string }) {
@@ -304,6 +313,7 @@ export default async function ScheduleDatePage({
             nowSeconds={isToday ? nowSeconds : null}
             issues={health.issues}
             createBlockAction={addBlock}
+            moveBlockAction={moveTimelineBlock}
           />
         </div>
 

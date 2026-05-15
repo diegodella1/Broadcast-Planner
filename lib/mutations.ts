@@ -507,6 +507,56 @@ export async function resizeProgramBlock(input: {
   revalidateSchedule(input.date)
 }
 
+export async function moveProgramBlock(input: {
+  date: string
+  blockId: string
+  startTimeSeconds: number
+}) {
+  const schedule = await getScheduleForDate(input.date)
+  const block = schedule.blocks.find((item) => item.id === input.blockId)
+  if (!block) throw new Error("Bloque no encontrado")
+  const startTimeSeconds = Math.min(
+    Math.max(0, Math.round(Number(input.startTimeSeconds || 0) / 300) * 300),
+    86400 - block.durationSeconds
+  )
+  const conflict = findScheduleConflicts(
+    schedule.blocks.filter((item) => item.status !== "archived"),
+    {
+      id: block.id,
+      programDayId: block.programDayId,
+      startTimeSeconds,
+      durationSeconds: block.durationSeconds
+    }
+  )
+  if (conflict.hasConflict) {
+    throw new Error("El bloque se solapa con otro bloque")
+  }
+  const startTime = formatTimecode(startTimeSeconds)
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "program_block.moved",
+      entityType: "program_blocks",
+      entityId: block.id,
+      metadata: { date: input.date },
+      previous: { start_time: block.startTime, start_time_seconds: block.startTimeSeconds },
+      next: { start_time: startTime, start_time_seconds: startTimeSeconds }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("program_blocks")
+        .update({
+          start_time: startTime,
+          start_time_seconds: startTimeSeconds,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", block.id)
+      if (error) throw error
+    }
+  )
+  revalidateSchedule(input.date)
+}
+
 export async function duplicateProgramBlock(input: { date: string; blockId: string }) {
   const schedule = await getScheduleForDate(input.date)
   const block = schedule.blocks.find((item) => item.id === input.blockId)

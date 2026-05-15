@@ -155,6 +155,7 @@ import {
   createLongTestSchedule,
   reorderProgramBlocks,
   resizeProgramBlock,
+  moveProgramBlock,
   duplicateProgramBlock,
   bulkUpdateProgramBlockStatus,
   updateRunbookCheck,
@@ -416,6 +417,51 @@ describe("rundown editor mutations", () => {
 
     expect(supabaseMock.update).toHaveBeenCalledWith(
       expect.objectContaining({ duration_seconds: 300 })
+    )
+  })
+
+  it("moves a block to a snapped start time", async () => {
+    await moveProgramBlock({
+      date: "2026-05-08",
+      blockId: "block-3",
+      startTimeSeconds: 7201
+    })
+
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ start_time: "02:00:00", start_time_seconds: 7200 })
+    )
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/schedule/2026-05-08")
+  })
+
+  it("rejects moving a block into another block", async () => {
+    await expect(
+      moveProgramBlock({
+        date: "2026-05-08",
+        blockId: "block-3",
+        startTimeSeconds: 3600
+      })
+    ).rejects.toThrow("solapa")
+  })
+
+  it("rejects moving a missing block", async () => {
+    await expect(
+      moveProgramBlock({
+        date: "2026-05-08",
+        blockId: "missing",
+        startTimeSeconds: 7200
+      })
+    ).rejects.toThrow("Bloque no encontrado")
+  })
+
+  it("clamps moves to the end of the day", async () => {
+    await moveProgramBlock({
+      date: "2026-05-08",
+      blockId: "block-3",
+      startTimeSeconds: 999999
+    })
+
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ start_time: "23:55:00", start_time_seconds: 86100 })
     )
   })
 

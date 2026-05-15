@@ -1,8 +1,8 @@
 "use client"
 
-import Link from "next/link"
-import { useMemo, useRef, useState } from "react"
 import clsx from "clsx"
+import { useRouter } from "next/navigation"
+import { useMemo, useRef, useState, useTransition } from "react"
 import { PlayoutTime } from "@/components/playout-time"
 import { formatPlayoutTimeLabel, formatTimecode } from "@/lib/time"
 import { findScheduleConflicts, scheduleConflictMessage } from "@/lib/schedule-conflicts"
@@ -18,13 +18,23 @@ type Selection = {
   end: number
 }
 
+type BlockDrag = {
+  id: string
+  pointerId: number
+  pointerOffsetSeconds: number
+  startSeconds: number
+  currentSeconds: number
+  moved: boolean
+}
+
 export function ScheduleTimeline({
   blocks,
   schedule,
   date,
   nowSeconds,
   issues,
-  createBlockAction
+  createBlockAction,
+  moveBlockAction
 }: {
   blocks: ProgramBlock[]
   schedule: ScheduleBundle
@@ -32,11 +42,17 @@ export function ScheduleTimeline({
   nowSeconds: number | null
   issues: ScheduleIssue[]
   createBlockAction: (formData: FormData) => Promise<void>
+  moveBlockAction: (input: { blockId: string; startTimeSeconds: number }) => Promise<void>
 }) {
+  const router = useRouter()
   const trackRef = useRef<HTMLDivElement>(null)
+  const suppressClickRef = useRef(false)
   const [dragStart, setDragStart] = useState<number | null>(null)
   const [dragEnd, setDragEnd] = useState<number | null>(null)
   const [selection, setSelection] = useState<Selection | null>(null)
+  const [blockDrag, setBlockDrag] = useState<BlockDrag | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
   const issueMap = useMemo(
     () => new Map(issues.filter((issue) => issue.blockId).map((issue) => [issue.blockId, issue])),
     [issues]
@@ -49,6 +65,10 @@ export function ScheduleTimeline({
     if (!rect) return 0
     const y = Math.min(Math.max(clientY - rect.top, 0), rect.height)
     return snapSeconds((y / rect.height) * DAY_SECONDS)
+  }
+
+  function clampedBlockStart(block: ProgramBlock, seconds: number) {
+    return Math.max(0, Math.min(seconds, DAY_SECONDS - block.durationSeconds))
   }
 
   function startDrag(event: React.PointerEvent<HTMLDivElement>) {
@@ -75,11 +95,73 @@ export function ScheduleTimeline({
     event.currentTarget.releasePointerCapture(event.pointerId)
   }
 
+  function startBlockDrag(event: React.PointerEvent<HTMLDivElement>, block: ProgramBlock) {
+    if (block.status === "archived" || isPending) return
+    event.preventDefault()
+    event.stopPropagation()
+    setMessage(null)
+    setSelection(null)
+    const pointerSeconds = secondsFromPointer(event.clientY)
+    setBlockDrag({
+      id: block.id,
+      pointerId: event.pointerId,
+      pointerOffsetSeconds: pointerSeconds - block.startTimeSeconds,
+      startSeconds: block.startTimeSeconds,
+      currentSeconds: block.startTimeSeconds,
+      moved: false
+    })
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function updateBlockDrag(event: React.PointerEvent<HTMLDivElement>, block: ProgramBlock) {
+    if (!blockDrag || blockDrag.id !== block.id || blockDrag.pointerId !== event.pointerId) return
+    const nextSeconds = clampedBlockStart(
+      block,
+      secondsFromPointer(event.clientY) - blockDrag.pointerOffsetSeconds
+    )
+    setBlockDrag((current) =>
+      current && current.id === block.id
+        ? {
+            ...current,
+            currentSeconds: nextSeconds,
+            moved: current.moved || Math.abs(nextSeconds - current.startSeconds) >= SNAP_SECONDS
+          }
+        : current
+    )
+  }
+
+  function endBlockDrag(event: React.PointerEvent<HTMLDivElement>, block: ProgramBlock) {
+    if (!blockDrag || blockDrag.id !== block.id || blockDrag.pointerId !== event.pointerId) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.releasePointerCapture(event.pointerId)
+    const nextSeconds = blockDrag.currentSeconds
+    const moved = blockDrag.moved && nextSeconds !== block.startTimeSeconds
+    setBlockDrag(null)
+    suppressClickRef.current = true
+    if (!moved) {
+      router.push(`/admin/schedule/${date}/blocks/${block.id}`)
+      return
+    }
+    startTransition(async () => {
+      try {
+        await moveBlockAction({ blockId: block.id, startTimeSeconds: nextSeconds })
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : String(error))
+      }
+    })
+  }
+
   return (
     <>
       <div className="border-b border-line bg-panel-soft px-4 py-2 text-xs font-semibold text-muted">
-        Drag empty timeline space to select a range. Existing blocks stay clickable.
+        Drag empty timeline space to select a range. Drag existing blocks to move their time.
       </div>
+      {message ? (
+        <div className="border-b border-danger-line bg-danger-soft px-4 py-3 text-sm font-semibold text-danger-strong">
+          {message}
+        </div>
+      ) : null}
       {selection ? (
         <SelectionCreatePanel
           key={`${selection.start}-${selection.end}`}
@@ -105,6 +187,7 @@ export function ScheduleTimeline({
             </div>
             <div
               ref={trackRef}
+              data-testid="schedule-timeline-track"
               className="relative cursor-crosshair touch-none select-none"
               style={{ height: HOUR_HEIGHT * 24 }}
               onPointerDown={startDrag}
@@ -136,17 +219,40 @@ export function ScheduleTimeline({
               ) : null}
               {blocks.map((block) => {
                 const issue = issueMap.get(block.id)
+                const dragStartSeconds =
+                  blockDrag?.id === block.id ? blockDrag.currentSeconds : block.startTimeSeconds
                 return (
-                  <Link
+                  <div
                     key={block.id}
                     data-block-card
-                    href={`/admin/schedule/${date}/blocks/${block.id}`}
+                    role="link"
+                    tabIndex={0}
+                    aria-label={`Open ${block.title}`}
+                    onClick={() => {
+                      if (suppressClickRef.current) {
+                        suppressClickRef.current = false
+                        return
+                      }
+                      router.push(`/admin/schedule/${date}/blocks/${block.id}`)
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter")
+                        router.push(`/admin/schedule/${date}/blocks/${block.id}`)
+                    }}
+                    onPointerDown={(event) => startBlockDrag(event, block)}
+                    onPointerMove={(event) => updateBlockDrag(event, block)}
+                    onPointerUp={(event) => endBlockDrag(event, block)}
+                    onPointerCancel={() => setBlockDrag(null)}
                     className={clsx(
-                      "absolute left-2 right-2 overflow-hidden rounded-md border px-3 py-2 text-xs shadow-sm transition hover:brightness-95",
-                      blockTone(block, issue?.severity)
+                      "absolute left-2 right-2 overflow-hidden rounded-md border px-3 py-2 text-left text-xs shadow-sm transition hover:brightness-95",
+                      blockTone(block, issue?.severity),
+                      block.status === "archived" || isPending
+                        ? "cursor-pointer"
+                        : "cursor-grab active:cursor-grabbing",
+                      blockDrag?.id === block.id ? "z-30 opacity-90 shadow-lg" : ""
                     )}
                     style={{
-                      top: `${(block.startTimeSeconds / DAY_SECONDS) * 100}%`,
+                      top: `${(dragStartSeconds / DAY_SECONDS) * 100}%`,
                       height: `${Math.max((block.durationSeconds / DAY_SECONDS) * 100, 1.7)}%`,
                       minHeight: "34px"
                     }}
@@ -156,10 +262,10 @@ export function ScheduleTimeline({
                       <span className="shrink-0">{formatTimecode(block.durationSeconds)}</span>
                     </span>
                     <span className="mt-0.5 block truncate opacity-80">
-                      <PlayoutTime airDate={date} seconds={block.startTimeSeconds} /> ·{" "}
-                      {block.blockType} · {blockAssetLabel(schedule, block)}
+                      <PlayoutTime airDate={date} seconds={dragStartSeconds} /> · {block.blockType}{" "}
+                      · {blockAssetLabel(schedule, block)}
                     </span>
-                  </Link>
+                  </div>
                 )
               })}
               {selectedRange ? <SelectionHighlight selection={selectedRange} /> : null}
