@@ -342,6 +342,9 @@ function VideoAsset({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const startupTimeoutRef = useRef<number | null>(null)
+  const playbackStartedRef = useRef(false)
+  const autoplayRetryCleanupRef = useRef<(() => void) | null>(null)
+  const startPlaybackRef = useRef<() => void>(() => undefined)
   const src = asset.url ?? ""
 
   const clearStartupTimeout = useCallback(() => {
@@ -350,20 +353,80 @@ function VideoAsset({
     startupTimeoutRef.current = null
   }, [])
 
+  const clearAutoplayRetry = useCallback(() => {
+    autoplayRetryCleanupRef.current?.()
+    autoplayRetryCleanupRef.current = null
+  }, [])
+
+  const startPlayback = useCallback(() => {
+    const video = videoRef.current
+    if (!video || playbackStartedRef.current) return
+    const playResult = video.play()
+    playResult
+      ?.then(() => {
+        clearAutoplayRetry()
+        playbackStartedRef.current = true
+      })
+      .catch((error) => {
+        clearStartupTimeout()
+        if (isAutoplayBlocked(error)) {
+          onMediaState("waiting", "Autoplay blocked: click or press a key to start output")
+          if (autoplayRetryCleanupRef.current) return
+          const retry = () => {
+            clearAutoplayRetry()
+            startPlaybackRef.current()
+          }
+          window.addEventListener("pointerdown", retry)
+          window.addEventListener("keydown", retry)
+          autoplayRetryCleanupRef.current = () => {
+            window.removeEventListener("pointerdown", retry)
+            window.removeEventListener("keydown", retry)
+          }
+          return
+        }
+        onMediaState(
+          "fallback",
+          error instanceof Error
+            ? `Autoplay blocked or media failed: ${error.message}`
+            : "Autoplay blocked or media failed"
+        )
+      })
+  }, [clearAutoplayRetry, clearStartupTimeout, onMediaState])
+
   useEffect(() => {
+    startPlaybackRef.current = startPlayback
+  }, [startPlayback])
+
+  useEffect(() => {
+    playbackStartedRef.current = false
     onMediaState("loading")
     clearStartupTimeout()
     startupTimeoutRef.current = window.setTimeout(() => {
       onMediaState("fallback", "Media startup timeout")
     }, 8000)
-    return clearStartupTimeout
-  }, [asset.id, clearStartupTimeout, onMediaState])
+    if (asset.sourceType !== "hls") {
+      window.requestAnimationFrame(startPlayback)
+    }
+    return () => {
+      clearStartupTimeout()
+      clearAutoplayRetry()
+    }
+  }, [
+    asset.id,
+    asset.sourceType,
+    clearAutoplayRetry,
+    clearStartupTimeout,
+    onMediaState,
+    startPlayback
+  ])
 
   useEffect(() => {
     const video = videoRef.current
     if (!video || !src || asset.sourceType !== "hls") return
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = src
+      video.load()
+      window.requestAnimationFrame(startPlayback)
       return
     }
 
@@ -379,8 +442,10 @@ function VideoAsset({
         }
         const instance = new Hls({ lowLatencyMode: true })
         hlsInstance = instance
+        instance.on(Hls.Events.MANIFEST_PARSED, () => startPlayback())
         instance.loadSource(src)
         instance.attachMedia(video)
+        window.requestAnimationFrame(startPlayback)
       })
       .catch(() => onMediaState("errored", "HLS load error"))
 
@@ -388,19 +453,21 @@ function VideoAsset({
       cancelled = true
       hlsInstance?.destroy()
     }
-  }, [asset.id, asset.sourceType, onMediaState, src])
+  }, [asset.id, asset.sourceType, onMediaState, src, startPlayback])
 
   if (!src) return <Fallback asset={null} reason={asset.title} />
   const presentation = asset.metadata?.presentation
   const vertical = presentation === "vertical_blur" || asset.metadata?.orientation === "vertical"
   const handlers = {
-    onCanPlay: () => onMediaState("loading"),
-    onLoadedData: () => {
-      const playResult = videoRef.current?.play()
-      playResult?.catch(() => onMediaState("fallback", "Autoplay blocked or media failed"))
+    onCanPlay: () => {
+      onMediaState("loading")
+      startPlayback()
     },
+    onLoadedMetadata: startPlayback,
+    onLoadedData: startPlayback,
     onPlaying: () => {
       clearStartupTimeout()
+      playbackStartedRef.current = true
       onMediaState("playing")
     },
     onWaiting: () => onMediaState("waiting"),
@@ -464,6 +531,15 @@ function authenticatedApiPath(path: string, token: string | undefined) {
   if (!token) return path
   const separator = path.includes("?") ? "&" : "?"
   return `${path}${separator}token=${encodeURIComponent(token)}`
+}
+
+function isAutoplayBlocked(error: unknown) {
+  if (!(error instanceof Error)) return false
+  return (
+    error.name === "NotAllowedError" ||
+    error.message.includes("user didn't interact") ||
+    error.message.toLowerCase().includes("autoplay")
+  )
 }
 
 function RtmpNotice({ asset }: { asset: MediaAsset }) {

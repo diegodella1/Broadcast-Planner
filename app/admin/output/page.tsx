@@ -65,6 +65,7 @@ export default async function AdminOutputPage() {
       : null,
     asset: active.asset
       ? {
+          id: active.asset.id,
           title: active.asset.title,
           sourceType: active.asset.sourceType,
           status: active.asset.status,

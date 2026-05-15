@@ -126,6 +126,7 @@ describe("OutputRenderer", () => {
       })
     } as Response)
     vi.spyOn(HTMLMediaElement.prototype, "canPlayType").mockReturnValue("probably")
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined)
 
     const bundle = bundleWithActiveBlock({
       blocks: [
@@ -167,8 +168,12 @@ describe("OutputRenderer", () => {
     expect(window.fetch).toHaveBeenCalledWith("/api/vimeo/playback/asset-v", { cache: "no-store" })
   })
 
-  it("falls back when unmuted autoplay is blocked", async () => {
-    vi.spyOn(HTMLMediaElement.prototype, "play").mockRejectedValue(new Error("blocked"))
+  it("waits for user activation when unmuted autoplay is blocked", async () => {
+    const error = new Error(
+      "play() failed because the user didn't interact with the document first"
+    )
+    error.name = "NotAllowedError"
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockRejectedValue(error)
 
     const bundle = bundleWithActiveBlock({
       blocks: [
@@ -208,8 +213,9 @@ describe("OutputRenderer", () => {
     expect(video).toBeInTheDocument()
     fireEvent.loadedData(video as HTMLVideoElement)
     await waitFor(() => {
-      expect(screen.getByText(/Autoplay blocked or media failed/)).toBeInTheDocument()
+      expect(screen.getByText(/Autoplay blocked/)).toBeInTheDocument()
     })
+    expect(screen.getByTestId("output-root")).toHaveAttribute("data-media-state", "waiting")
   })
 
   it("does not trigger startup timeout after media starts playing", () => {

@@ -11,6 +11,7 @@ type MonitorPayload = {
   day: { airDate: string; status: string } | null
   block: { title: string; status: string; elapsedInBlock: number; durationSeconds: number } | null
   asset: {
+    id?: string
     title: string
     sourceType: string
     status: string
@@ -27,6 +28,8 @@ export function OutputMonitorPanel({ initial }: { initial: MonitorPayload }) {
   const [payload, setPayload] = useState(initial)
   const [clientSeconds, setClientSeconds] = useState(initial.serverSeconds)
   const [error, setError] = useState<string | null>(null)
+  const [hlsUrl, setHlsUrl] = useState<string | null>(null)
+  const [hlsStatus, setHlsStatus] = useState<"idle" | "loading" | "copied" | "error">("idle")
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -44,6 +47,10 @@ export function OutputMonitorPanel({ initial }: { initial: MonitorPayload }) {
         const next = (await response.json()) as MonitorPayload
         if (cancelled) return
         setPayload(next)
+        if (next.asset?.id !== payload.asset?.id) {
+          setHlsUrl(null)
+          setHlsStatus("idle")
+        }
         setClientSeconds(next.serverSeconds)
         setError(null)
       } catch (refreshError) {
@@ -58,38 +65,87 @@ export function OutputMonitorPanel({ initial }: { initial: MonitorPayload }) {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [])
+  }, [payload.asset?.id])
+
+  const copyHlsUrl = async () => {
+    if (!payload.asset?.id) return
+    setHlsStatus("loading")
+    try {
+      const response = await fetch(
+        `/api/output/hls?assetId=${encodeURIComponent(payload.asset.id)}`,
+        {
+          cache: "no-store"
+        }
+      )
+      const next = (await response.json().catch(() => null)) as {
+        hlsUrl?: string
+        error?: string
+      } | null
+      if (!response.ok || !next?.hlsUrl) {
+        throw new Error(next?.error ?? `HLS returned ${response.status}`)
+      }
+      await navigator.clipboard.writeText(next.hlsUrl)
+      setHlsUrl(next.hlsUrl)
+      setHlsStatus("copied")
+    } catch {
+      setHlsStatus("error")
+    }
+  }
 
   const clockSkew = Math.abs(clientSeconds - payload.serverSeconds)
+  const canCopyHls = payload.asset?.sourceType === "vimeo" && Boolean(payload.asset.id)
   return (
-    <dl className="grid gap-2 text-[11px]">
-      <MetricLine label="Day" value={payload.day?.airDate ?? "none"} />
-      <MetricLine label="Day status" value={payload.day?.status ?? "none"} />
-      <MetricLine label="Block" value={payload.block?.title ?? "none"} />
-      <MetricLine
-        label="Elapsed"
-        value={
-          payload.block
-            ? `${formatTimecode(payload.block.elapsedInBlock)} / ${formatTimecode(payload.block.durationSeconds)}`
-            : "n/a"
-        }
-      />
-      <MetricLine label="Asset" value={payload.asset?.title ?? "none"} />
-      <MetricLine label="Asset status" value={payload.asset?.status ?? "n/a"} />
-      <MetricLine label="Lifecycle" value={payload.asset?.lifecycleState ?? "n/a"} />
-      <MetricLine label="Fallback" value={payload.fallback?.title ?? "none"} />
-      <MetricLine label="Fallback reason" value={payload.fallbackReason ?? "normal"} />
-      <MetricLine label="Vimeo" value={payload.asset?.playbackReadinessStatus ?? "n/a"} />
-      <MetricLine
-        label="Media error"
-        value={payload.mediaError ?? payload.asset?.playbackError ?? "none"}
-      />
-      <MetricLine label="Clock skew" value={`${clockSkew}s`} />
-      <MetricLine
-        label="Monitor"
-        value={error ?? `ok ${new Date(payload.generatedAt).toLocaleTimeString()}`}
-      />
-    </dl>
+    <div className="grid gap-3">
+      <dl className="grid gap-2 text-[11px]">
+        <MetricLine label="Day" value={payload.day?.airDate ?? "none"} />
+        <MetricLine label="Day status" value={payload.day?.status ?? "none"} />
+        <MetricLine label="Block" value={payload.block?.title ?? "none"} />
+        <MetricLine
+          label="Elapsed"
+          value={
+            payload.block
+              ? `${formatTimecode(payload.block.elapsedInBlock)} / ${formatTimecode(payload.block.durationSeconds)}`
+              : "n/a"
+          }
+        />
+        <MetricLine label="Asset" value={payload.asset?.title ?? "none"} />
+        <MetricLine label="Asset status" value={payload.asset?.status ?? "n/a"} />
+        <MetricLine label="Lifecycle" value={payload.asset?.lifecycleState ?? "n/a"} />
+        <MetricLine label="Fallback" value={payload.fallback?.title ?? "none"} />
+        <MetricLine label="Fallback reason" value={payload.fallbackReason ?? "normal"} />
+        <MetricLine label="Vimeo" value={payload.asset?.playbackReadinessStatus ?? "n/a"} />
+        <MetricLine
+          label="Media error"
+          value={payload.mediaError ?? payload.asset?.playbackError ?? "none"}
+        />
+        <MetricLine label="Clock skew" value={`${clockSkew}s`} />
+        <MetricLine
+          label="Monitor"
+          value={error ?? `ok ${new Date(payload.generatedAt).toLocaleTimeString()}`}
+        />
+      </dl>
+      {canCopyHls && (
+        <div className="grid gap-2 rounded border border-white/10 bg-black/20 p-2">
+          <button
+            type="button"
+            className="btn-secondary w-full justify-center text-[11px]"
+            onClick={copyHlsUrl}
+            disabled={hlsStatus === "loading"}
+          >
+            {hlsStatus === "loading" ? "Generating HLS..." : "Copy HLS for VLC"}
+          </button>
+          <p className="truncate text-[10px] text-white/35">
+            {hlsStatus === "copied"
+              ? "Copied. Vimeo link can expire."
+              : hlsStatus === "error"
+                ? "Could not generate HLS link."
+                : hlsUrl
+                  ? hlsUrl
+                  : "Generates a fresh signed Vimeo HLS URL."}
+          </p>
+        </div>
+      )}
+    </div>
   )
 }
 
