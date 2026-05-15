@@ -89,8 +89,8 @@ export function ScheduleTimeline({
           onCancel={() => setSelection(null)}
         />
       ) : null}
-      <div className="max-h-[760px] overflow-auto">
-        <div className="relative min-w-[680px]">
+      <div className="max-h-[760px] overflow-y-auto overflow-x-hidden">
+        <div className="relative w-full min-w-0">
           <div className="grid" style={{ gridTemplateColumns: "72px minmax(0, 1fr)" }}>
             <div>
               {Array.from({ length: 24 }, (_, hour) => (
@@ -264,10 +264,10 @@ function SelectionCreatePanel({
       <form
         data-create-card
         action={action}
-        className="grid gap-3 text-sm lg:grid-cols-[minmax(0,1.2fr)_116px_116px_130px_160px_160px_auto]"
+        className="grid grid-cols-1 gap-3 text-sm lg:grid-cols-[minmax(0,1.2fr)_116px_116px_130px_160px_160px_auto]"
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <div className="lg:col-span-7 flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 lg:col-span-7">
           <div>
             <p className="font-semibold">Create block</p>
             <p className="mt-0.5 text-xs text-muted">
@@ -414,9 +414,10 @@ function SelectionCreatePanel({
         <button
           className="btn-primary lg:col-span-5"
           name="conflict_resolution"
-          value={conflict.hasConflict ? "archive_conflicts" : "none"}
+          value="none"
+          disabled={conflict.hasConflict}
         >
-          {conflict.hasConflict ? "Archive conflicts and create block" : "Create block"}
+          {conflict.hasConflict ? "Resolve conflict before creating" : "Create block"}
         </button>
       </form>
     </div>

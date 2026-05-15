@@ -33,7 +33,7 @@ export const navGroups: NavGroup[] = [
   {
     label: "Operate",
     items: [
-      { label: "Dashboard", href: "/admin", icon: LayoutDashboard, match: "exact" },
+      { label: "Inicio", href: "/admin", icon: LayoutDashboard, match: "exact" },
       { label: "Control", href: "/admin/output", icon: Tv },
       { label: "Runbook", href: "/admin/runbook", icon: ListChecks },
       { label: "Live monitor", href: "/output/live?debug=true", icon: MonitorPlay }
@@ -41,12 +41,12 @@ export const navGroups: NavGroup[] = [
   },
   {
     label: "Plan",
-    items: [{ label: "Programming", href: "/admin/calendar", icon: CalendarDays }]
+    items: [{ label: "Programación", href: "/admin/calendar", icon: CalendarDays }]
   },
   {
     label: "Media",
     items: [
-      { label: "Library", href: "/admin/assets", icon: Video },
+      { label: "Biblioteca", href: "/admin/assets", icon: Video },
       { label: "Vimeo", href: "/admin/vimeo", icon: MonitorPlay },
       { label: "Graphics", href: "/admin/slides", icon: Clapperboard },
       { label: "Music", href: "/admin/music", icon: Music }
@@ -68,7 +68,10 @@ export function AdminNav({ mobile = false }: { mobile?: boolean }) {
 
   if (mobile) {
     return (
-      <nav className="mt-4 flex gap-2 overflow-x-auto pb-1 md:hidden" aria-label="Admin sections">
+      <nav
+        className="mt-4 flex max-w-full flex-wrap gap-2 pb-1 md:hidden"
+        aria-label="Admin sections"
+      >
         {links!.map(({ label, href, icon: Icon, match }) => {
           const active = isActivePath(pathname, href, match)
           return (

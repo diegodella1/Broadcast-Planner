@@ -15,7 +15,13 @@ type MediaMetadata = {
   previewKind: "image" | "video" | "audio" | "none"
 }
 
-export function MediaFilePicker({ includeAudio = true }: { includeAudio?: boolean }) {
+export function MediaFilePicker({
+  includeAudio = true,
+  compact = false
+}: {
+  includeAudio?: boolean
+  compact?: boolean
+}) {
   const [metadata, setMetadata] = useState<MediaMetadata>({
     durationSeconds: "",
     width: "",
@@ -173,7 +179,12 @@ export function MediaFilePicker({ includeAudio = true }: { includeAudio?: boolea
         />
         <span className="text-[0.7rem] font-normal">Blank or 0 uses detected duration.</span>
       </label>
-      <label className="grid gap-1 text-xs font-semibold text-muted lg:col-span-2">
+      <label
+        className={[
+          "grid gap-1 text-xs font-semibold text-muted",
+          compact ? "" : "lg:col-span-2"
+        ].join(" ")}
+      >
         Media file
         <input
           name="media_file"
@@ -181,13 +192,14 @@ export function MediaFilePicker({ includeAudio = true }: { includeAudio?: boolea
           type="file"
           accept={accept}
           onChange={onFileChange}
-          className="border border-line bg-surface px-3 py-2 text-sm font-normal text-ink file:mr-3 file:rounded-md file:border-0 file:bg-panel-soft file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
+          className="w-full min-w-0 border border-line bg-surface px-3 py-2 text-sm font-normal text-ink file:mr-3 file:rounded-md file:border-0 file:bg-panel-soft file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
         />
       </label>
       <div
         aria-live="polite"
         className={[
-          "grid gap-3 rounded-md border px-3 py-3 text-xs leading-5 lg:col-span-4",
+          "grid min-w-0 grid-cols-1 gap-3 rounded-md border px-3 py-3 text-xs leading-5",
+          compact ? "" : "lg:col-span-4",
           metadata.status === "error"
             ? "border-danger-line bg-danger-soft text-danger-strong"
             : metadata.status === "ready"
@@ -195,7 +207,7 @@ export function MediaFilePicker({ includeAudio = true }: { includeAudio?: boolea
               : "border-line bg-panel-soft text-muted"
         ].join(" ")}
       >
-        <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[120px_minmax(0,1fr)]">
           <Preview metadata={metadata} />
           <div>
             <p className="font-semibold text-ink">{metadata.message}</p>

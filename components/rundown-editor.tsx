@@ -153,7 +153,7 @@ export function RundownEditor({
           {message}
         </div>
       ) : null}
-      <div className="min-w-[760px]">
+      <div className="min-w-0">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={orderedIds} strategy={verticalListSortingStrategy}>
             {orderedBlocks.map((block, index) => (
@@ -235,7 +235,7 @@ function SortableRundownRow({
       ref={setNodeRef}
       style={style}
       className={[
-        "grid grid-cols-[44px_44px_108px_1fr_170px_132px_220px] items-center gap-2 border-b border-line px-4 py-3 text-sm last:border-b-0",
+        "grid grid-cols-[36px_36px_minmax(0,1fr)] items-center gap-2 border-b border-line px-4 py-3 text-sm last:border-b-0 md:grid-cols-[40px_40px_96px_minmax(0,1fr)_160px] xl:grid-cols-[44px_44px_108px_minmax(0,1fr)_170px_132px_220px]",
         isDragging ? "relative z-20 bg-surface shadow-lg" : "bg-panel"
       ].join(" ")}
     >
@@ -254,17 +254,20 @@ function SortableRundownRow({
       >
         <GripVertical size={16} aria-hidden="true" />
       </button>
-      <span className="tabular-nums text-muted">
+      <span className="col-span-2 tabular-nums text-muted md:col-span-1">
         <PlayoutTime airDate={date} seconds={block.startTimeSeconds} />
       </span>
-      <Link href={`/admin/schedule/${date}/blocks/${block.id}`} className="min-w-0 hover:underline">
+      <Link
+        href={`/admin/schedule/${date}/blocks/${block.id}`}
+        className="col-span-3 min-w-0 hover:underline md:col-span-1"
+      >
         <span className="block truncate font-semibold">{block.title}</span>
         <span className="block truncate text-xs text-muted">
           {assetOrSlideLabel(asset, slide)} · {block.blockType} ·{" "}
           {formatTimecode(block.startTimeSeconds)}
         </span>
       </Link>
-      <div className="flex items-center gap-2">
+      <div className="col-span-3 flex items-center gap-2 md:col-span-1">
         <button
           className="grid h-8 w-8 place-items-center rounded-md border border-line bg-surface"
           disabled={disabled}
@@ -285,8 +288,10 @@ function SortableRundownRow({
           <Plus size={14} aria-hidden="true" />
         </button>
       </div>
-      <StatusPill status={block.status} />
-      <div className="flex items-center justify-end gap-2">
+      <div className="col-span-1 md:col-span-5 xl:col-span-1">
+        <StatusPill status={block.status} />
+      </div>
+      <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 md:col-span-5 xl:col-span-1">
         <button
           className="btn-secondary min-h-8 px-2"
           disabled={disabled || !canMoveUp}

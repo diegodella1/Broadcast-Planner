@@ -63,7 +63,7 @@ export function StatusBanner({
           <h2 className="mt-1 truncate text-lg font-semibold text-ink">{title}</h2>
           {detail ? <div className="mt-1 text-sm opacity-85">{detail}</div> : null}
         </div>
-        {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
+        {action ? <div className="flex min-w-0 flex-wrap items-center gap-2">{action}</div> : null}
       </div>
     </section>
   )

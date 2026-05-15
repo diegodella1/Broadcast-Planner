@@ -42,26 +42,26 @@ export default async function CalendarPage({
   }
   return (
     <AdminShell
-      title="Programming"
-      description="Operational broadcast days with scheduled blocks, overlays, fallback coverage and publish state."
-      actions={<ButtonLink href={`/admin/schedule/${today}`}>Program today</ButtonLink>}
+      title="Programación"
+      description="Elegí un día y armá la salida como una agenda: hora, contenido y guardar."
+      actions={<ButtonLink href={`/admin/schedule/${today}`}>Programar hoy</ButtonLink>}
     >
       <section className="mb-5 grid gap-3 md:grid-cols-3">
-        <MetricTile label="Days" value={String(days.length)} detail="Programming days created" />
+        <MetricTile label="Días" value={String(days.length)} detail="Días creados" />
         <MetricTile
-          label="Active"
+          label="Activos"
           value={String(activeDays)}
-          detail="Days currently marked active"
+          detail="Días marcados activos"
           tone={activeDays ? "ok" : "neutral"}
         />
-        <MetricTile label="Today" value={today} detail="San Francisco operating date" tone="info" />
+        <MetricTile label="Hoy" value={today} detail="Fecha operativa San Francisco" tone="info" />
       </section>
       <section className="surface-panel mb-5 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div>
-            <h2 className="font-semibold">Monthly programming</h2>
+            <h2 className="font-semibold">Calendario mensual</h2>
             <p className="mt-1 text-sm text-muted">
-              Each day shows the percentage of the 24h schedule already programmed.
+              Cada día muestra cuánto de la grilla ya está programado.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -69,7 +69,7 @@ export default async function CalendarPage({
               className="btn-secondary"
               href={`/admin/calendar?month=${monthKey(previousMonth.year, previousMonth.month)}`}
             >
-              Previous
+              Anterior
             </Link>
             <span className="rounded-md border border-line px-3 py-2 text-sm font-semibold">
               {monthLabel(selectedMonth.year, selectedMonth.month)}
@@ -78,7 +78,7 @@ export default async function CalendarPage({
               className="btn-secondary"
               href={`/admin/calendar?month=${monthKey(nextMonth.year, nextMonth.month)}`}
             >
-              Next
+              Siguiente
             </Link>
           </div>
         </div>
@@ -139,7 +139,7 @@ export default async function CalendarPage({
           className="min-w-0 flex-1 border border-line px-3 py-2 text-sm"
           defaultValue={today}
         />
-        <button className="btn-primary">Create day</button>
+        <button className="btn-primary">Crear día</button>
       </form>
       <div className="grid gap-3">
         {days.map((day) => (
@@ -160,8 +160,8 @@ export default async function CalendarPage({
           </Link>
         ))}
         {days.length === 0 ? (
-          <EmptyState title="No programming days yet">
-            Pick a date and create the first day before adding blocks.
+          <EmptyState title="Todavía no hay días programados">
+            Elegí una fecha y creá el día antes de agregar contenidos.
           </EmptyState>
         ) : null}
       </div>

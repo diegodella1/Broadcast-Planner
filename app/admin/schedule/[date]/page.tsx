@@ -1,8 +1,8 @@
 import clsx from "clsx"
 import Link from "next/link"
 
+import { AgendaBlockForm } from "@/components/agenda-block-form"
 import { AdminShell } from "@/components/admin-shell"
-import { MediaUploadForm } from "@/components/media-upload-form"
 import { RundownEditor } from "@/components/rundown-editor"
 import { ScheduleTimeline } from "@/components/schedule-timeline"
 import { StatusPill } from "@/components/status-pill"
@@ -44,7 +44,7 @@ export default async function ScheduleDatePage({
   searchParams
 }: {
   params: Promise<{ date: string }>
-  searchParams: Promise<{ uploaded?: string }>
+  searchParams: Promise<{ uploaded?: string; asset?: string; slide?: string }>
 }) {
   const { date } = await params
   const query = await searchParams
@@ -137,14 +137,25 @@ export default async function ScheduleDatePage({
   const readyBlocks = blocks.filter(
     (block) => block.status === "ready" || block.status === "active"
   ).length
+  const readyAssets = schedule.mediaAssets.filter(
+    (asset) => asset.status === "ready" && asset.assetType !== "music"
+  )
+  const readySlides = schedule.slideAssets.filter((slide) => slide.status === "ready")
   const firstBlock = blocks[0] ?? null
   const lastBlock = blocks[blocks.length - 1] ?? null
   const lastEnd = lastBlock ? lastBlock.startTimeSeconds + lastBlock.durationSeconds : 0
   return (
     <AdminShell
-      title={`Programming day ${date}`}
-      description="Operational schedule by time, media, continuity and pre-air warnings."
-      actions={<ButtonLink href={liveOutputHref(true)}>Open live output</ButtonLink>}
+      title={`Programación ${date}`}
+      description="Armá el día como una agenda: hora de inicio, contenido, duración y salida automática."
+      actions={
+        <>
+          <ButtonLink href="/admin/assets" variant="secondary">
+            Biblioteca
+          </ButtonLink>
+          <ButtonLink href={liveOutputHref(true)}>Salida limpia</ButtonLink>
+        </>
+      }
     >
       {query.uploaded ? <Notice tone="ok">Media uploaded and scheduled.</Notice> : null}
       <StatusBanner
@@ -211,7 +222,7 @@ export default async function ScheduleDatePage({
         </div>
       </div>
 
-      <section className="mb-5 mt-5 grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr]">
+      <section className="mb-5 mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[1.2fr_1fr_1fr]">
         <StatusPanel
           title={isToday ? "Now" : "Selected day"}
           tone={active?.block ? "ok" : isToday ? "danger" : "neutral"}
@@ -255,8 +266,14 @@ export default async function ScheduleDatePage({
         />
       </section>
 
-      <section className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="surface-panel min-w-0">
+      <AgendaBlockForm
+        schedule={schedule}
+        action={addBlock}
+        initialContentValue={initialContentValue(query)}
+      />
+
+      <section className="mb-5 grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="surface-panel min-w-0 overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
             <div>
               <h2 className="font-semibold">Daily timeline</h2>
@@ -284,16 +301,23 @@ export default async function ScheduleDatePage({
           />
         </div>
 
-        <aside className="grid gap-5 content-start">
-          <MediaUploadForm
-            action="/api/assets/upload-schedule"
-            title="Add show to timeline"
-            detail="Upload an image or short video and place it on this day. Images default to 25 seconds; video uses detected duration unless overridden."
-            submitLabel="Upload and schedule"
-            returnTo={`/admin/schedule/${date}?uploaded=1`}
-            includeAudio={false}
-            scheduleDate={date}
-          />
+        <aside className="grid min-w-0 grid-cols-1 content-start gap-5">
+          <section className="surface-panel p-4">
+            <h2 className="font-semibold">Biblioteca</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              Cargá videos, imágenes y fallbacks antes de programarlos. Los contenidos listos
+              aparecen en el selector principal.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+              <Metric label="Assets listos" value={String(readyAssets.length)} tone="ok" />
+              <Metric label="Slides listas" value={String(readySlides.length)} tone="ok" />
+            </div>
+            <div className="mt-4">
+              <ButtonLink href="/admin/assets" variant="secondary">
+                Abrir biblioteca
+              </ButtonLink>
+            </div>
+          </section>
 
           <section className="surface-panel p-4">
             <h2 className="font-semibold">Health check</h2>
@@ -347,11 +371,9 @@ export default async function ScheduleDatePage({
             </div>
           </section>
 
-          <details className="surface-panel p-4" open={blocks.length === 0}>
-            <summary className="cursor-pointer font-semibold">
-              Schedule existing asset / show
-            </summary>
-            <form action={addBlock} className="mt-4 grid gap-3">
+          <details className="surface-panel p-4">
+            <summary className="cursor-pointer font-semibold">Formulario avanzado</summary>
+            <form action={addBlock} className="mt-4 grid grid-cols-1 gap-3">
               <Field label="Show title">
                 <input
                   name="title"
@@ -360,7 +382,7 @@ export default async function ScheduleDatePage({
                   className="border border-line px-3 py-2 text-sm font-normal text-ink"
                 />
               </Field>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Start time">
                   <input
                     name="start_time"
@@ -420,7 +442,7 @@ export default async function ScheduleDatePage({
                   ))}
                 </select>
               </Field>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <input
                   name="pre_roll_seconds"
                   type="number"
@@ -466,7 +488,7 @@ export default async function ScheduleDatePage({
         </div>
         <form
           action={generateLongSchedule}
-          className="mt-4 grid gap-3 lg:grid-cols-[120px_100px_130px_120px_130px_1fr_130px]"
+          className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[120px_100px_130px_120px_130px_minmax(0,1fr)_130px]"
         >
           <input
             name="start_time"
@@ -610,6 +632,12 @@ function assetOptionLabel(asset: MediaAsset) {
   return `${showName}${asset.title} · ${asset.sourceType} · ${asset.status}${
     asset.durationSeconds ? ` · ${formatTimecode(asset.durationSeconds)}` : ""
   }`
+}
+
+function initialContentValue(query: { asset?: string; slide?: string }) {
+  if (query.asset) return `asset:${query.asset}`
+  if (query.slide) return `slide:${query.slide}`
+  return undefined
 }
 
 function panelTone(tone: "ok" | "warn" | "danger" | "neutral") {

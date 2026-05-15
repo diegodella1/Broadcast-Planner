@@ -37,6 +37,14 @@ textarea {
   font: inherit;
 }
 
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
 a,
 button,
 summary,

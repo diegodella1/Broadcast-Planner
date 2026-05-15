@@ -45,20 +45,22 @@ export function AdminShell({
           </Link>
         </div>
       </aside>
-      <main className="md:pl-64">
+      <main className="min-w-0 md:pl-64">
         <header className="sticky top-0 z-30 border-b border-line bg-surface/95 px-4 py-4 backdrop-blur md:px-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <h1 className="text-2xl font-semibold tracking-normal md:text-[1.7rem]">{title}</h1>
               {description ? (
                 <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">{description}</p>
               ) : null}
             </div>
-            {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+            {actions ? (
+              <div className="flex min-w-0 flex-wrap items-center gap-2">{actions}</div>
+            ) : null}
           </div>
           <AdminNav mobile />
         </header>
-        <div className="p-4 md:p-6 xl:p-7">{children}</div>
+        <div className="min-w-0 p-4 md:p-6 xl:p-7">{children}</div>
       </main>
     </div>
   )

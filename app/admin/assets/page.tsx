@@ -1,10 +1,12 @@
 import { AdminShell } from "@/components/admin-shell"
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button"
+import { CsrfInput } from "@/components/csrf-input"
 import { MediaUploadForm } from "@/components/media-upload-form"
 import { StatusPill } from "@/components/status-pill"
 import { EmptyState, Field, FilterLink, FormHeader, MetricTile, Notice } from "@/components/ui"
 import { getAssets } from "@/lib/data"
 import { createMediaAsset, deleteMediaAsset, updateMediaAsset } from "@/lib/mutations"
+import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
 
 import type { MediaAsset } from "@/lib/types"
 import type { ReactNode } from "react"
@@ -25,10 +27,14 @@ export default async function AssetsPage({
     year?: string
     page?: string
     lifecycle?: string
+    imported?: string
+    playback?: string
+    count?: string
   }>
 }) {
   const params = await searchParams
   const assets = await getAssets()
+  const today = isoDateInTimezone(new Date(), PLAYOUT_TIMEZONE)
   const query = (params.q ?? "").trim().toLowerCase()
   const filteredAssets = assets
     .filter((asset) => {
@@ -134,30 +140,40 @@ export default async function AssetsPage({
   }
   return (
     <AdminShell
-      title="Library"
-      description="Operational media library for videos, Vimeo sources, stills, ads, promos, music beds and fallbacks."
+      title="Biblioteca"
+      description="Programas, episodios, placas y fallbacks listos para entrar en la programación."
       actions={
         <a className="btn-primary" href="/admin/vimeo">
-          Sync Vimeo
+          Vimeo
         </a>
       }
     >
       {params.uploaded ? <Notice tone="ok">Media uploaded and saved as an asset.</Notice> : null}
+      {params.imported ? (
+        <Notice tone={params.playback === "failed" ? "warn" : "ok"} title="Vimeo importado">
+          {params.count ?? "1"} episodio agregado a la biblioteca.
+          {params.playback === "ready"
+            ? " Playback verificado: ya puede programarse."
+            : params.playback === "failed"
+              ? " Revisá playback antes de programarlo."
+              : null}
+        </Notice>
+      ) : null}
       <section className="mb-5 grid gap-3 lg:grid-cols-3">
         <WorkflowStep
           number="1"
-          title="Library"
-          detail="Upload media or sync Vimeo. Metadata and duration must be visible here first."
+          title="Agregar"
+          detail="Subí un archivo, registrá una URL o importá un episodio Vimeo."
         />
         <WorkflowStep
           number="2"
-          title="Schedule show"
-          detail="Open Programming, pick the day, then add the asset as a timeline block."
+          title="Verificar"
+          detail="Debe quedar ready, con duración y fuente reproducible."
         />
         <WorkflowStep
           number="3"
-          title="Control output"
-          detail="Use Control to monitor active block, overlays and stop/go-live actions."
+          title="Programar"
+          detail="Usá Programar en el asset para llevarlo directo al día de hoy."
         />
       </section>
       <section className="mb-5 grid gap-3 md:grid-cols-3">
@@ -179,16 +195,16 @@ export default async function AssetsPage({
       <section className="mb-5 grid gap-5 xl:grid-cols-2">
         <MediaUploadForm
           action="/api/assets/upload"
-          title="Upload media"
-          detail="Store videos, images or MP3 files up to 500 MB. Browser checks duration, dimensions and file details before upload."
+          title="Agregar programa / episodio"
+          detail="Subí video, imagen o audio hasta 500 MB. Si es video, la duración se detecta y después se reproduce en la salida."
           returnTo="/admin/assets?uploaded=1"
           includeAudio
         />
 
         <form action={addAsset} className="surface-panel p-4">
           <FormHeader
-            title="Add remote URL"
-            detail="Register a remote source without uploading a file."
+            title="Registrar URL reproducible"
+            detail="Usá esto para MP4/HLS/imagen directa. Para Vimeo, usá Importar Vimeo."
           />
           <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_130px]">
             <Field label="Title">
@@ -220,7 +236,6 @@ export default async function AssetsPage({
               <option value="remote_mp4">Remote MP4</option>
               <option value="hls">HLS</option>
               <option value="rtmp">RTMP</option>
-              <option value="vimeo">Vimeo</option>
             </select>
             <select name="media_kind" className="border border-line px-3 py-2 text-sm">
               <option value="image">Image</option>
@@ -235,14 +250,38 @@ export default async function AssetsPage({
               <option value="fallback">Fallback</option>
               <option value="music">Music</option>
             </select>
-            <button className="btn-primary lg:col-span-3">Add asset</button>
+            <button className="btn-primary lg:col-span-3">Guardar URL</button>
           </div>
+        </form>
+      </section>
+
+      <section className="surface-panel mb-5 p-4">
+        <FormHeader
+          title="Importar episodio Vimeo"
+          detail="Pegá el link o ID del video. Se agrega a la biblioteca y se verifica playback HLS para salida."
+        />
+        <form
+          action="/api/vimeo/import"
+          method="post"
+          className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]"
+        >
+          <CsrfInput />
+          <input type="hidden" name="return_to" value="/admin/assets?kind=vimeo" />
+          <Field label="Vimeo URL o ID">
+            <input
+              name="video_uri"
+              required
+              placeholder="https://vimeo.com/123456789"
+              className="border border-line px-3 py-2 text-sm font-normal text-ink"
+            />
+          </Field>
+          <button className="btn-primary self-end">Importar y verificar</button>
         </form>
       </section>
 
       <section className="mb-4 rounded-lg border border-line bg-surface p-3">
         <form
-          className="mb-3 grid gap-3 md:grid-cols-[1fr_150px_150px_110px_110px_140px_110px]"
+          className="mb-3 grid grid-cols-1 gap-3 xl:grid-cols-[1fr_150px_150px_110px_110px_140px_110px]"
           action="/admin/assets"
         >
           <input type="hidden" name="status" value={params.status ?? ""} />
@@ -365,7 +404,7 @@ export default async function AssetsPage({
             id={`asset-${asset.id}`}
             className="group border-b border-line p-4 last:border-b-0"
           >
-            <summary className="grid cursor-pointer list-none gap-3 md:grid-cols-[84px_1fr_150px_170px_120px_90px] md:items-center">
+            <summary className="grid cursor-pointer list-none gap-3 xl:grid-cols-[84px_minmax(0,1fr)_150px_170px_120px_90px] xl:items-center">
               <AssetPreview asset={asset} />
               <div className="min-w-0">
                 <p className="font-semibold">{asset.title}</p>
@@ -397,6 +436,20 @@ export default async function AssetsPage({
                 Edit
               </span>
             </summary>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {!assetNeedsAttention(asset) ? (
+                <a className="btn-primary" href={`/admin/schedule/${today}?asset=${asset.id}`}>
+                  Programar hoy
+                </a>
+              ) : (
+                <span className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-sm font-semibold text-warn-strong">
+                  Resolver antes de programar
+                </span>
+              )}
+              <a className="btn-secondary" href="/admin/calendar">
+                Elegir otro día
+              </a>
+            </div>
             <AssetEditForm asset={asset} action={editAsset} />
             <form
               action={deleteAsset}

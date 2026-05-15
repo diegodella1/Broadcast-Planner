@@ -10,7 +10,8 @@ export async function MediaUploadForm({
   submitLabel = "Upload",
   returnTo,
   includeAudio = true,
-  scheduleDate
+  scheduleDate,
+  compact = false
 }: {
   action: string
   title?: string
@@ -19,14 +20,25 @@ export async function MediaUploadForm({
   returnTo?: string
   includeAudio?: boolean
   scheduleDate?: string
+  compact?: boolean
 }) {
   return (
-    <form action={action} method="post" encType="multipart/form-data" className="surface-panel p-4">
+    <form
+      action={action}
+      method="post"
+      encType="multipart/form-data"
+      className="surface-panel w-full min-w-0 max-w-full p-4"
+    >
       <CsrfInput />
       <FormHeader title={title} detail={detail} />
       {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
       {scheduleDate ? <input type="hidden" name="date" value={scheduleDate} /> : null}
-      <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_170px_140px_120px]">
+      <div
+        className={[
+          "mt-4 grid min-w-0 grid-cols-1 gap-3",
+          compact ? "" : "lg:grid-cols-[1fr_170px_140px_120px]"
+        ].join(" ")}
+      >
         <Field label="Title">
           <input
             name="title"
@@ -68,7 +80,7 @@ export async function MediaUploadForm({
             />
           </Field>
         ) : null}
-        <MediaFilePicker includeAudio={includeAudio} />
+        <MediaFilePicker includeAudio={includeAudio} compact={compact} />
         <SubmitButton pendingLabel="Uploading...">{submitLabel}</SubmitButton>
       </div>
     </form>
