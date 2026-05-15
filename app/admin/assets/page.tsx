@@ -4,14 +4,18 @@ import { CsrfInput } from "@/components/csrf-input"
 import { MediaUploadForm } from "@/components/media-upload-form"
 import { StatusPill } from "@/components/status-pill"
 import { EmptyState, Field, FilterLink, FormHeader, MetricTile, Notice } from "@/components/ui"
-import { getAssets } from "@/lib/data"
+import { getAssets, getSlides } from "@/lib/data"
 import { createMediaAsset, deleteMediaAsset, updateMediaAsset } from "@/lib/mutations"
 import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
 
-import type { MediaAsset } from "@/lib/types"
+import type { MediaAsset, SlideAsset } from "@/lib/types"
 import type { ReactNode } from "react"
 
 export const dynamic = "force-dynamic"
+
+type LibraryItem =
+  | { kind: "asset"; id: string; title: string; asset: MediaAsset }
+  | { kind: "slide"; id: string; title: string; slide: SlideAsset }
 
 export default async function AssetsPage({
   searchParams
@@ -33,12 +37,19 @@ export default async function AssetsPage({
   }>
 }) {
   const params = await searchParams
-  const assets = await getAssets()
+  const [assets, slides] = await Promise.all([getAssets(), getSlides()])
+  const libraryItems: LibraryItem[] = [
+    ...assets.map((asset) => ({ kind: "asset" as const, id: asset.id, title: asset.title, asset })),
+    ...slides.map((slide) => ({ kind: "slide" as const, id: slide.id, title: slide.title, slide }))
+  ]
   const today = isoDateInTimezone(new Date(), PLAYOUT_TIMEZONE)
   const query = (params.q ?? "").trim().toLowerCase()
-  const filteredAssets = assets
-    .filter((asset) => {
-      if (params.status === "attention" && !assetNeedsAttention(asset)) return false
+  const filteredItems = libraryItems
+    .filter((item) => {
+      if (params.status === "attention" && !libraryItemNeedsAttention(item)) return false
+      if (item.kind === "slide") return slideMatchesFilters(item.slide, params, query)
+      const asset = item.asset
+      if (params.kind === "slides" || params.kind === "slide") return false
       if (
         params.status &&
         params.status !== "all" &&
@@ -94,9 +105,9 @@ export default async function AssetsPage({
       }
       return true
     })
-    .sort((a, b) => sortAssets(a, b, params.sort))
+    .sort((a, b) => sortLibraryItems(a, b, params.sort))
   const pageSize = 50
-  const totalPages = Math.max(1, Math.ceil(filteredAssets.length / pageSize))
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize))
   const requestedPage = Number.parseInt(params.page ?? "1", 10)
   const currentPage = Math.min(
     Math.max(Number.isFinite(requestedPage) ? requestedPage : 1, 1),
@@ -104,9 +115,11 @@ export default async function AssetsPage({
   )
   const pageStart = (currentPage - 1) * pageSize
   const pageEnd = pageStart + pageSize
-  const paginatedAssets = filteredAssets.slice(pageStart, pageEnd)
-  const readyCount = assets.filter((asset) => asset.status === "ready").length
-  const attentionCount = assets.filter(assetNeedsAttention).length
+  const paginatedItems = filteredItems.slice(pageStart, pageEnd)
+  const readyCount =
+    assets.filter((asset) => asset.status === "ready").length +
+    slides.filter((slide) => slide.status === "ready").length
+  const attentionCount = libraryItems.filter(libraryItemNeedsAttention).length
   async function addAsset(formData: FormData) {
     "use server"
     const durationSeconds = Number(formData.get("duration_seconds") || 0) || undefined
@@ -179,11 +192,15 @@ export default async function AssetsPage({
         <WorkflowStep
           number="3"
           title="Schedule"
-          detail="Use Schedule today on the asset to send it straight into today's rundown."
+          detail="Use Schedule today on library content to send it straight into today's rundown."
         />
       </section>
       <section className="mb-5 grid gap-3 md:grid-cols-3">
-        <MetricTile label="Total" value={String(assets.length)} detail="Saved media assets" />
+        <MetricTile
+          label="Total"
+          value={String(libraryItems.length)}
+          detail="Saved library items"
+        />
         <MetricTile
           label="Ready"
           value={String(readyCount)}
@@ -398,6 +415,12 @@ export default async function AssetsPage({
           <FilterLink href="/admin/assets?kind=graphics" active={params.kind === "graphics"}>
             Graphics
           </FilterLink>
+          <FilterLink
+            href="/admin/assets?kind=slides"
+            active={params.kind === "slides" || params.kind === "slide"}
+          >
+            Slides
+          </FilterLink>
           <FilterLink href="/admin/assets?kind=audio" active={params.kind === "audio"}>
             Music
           </FilterLink>
@@ -406,97 +429,29 @@ export default async function AssetsPage({
       <div className="surface-panel overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 text-sm text-muted">
           <span>
-            Showing {filteredAssets.length ? pageStart + 1 : 0}-
-            {Math.min(pageEnd, filteredAssets.length)} of {filteredAssets.length} assets
+            Showing {filteredItems.length ? pageStart + 1 : 0}-
+            {Math.min(pageEnd, filteredItems.length)} of {filteredItems.length} items
           </span>
           <Pagination params={params} currentPage={currentPage} totalPages={totalPages} />
         </div>
-        {paginatedAssets.map((asset) => (
-          <details
-            key={asset.id}
-            id={`asset-${asset.id}`}
-            className="group border-b border-line p-4 last:border-b-0"
-          >
-            <summary className="grid cursor-pointer list-none gap-3 xl:grid-cols-[84px_minmax(0,1fr)_150px_170px_120px_90px] xl:items-center">
-              <AssetPreview asset={asset} />
-              <div className="min-w-0">
-                <p className="font-semibold">{asset.title}</p>
-                <p className="text-sm text-muted">
-                  {asset.sourceType} · {asset.mediaKind} · {asset.assetType}
-                  {asset.metadata?.presentation === "vertical_blur" ? " · vertical blur" : ""}
-                </p>
-                <p className="mt-1 text-xs font-semibold uppercase text-muted">
-                  {lifecycleState(asset).replaceAll("_", " ")}
-                </p>
-              </div>
-              <span className="text-sm text-muted">
-                {asset.durationSeconds ? `${asset.durationSeconds}s` : "No duration"}
-              </span>
-              <span
-                className={
-                  assetNeedsAttention(asset)
-                    ? "text-sm font-semibold text-warn"
-                    : "text-sm font-semibold text-success"
-                }
-              >
-                {assetNeedsAttention(asset) ? "Review" : "Playable"}
-                <span className="block text-xs font-normal text-muted">
-                  {assetAttentionReason(asset)}
-                </span>
-              </span>
-              <StatusPill status={asset.status} />
-              <span className="rounded-md border border-line px-3 py-2 text-center text-sm font-semibold text-ink group-open:bg-panel-soft">
-                Edit
-              </span>
-            </summary>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {!assetNeedsAttention(asset) ? (
-                <a className="btn-primary" href={scheduleAssetHref(today, asset, params)}>
-                  Schedule today
-                </a>
-              ) : (
-                <span className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-sm font-semibold text-warn-strong">
-                  Fix before scheduling
-                </span>
-              )}
-              <a className="btn-secondary" href="/admin/calendar">
-                Choose another day
-              </a>
-            </div>
-            <AssetEditForm asset={asset} action={editAsset} />
-            <form
-              action={deleteAsset}
-              className="mt-3 rounded-md border border-danger-line bg-danger-soft p-4"
-            >
-              <input type="hidden" name="id" value={asset.id} />
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-danger-strong">
-                  Delete this asset from the library
-                </p>
-                <ConfirmSubmitButton
-                  message={`Delete "${asset.title}" from the library? Scheduled blocks using it will show missing asset warnings.`}
-                  className="rounded-md border border-danger-line bg-surface px-4 py-2 text-sm font-semibold text-danger-strong hover:bg-danger-soft"
-                >
-                  Delete asset
-                </ConfirmSubmitButton>
-              </div>
-              {lifecycleState(asset) === "scheduled_in_use" ? (
-                <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-danger-strong">
-                  <input name="force_delete" type="checkbox" />
-                  Force delete even though this asset is scheduled in use.
-                </label>
-              ) : null}
-            </form>
-          </details>
+        {paginatedItems.map((item) => (
+          <LibraryItemRow
+            key={`${item.kind}-${item.id}`}
+            item={item}
+            today={today}
+            params={params}
+            editAsset={editAsset}
+            deleteAsset={deleteAsset}
+          />
         ))}
-        {filteredAssets.length === 0 && (
+        {filteredItems.length === 0 && (
           <div className="p-4">
             <EmptyState title="No assets for this filter">
               Change the filter or add a video, image, promo, ad, music track or fallback.
             </EmptyState>
           </div>
         )}
-        {filteredAssets.length > 0 && (
+        {filteredItems.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 text-sm text-muted">
             <span>
               Page {currentPage} of {totalPages}
@@ -599,12 +554,124 @@ function scheduleAssetHref(
   return `/admin/schedule/${date}?${query.toString()}`
 }
 
+function scheduleLibraryItemHref(
+  date: string,
+  item: LibraryItem,
+  params: Record<string, string | undefined>
+) {
+  if (item.kind === "asset") return scheduleAssetHref(date, item.asset, params)
+  const query = new URLSearchParams({ slide: item.slide.id, kind: "slide", source: "slide" })
+  if (params.q) query.set("q", params.q)
+  return `/admin/schedule/${date}?${query.toString()}`
+}
+
 function scheduleKind(kind?: string) {
   if (!kind || kind === "all" || kind === "vimeo") return undefined
   if (kind === "videos") return "video"
   if (kind === "graphics") return "image"
+  if (kind === "slides") return "slide"
   if (kind === "audio") return undefined
   return kind
+}
+
+function LibraryItemRow({
+  item,
+  today,
+  params,
+  editAsset,
+  deleteAsset
+}: {
+  item: LibraryItem
+  today: string
+  params: Record<string, string | undefined>
+  editAsset: (formData: FormData) => Promise<void>
+  deleteAsset: (formData: FormData) => Promise<void>
+}) {
+  const status = item.kind === "asset" ? item.asset.status : item.slide.status
+  return (
+    <details
+      id={`${item.kind}-${item.id}`}
+      className="group border-b border-line p-4 last:border-b-0"
+    >
+      <summary className="grid cursor-pointer list-none gap-3 xl:grid-cols-[84px_minmax(0,1fr)_150px_170px_120px_90px] xl:items-center">
+        <LibraryPreview item={item} />
+        <div className="min-w-0">
+          <p className="font-semibold">{item.title}</p>
+          <p className="text-sm text-muted">{libraryItemMeta(item)}</p>
+          <p className="mt-1 text-xs font-semibold uppercase text-muted">
+            {item.kind === "asset" ? lifecycleState(item.asset).replaceAll("_", " ") : "slide"}
+          </p>
+        </div>
+        <span className="text-sm text-muted">{libraryItemDuration(item)}</span>
+        <span
+          className={
+            libraryItemNeedsAttention(item)
+              ? "text-sm font-semibold text-warn"
+              : "text-sm font-semibold text-success"
+          }
+        >
+          {libraryItemNeedsAttention(item) ? "Review" : "Playable"}
+          <span className="block text-xs font-normal text-muted">
+            {libraryItemAttentionReason(item)}
+          </span>
+        </span>
+        <StatusPill status={status} />
+        <span className="rounded-md border border-line px-3 py-2 text-center text-sm font-semibold text-ink group-open:bg-panel-soft">
+          Edit
+        </span>
+      </summary>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {!libraryItemNeedsAttention(item) ? (
+          <a className="btn-primary" href={scheduleLibraryItemHref(today, item, params)}>
+            Schedule today
+          </a>
+        ) : (
+          <span className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-sm font-semibold text-warn-strong">
+            Fix before scheduling
+          </span>
+        )}
+        <a className="btn-secondary" href="/admin/calendar">
+          Choose another day
+        </a>
+      </div>
+      {item.kind === "asset" ? (
+        <>
+          <AssetEditForm asset={item.asset} action={editAsset} />
+          <form
+            action={deleteAsset}
+            className="mt-3 rounded-md border border-danger-line bg-danger-soft p-4"
+          >
+            <input type="hidden" name="id" value={item.asset.id} />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-danger-strong">
+                Delete this asset from the library
+              </p>
+              <ConfirmSubmitButton
+                message={`Delete "${item.asset.title}" from the library? Scheduled blocks using it will show missing asset warnings.`}
+                className="rounded-md border border-danger-line bg-surface px-4 py-2 text-sm font-semibold text-danger-strong hover:bg-danger-soft"
+              >
+                Delete asset
+              </ConfirmSubmitButton>
+            </div>
+            {lifecycleState(item.asset) === "scheduled_in_use" ? (
+              <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-danger-strong">
+                <input name="force_delete" type="checkbox" />
+                Force delete even though this asset is scheduled in use.
+              </label>
+            ) : null}
+          </form>
+        </>
+      ) : (
+        <div className="mt-4 rounded-md border border-line bg-panel-soft p-4 text-sm text-muted">
+          Edit or create slide templates in{" "}
+          <a className="font-semibold text-ink underline" href="/admin/slides">
+            Graphics
+          </a>
+          .
+        </div>
+      )}
+    </details>
+  )
 }
 
 function AssetEditForm({
@@ -758,6 +825,40 @@ function assetNeedsAttention(asset: MediaAsset) {
   return false
 }
 
+function libraryItemNeedsAttention(item: LibraryItem) {
+  if (item.kind === "slide") return item.slide.status !== "ready"
+  return assetNeedsAttention(item.asset)
+}
+
+function libraryItemAttentionReason(item: LibraryItem) {
+  if (item.kind === "slide") {
+    return item.slide.status === "ready" ? "Ready for schedule" : `Status: ${item.slide.status}`
+  }
+  return assetAttentionReason(item.asset)
+}
+
+function libraryItemMeta(item: LibraryItem) {
+  if (item.kind === "slide") {
+    return [
+      "slide",
+      item.slide.slideType,
+      item.slide.templateId ? `template ${item.slide.templateId}` : null
+    ]
+      .filter(Boolean)
+      .join(" · ")
+  }
+  const asset = item.asset
+  return `${asset.sourceType} · ${asset.mediaKind} · ${asset.assetType}${
+    asset.metadata?.presentation === "vertical_blur" ? " · vertical blur" : ""
+  }`
+}
+
+function libraryItemDuration(item: LibraryItem) {
+  const duration =
+    item.kind === "slide" ? item.slide.defaultDurationSeconds : item.asset.durationSeconds
+  return duration ? `${duration}s` : "No duration"
+}
+
 function assetAttentionReason(asset: MediaAsset) {
   if (["rejected", "stale", "expired"].includes(lifecycleState(asset))) {
     return `Lifecycle: ${lifecycleState(asset).replaceAll("_", " ")}`
@@ -782,19 +883,41 @@ function assetAttentionReason(asset: MediaAsset) {
   return "Ready for schedule"
 }
 
-function sortAssets(a: MediaAsset, b: MediaAsset, sort: string | undefined) {
-  if (sort === "duration") return (b.durationSeconds ?? 0) - (a.durationSeconds ?? 0)
-  if (sort === "status") return a.status.localeCompare(b.status) || a.title.localeCompare(b.title)
-  if (sort === "lifecycle")
-    return lifecycleState(a).localeCompare(lifecycleState(b)) || a.title.localeCompare(b.title)
+function sortLibraryItems(a: LibraryItem, b: LibraryItem, sort: string | undefined) {
+  if (sort === "duration") return durationValue(b) - durationValue(a)
+  if (sort === "status")
+    return statusValue(a).localeCompare(statusValue(b)) || a.title.localeCompare(b.title)
+  if (sort === "lifecycle") return lifecycleValue(a).localeCompare(lifecycleValue(b))
   return a.title.localeCompare(b.title)
+}
+
+function durationValue(item: LibraryItem) {
+  return item.kind === "slide"
+    ? (item.slide.defaultDurationSeconds ?? 0)
+    : (item.asset.durationSeconds ?? 0)
+}
+
+function statusValue(item: LibraryItem) {
+  return item.kind === "slide" ? item.slide.status : item.asset.status
+}
+
+function lifecycleValue(item: LibraryItem) {
+  return item.kind === "slide" ? "slide" : lifecycleState(item.asset)
 }
 
 function lifecycleState(asset: MediaAsset) {
   return asset.lifecycleState ?? "reviewed"
 }
 
-function AssetPreview({ asset }: { asset: MediaAsset }) {
+function LibraryPreview({ item }: { item: LibraryItem }) {
+  if (item.kind === "slide") {
+    return (
+      <div className="grid aspect-video place-items-center rounded-md border border-line bg-panel-soft text-xs font-semibold uppercase text-muted">
+        slide
+      </div>
+    )
+  }
+  const asset = item.asset
   const src = asset.thumbnailUrl || (asset.mediaKind === "image" ? asset.url : "")
   if (src) {
     return (
@@ -810,6 +933,33 @@ function AssetPreview({ asset }: { asset: MediaAsset }) {
       {asset.mediaKind}
     </div>
   )
+}
+
+function slideMatchesFilters(
+  slide: SlideAsset,
+  params: Record<string, string | undefined>,
+  query: string
+) {
+  if (
+    params.status &&
+    params.status !== "all" &&
+    params.status !== "attention" &&
+    slide.status !== params.status
+  )
+    return false
+  if (params.lifecycle) return false
+  if (params.show_name || params.month || params.year) return false
+  if (params.kind && !["all", "graphics", "slide", "slides"].includes(params.kind)) return false
+  if (
+    query &&
+    ![slide.title, slide.slideType, slide.templateId, "slide", "graphic"]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(query)
+  )
+    return false
+  return true
 }
 
 function fileDetailLine(asset: MediaAsset) {
