@@ -366,6 +366,15 @@ function BlockDrawer({
   const [duration, setDuration] = useState(
     String(block?.durationSeconds ?? initialOption?.durationSeconds ?? DEFAULT_MANUAL_DURATION)
   )
+  const [reutersStreamUrl, setReutersStreamUrl] = useState(
+    metadataTextFromBlock(block, "reuters_stream_url")
+  )
+  const [reutersStreamLabel, setReutersStreamLabel] = useState(
+    metadataTextFromBlock(block, "reuters_stream_label") || "Reuters live"
+  )
+  const [reutersStreamExpiresAt, setReutersStreamExpiresAt] = useState(
+    metadataTextFromBlock(block, "reuters_stream_expires_at")
+  )
   const [status, setStatus] = useState<ProgramStatus>(block?.status ?? "ready")
   const [conflictResolution, setConflictResolution] = useState<"none" | "archive_conflicts">("none")
   const [isPending, startTransition] = useTransition()
@@ -387,6 +396,7 @@ function BlockDrawer({
   const hiddenBlockType = selected?.blockType ?? block?.blockType ?? kind
   const hiddenAssetId = selected?.assetId ?? (mode === "edit" ? (block?.assetId ?? "") : "")
   const hiddenSlideId = selected?.slideId ?? (mode === "edit" ? (block?.slideId ?? "") : "")
+  const hasReutersStream = Boolean(reutersStreamUrl.trim())
   const durationSeconds = Math.max(1, Number(duration || DEFAULT_MANUAL_DURATION))
   const startSeconds = parseTimeInput(startTime)
   const conflict =
@@ -399,7 +409,7 @@ function BlockDrawer({
         })
       : null
   const conflictMessage = conflict ? scheduleConflictMessage(conflict) : ""
-  const canSave = Boolean(selected || mode === "edit") && !conflict?.hasConflict
+  const canSave = Boolean(selected || mode === "edit" || hasReutersStream) && !conflict?.hasConflict
 
   function chooseKind(value: BlockType) {
     setKind(value)
@@ -556,6 +566,46 @@ function BlockDrawer({
           <p className="rounded-md bg-success-soft px-3 py-2 text-xs font-semibold text-success-strong">
             Duration from content: {formatTimecode(selected.durationSeconds)}
           </p>
+        ) : null}
+
+        {kind === "video" ? (
+          <div className="grid gap-3 rounded-md border border-info-line bg-info-soft p-3">
+            <p className="text-xs font-semibold text-info-strong">Reuters dynamic stream</p>
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+              HLS or RTMP URL
+              <input
+                name="reuters_stream_url"
+                value={reutersStreamUrl}
+                onChange={(event) => {
+                  setReutersStreamUrl(event.target.value)
+                  if (event.target.value && !title) setTitle("Reuters live")
+                }}
+                placeholder="https://...m3u8 or rtmp://..."
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              />
+            </label>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-1 text-xs font-semibold text-muted">
+                Stream label
+                <input
+                  name="reuters_stream_label"
+                  value={reutersStreamLabel}
+                  onChange={(event) => setReutersStreamLabel(event.target.value)}
+                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold text-muted">
+                Expires at
+                <input
+                  name="reuters_stream_expires_at"
+                  type="datetime-local"
+                  value={reutersStreamExpiresAt}
+                  onChange={(event) => setReutersStreamExpiresAt(event.target.value)}
+                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                />
+              </label>
+            </div>
+          </div>
         ) : null}
 
         <label className="grid gap-1 text-xs font-semibold text-muted">
@@ -966,6 +1016,11 @@ function blockAssetLabel(schedule: ScheduleBundle, block: ProgramBlock) {
 
 function metadataText(asset: MediaAsset, key: string) {
   const value = asset.metadata?.[key]
+  return typeof value === "string" ? value : ""
+}
+
+function metadataTextFromBlock(block: ProgramBlock | null, key: string) {
+  const value = block?.metadata?.[key]
   return typeof value === "string" ? value : ""
 }
 

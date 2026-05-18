@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 
-import { shouldFailClosedForMissingAdminToken } from "@/lib/auth"
+import { ADMIN_SESSION_COOKIE } from "@/lib/auth-constants"
 import { CSRF_COOKIE, INTERNAL_CSRF_HEADER } from "@/lib/csrf-constants"
 
 export function middleware(request: NextRequest) {
@@ -31,6 +31,9 @@ export function middleware(request: NextRequest) {
     }
     return withSecurityHeaders(nextWithCsrfHeader(request))
   }
+  if (request.cookies.get(ADMIN_SESSION_COOKIE)?.value) {
+    return withSecurityHeaders(nextWithCsrfHeader(request))
+  }
   const actual = request.cookies.get("rpm_admin_token")?.value
   if (actual === expected) return withSecurityHeaders(nextWithCsrfHeader(request))
   const url = request.nextUrl.clone()
@@ -52,6 +55,7 @@ function rejectCrossSiteMutation(request: NextRequest) {
   if (!origin) return null
   if (origin === request.nextUrl.origin) return null
   if (origin === originFromEnv(process.env.NEXT_PUBLIC_APP_BASE_URL)) return null
+  if (isLocalDevOrigin(origin) && isLocalDevOrigin(request.nextUrl.origin)) return null
   return NextResponse.json({ ok: false, error: "Invalid request origin" }, { status: 403 })
 }
 
@@ -101,8 +105,8 @@ function csrfTokenFor(request: NextRequest) {
 
 function isSecureCookie() {
   return (
-    process.env.NEXT_PUBLIC_APP_BASE_URL?.startsWith("https://") ||
-    process.env.NODE_ENV === "production"
+    process.env.NODE_ENV === "production" &&
+    Boolean(process.env.NEXT_PUBLIC_APP_BASE_URL?.startsWith("https://"))
   )
 }
 
@@ -129,5 +133,23 @@ function originFromEnv(value: string | undefined) {
     return new URL(value).origin
   } catch {
     return ""
+  }
+}
+
+function shouldFailClosedForMissingAdminToken() {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.APP_BASE_URL?.startsWith("https://") ||
+    process.env.NEXT_PUBLIC_APP_BASE_URL?.startsWith("https://")
+  )
+}
+
+function isLocalDevOrigin(value: string) {
+  if (process.env.NODE_ENV === "production") return false
+  try {
+    const host = new URL(value).hostname
+    return host === "localhost" || host === "127.0.0.1" || host === "::1"
+  } catch {
+    return false
   }
 }

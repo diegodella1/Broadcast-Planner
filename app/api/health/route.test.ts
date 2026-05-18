@@ -5,11 +5,30 @@ import { GET } from "./route"
 import { createServiceClient } from "@/lib/supabase/server"
 
 vi.mock("@/lib/settings", () => ({
+  getVimeoSettings: vi.fn(async () => ({ status: "ready", hasSecret: true })),
   getVimeoToken: vi.fn(async () => "vimeo-token")
 }))
 
 vi.mock("@/lib/supabase/server", () => ({
   createServiceClient: vi.fn()
+}))
+
+vi.mock("@/lib/reuters-credentials", () => ({
+  getReutersSettings: vi.fn(async () => ({ hasSecret: true }))
+}))
+
+vi.mock("@/lib/data", () => ({
+  getLiveSchedule: vi.fn(async () => ({
+    day: { id: "day-1", airDate: "2026-05-18", status: "active" },
+    blocks: [],
+    layers: [],
+    mediaAssets: [],
+    slideAssets: []
+  }))
+}))
+
+vi.mock("@/lib/output-overrides", () => ({
+  getActiveOutputOverride: vi.fn(async () => null)
 }))
 
 const originalEnv = { ...process.env }
@@ -22,6 +41,7 @@ describe("GET /api/health", () => {
     process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role"
     process.env.APP_ENCRYPTION_KEY = "encryption-key"
     process.env.ADMIN_BOOTSTRAP_TOKEN = "admin-token"
+    process.env.OUTPUT_CAPTURE_TOKEN = "output-token"
     delete process.env.ALLOW_DEMO_DATA
     vi.mocked(createServiceClient).mockReturnValue(
       mockSupabase({ schemaError: null, storageError: null })

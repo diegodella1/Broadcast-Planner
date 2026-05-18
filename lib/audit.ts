@@ -1,4 +1,5 @@
 import { createServiceClient } from "./supabase/server"
+import { currentAuditActor } from "./auth"
 
 export type AuditResult = "success" | "failure"
 
@@ -30,12 +31,13 @@ export type AuditEvent = {
 
 export async function recordAuditEvent(input: AuditEventInput) {
   const supabase = createServiceClient()
+  const actor = input.actor ?? (await currentAuditActor())
   const metadata = {
     ...(input.metadata ?? {}),
     result: input.result ?? "success"
   }
   const { error } = await supabase.from("audit_log").insert({
-    actor: input.actor ?? "admin",
+    actor,
     action: input.action,
     entity_type: input.entityType,
     entity_id: input.entityId ?? null,
@@ -49,8 +51,9 @@ export async function auditedMutation<T>(
   operation: () => Promise<T>
 ): Promise<T> {
   const correlationId = input.correlationId ?? crypto.randomUUID()
+  const actor = input.actor ?? (await currentAuditActor())
   const baseEvent = {
-    ...(input.actor ? { actor: input.actor } : {}),
+    actor,
     action: input.action,
     entityType: input.entityType,
     ...(input.entityId !== undefined ? { entityId: input.entityId } : {})

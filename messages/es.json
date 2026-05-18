@@ -368,7 +368,10 @@
     "music": {
       "title": "Música de fondo",
       "enabled": "Activar música",
-      "volume": "Volumen"
+      "volume": "Volumen",
+      "fade": "Fade",
+      "fadeShort": "Corto",
+      "fadeNone": "Ninguno"
     },
     "stopBroadcast": "Detener broadcast"
   },

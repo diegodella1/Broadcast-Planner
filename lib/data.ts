@@ -397,6 +397,10 @@ function mapBlock(row: Row): ProgramBlock {
     hideOverlays: Boolean(row.hide_overlays),
     fallbackAssetId: nullableText(row.fallback_asset_id),
     notes: nullableText(row.notes),
+    metadata:
+      typeof row.metadata === "object" && row.metadata !== null
+        ? (row.metadata as Record<string, unknown>)
+        : {},
     createdAt: text(row.created_at),
     updatedAt: text(row.updated_at)
   }

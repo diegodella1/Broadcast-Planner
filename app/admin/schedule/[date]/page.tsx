@@ -2,6 +2,7 @@ import clsx from "clsx"
 import { redirect } from "next/navigation"
 
 import { AdminShell } from "@/components/admin-shell"
+import { ScheduleHealthPoller } from "@/components/schedule-health-poller"
 import { ScheduleWorkspace } from "@/components/schedule-workspace"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
@@ -28,7 +29,7 @@ import {
   updateProgramDayStatus
 } from "@/lib/mutations"
 import { liveOutputHref } from "@/lib/output-auth"
-import { analyzeSchedule } from "@/lib/schedule-health"
+import { analyzeSchedule, withScheduleIssueLinks } from "@/lib/schedule-health"
 import { findActiveSchedule } from "@/lib/scheduler"
 import {
   formatPlayoutTimeLabel,
@@ -75,7 +76,10 @@ export default async function ScheduleDatePage({
       postRollSeconds: Number(formData.get("post_roll_seconds") || 0),
       hideOverlays: formData.get("hide_overlays") === "on",
       conflictResolution:
-        formData.get("conflict_resolution") === "archive_conflicts" ? "archive_conflicts" : "none"
+        formData.get("conflict_resolution") === "archive_conflicts" ? "archive_conflicts" : "none",
+      reutersStreamUrl: String(formData.get("reuters_stream_url") || ""),
+      reutersStreamLabel: String(formData.get("reuters_stream_label") || ""),
+      reutersStreamExpiresAt: String(formData.get("reuters_stream_expires_at") || "")
     })
   }
   async function updateBlockInline(formData: FormData) {
@@ -94,7 +98,10 @@ export default async function ScheduleDatePage({
       fallbackAssetId: String(formData.get("fallback_asset_id") || ""),
       notes: String(formData.get("notes") || ""),
       conflictResolution:
-        formData.get("conflict_resolution") === "archive_conflicts" ? "archive_conflicts" : "none"
+        formData.get("conflict_resolution") === "archive_conflicts" ? "archive_conflicts" : "none",
+      reutersStreamUrl: String(formData.get("reuters_stream_url") || ""),
+      reutersStreamLabel: String(formData.get("reuters_stream_label") || ""),
+      reutersStreamExpiresAt: String(formData.get("reuters_stream_expires_at") || "")
     })
   }
   async function generateLongSchedule(formData: FormData) {
@@ -357,6 +364,16 @@ export default async function ScheduleDatePage({
           }
         />
       </section>
+
+      <ScheduleHealthPoller
+        date={date}
+        initial={{
+          generatedAt: new Date().toISOString(),
+          criticalCount: health.criticalCount,
+          warnCount: health.warnCount,
+          issues: health.issues.map((issue) => withScheduleIssueLinks(date, issue))
+        }}
+      />
 
       <ScheduleWorkspace
         date={date}

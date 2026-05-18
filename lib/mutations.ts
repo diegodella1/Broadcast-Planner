@@ -6,6 +6,7 @@ import { buildTemplateBlocks, getDayTemplate } from "./day-templates"
 import { buildLongTestSchedule } from "./schedule-builder"
 import { findScheduleConflicts } from "./schedule-conflicts"
 import { analyzeSchedule } from "./schedule-health"
+import { parseReutersStreamInput, maskStreamUrl } from "./reuters-stream"
 import { createServiceClient } from "./supabase/server"
 import { formatTimecode, parseTimecode, PLAYOUT_TIMEZONE } from "./time"
 
@@ -47,6 +48,9 @@ export async function createProgramBlock(input: {
   postRollSeconds?: number
   hideOverlays: boolean
   conflictResolution?: ConflictResolutionMode
+  reutersStreamUrl?: string
+  reutersStreamLabel?: string
+  reutersStreamExpiresAt?: string
 }) {
   const dayId = await ensureProgramDay(input.date)
   const startTimeSeconds = parseTimecode(input.startTime)
@@ -54,6 +58,11 @@ export async function createProgramBlock(input: {
   const contentDuration = getKnownContentDuration(schedule, input.assetId, input.slideId)
   const preRollSeconds = Math.max(0, Number(input.preRollSeconds || 0) || 0)
   const postRollSeconds = Math.max(0, Number(input.postRollSeconds || 0) || 0)
+  const reutersStream = parseReutersStreamInput({
+    ...(input.reutersStreamUrl ? { url: input.reutersStreamUrl } : {}),
+    ...(input.reutersStreamLabel ? { label: input.reutersStreamLabel } : {}),
+    ...(input.reutersStreamExpiresAt ? { expiresAt: input.reutersStreamExpiresAt } : {})
+  })
   const minimumDuration = contentDuration ? contentDuration + preRollSeconds + postRollSeconds : 1
   const durationSeconds = Math.max(1, Number(input.durationSeconds || 0), minimumDuration)
   if (input.blockType === "ad" && durationSeconds > 300) {
@@ -97,7 +106,13 @@ export async function createProgramBlock(input: {
         title: input.title,
         start_time: input.startTime,
         duration_seconds: durationSeconds,
-        status: "ready"
+        status: "ready",
+        ...(reutersStream
+          ? {
+              reuters_stream_protocol: reutersStream.protocol,
+              reuters_stream_url: maskStreamUrl(reutersStream.url)
+            }
+          : {})
       }
     },
     async () => {
@@ -105,14 +120,15 @@ export async function createProgramBlock(input: {
         program_day_id: dayId,
         title: input.title,
         block_type: input.blockType,
-        category: input.category ?? "mercados",
+        category: reutersStream ? "reuters" : (input.category ?? "mercados"),
         asset_id: input.assetId || null,
         slide_id: input.slideId || null,
         start_time: input.startTime,
         start_time_seconds: startTimeSeconds,
         duration_seconds: durationSeconds,
         status: "ready",
-        hide_overlays: input.hideOverlays
+        hide_overlays: input.hideOverlays,
+        metadata: reutersStream ? reutersBlockMetadata(reutersStream) : {}
       })
       if (error) throw error
     }
@@ -257,6 +273,22 @@ function assetMatchesBlock(blockType: ProgramBlock["blockType"], assetType: stri
   return false
 }
 
+function reutersBlockMetadata(stream: {
+  protocol: "hls" | "rtmp"
+  url: string
+  label: string
+  expiresAt?: string | null
+}) {
+  return {
+    reuters_stream_protocol: stream.protocol,
+    reuters_stream_url: stream.url,
+    reuters_stream_url_masked: maskStreamUrl(stream.url),
+    reuters_stream_label: stream.label,
+    reuters_stream_expires_at: stream.expiresAt ?? null,
+    reuters_stream_refreshed_at: new Date().toISOString()
+  }
+}
+
 export async function updateProgramDayStatus(input: {
   date: string
   status: string
@@ -316,6 +348,9 @@ export async function updateProgramBlock(input: {
   fallbackAssetId?: string
   notes?: string
   conflictResolution?: ConflictResolutionMode
+  reutersStreamUrl?: string
+  reutersStreamLabel?: string
+  reutersStreamExpiresAt?: string
 }) {
   if (!["video", "image", "slide", "ad", "promo", "fallback"].includes(input.blockType)) {
     throw new Error("Tipo de bloque invalido")
@@ -327,6 +362,11 @@ export async function updateProgramBlock(input: {
   const block = schedule.blocks.find((item) => item.id === input.blockId)
   if (!block) throw new Error("Bloque no encontrado")
   const startTimeSeconds = parseTimecode(input.startTime)
+  const reutersStream = parseReutersStreamInput({
+    ...(input.reutersStreamUrl ? { url: input.reutersStreamUrl } : {}),
+    ...(input.reutersStreamLabel ? { label: input.reutersStreamLabel } : {}),
+    ...(input.reutersStreamExpiresAt ? { expiresAt: input.reutersStreamExpiresAt } : {})
+  })
   const contentDuration = getKnownContentDuration(schedule, input.assetId, input.slideId)
   const durationSeconds = Math.max(1, Number(input.durationSeconds || 0), contentDuration || 1)
   if (input.blockType === "ad" && durationSeconds > 300) {
@@ -365,7 +405,13 @@ export async function updateProgramBlock(input: {
         title: input.title,
         start_time: input.startTime,
         duration_seconds: durationSeconds,
-        status: input.status
+        status: input.status,
+        ...(reutersStream
+          ? {
+              reuters_stream_protocol: reutersStream.protocol,
+              reuters_stream_url: maskStreamUrl(reutersStream.url)
+            }
+          : {})
       }
     },
     async () => {
@@ -374,7 +420,7 @@ export async function updateProgramBlock(input: {
         .update({
           title: input.title,
           block_type: input.blockType,
-          category: input.category ?? block.category,
+          category: reutersStream ? "reuters" : (input.category ?? block.category),
           asset_id: input.assetId || null,
           slide_id: input.slideId || null,
           start_time: input.startTime,
@@ -384,6 +430,7 @@ export async function updateProgramBlock(input: {
           hide_overlays: input.hideOverlays,
           fallback_asset_id: input.fallbackAssetId || null,
           notes: input.notes || null,
+          metadata: reutersStream ? reutersBlockMetadata(reutersStream) : (block.metadata ?? {}),
           updated_at: new Date().toISOString()
         })
         .eq("id", input.blockId)

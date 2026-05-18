@@ -21,6 +21,13 @@ type MonitorPayload = {
   } | null
   fallback: { title: string } | null
   fallbackReason: string | null
+  override: {
+    id: string
+    sourceType: string
+    label: string | null
+    streamProtocol: string | null
+    expiresAt: string | null
+  } | null
   mediaError: string | null
 }
 
@@ -133,6 +140,14 @@ export function OutputMonitorPanel({ initial }: { initial: MonitorPayload }) {
           <MetricLine label="Lifecycle" value={payload.asset?.lifecycleState ?? "n/a"} />
           <MetricLine label="Fallback" value={payload.fallback?.title ?? "none"} />
           <MetricLine label="Fallback reason" value={payload.fallbackReason ?? "normal"} />
+          <MetricLine
+            label="Override"
+            value={
+              payload.override
+                ? `${payload.override.label ?? payload.override.sourceType} (${payload.override.streamProtocol ?? "source"})`
+                : "none"
+            }
+          />
           <MetricLine label="Vimeo" value={payload.asset?.playbackReadinessStatus ?? "n/a"} />
           <MetricLine
             label="Media error"

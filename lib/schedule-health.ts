@@ -27,6 +27,8 @@ export type ScheduleIssue = {
   layerId?: string
   assetId?: string
   slideId?: string
+  targetHref?: string
+  actionHref?: string
   title: string
   detail: string
   severity: ScheduleIssueSeverity
@@ -83,6 +85,7 @@ export function analyzeSchedule(
       const toTc = formatTimecode(next.startTimeSeconds)
       gaps.push({
         id: `gap-${current.id}-${next.id}`,
+        blockId: next.id,
         title: "Programming gap",
         detail: `${fromTc} a ${toTc}`,
         severity: "warning",
@@ -251,6 +254,29 @@ export function analyzeSchedule(
     criticalCount: issues.filter((issue) => issue.severity === "critical").length,
     warnCount: issues.filter((issue) => issue.severity === "warning").length
   }
+}
+
+export function scheduleIssueHref(date: string, issue: ScheduleIssue) {
+  if (issue.blockId) return `/admin/schedule/${date}/blocks/${issue.blockId}`
+  if (issue.slideId) return "/admin/slides"
+  if (issue.assetId || issue.kind === "fallback") return "/admin/assets"
+  return `/admin/schedule/${date}`
+}
+
+export function withScheduleIssueLinks(date: string, issue: ScheduleIssue): ScheduleIssue {
+  const actionHref = issue.actionHref ?? actionHrefForIssue(issue)
+  return {
+    ...issue,
+    targetHref: issue.targetHref ?? scheduleIssueHref(date, issue),
+    ...(actionHref ? { actionHref } : {})
+  }
+}
+
+function actionHrefForIssue(issue: ScheduleIssue) {
+  if (issue.kind === "fallback") return "/admin/assets?kind=fallback"
+  if (issue.kind === "missing_asset" && issue.slideId) return "/admin/slides"
+  if (issue.kind === "missing_asset" || issue.assetId) return "/admin/assets"
+  return issue.blockId ? undefined : "/admin/assets"
 }
 
 export function getAssetReadiness(asset: MediaAsset): AssetReadiness {

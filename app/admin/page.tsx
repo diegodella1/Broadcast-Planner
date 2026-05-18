@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
+  HeartPulse,
   MonitorPlay,
   Plus,
   RadioTower
@@ -12,8 +13,9 @@ import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
 import { PlayoutTime } from "@/components/playout-time"
-import { ButtonLink, EmptyState, MetricTile, PrimaryActionPanel } from "@/components/ui"
+import { ButtonLink, EmptyState, MetricTile, Notice, PrimaryActionPanel } from "@/components/ui"
 import { getAssets, getDays, getScheduleForDate, getSlides } from "@/lib/data"
+import { collectOperatorHealth } from "@/lib/health-checks"
 import { analyzeSchedule } from "@/lib/schedule-health"
 import { findActiveSchedule } from "@/lib/scheduler"
 import {
@@ -34,6 +36,7 @@ export default async function AdminDashboardPage() {
     getAssets(),
     getSlides()
   ])
+  const healthReport = await collectOperatorHealth()
   const blocks = [...schedule.blocks].sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
   const health = analyzeSchedule(schedule, blocks)
   const nowSeconds = secondsSinceMidnightInTimezone(new Date())
@@ -71,6 +74,14 @@ export default async function AdminDashboardPage() {
         </>
       }
     >
+      {healthReport.status !== "ok" ? (
+        <Notice
+          tone={healthReport.status === "fail" ? "danger" : "warn"}
+          title={healthReport.status === "fail" ? "Production health failing" : "Health degraded"}
+        >
+          <Link href="/admin/health">Open Admin Health</Link> before handoff or live operation.
+        </Notice>
+      ) : null}
       <PrimaryActionPanel
         eyebrow="Start here"
         title={
@@ -178,6 +189,12 @@ export default async function AdminDashboardPage() {
               icon={<MonitorPlay size={17} />}
               title="3. VLC Output"
               detail="Copy the stable HLS link for VLC."
+            />
+            <ActionLink
+              href="/admin/health"
+              icon={<HeartPulse size={17} />}
+              title="Health"
+              detail="Check production readiness and integrations."
             />
           </div>
         </section>

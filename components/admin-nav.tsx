@@ -3,6 +3,7 @@
 import {
   CalendarDays,
   Clapperboard,
+  HeartPulse,
   LayoutDashboard,
   MonitorPlay,
   Music,
@@ -40,7 +41,8 @@ export const navGroups: NavGroup[] = [
     items: [
       { label: "Vimeo", href: "/admin/vimeo", icon: MonitorPlay },
       { label: "Graphics", href: "/admin/slides", icon: Clapperboard },
-      { label: "Music", href: "/admin/music", icon: Music }
+      { label: "Music", href: "/admin/music", icon: Music },
+      { label: "Health", href: "/admin/health", icon: HeartPulse }
     ]
   }
 ]

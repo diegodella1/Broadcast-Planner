@@ -2,7 +2,13 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { getTranslations } from "next-intl/server"
 
-import { isAdminTokenValid } from "@/lib/auth"
+import {
+  ADMIN_SESSION_COOKIE,
+  createOperatorSession,
+  hashSecret,
+  isAdminTokenValid
+} from "@/lib/auth"
+import { assertRateLimit } from "@/lib/rate-limit"
 import { loginSchema } from "@/lib/schemas"
 
 export default async function LoginPage({
@@ -14,15 +20,43 @@ export default async function LoginPage({
 
   async function login(formData: FormData) {
     "use server"
-    const parsed = loginSchema.safeParse({ token: formData.get("token") ?? "" })
-    if (!parsed.success || !isAdminTokenValid(parsed.data.token)) {
+    const parsed = loginSchema.safeParse({
+      handle: String(formData.get("handle") ?? "").trim() || undefined,
+      token: formData.get("token") ?? ""
+    })
+    if (parsed.success) {
+      const handle = parsed.data.handle?.trim().toLowerCase() || "bootstrap"
+      await assertRateLimit({
+        scope: `login:${handle === "bootstrap" ? handle : hashSecret(handle)}`,
+        limit: 10,
+        windowSeconds: 60
+      })
+    }
+    const session = parsed.success
+      ? await createOperatorSession({
+          ...(parsed.data.handle ? { handle: parsed.data.handle } : {}),
+          token: parsed.data.token
+        })
+      : null
+    if (!parsed.success || !session) {
       redirect("/admin/login?error=1")
     }
     const cookieStore = await cookies()
     const secureCookie =
-      process.env.NEXT_PUBLIC_APP_BASE_URL?.startsWith("https://") ??
-      process.env.NODE_ENV === "production"
-    cookieStore.set("rpm_admin_token", parsed.data.token, {
+      process.env.NODE_ENV === "production" &&
+      Boolean(process.env.NEXT_PUBLIC_APP_BASE_URL?.startsWith("https://"))
+    if (session.session.operatorId === "bootstrap" && isAdminTokenValid(parsed.data.token)) {
+      cookieStore.set("rpm_admin_token", parsed.data.token, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: secureCookie,
+        path: "/",
+        maxAge: 60 * 60 * 12
+      })
+    } else {
+      cookieStore.delete("rpm_admin_token")
+    }
+    cookieStore.set(ADMIN_SESSION_COOKIE, session.token, {
       httpOnly: true,
       sameSite: "lax",
       secure: secureCookie,
@@ -39,11 +73,24 @@ export default async function LoginPage({
         <h1 className="mt-2 text-2xl font-semibold">{t("title")}</h1>
         <p className="mt-2 text-sm leading-6 text-muted">{t("body")}</p>
         <label className="mt-6 block text-sm font-medium">
+          Operator handle
+          <input
+            name="handle"
+            className="mt-2 w-full border border-line px-3 py-2"
+            placeholder="operator"
+            autoComplete="username"
+          />
+          <span className="mt-1 block text-xs text-muted">
+            Leave blank only for emergency bootstrap-token login.
+          </span>
+        </label>
+        <label className="mt-6 block text-sm font-medium">
           {t("tokenLabel")}
           <input
             name="token"
             type="password"
             className="mt-2 w-full border border-line px-3 py-2"
+            autoComplete="current-password"
           />
         </label>
         <ErrorMessage searchParams={searchParams} errorText={t("errorInvalid")} />

@@ -4,6 +4,7 @@ import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { ButtonLink, EmptyState, Notice } from "@/components/ui"
 import { getRunbookState, getScheduleForDate } from "@/lib/data"
+import { collectOperatorHealth } from "@/lib/health-checks"
 import { updateRunbookCheck } from "@/lib/mutations"
 import { liveOutputHref } from "@/lib/output-auth"
 import { RUNBOOK_TEMPLATE } from "@/lib/runbook"
@@ -16,7 +17,10 @@ export default async function OperatorRunbookPage({
   params: Promise<{ date: string }>
 }) {
   const { date } = await params
-  const schedule = await getScheduleForDate(date)
+  const [schedule, healthReport] = await Promise.all([
+    getScheduleForDate(date),
+    collectOperatorHealth()
+  ])
   const state = schedule.day ? await getRunbookState(schedule.day.id) : []
   const stateByKey = new Map(state.map((item) => [`${item.section}:${item.itemKey}`, item]))
 
@@ -68,6 +72,14 @@ export default async function OperatorRunbookPage({
         </>
       }
     >
+      {healthReport.status !== "ok" ? (
+        <Notice
+          tone={healthReport.status === "fail" ? "danger" : "warn"}
+          title={healthReport.status === "fail" ? "Production health failing" : "Health degraded"}
+        >
+          <Link href="/admin/health">Open Admin Health</Link> before handoff or live operation.
+        </Notice>
+      ) : null}
       {!schedule.day ? (
         <EmptyState title="No program day">
           Create a schedule for {date} before running the operator checklist.

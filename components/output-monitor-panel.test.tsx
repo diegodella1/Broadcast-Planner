@@ -79,5 +79,6 @@ const initialPayload = {
   },
   fallback: null,
   fallbackReason: null,
+  override: null,
   mediaError: null
 }

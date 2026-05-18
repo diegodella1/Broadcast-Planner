@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { requireAdmin } from "@/lib/auth"
 import { getLiveSchedule } from "@/lib/data"
+import { getActiveOutputOverride } from "@/lib/output-overrides"
 import { findActiveSchedule } from "@/lib/scheduler"
 import { secondsSinceMidnightInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
 
@@ -15,6 +16,7 @@ export async function GET() {
     const timezone = bundle.day?.timezone ?? PLAYOUT_TIMEZONE
     const serverSeconds = secondsSinceMidnightInTimezone(now, timezone)
     const active = findActiveSchedule(bundle, serverSeconds)
+    const override = await getActiveOutputOverride(bundle.day?.id)
     const asset = active.asset ?? null
     return NextResponse.json(
       {
@@ -49,6 +51,15 @@ export async function GET() {
           ? { id: active.fallbackAsset.id, title: active.fallbackAsset.title }
           : null,
         fallbackReason: active.reason ?? null,
+        override: override
+          ? {
+              id: override.id,
+              sourceType: override.sourceType,
+              label: override.label,
+              streamProtocol: override.streamProtocol,
+              expiresAt: override.expiresAt
+            }
+          : null,
         mediaError:
           asset?.sourceType === "vimeo" && asset.playbackReadinessStatus === "failed"
             ? (asset.playbackError ?? "Vimeo playback failed")

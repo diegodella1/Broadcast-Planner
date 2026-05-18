@@ -118,6 +118,25 @@ export type ProgramBlock = {
   hideOverlays: boolean
   fallbackAssetId?: string | null
   notes?: string | null
+  metadata?: Record<string, unknown> | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type OutputOverride = {
+  id: string
+  programDayId: string
+  enabled: boolean
+  sourceType: "scheduled_block" | "vimeo" | "reuters" | "slide" | "hls" | "remote_image"
+  blockId?: string | null
+  assetId?: string | null
+  slideId?: string | null
+  streamUrl?: string | null
+  streamProtocol?: "hls" | "rtmp" | null
+  label?: string | null
+  expiresAt?: string | null
+  metadata?: Record<string, unknown> | null
+  createdBy?: string | null
   createdAt: string
   updatedAt: string
 }

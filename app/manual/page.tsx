@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Clapperboard,
   Eye,
+  HeartPulse,
   Library,
   ListChecks,
   MonitorPlay,
@@ -44,13 +45,14 @@ const operatorSections = [
     body: [
       "The schedule page is the main rundown. Blocks appear in time order with status, duration, current/next indicators and a live now-line on today's date.",
       "Use Add Block to choose the content type, pick ready Library content, confirm start time and duration, then save.",
-      "Use the Rundown editor to drag reorder, move with buttons or keyboard, resize in 5 minute steps, duplicate, archive and bulk change block status."
+      "Use the Rundown editor to drag reorder, move with buttons or keyboard, resize in 5 minute steps, duplicate, archive and bulk change block status.",
+      "For Reuters live content, paste the current HLS or RTMP endpoint into the Reuters dynamic stream fields when creating or editing the block."
     ],
     details: [
       "Hierarchy: media asset or system slide -> scheduled block/show -> optional overlays -> output.",
       "Block categories: mercados, earthcam, clima, calendario, trending, deuda, reuters and broadcast.",
       "Schedule health detects overlaps, gaps, missing assets, unready assets, ad duration problems and missing fallback coverage.",
-      "The day readiness strip shows blockers before the day is marked active.",
+      "The day readiness strip shows blockers before the day is marked active. Issue rows link to the block or route that needs attention and refresh while the page is open.",
       "All rundown edits go through server conflict checks and the database overlap trigger."
     ],
     links: [{ label: "Open today's schedule", href: "/admin/calendar" }]
@@ -125,11 +127,13 @@ const operatorSections = [
     icon: Music,
     body: [
       "The music page manages MP3 tracks used by image, slide and graphic blocks when no primary video audio should lead.",
-      "Operators upload tracks, set order, duration and readiness. Ready tracks rotate automatically; one ready track loops."
+      "Operators upload tracks, set order, duration and readiness. Ready tracks rotate automatically; one ready track loops.",
+      "The right-rail music switch and volume persist per named operator session."
     ],
     details: [
       "Video blocks suppress the background playlist because video audio should lead.",
-      "Music assets are stored as media assets with asset type music."
+      "Music assets are stored as media assets with asset type music.",
+      "Persisted music preference is intended for output behavior on image, slide and graphic content."
     ],
     links: [{ label: "Open music", href: "/admin/music" }]
   },
@@ -152,12 +156,13 @@ const operatorSections = [
     title: "Manual broadcast",
     icon: Video,
     body: [
-      "Manual broadcast lets operators quickly put a Vimeo video or Reuters channel on air now, or schedule it at a specific time.",
-      "Vimeo search uses the stored access token server-side. Selected Vimeo media is cached into the asset library before creating a broadcast block."
+      "Manual broadcast lets operators quickly put a Vimeo video or Reuters stream on air now, or schedule it at a specific time.",
+      "Vimeo search uses the stored access token server-side. Selected Vimeo media is cached into the asset library before creating a broadcast block.",
+      "Reuters streams are dynamic: paste the current HLS or RTMP endpoint when scheduling Reuters or setting a live override."
     ],
     details: [
       "Vimeo output uses direct HLS links copied from Admin Output and opened in VLC.",
-      "Reuters channels can be synced into media assets; real provider behavior depends on Reuters provider configuration.",
+      "Reuters URLs are stored as per-airing snapshots on the block or output override. Refresh the URL if the Reuters endpoint rotates or expires.",
       "Browser playout is disabled and kept only as a status route."
     ]
   },
@@ -182,16 +187,34 @@ const operatorSections = [
     icon: Settings,
     body: [
       "Settings configure Vimeo integration, optional folder/project URI and operating timezone.",
-      "A Vimeo token can come from infrastructure environment variables or encrypted database settings. Environment variables take priority."
+      "A Vimeo token can come from infrastructure environment variables or encrypted database settings. Environment variables take priority.",
+      "Settings also include single-tenant operator provisioning. Use named operator handles for normal work and keep bootstrap login for emergency access."
     ],
     details: [
       "The Vimeo sync area reports the last sync, updated count and stale count.",
-      "The health check reports whether required environment, Supabase, storage and Vimeo token checks pass."
+      "The health check reports whether required environment, Supabase, storage, Vimeo, Reuters dynamic stream readiness and output token checks pass.",
+      "Operator creation or token rotation writes audit entries and stores only token hashes."
     ],
     links: [
       { label: "Open settings", href: "/admin/settings" },
-      { label: "Open health check", href: "/api/health" }
+      { label: "Open admin health", href: "/admin/health" },
+      { label: "Open health API", href: "/api/health" }
     ]
+  },
+  {
+    id: "admin-health",
+    title: "Admin health",
+    icon: HeartPulse,
+    body: [
+      "The admin health page is an authenticated operator readiness view for production playout.",
+      "Use it before handoff or live operation to verify environment variables, Supabase, storage, Vimeo, Reuters dynamic stream handling, output token and static asset readiness."
+    ],
+    details: [
+      "The page separates failing checks from degraded checks.",
+      "It complements /api/health, which remains the machine-readable smoke endpoint.",
+      "A passing health page does not replace schedule health or the per-day runbook."
+    ],
+    links: [{ label: "Open admin health", href: "/admin/health" }]
   },
   {
     id: "output-control",
@@ -199,7 +222,8 @@ const operatorSections = [
     icon: MonitorPlay,
     body: [
       "The admin output page is an operator control surface for current broadcast status, active source, continuous VLC HLS copy, live observability and stop-broadcast action.",
-      "Stopping broadcast moves the current day back to ready, which prevents the ON AIR state from continuing."
+      "Operators can set a Reuters live override by pasting the current HLS or RTMP endpoint, then return to the schedule when the override is no longer needed.",
+      "Stopping broadcast clears active output overrides and moves the current day back to ready, which prevents the ON AIR state from continuing."
     ],
     links: [{ label: "Open output controls", href: "/admin/output" }]
   }
@@ -259,6 +283,7 @@ const workflowSteps = [
   "Confirm each item is ready and has the right duration, thumbnail and metadata.",
   "Open Schedule from the calendar and create the programming day if it does not exist.",
   "Use Add Block, choose content type, search or filter content, then select the ready asset or slide.",
+  "For Reuters blocks, paste the current Reuters HLS or RTMP endpoint and optional expiry.",
   "Confirm start time and duration. Save the block to the rundown.",
   "Use the Rundown editor to reorder, resize, duplicate, archive or bulk-mark blocks before air.",
   "Assign fallback assets and overlays when needed.",
@@ -266,6 +291,7 @@ const workflowSteps = [
   "Open the operator runbook for the day and complete critical preflight checks.",
   "Mark the day ready, then active when it should drive output.",
   "Open Output and copy the continuous VLC HLS link into VLC.",
+  "If Reuters must go live immediately, set the Reuters output override with the current endpoint, then return to schedule after the live segment.",
   "During live operation, use the output monitor and runbook live checks to verify current block, next block, fallback reason and clock skew.",
   "Use output status routes or block preview for troubleshooting schedule state.",
   "Record incidents in the runbook, then complete shutdown checks and stop broadcast from the output control panel when the day is done."
@@ -298,9 +324,14 @@ export default function ManualPage() {
         </section>
 
         <section className="border-b border-white/10 py-5">
-          <Link className="btn-secondary" href="/pending">
-            Pending developments
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link className="btn-secondary" href="/pending">
+              Pending developments
+            </Link>
+            <Link className="btn-secondary" href="/notion">
+              Notion-style status page
+            </Link>
+          </div>
         </section>
 
         <section className="py-8">
@@ -326,13 +357,29 @@ export default function ManualPage() {
         <section className="mt-10 rounded-lg border border-white/10 bg-surface-elevated-2 p-5">
           <h2 className="text-xl font-semibold">Current Limits and Operating Notes</h2>
           <ul className="mt-4 grid gap-2 text-sm leading-6 text-white/70">
-            <li>Admin authentication is a bootstrap-token flow, not a multi-user role system.</li>
+            <li>
+              Admin authentication is a single-tenant named-operator flow after the readiness
+              migration is applied. Bootstrap-token login remains for emergency admin access.
+            </li>
             <li>The manual and pending backlog are public documentation pages.</li>
             <li>
               Runbook persistence requires the `operator_runbook_checks` Supabase migration in the
               target database.
             </li>
             <li>Browser playout is disabled; VLC HLS is the playback path.</li>
+            <li>Reuters HLS/RTMP endpoints are dynamic and captured per block or live override.</li>
+            <li>
+              If a Reuters endpoint expires or rotates while on air, refresh the block or output
+              override with the new URL.
+            </li>
+            <li>
+              Authenticated Playwright coverage still needs to be expanded for named login, Reuters
+              streams and output override cleanup.
+            </li>
+            <li>
+              Read-only smoke commands need production environment variables loaded, especially
+              OUTPUT_CAPTURE_TOKEN.
+            </li>
             <li>
               Build warnings are expected to be treated as actionable unless explicitly waived.
             </li>

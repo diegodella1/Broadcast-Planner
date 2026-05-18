@@ -43,7 +43,13 @@ describe("GET /api/output/hls", () => {
     process.env = { ...originalEnv }
     process.env.APP_BASE_URL = "https://rtvtime.example"
     process.env.OUTPUT_CAPTURE_TOKEN = "output-token"
-    vi.mocked(requireAdmin).mockResolvedValue(undefined)
+    vi.mocked(requireAdmin).mockResolvedValue({
+      operatorId: "test",
+      handle: "test",
+      displayName: "Test Operator",
+      role: "admin",
+      sessionId: "test-session"
+    })
     vi.mocked(isOutputRequestAllowed).mockResolvedValue(true)
     vi.mocked(getLiveSchedule).mockResolvedValue(liveSchedule(videoAsset))
     vi.mocked(getVimeoToken).mockResolvedValue("vimeo-token")

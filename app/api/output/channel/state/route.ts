@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 
 import { appUrl } from "@/lib/app-url"
 import { getLiveSchedule } from "@/lib/data"
+import { getLatestMusicPreference } from "@/lib/operator-preferences"
+import { getActiveOutputOverride } from "@/lib/output-overrides"
 import { isOutputRequestAllowed, outputAccessDeniedReason } from "@/lib/output-auth"
 import { findActiveSchedule } from "@/lib/scheduler"
 import { getVimeoToken } from "@/lib/settings"
@@ -21,6 +23,25 @@ export async function GET(request: Request) {
     const timezone = bundle.day?.timezone ?? PLAYOUT_TIMEZONE
     const secondsOfDay = secondsSinceMidnightInTimezone(now, timezone)
     const active = findActiveSchedule(bundle, secondsOfDay)
+    const override = await getActiveOutputOverride(bundle.day?.id)
+    const music = await backgroundMusicForActive(bundle, active)
+    if (bundle.day && override?.sourceType === "reuters" && override.streamUrl) {
+      return NextResponse.json(
+        {
+          kind: "hls",
+          signature: `reuters-override:${override.id}:${override.updatedAt}`,
+          blockId: override.blockId,
+          title: override.label ?? "Reuters live",
+          hlsUrl: override.streamUrl,
+          startOffsetSeconds: 0,
+          durationSeconds: null,
+          sourceType: "reuters",
+          streamProtocol: override.streamProtocol,
+          backgroundMusic: null
+        },
+        { headers: { "Cache-Control": "no-store" } }
+      )
+    }
 
     if (!bundle.day || !active.block) {
       return NextResponse.json(fallbackState("no-active-block"), {
@@ -29,6 +50,24 @@ export async function GET(request: Request) {
     }
 
     const startOffsetSeconds = Math.max(0, Math.floor(active.elapsedInBlock))
+    const reutersUrl = metadataText(active.block.metadata, "reuters_stream_url")
+    if (reutersUrl) {
+      return NextResponse.json(
+        {
+          kind: "hls",
+          signature: `reuters:${active.block.id}:${metadataText(active.block.metadata, "reuters_stream_refreshed_at")}`,
+          blockId: active.block.id,
+          title: metadataText(active.block.metadata, "reuters_stream_label") || active.block.title,
+          hlsUrl: reutersUrl,
+          startOffsetSeconds: 0,
+          durationSeconds: active.block.durationSeconds,
+          sourceType: "reuters",
+          streamProtocol: metadataText(active.block.metadata, "reuters_stream_protocol") || "hls",
+          backgroundMusic: null
+        },
+        { headers: { "Cache-Control": "no-store" } }
+      )
+    }
     const token = searchParams.get("token") ?? process.env.OUTPUT_CAPTURE_TOKEN ?? ""
     if (active.slide?.templateId) {
       const renderUrl = appUrl(`/output/slide/${active.slide.id}`)
@@ -43,7 +82,8 @@ export async function GET(request: Request) {
           templateId: active.slide.templateId,
           renderUrl: renderUrl.toString(),
           startOffsetSeconds,
-          durationSeconds: active.block.durationSeconds
+          durationSeconds: active.block.durationSeconds,
+          backgroundMusic: music
         },
         { headers: { "Cache-Control": "no-store" } }
       )
@@ -63,7 +103,8 @@ export async function GET(request: Request) {
             title: playback.title || active.asset.title,
             hlsUrl: playback.hlsUrl,
             startOffsetSeconds,
-            durationSeconds: playback.durationSeconds || active.asset.durationSeconds
+            durationSeconds: playback.durationSeconds || active.asset.durationSeconds,
+            backgroundMusic: null
           },
           { headers: { "Cache-Control": "no-store" } }
         )
@@ -78,7 +119,8 @@ export async function GET(request: Request) {
             title: active.asset.title,
             hlsUrl: active.asset.url,
             startOffsetSeconds,
-            durationSeconds: active.asset.durationSeconds
+            durationSeconds: active.asset.durationSeconds,
+            backgroundMusic: null
           },
           { headers: { "Cache-Control": "no-store" } }
         )
@@ -99,6 +141,40 @@ function fallbackState(reason: string) {
     kind: "fallback",
     signature: `fallback:${reason}`,
     reason,
-    title: "RTV fallback"
+    title: "RTV fallback",
+    backgroundMusic: null
+  }
+}
+
+function metadataText(metadata: Record<string, unknown> | null | undefined, key: string) {
+  const value = metadata?.[key]
+  return typeof value === "string" ? value : ""
+}
+
+async function backgroundMusicForActive(
+  bundle: Awaited<ReturnType<typeof getLiveSchedule>>,
+  active: ReturnType<typeof findActiveSchedule>
+) {
+  const eligible =
+    active.block?.blockType === "image" ||
+    active.block?.blockType === "slide" ||
+    Boolean(active.slide) ||
+    active.asset?.mediaKind === "image"
+  if (!eligible) return null
+  const preference = await getLatestMusicPreference()
+  if (!preference.enabled) return null
+  const tracks = bundle.mediaAssets
+    .filter((asset) => asset.assetType === "music" && asset.status === "ready" && asset.url)
+    .map((asset) => ({
+      id: asset.id,
+      title: asset.title,
+      url: asset.url!
+    }))
+  if (!tracks.length) return null
+  return {
+    enabled: true,
+    volume: preference.volume,
+    fade: preference.fade,
+    tracks
   }
 }

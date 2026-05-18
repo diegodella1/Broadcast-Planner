@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 import { recordAuditEvent } from "@/lib/audit"
 import { requireAdmin } from "@/lib/auth"
 import { verifyCsrfToken } from "@/lib/csrf"
+import { assertRateLimit, rateLimitErrorResponse } from "@/lib/rate-limit"
 import { getReutersClient, type ReutersChannel } from "@/lib/reuters"
 import { createServiceClient } from "@/lib/supabase/server"
 
@@ -72,6 +73,7 @@ export async function GET(): Promise<NextResponse> {
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     await requireAdmin()
+    await assertRateLimit({ scope: "api:reuters:sync", request, limit: 20, windowSeconds: 60 })
     await verifyCsrfToken(request)
     const client = await getReutersClient()
     const channels = await client.listLiveChannels()
@@ -127,6 +129,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401, headers: { "Cache-Control": "no-store" } }
+      )
+    }
+    if (error instanceof Error && error.message === "Rate limit exceeded") {
+      const { retryAfterSeconds } = rateLimitErrorResponse(error)
+      return NextResponse.json(
+        { error: "Rate limit exceeded" },
+        {
+          status: 429,
+          headers: { "Cache-Control": "no-store", "Retry-After": String(retryAfterSeconds) }
+        }
       )
     }
     if (error instanceof Error && error.message === "Invalid CSRF token") {

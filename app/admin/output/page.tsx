@@ -6,18 +6,26 @@ import { StopBroadcastButton } from "@/components/stop-broadcast-button"
 import { PrimaryActionPanel, StatusBanner } from "@/components/ui"
 import { recordAuditEvent } from "@/lib/audit"
 import { getLiveSchedule } from "@/lib/data"
+import { collectOperatorHealth } from "@/lib/health-checks"
 import { updateProgramDayStatus } from "@/lib/mutations"
+import {
+  clearOutputOverride,
+  getActiveOutputOverride,
+  setReutersOutputOverride
+} from "@/lib/output-overrides"
 import { liveOutputHref } from "@/lib/output-auth"
 import { findActiveSchedule } from "@/lib/scheduler"
 import { createDaySchema } from "@/lib/schemas"
 import { secondsSinceMidnightInTimezone, isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
 
 export default async function AdminOutputPage() {
-  const [t, tOps, liveBundle] = await Promise.all([
+  const [t, tOps, liveBundle, healthReport] = await Promise.all([
     getTranslations(),
     getTranslations("ops"),
-    getLiveSchedule()
+    getLiveSchedule(),
+    collectOperatorHealth()
   ])
+  const outputOverride = await getActiveOutputOverride(liveBundle.day?.id)
 
   const nowSeconds = secondsSinceMidnightInTimezone(new Date())
   const active = findActiveSchedule(liveBundle, nowSeconds)
@@ -75,6 +83,15 @@ export default async function AdminOutputPage() {
       : null,
     fallback: active.fallbackAsset ? { title: active.fallbackAsset.title } : null,
     fallbackReason: active.reason ?? null,
+    override: outputOverride
+      ? {
+          id: outputOverride.id,
+          sourceType: outputOverride.sourceType,
+          label: outputOverride.label ?? null,
+          streamProtocol: outputOverride.streamProtocol ?? null,
+          expiresAt: outputOverride.expiresAt ?? null
+        }
+      : null,
     mediaError:
       active.asset?.sourceType === "vimeo" && active.asset.playbackReadinessStatus === "failed"
         ? (active.asset.playbackError ?? "Vimeo playback failed")
@@ -87,7 +104,7 @@ export default async function AdminOutputPage() {
     if (!dayDate) return
     const parsed = createDaySchema.safeParse({ date: dayDate })
     if (!parsed.success) return
-    // TODO: if a manual override block concept is introduced, clear it here
+    if (dayId) await clearOutputOverride(dayId)
     await updateProgramDayStatus({
       date: parsed.data.date,
       status: "ready",
@@ -101,8 +118,38 @@ export default async function AdminOutputPage() {
     })
   }
 
+  async function setReutersOverride(formData: FormData) {
+    "use server"
+    if (!dayId) return
+    await setReutersOutputOverride({
+      programDayId: dayId,
+      streamUrl: String(formData.get("stream_url") || ""),
+      label: String(formData.get("label") || "Reuters live"),
+      expiresAt: String(formData.get("expires_at") || "")
+    })
+  }
+
+  async function clearOverride() {
+    "use server"
+    if (!dayId) return
+    await clearOutputOverride(dayId)
+  }
+
   return (
     <AdminShell title={t("chrome.output")} description={t("schedule.broadcast")}>
+      {healthReport.status !== "ok" ? (
+        <StatusBanner
+          tone={healthReport.status === "fail" ? "danger" : "warn"}
+          label="Broadcast health"
+          title={healthReport.status === "fail" ? "Production health failing" : "Output degraded"}
+          detail="Open Admin Health before handoff or unattended operation."
+          action={
+            <a className="btn-secondary" href="/admin/health">
+              Admin Health
+            </a>
+          }
+        />
+      ) : null}
       <PrimaryActionPanel
         eyebrow="Official playback"
         title="Use VLC with the continuous HLS link"
@@ -209,6 +256,40 @@ export default async function AdminOutputPage() {
             <p className="mt-1 text-[11px] leading-4 text-white/40">
               Change the active source from the scheduled block when needed.
             </p>
+            {outputOverride ? (
+              <div className="mt-2 rounded-md border border-info-line bg-info-soft px-2 py-2 text-[11px] text-white/70">
+                Override: {outputOverride.label ?? outputOverride.sourceType}
+              </div>
+            ) : null}
+          </ControlSection>
+
+          <ControlSection title="Reuters source">
+            <form action={setReutersOverride} className="grid gap-2">
+              <input
+                name="label"
+                placeholder="Reuters live"
+                className="border border-line px-2 py-1 text-xs text-ink"
+              />
+              <input
+                name="stream_url"
+                required
+                placeholder="HLS .m3u8 or RTMP URL"
+                className="border border-line px-2 py-1 text-xs text-ink"
+              />
+              <input
+                name="expires_at"
+                type="datetime-local"
+                className="border border-line px-2 py-1 text-xs text-ink"
+              />
+              <button className="btn-secondary min-h-8 px-2 text-xs">Set Reuters live</button>
+            </form>
+            {outputOverride ? (
+              <form action={clearOverride} className="mt-2">
+                <button className="btn-secondary min-h-8 w-full px-2 text-xs">
+                  Return to schedule
+                </button>
+              </form>
+            ) : null}
           </ControlSection>
 
           <ControlSection title="Actions">

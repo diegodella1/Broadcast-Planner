@@ -4,12 +4,14 @@ import { appUrl } from "@/lib/app-url"
 import { recordAuditEvent } from "@/lib/audit"
 import { requireAdmin } from "@/lib/auth"
 import { verifyCsrfToken } from "@/lib/csrf"
+import { assertRateLimit, rateLimitErrorResponse } from "@/lib/rate-limit"
 import { getVimeoSettings, getVimeoToken, recordVimeoSyncStatus } from "@/lib/settings"
 import { syncVimeoCatalog } from "@/lib/vimeo"
 
 export async function POST(request: Request) {
   try {
     await requireAdmin()
+    await assertRateLimit({ scope: "api:vimeo:sync", request, limit: 10, windowSeconds: 60 })
     await verifyCsrfToken(request)
     const form = await request.formData().catch(() => new FormData())
     const returnTo = String(form.get("return_to") ?? "")
@@ -52,6 +54,13 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
+    }
+    if (error instanceof Error && error.message === "Rate limit exceeded") {
+      const { retryAfterSeconds } = rateLimitErrorResponse(error)
+      return NextResponse.json(
+        { ok: false, error: "Rate limit exceeded" },
+        { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
+      )
     }
     const message = errorMessage(error)
     await recordAuditEvent({

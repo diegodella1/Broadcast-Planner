@@ -3,6 +3,7 @@ import {
   CalendarDays,
   Clapperboard,
   LayoutDashboard,
+  NotebookTabs,
   MonitorPlay,
   Music,
   ListChecks,
@@ -53,6 +54,12 @@ export default function HomePage() {
       href: "/manual",
       detail: "Current guide for operators, output users and public-facing routes.",
       icon: BookOpen
+    },
+    {
+      label: "Status guide",
+      href: "/notion",
+      detail: "Notion-style page for operation flow, current state and release gates.",
+      icon: NotebookTabs
     },
     {
       label: "Pending",

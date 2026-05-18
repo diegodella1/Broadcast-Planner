@@ -3,6 +3,7 @@ import Link from "next/link"
 import { AdminShell } from "@/components/admin-shell"
 import { CsrfInput } from "@/components/csrf-input"
 import { FormHeader, MetricTile, Notice } from "@/components/ui"
+import { createOperator, listOperators } from "@/lib/operators"
 import { getVimeoSettings, getVimeoToken } from "@/lib/settings"
 import { PLAYOUT_TIMEZONE } from "@/lib/time"
 
@@ -14,11 +15,25 @@ export default async function SettingsPage({
   searchParams: Promise<{ saved?: string }>
 }) {
   const params = await searchParams
-  const [settings, token] = await Promise.all([getVimeoSettings(), getVimeoToken()])
+  const [settings, token, operators] = await Promise.all([
+    getVimeoSettings(),
+    getVimeoToken(),
+    listOperators().catch(() => [])
+  ])
   const currentTimezone = String(settings?.publicConfig.timezone ?? PLAYOUT_TIMEZONE)
   const lastSyncAt = settingText(settings?.publicConfig.last_sync_at) || "Never"
   const lastSyncCount = settingText(settings?.publicConfig.last_sync_count) || "0"
   const lastSyncStaleCount = settingText(settings?.publicConfig.last_sync_stale_count) || "0"
+
+  async function addOperator(formData: FormData) {
+    "use server"
+    await createOperator({
+      handle: String(formData.get("handle") || ""),
+      displayName: String(formData.get("display_name") || ""),
+      role: String(formData.get("role") || "operator"),
+      token: String(formData.get("token") || "")
+    })
+  }
 
   return (
     <AdminShell
@@ -112,6 +127,57 @@ export default async function SettingsPage({
         </label>
         <button className="btn-primary mt-5">Save settings</button>
       </form>
+
+      <section className="surface-panel mt-5 max-w-2xl p-5">
+        <FormHeader
+          title="Single-tenant operators"
+          detail="Create named operators for audit identity. Use this form to create or rotate an operator token."
+        />
+        <form action={addOperator} className="mt-4 grid gap-3 md:grid-cols-2">
+          <input
+            name="handle"
+            required
+            placeholder="operator-handle"
+            className="border border-line px-3 py-2 text-sm"
+          />
+          <input
+            name="display_name"
+            required
+            placeholder="Display name"
+            className="border border-line px-3 py-2 text-sm"
+          />
+          <select
+            name="role"
+            defaultValue="operator"
+            className="border border-line px-3 py-2 text-sm"
+          >
+            <option value="operator">Operator</option>
+            <option value="admin">Admin</option>
+          </select>
+          <input
+            name="token"
+            type="password"
+            required
+            placeholder="Initial token"
+            className="border border-line px-3 py-2 text-sm"
+          />
+          <button className="btn-primary md:col-span-2">Create or rotate operator</button>
+        </form>
+        <div className="mt-4 grid gap-2">
+          {operators.map((operator) => (
+            <div
+              key={operator.id}
+              className="grid gap-2 rounded-md border border-line bg-panel-soft px-3 py-2 text-sm md:grid-cols-[1fr_120px_100px]"
+            >
+              <span>
+                {operator.displayName} ({operator.handle})
+              </span>
+              <span className="text-muted">{operator.role}</span>
+              <span className="text-muted">{operator.status}</span>
+            </div>
+          ))}
+        </div>
+      </section>
     </AdminShell>
   )
 }
