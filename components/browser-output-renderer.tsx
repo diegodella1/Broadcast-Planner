@@ -227,6 +227,9 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
 
   const outputState = state?.kind === "fallback" ? "fallback" : state ? "program" : "loading"
   const expected = state && "startOffsetSeconds" in state ? expectedOffset(state) : 0
+  const driftSeconds =
+    state && isVideoState(state) && mediaState === "playing" ? Math.abs(currentTime - expected) : 0
+  const driftWarning = driftSeconds > 5
 
   return (
     <main
@@ -236,6 +239,8 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
       data-media-state={mediaState}
       data-current-time={Math.floor(currentTime)}
       data-expected-offset={Math.floor(expected)}
+      data-drift-seconds={driftSeconds.toFixed(2)}
+      data-drift-warning={driftWarning ? "true" : "false"}
     >
       <video ref={videoRef} className={videoClassName(state)} />
       <audio ref={musicRef} />
@@ -267,6 +272,8 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
               mediaState,
               currentTime: Math.floor(currentTime),
               expectedOffset: Math.floor(expected),
+              driftSeconds: Number(driftSeconds.toFixed(2)),
+              driftWarning,
               error
             },
             null,

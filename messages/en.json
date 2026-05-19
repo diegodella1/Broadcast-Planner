@@ -14,7 +14,7 @@
       },
       "outputLive": {
         "label": "Output",
-        "description": "Status and HLS copy for VLC."
+        "description": "Browser output for OBS/vMix."
       }
     }
   },

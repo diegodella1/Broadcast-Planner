@@ -24,18 +24,20 @@ export async function GET(request: Request) {
       ? await getPlaybackScheduleForBlock(previewBlockId)
       : await getLiveSchedule(now)
     const timezone = bundle.day?.timezone ?? PLAYOUT_TIMEZONE
-    const requestedStartAt = Number(searchParams.get("startAt"))
+    const startAtParam = searchParams.get("startAt")
+    const requestedStartAt = startAtParam === null ? null : Number(startAtParam)
+    const hasRequestedStartAt = requestedStartAt !== null && Number.isFinite(requestedStartAt)
     const secondsOfDay = previewBlockId
       ? (bundle.blocks.find((block) => block.id === previewBlockId)?.startTimeSeconds ?? 0) +
-        (Number.isFinite(requestedStartAt) ? Math.max(0, requestedStartAt) : 0)
-      : Number.isFinite(requestedStartAt)
+        (hasRequestedStartAt ? Math.max(0, requestedStartAt) : 0)
+      : hasRequestedStartAt
         ? requestedStartAt
         : secondsSinceMidnightInTimezone(now, timezone)
     const active = previewBlockId
       ? previewActiveSchedule(
           bundle,
           previewBlockId,
-          Number.isFinite(requestedStartAt) ? Math.max(0, requestedStartAt) : 0
+          hasRequestedStartAt ? Math.max(0, requestedStartAt) : 0
         )
       : findActiveSchedule(bundle, secondsOfDay)
     const override = await getActiveOutputOverride(bundle.day?.id)

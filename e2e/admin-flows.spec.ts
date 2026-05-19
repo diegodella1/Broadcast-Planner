@@ -54,7 +54,9 @@ test.describe("authenticated admin flows", () => {
 
   test("output page exposes control and health surfaces", async ({ page }) => {
     await page.goto("/admin/output")
-    await expect(page.getByText(/VLC|HLS/i).first()).toBeVisible()
+    await expect(
+      page.getByText(/Browser Output|Live Browser Output|OBS|vMix/i).first()
+    ).toBeVisible()
     await expect(page.getByText(/Stop broadcast|Detener broadcast/i).first()).toBeVisible()
   })
 

@@ -27,10 +27,10 @@ export function OutputStub({
     >
       <section className="w-full max-w-5xl px-10 py-12">
         <p className="text-xs font-bold uppercase tracking-[0.28em] text-emerald-300">{label}</p>
-        <h1 className="mt-4 text-5xl font-semibold tracking-normal">Browser playout disabled</h1>
+        <h1 className="mt-4 text-5xl font-semibold tracking-normal">Legacy output status</h1>
         <p className="mt-4 max-w-3xl text-lg leading-8 text-zinc-300">
-          Use the fresh HLS link from Admin Output in VLC for playback. This route stays online for
-          status checks and compatibility only.
+          Use Live Browser Output from Admin Output for OBS or vMix capture. This legacy surface
+          stays online for status checks and compatibility only.
         </p>
         <dl className="mt-8 grid gap-3 rounded border border-white/10 bg-white/[0.04] p-5 text-sm md:grid-cols-2">
           <Metric label="Clock" value={formatTimecode(secondsOfDay)} />
@@ -47,7 +47,7 @@ export function OutputStub({
               "mediaState: disabled",
               `mediaAssetId: ${active.asset?.id ?? "none"}`,
               `fallback: ${active.fallbackAsset?.title ?? "none"}`,
-              "playback: VLC HLS only"
+              "playback: browser output primary"
             ].join("\n")}
           </pre>
         ) : null}

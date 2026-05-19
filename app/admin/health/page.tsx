@@ -58,6 +58,30 @@ export default async function AdminHealthPage() {
           <HealthRow key={check.id} check={check} />
         ))}
       </section>
+
+      <section className="surface-panel mt-5 p-5">
+        <p className="eyebrow text-accent-positive">Go Live Drill</p>
+        <h2 className="mt-2 text-2xl font-semibold">Browser output certification</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
+          Run this on the actual OBS/vMix capture machine before trusting the browser output path. A
+          normal Chrome test is useful, but it does not certify the capture runtime.
+        </p>
+        <ol className="mt-4 grid gap-2 text-sm text-muted md:grid-cols-2">
+          {[
+            "Today has an active program day and a block covering the current playout time.",
+            "Open Browser Output from Admin Output on the capture machine.",
+            "Click Start Output and confirm video plus audio in OBS/vMix.",
+            "Reload mid-video, click Start Output again if shown, and confirm the video resumes near the expected time.",
+            "Open a slide block or preview and confirm it renders in the capture runtime.",
+            "Force or simulate bad media and confirm approved fallback appears.",
+            "Confirm debug output shows low drift: currentTime within 2 seconds of expectedOffset."
+          ].map((item) => (
+            <li key={item} className="rounded-md border border-line bg-panel-soft p-3">
+              {item}
+            </li>
+          ))}
+        </ol>
+      </section>
     </AdminShell>
   )
 }

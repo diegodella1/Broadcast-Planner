@@ -1,6 +1,6 @@
 # RTV-TL-MANAGER — Operator User Guide
 
-Internal playout / lineup manager for Roxom TV. Programs the on-air day, manages assets, and exposes fresh HLS links for VLC playback.
+Internal playout / lineup manager for Roxom TV. Programs the on-air day, manages assets, and exposes browser output for OBS or vMix capture.
 
 > **Audience**: Roxom TV operators (producer, director, on-air ops). Read-only roles can browse but not mutate. Bootstrap auth = single token until multi-operator lands.
 
@@ -27,7 +27,7 @@ The app is served from the domain root. Old `/rtvtime/...` links redirect to roo
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Sidebar**            | Left navigation for Dashboard, Control, Programming, Library, Vimeo, Graphics, Music, Audit and Integrations. Active route is highlighted. |
 | **Header**             | Page title, page description and primary action for the current admin screen.                                                              |
-| **Output card**        | Sidebar shortcut opens `/admin/output`, where operators copy the active HLS link for VLC.                                                  |
+| **Output card**        | Sidebar shortcut opens `/admin/output`, where operators launch Live Browser Output for capture.                                            |
 | **Outage / health UI** | Health endpoints and schedule health panels show Supabase, storage, Vimeo and programming risks.                                           |
 
 ---
@@ -224,28 +224,28 @@ All animations gated by `prefers-reduced-motion: reduce` — operators with redu
 
 ## 8. Output panel (`/admin/output`)
 
-The operator's broadcast cockpit and the source of the active HLS link for VLC playback.
+The operator's broadcast cockpit and the launcher for browser output playback.
 
 | Section               | What                                                                                                                                                                         |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ON AIR / OFF AIR pill | Red pulsing when broadcasting, dim when not.                                                                                                                                 |
 | Broadcast status      | Live / Paused / Idle text.                                                                                                                                                   |
 | Observability         | Polls current block, asset, fallback reason, media/Vimeo errors and clock skew from `/api/output/monitor`.                                                                   |
-| HLS copy              | Generates and copies a fresh signed Vimeo HLS URL for VLC.                                                                                                                   |
+| Live browser output   | Opens the protected `/output/live` browser renderer for OBS or vMix capture.                                                                                                 |
 | Source switcher       | Currently a stubbed select (Vimeo / Reuters / Slide / HLS / Remote image) — wire to real mutation in §11.5.                                                                  |
 | **Stop broadcast**    | Big red button. Click → `confirm()` modal → server action flips `ProgramDay.status` to `"ready"` and clears any manual override block. Disabled when no broadcast is active. |
 
 ---
 
-## 9. Output status route (`/output/live`)
+## 9. Live output route (`/output/live`)
 
-This route is status-only compatibility. It does not render media playback.
+This route renders active schedule playback for browser capture. It supports Vimeo, direct video URLs, images, slides and fallback assets.
 
-For playback, copy the active HLS URL from `/admin/output` and open it in VLC as a network stream.
+For playback, open Live Browser Output from `/admin/output`, click Start Output to unlock browser audio, then capture that browser window in OBS or vMix.
 
 Production output is protected by `OUTPUT_CAPTURE_TOKEN`. Normal admin flow uses `/api/output/session`, sets an `HttpOnly` `rpm_output_token` cookie, then redirects to `/output/live`. Direct `?token=` access remains for scripts and first-time capture bootstrap only.
 
-Append `?debug=true` to see clock, block, asset and fallback status. Useful for staging.
+Append `?debug=true` to see clock, block, asset, fallback, drift and media status. Useful for staging.
 
 ---
 
@@ -351,7 +351,7 @@ Form fields: client ID · client secret · refresh token (all encrypted).
 
 #### 11.12 Output (broadcast composition)
 
-- ✅ HLS copy for VLC playback.
+- ✅ Browser output for OBS/vMix capture.
 - ❌ vMix integration via NDI / RTSP.
 - ❌ Output recording (local DVR).
 - ❌ Multiple bitrate streams (low-bandwidth + HD).
@@ -447,7 +447,7 @@ Topbar → locale toggle → click EN or ES. Page refreshes; cookie `NEXT_LOCALE
 - **MediaAsset**: a piece of source content (video, image, graphic). Source types: `vimeo`, `reuters`, `supabase_image`, `remote_image`, `remote_mp4`, `hls`.
 - **SlideAsset**: editorial slide content (template, image, html, markdown). Distinct from `MediaAsset`.
 - **ProgramDay**: a date's worth of programming. Status: `draft` → `ready` → `active` → `archived`.
-- **Output status route**: the `/output/live` URL that reports active block status. VLC HLS is the playback path.
+- **Live output route**: the `/output/live` URL that renders active block playback for OBS or vMix browser capture.
 - **Operations panel**: the right rail on the schedule page. Where operators control live state.
 - **Manual broadcast**: an operator-initiated override that pre-empts the scheduled grid. Inserts a `ProgramBlock` with `category=broadcast` at the current second (or scheduled time).
 - **Manual override block**: a block created via Manual broadcast. Cleared when Stop broadcast fires.

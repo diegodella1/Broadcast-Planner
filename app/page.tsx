@@ -46,7 +46,7 @@ export default function HomePage() {
     {
       label: "Output control",
       href: "/admin/output",
-      detail: "Current block status and HLS link for VLC playback.",
+      detail: "Open browser output for OBS/vMix capture and monitor current signal.",
       icon: MonitorPlay
     },
     {

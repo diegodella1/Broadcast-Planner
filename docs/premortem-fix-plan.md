@@ -4,7 +4,7 @@ Goal: close the P0/P1 failure modes from `premortem-report-20260510-203403.html`
 
 ## Gate 1: Prove Real Playout, Not Just HTTP
 
-Status: superseded by the VLC HLS workflow. Production output status smoke passes against the public tunnel.
+Status: superseded by the browser output workflow. Production output smoke now targets real browser rendering through the public tunnel.
 
 - Add `@playwright/test` and replace the Node-only `npm run e2e` with Playwright smoke.
 - Test `/output/live` status route against local production build and the public
@@ -14,13 +14,13 @@ Status: superseded by the VLC HLS workflow. Production output status smoke passe
   - branded fallback slate renders intentionally
   - schedule unavailable emergency slate renders with explicit reason
 - Capture screenshot and assert nonblack/nonblank pixels.
-- Keep output status checks focused on schedule, auth and HLS availability.
+- Keep output checks focused on schedule, auth, media rendering, fallback and drift visibility.
 - Keep Node smoke as `npm run smoke:http` for fast endpoint checks.
 
 Acceptance:
 
 - `npm run e2e` proves the protected output status route renders.
-- CI runs HTTP smoke; release checklist verifies HLS copy against production/staging.
+- CI runs HTTP smoke; release checklist verifies browser output against production/staging.
 
 ## Gate 2: Replace Query Token With Output Session
 

@@ -259,7 +259,7 @@ export default async function AssetsPage({
               </span>
               <FormHeader
                 title="Import Vimeo episode"
-                detail="Recommended for shows. Paste a Vimeo URL or ID; the episode is added to Library Videos and playback is verified for VLC output."
+                detail="Recommended for shows. Paste a Vimeo URL or ID; the episode is added to Library Videos and playback is verified for browser output."
               />
             </div>
             <form

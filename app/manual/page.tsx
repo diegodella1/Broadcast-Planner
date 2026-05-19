@@ -23,8 +23,8 @@ const operatorSections = [
     title: "Dashboard",
     icon: Activity,
     body: [
-      "The dashboard is the operator starting point. It shows the next recommended action and keeps the three-step operator path visible: Library, Schedule, VLC Output.",
-      "Use it before a broadcast to identify missing content, timing gaps, warnings, and whether today's schedule is ready to test in VLC."
+      "The dashboard is the operator starting point. It shows the next recommended action and keeps the three-step operator path visible: Library, Schedule, Browser Output.",
+      "Use it before a broadcast to identify missing content, timing gaps, warnings, and whether today's schedule is ready to test in OBS or vMix browser capture."
     ],
     links: [{ label: "Open dashboard", href: "/admin" }]
   },
@@ -161,9 +161,9 @@ const operatorSections = [
       "Reuters streams are dynamic: paste the current HLS or RTMP endpoint when scheduling Reuters or setting a live override."
     ],
     details: [
-      "Vimeo output uses direct HLS links copied from Admin Output and opened in VLC.",
+      "Vimeo output resolves browser-ready playback inside the protected output route.",
       "Reuters URLs are stored as per-airing snapshots on the block or output override. Refresh the URL if the Reuters endpoint rotates or expires.",
-      "Browser playout is disabled and kept only as a status route."
+      "OBS and vMix should capture the live browser output after the operator clicks Start Output to unlock audio."
     ]
   },
   {
@@ -221,7 +221,7 @@ const operatorSections = [
     title: "Output control panel",
     icon: MonitorPlay,
     body: [
-      "The admin output page is an operator control surface for current broadcast status, active source, continuous VLC HLS copy, live observability and stop-broadcast action.",
+      "The admin output page is an operator control surface for current broadcast status, active source, browser capture launch, live observability and stop-broadcast action.",
       "Operators can set a Reuters live override by pasting the current HLS or RTMP endpoint, then return to the schedule when the override is no longer needed.",
       "Stopping broadcast clears active output overrides and moves the current day back to ready, which prevents the ON AIR state from continuing."
     ],
@@ -242,16 +242,16 @@ const publicSections = [
   },
   {
     id: "live-output",
-    title: "Output status route",
+    title: "Live browser output",
     icon: MonitorPlay,
     body: [
-      "The live output route is now a status-only compatibility surface.",
-      "Actual playback should use the continuous HLS link copied from Admin Output and opened in VLC."
+      "The live output route renders the current active schedule as browser playout for OBS or vMix capture.",
+      "If the page reloads mid-show, it asks the server for the current block and seeks media to the correct elapsed time before playback resumes."
     ],
     details: [
-      "Normal admin launches can still go through /api/output/session for compatibility.",
-      "Direct ?token= access remains for scripts and status checks only.",
-      "The route does not render video, audio, overlays or fallback media."
+      "Normal admin launches mint the protected output cookie before opening /output/live.",
+      "Direct ?token= access remains for setup scripts and status checks only.",
+      "A visible Start Output overlay is expected after fresh load or reload because browsers block autoplay audio until a user gesture unlocks it."
     ],
     links: [
       { label: "Open output controls", href: "/admin/output" },
@@ -263,8 +263,8 @@ const publicSections = [
     title: "Preview output",
     icon: Clapperboard,
     body: [
-      "Preview routes show status for a specific block independently from the current clock.",
-      "They do not render media playback; use VLC HLS for media playback."
+      "Preview routes render a specific block independently from the current clock.",
+      "Use preview to certify Vimeo video, direct video, image and slide playback before marking the day active."
     ]
   },
   {
@@ -290,7 +290,7 @@ const workflowSteps = [
   "Review schedule health until critical items are clear.",
   "Open the operator runbook for the day and complete critical preflight checks.",
   "Mark the day ready, then active when it should drive output.",
-  "Open Output and copy the continuous VLC HLS link into VLC.",
+  "Open Output, launch Live Browser Output, then capture that browser window in OBS or vMix.",
   "If Reuters must go live immediately, set the Reuters output override with the current endpoint, then return to schedule after the live segment.",
   "During live operation, use the output monitor and runbook live checks to verify current block, next block, fallback reason and clock skew.",
   "Use output status routes or block preview for troubleshooting schedule state.",
@@ -312,14 +312,14 @@ export default function ManualPage() {
           <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
             Public English guide for operators, producers, engineers and output viewers. This page
             is available outside admin login. The app programs the broadcast day, validates the
-            signal and provides the continuous HLS link used by VLC.
+            signal and provides protected browser playout for OBS and vMix capture.
           </p>
         </header>
 
         <section className="grid gap-3 border-b border-white/10 py-6 md:grid-cols-4">
           <ManualMetric label="Base path" value="/" />
           <ManualMetric label="Manual access" value="Public" />
-          <ManualMetric label="Playback" value="VLC HLS" />
+          <ManualMetric label="Playback" value="Browser output" />
           <ManualMetric label="Data store" value="Supabase" />
         </section>
 
@@ -366,7 +366,10 @@ export default function ManualPage() {
               Runbook persistence requires the `operator_runbook_checks` Supabase migration in the
               target database.
             </li>
-            <li>Browser playout is disabled; VLC HLS is the playback path.</li>
+            <li>
+              Browser playout is the primary playback path; legacy HLS routes remain only for
+              compatibility checks.
+            </li>
             <li>Reuters HLS/RTMP endpoints are dynamic and captured per block or live override.</li>
             <li>
               If a Reuters endpoint expires or rotates while on air, refresh the block or output
