@@ -1,6 +1,6 @@
 # RTV TL Manager
 
-RTV TL Manager is Roxom TV's internal playout management app. It is used to program the broadcast day, organize media and slides, validate scheduling problems, and expose fresh HLS links for VLC playback.
+RTV TL Manager is Roxom TV's internal playout management app. It is used to program the broadcast day, organize media and slides, validate scheduling problems, and drive a browser output surface for OBS/vMix capture.
 
 Core idea:
 
@@ -18,7 +18,7 @@ This is not a consumer video website or a public media catalog. It is an operati
 - Manages slides and graphic content used by the rundown.
 - Generates long schedule grids for broadcast programming.
 - Checks schedule health: gaps, overlaps, missing assets, unready assets, and missing fallback.
-- Exposes protected output status routes and HLS copy controls for VLC playback.
+- Exposes protected browser output and preview routes for OBS/vMix capture.
 - Keeps audit records for broadcast-critical mutations.
 - Stores data in Supabase.
 - Provides unit, HTTP smoke, and Playwright status tests.
@@ -49,9 +49,9 @@ This is not a consumer video website or a public media catalog. It is an operati
 - `/admin/settings` - integrations and app settings
 - `/manual` - public English operation and usage manual
 - `/pending` - public English backlog, current functionality and production readiness notes
-- `/output/live` - status-only compatibility output
-- `/output/[timelineId]` - status-only timeline compatibility output
-- `/output/preview/[blockId]` - status-only block preview output
+- `/output/live` - fullscreen browser playout output
+- `/output/[timelineId]` - timeline compatibility output
+- `/output/preview/[blockId]` - fullscreen block preview output
 - `/api/health` - app health check
 
 The app is configured for the domain root. Old `/rtvtime/...` links redirect to root paths.
@@ -165,12 +165,12 @@ Production container health check:
 
 - Admin screens are for operators, producers, and content administrators.
 - Public documentation is available without login at `/manual` and `/pending`; admin actions still require `/admin/login`.
-- Normal operator workflow is: Library -> Schedule -> VLC Output.
+- Normal operator workflow is: Library -> Schedule -> Browser Output.
 - To schedule a show, first upload media or sync Vimeo in Library, then open `/admin/calendar`, pick the day, and use Add Block on the schedule.
 - Use the Rundown editor on `/admin/schedule/[date]` for drag reorder, keyboard moves, 5-minute resize, duplicate, archive and bulk status. These edits are audited and still go through server conflict checks plus the database overlap trigger.
 - Before going live, open `/admin/runbook/[date]` and complete critical preflight checks. Runbook checks and notes persist per program day in Supabase and are written to audit.
 - Vimeo sync is the source for Vimeo playback assets. Use `/admin/vimeo` to sync and filter by episode title, show name, month, year and status.
-- Use `/admin/output` to copy the continuous HLS link and open it in VLC. Browser playout is not the primary output path.
+- Use `/admin/output` to open `/output/live` on the capture machine, click Start Output once to unlock audio, and capture that browser/window in OBS or vMix. If the page reloads mid-show, it seeks the active video to the current scheduled offset before playback resumes.
 - `.env` contains secrets and must not be committed.
 - `ADMIN_BOOTSTRAP_TOKEN` is used for protected admin access.
 - `OUTPUT_CAPTURE_TOKEN` is required in production and protects `/output/live`, preview and schedule routes. Admin output links mint an `HttpOnly` `rpm_output_token` cookie through `/api/output/session`; query tokens are only for scripts/bootstrap.
@@ -213,7 +213,9 @@ Implemented:
 - Staging write smoke cleanup
 - Backup and restore drill
 - Production read-only smoke and output status smoke
-- Newcomer-oriented operator path UI: Library -> Schedule -> VLC Output
+- Browser playout output for OBS/vMix capture, including Vimeo HLS, direct HLS, public MP4, image and slide rendering
+- Time-accurate reload resume for active video blocks
+- Newcomer-oriented operator path UI: Library -> Schedule -> Browser Output
 - Public English operation manual
 
 Known next priority:
@@ -329,7 +331,9 @@ docs/production-readiness.md
 ```
 
 Production smoke is read-only by design. It checks health, admin auth, playout schedule, output
-status, preview when available, and audit page access without mutating Supabase.
+status, preview when available, and audit page access without mutating Supabase. Browser playout
+must still be certified on the actual OBS/vMix capture runtime because codec and autoplay behavior
+can differ from headless test browsers.
 
 ### Incremental static regeneration (ISR) with R2
 

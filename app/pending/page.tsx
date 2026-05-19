@@ -38,7 +38,7 @@ const currentFunctions = [
   "Operator runbook mode with persisted per-day preflight, live, incident and shutdown checks",
   "Protected output status and block preview routes",
   "Output session cookie for normal admin launches",
-  "Output control panel with status, HLS copy, live observability and stop broadcast",
+  "Output control panel with browser output launch, live observability and stop broadcast",
   "Single-tenant named operators, admin/operator roles and hashed operator sessions",
   "Audit actor propagation from the current named operator session",
   "Rate limiting for login, upload, settings, Vimeo, Reuters and output session/link endpoints",
@@ -54,7 +54,8 @@ const currentFunctions = [
   "Audit page and audited critical mutations",
   "CSRF protection for mutating admin forms and APIs",
   "Asset lifecycle states for synced, reviewed, rejected, stale, expired and scheduled-in-use",
-  "HLS-first output workflow for VLC playback",
+  "Browser playout workflow for OBS/vMix capture with Vimeo HLS, direct HLS, public MP4, image and slide support",
+  "Time-accurate reload resume for browser playout video blocks",
   "Staging write smoke cleanup for sandbox blocks and assets",
   "Backup and restore drill",
   "Production read-only smoke and output status checks",
@@ -63,8 +64,9 @@ const currentFunctions = [
 
 const productionStatus = [
   "Controlled production operation is usable after Supabase migrations are applied and the per-day runbook is completed.",
-  "The standard operator path is Library -> Schedule -> Runbook -> VLC Output -> Shutdown.",
-  "Browser playout is intentionally status-only. Active playback is the HLS link copied from Admin Output into VLC.",
+  "The standard operator path is Library -> Schedule -> Runbook -> Browser Output -> Shutdown.",
+  "Browser playout is the active output path. Operators open /output/live from Admin Output, click Start Output once to unlock audio and capture the browser in OBS/vMix.",
+  "If browser output reloads mid-show, the active video seeks to the current schedule offset before playback resumes.",
   "P0 shipped-in-code work is complete and the required Supabase readiness schema has been applied.",
   "Reuters is supported as dynamic per-block or live-override HLS/RTMP stream snapshots. Operators paste the current endpoint when scheduling or switching Reuters live.",
   "Current public docs are /manual, /pending and the new /notion operations/status guide."
@@ -74,6 +76,7 @@ const knownIssues = [
   "Bootstrap-token login still exists for emergency admin access. Normal operation should move to named operator handles after provisioning.",
   "Authenticated Playwright coverage exists for core admin surfaces and output session; broader named-login and mutating browser flows remain P1.",
   "Reuters HLS/RTMP URLs are dynamic snapshots. If a URL expires or rotates during a live block, the operator must refresh the block or output override endpoint.",
+  "OBS/vMix browser capture must be certified separately from Playwright because browser codec and autoplay behavior differ by runtime.",
   "Read-only HTTP smoke requires production environment variables, especially OUTPUT_CAPTURE_TOKEN, to be loaded in the test process."
 ]
 
@@ -181,20 +184,20 @@ const p1Items: PendingItem[] = [
       "Make each issue row link to the offending block or action, and refresh health state without a full page reload."
   },
   {
-    title: "Authenticated Playwright coverage",
+    title: "Browser output go-live drill",
     priority: "P1",
     status: "planned",
     owner: "QA",
     detail:
-      "Add admin flows for assets, Vimeo sync, schedule creation, runbook, output control and bad-media fallback."
+      "Add a product-level drill that verifies active day, browser output launch, audio unlock, Vimeo playback, slide rendering, reload resume and fallback in the actual OBS/vMix capture runtime."
   },
   {
-    title: "Self-hosted monitoring and alert polish",
+    title: "Output drift and incident monitoring",
     priority: "P1",
     status: "planned",
     owner: "Platform",
     detail:
-      "Expand the current /admin/health surface into dashboard-level alert banners, output degradation notices and runbook incident prompts."
+      "Compare browser media currentTime to expected schedule offset, surface stalled/waiting/error states, and show operator incident prompts for silence, black output, wrong block and fallback."
   },
   {
     title: "i18n and validation polish",
@@ -237,7 +240,7 @@ const p2Items: PendingItem[] = [
     status: "later",
     owner: "Output",
     detail:
-      "Evaluate vMix/NDI/RTSP integration, local DVR recording, multiple bitrate streams, captions, subtitles and SCTE-35 markers."
+      "Evaluate NDI/RTSP integration, local DVR recording, multiple bitrate streams, captions, subtitles and SCTE-35 markers."
   },
   {
     title: "Realtime operator updates",
@@ -272,7 +275,7 @@ const gantt: GanttPhase[] = [
     deliverables:
       "Schedule a Reuters block with a pasted HLS/RTMP endpoint, refresh it and test the output override path.",
     acceptance:
-      "VLC receives the dynamic Reuters stream through the output channel and stop broadcast clears the override.",
+      "Browser output receives the dynamic Reuters stream through the active output state and stop broadcast clears the override.",
     start: 2,
     span: 1,
     progress: 100,

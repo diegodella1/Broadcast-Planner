@@ -34,8 +34,8 @@ export function AdminShell({
         </Link>
         <AdminNav />
         <div className="absolute bottom-5 left-4 right-4 rounded-md border border-line bg-panel-soft p-3 text-xs text-muted">
-          <p className="font-semibold text-ink">VLC output</p>
-          <p className="mt-1">Copy a fresh HLS link from Admin Output.</p>
+          <p className="font-semibold text-ink">Browser output</p>
+          <p className="mt-1">Open the output page for OBS/vMix capture.</p>
           <Link
             href="/admin/output"
             className="mt-3 inline-flex min-h-8 items-center gap-2 rounded-md border border-line bg-surface px-2 font-semibold text-ink hover:bg-panel"

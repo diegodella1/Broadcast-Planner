@@ -10,6 +10,8 @@ const shipped = [
   "Music preferences",
   "Dynamic Reuters HLS/RTMP stream snapshots",
   "Output session cookie flow",
+  "Browser output for OBS/vMix capture",
+  "Time-accurate video reload resume",
   "Schedule health polling",
   "Audit identity",
   "Required Supabase readiness schema"
@@ -31,8 +33,8 @@ const verification = [
 
 const nextSteps = [
   "Provision day-to-day named operators and keep bootstrap token as emergency-only access.",
-  "Add broader authenticated browser flows for named login and mutating actions.",
-  "Polish alert banners for degraded output and missing critical configuration.",
+  "Run a browser output go-live drill in the actual OBS/vMix capture runtime.",
+  "Add output drift monitoring and incident prompts for silence, black output and stalled video.",
   "Finish i18n and validation copy cleanup.",
   "Record recent smoke status so health is not degraded only because smoke metadata is missing."
 ]
@@ -84,8 +86,9 @@ const operationSteps = [
     route: "/admin/output",
     actions: [
       "Activate the correct day.",
-      "Copy the continuous HLS link.",
-      "Open the HLS link as a Network Stream in VLC.",
+      "Open Browser Output.",
+      "Click Start Output once to unlock audio.",
+      "Capture the browser or window in OBS/vMix.",
       "Confirm that the monitor shows the expected current block and next block."
     ]
   },
@@ -118,7 +121,10 @@ const preAirChecks = [
   "Vimeo token/playback ready.",
   "Reuters readiness OK if Reuters is used.",
   "OUTPUT_CAPTURE_TOKEN configured.",
-  "HLS opens in VLC.",
+  "Browser output opens on the capture machine.",
+  "Start Output unlocks audio.",
+  "Reload mid-video resumes near the expected schedule offset.",
+  "Slide output renders in the capture runtime.",
   "Fallback defined.",
   "Runbook preflight complete."
 ]
@@ -170,8 +176,9 @@ export default function NotionStatusPage() {
 
             <h2 className={h2Class}>Current status</h2>
             <p>
-              RTV Planner is ready for controlled production. The workflow is HLS-first: the
-              operator copies the signed HLS link from Admin Output and opens it in VLC.
+              RTV Planner is ready for controlled production with an operator present. The workflow
+              is browser-output-first: the operator opens Browser Output from Admin Output, clicks
+              Start Output once to unlock audio and captures the page in OBS/vMix.
             </p>
 
             <h2 className={h2Class}>Implemented and applied</h2>
@@ -215,7 +222,14 @@ export default function NotionStatusPage() {
                 Smoke scripts require environment variables to be loaded, including
                 OUTPUT_CAPTURE_TOKEN.
               </li>
-              <li>Browser output is status/debug. VLC/HLS remains the primary output path.</li>
+              <li>
+                Browser output is the active playout surface. OBS/vMix browser capture must be
+                certified separately from Playwright/headless testing.
+              </li>
+              <li>
+                If output reloads mid-show, the video seeks to the current schedule offset before
+                playback resumes. Audio may still require a Start Output click after reload.
+              </li>
             </ul>
           </section>
 
@@ -230,7 +244,7 @@ export default function NotionStatusPage() {
             <h2 className={h2Class}>Objective</h2>
             <p>
               RTV Planner organizes the daily schedule, validates risks before going live and
-              provides the continuous HLS stream that opens in VLC.
+              provides the fullscreen browser output used by OBS/vMix capture.
             </p>
 
             <h2 className={h2Class}>Standard workflow</h2>
@@ -276,8 +290,10 @@ export default function NotionStatusPage() {
 
             <h2 className={h2Class}>Operating rules</h2>
             <ul className={listClass}>
-              <li>VLC/HLS is the primary output path.</li>
-              <li>Browser output is status/debug, not the main playout surface.</li>
+              <li>Browser output is the primary playout surface.</li>
+              <li>
+                OBS/vMix captures `/output/live`; operators click Start Output to unlock audio.
+              </li>
               <li>The bootstrap token remains for emergency access.</li>
               <li>Normal operation must use named operators.</li>
               <li>Critical changes must appear in the audit log.</li>

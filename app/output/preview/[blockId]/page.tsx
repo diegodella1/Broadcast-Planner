@@ -1,53 +1,25 @@
-import { EmergencyOutputStub, OutputStub } from "@/components/output-stub"
-import { getPlaybackScheduleForBlock } from "@/lib/data"
+import { BrowserOutputRenderer } from "@/components/browser-output-renderer"
+import { EmergencyOutputStub } from "@/components/output-stub"
 import { isOutputRequestAllowed, outputAccessDeniedReason } from "@/lib/output-auth"
-import { findActiveLayers } from "@/lib/scheduler"
 
 export default async function OutputPreviewPage({
   params,
   searchParams
 }: {
   params: Promise<{ blockId: string }>
-  searchParams: Promise<{ debug?: string; token?: string }>
+  searchParams: Promise<{ debug?: string; startAt?: string; token?: string }>
 }) {
   const [{ blockId }, query] = await Promise.all([params, searchParams])
   if (!(await isOutputRequestAllowed(query))) {
     return <EmergencyOutputStub reason={outputAccessDeniedReason()} />
   }
-  const schedule = await getScheduleOrEmergency(blockId)
-  if (!schedule) return <EmergencyOutputStub reason="Preview data unavailable" />
-  const block = schedule.blocks.find((item) => item.id === blockId)
-  if (!block) return <EmergencyOutputStub reason="Block not found" />
+  const startAt = query.startAt ? Number(query.startAt) : null
   return (
-    <OutputStub
-      active={{
-        day: schedule.day,
-        block,
-        elapsedInBlock: 0,
-        layers: block.hideOverlays ? [] : findActiveLayers(schedule.layers, block.id, 0),
-        asset: block.assetId
-          ? (schedule.mediaAssets.find((asset) => asset.id === block.assetId) ?? null)
-          : null,
-        slide: block.slideId
-          ? (schedule.slideAssets.find((slide) => slide.id === block.slideId) ?? null)
-          : null,
-        fallbackAsset: block.fallbackAssetId
-          ? (schedule.mediaAssets.find((asset) => asset.id === block.fallbackAssetId) ?? null)
-          : (schedule.mediaAssets.find(
-              (asset) => asset.assetType === "fallback" && asset.status === "ready"
-            ) ?? null)
-      }}
-      secondsOfDay={block.startTimeSeconds}
+    <BrowserOutputRenderer
       debug={query.debug === "true"}
-      label="Preview output status"
+      previewBlockId={blockId}
+      startAt={Number.isFinite(startAt) ? startAt : null}
+      token={query.token}
     />
   )
-}
-
-async function getScheduleOrEmergency(blockId: string) {
-  try {
-    return await getPlaybackScheduleForBlock(blockId)
-  } catch {
-    return null
-  }
 }

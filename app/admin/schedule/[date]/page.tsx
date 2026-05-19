@@ -241,7 +241,7 @@ export default async function ScheduleDatePage({
           <ButtonLink href="/admin/assets" variant="secondary">
             Library
           </ButtonLink>
-          <ButtonLink href={liveOutputHref(true)}>Clean output</ButtonLink>
+          <ButtonLink href={liveOutputHref(true)}>Browser output</ButtonLink>
         </>
       }
     >
@@ -263,7 +263,7 @@ export default async function ScheduleDatePage({
         }
         secondary={
           <ButtonLink href="/admin/output" variant="secondary">
-            VLC Output
+            Browser Output
           </ButtonLink>
         }
       />

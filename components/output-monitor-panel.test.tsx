@@ -1,26 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { OutputMonitorPanel } from "./output-monitor-panel"
 
-const writeText = vi.fn()
-
 describe("OutputMonitorPanel", () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    writeText.mockResolvedValue(undefined)
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText }
-    })
-    global.fetch = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
-      if (url === "/api/output/channel/link") {
-        return jsonResponse({
-          playlistUrl: "https://rtvtime.example/api/output/channel/live.m3u8?token=output-token"
-        })
-      }
+    global.fetch = vi.fn(async () => {
       return jsonResponse(initialPayload)
     })
   })
@@ -29,24 +15,19 @@ describe("OutputMonitorPanel", () => {
     vi.useRealTimers()
   })
 
-  it("copies the continuous VLC channel URL", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText }
-    })
+  it("shows browser output capture guidance and refreshes diagnostics", async () => {
     render(<OutputMonitorPanel initial={initialPayload} />)
 
-    await user.click(screen.getByRole("button", { name: "Copy continuous VLC link" }))
+    expect(screen.getByText("Browser output")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "Open `/output/live`, click Start Output once, and capture the browser in OBS/vMix."
+      )
+    ).toBeInTheDocument()
 
     await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith(
-        "https://rtvtime.example/api/output/channel/live.m3u8?token=output-token"
-      )
+      expect(global.fetch).toHaveBeenCalledWith("/api/output/monitor", { cache: "no-store" })
     )
-    expect(
-      screen.getByText("Copied. Same URL stays live through content changes.")
-    ).toBeInTheDocument()
   })
 })
 

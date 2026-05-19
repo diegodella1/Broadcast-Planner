@@ -35,8 +35,6 @@ export function OutputMonitorPanel({ initial }: { initial: MonitorPayload }) {
   const [payload, setPayload] = useState(initial)
   const [clientSeconds, setClientSeconds] = useState(initial.serverSeconds)
   const [error, setError] = useState<string | null>(null)
-  const [hlsUrl, setHlsUrl] = useState<string | null>(null)
-  const [hlsStatus, setHlsStatus] = useState<"idle" | "loading" | "copied" | "error">("idle")
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -54,10 +52,6 @@ export function OutputMonitorPanel({ initial }: { initial: MonitorPayload }) {
         const next = (await response.json()) as MonitorPayload
         if (cancelled) return
         setPayload(next)
-        if (next.asset?.id !== payload.asset?.id) {
-          setHlsUrl(null)
-          setHlsStatus("idle")
-        }
         setClientSeconds(next.serverSeconds)
         setError(null)
       } catch (refreshError) {
@@ -74,50 +68,16 @@ export function OutputMonitorPanel({ initial }: { initial: MonitorPayload }) {
     }
   }, [payload.asset?.id])
 
-  const copyHlsUrl = async () => {
-    setHlsStatus("loading")
-    try {
-      const response = await fetch("/api/output/channel/link", {
-        cache: "no-store"
-      })
-      const next = (await response.json().catch(() => null)) as {
-        playlistUrl?: string
-        error?: string
-      } | null
-      const copyUrl = next?.playlistUrl
-      if (!response.ok || !copyUrl) {
-        throw new Error(next?.error ?? `HLS returned ${response.status}`)
-      }
-      await navigator.clipboard.writeText(copyUrl)
-      setHlsUrl(copyUrl)
-      setHlsStatus("copied")
-    } catch {
-      setHlsStatus("error")
-    }
-  }
-
   const clockSkew = Math.abs(clientSeconds - payload.serverSeconds)
-  const canCopyHls = Boolean(payload.day)
   return (
     <div className="grid gap-3">
-      {canCopyHls && (
+      {payload.day && (
         <div className="grid gap-2 rounded-md border border-accent-positive bg-surface-selected-positive p-3">
-          <button
-            type="button"
-            className="btn-primary w-full justify-center"
-            onClick={copyHlsUrl}
-            disabled={hlsStatus === "loading"}
-          >
-            {hlsStatus === "loading" ? "Getting VLC link…" : "Copy continuous VLC link"}
-          </button>
+          <p className="text-xs font-bold uppercase tracking-wide text-accent-positive">
+            Browser output
+          </p>
           <p className="truncate text-xs text-muted" aria-live="polite">
-            {hlsStatus === "copied"
-              ? "Copied. Same URL stays live through content changes."
-              : hlsStatus === "error"
-                ? "Could not get VLC link. Check output status and try again."
-                : hlsUrl
-                  ? hlsUrl
-                  : "Stable channel URL for VLC."}
+            Open `/output/live`, click Start Output once, and capture the browser in OBS/vMix.
           </p>
         </div>
       )}

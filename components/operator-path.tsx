@@ -20,8 +20,8 @@ const steps = [
     match: ["/admin/calendar", "/admin/schedule"]
   },
   {
-    label: "VLC Output",
-    detail: "Copy the live HLS link",
+    label: "Browser Output",
+    detail: "Open capture page",
     href: "/admin/output",
     icon: MonitorPlay,
     match: ["/admin/output"]

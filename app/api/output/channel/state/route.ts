@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
 
 import { appUrl } from "@/lib/app-url"
-import { getLiveSchedule } from "@/lib/data"
+import { getLiveSchedule, getPlaybackScheduleForBlock } from "@/lib/data"
 import { getLatestMusicPreference } from "@/lib/operator-preferences"
 import { getActiveOutputOverride } from "@/lib/output-overrides"
 import { isOutputRequestAllowed, outputAccessDeniedReason } from "@/lib/output-auth"
-import { findActiveSchedule } from "@/lib/scheduler"
+import { findActiveLayers, findActiveSchedule } from "@/lib/scheduler"
 import { getVimeoToken } from "@/lib/settings"
 import { PLAYOUT_TIMEZONE, secondsSinceMidnightInTimezone } from "@/lib/time"
 import { getVimeoPlayback } from "@/lib/vimeo"
@@ -19,15 +19,35 @@ export async function GET(request: Request) {
     if (!allowed) return NextResponse.json({ error: outputAccessDeniedReason() }, { status: 401 })
 
     const now = new Date()
-    const bundle = await getLiveSchedule(now)
+    const previewBlockId = searchParams.get("previewBlockId")
+    const bundle = previewBlockId
+      ? await getPlaybackScheduleForBlock(previewBlockId)
+      : await getLiveSchedule(now)
     const timezone = bundle.day?.timezone ?? PLAYOUT_TIMEZONE
-    const secondsOfDay = secondsSinceMidnightInTimezone(now, timezone)
-    const active = findActiveSchedule(bundle, secondsOfDay)
+    const requestedStartAt = Number(searchParams.get("startAt"))
+    const secondsOfDay = previewBlockId
+      ? (bundle.blocks.find((block) => block.id === previewBlockId)?.startTimeSeconds ?? 0) +
+        (Number.isFinite(requestedStartAt) ? Math.max(0, requestedStartAt) : 0)
+      : Number.isFinite(requestedStartAt)
+        ? requestedStartAt
+        : secondsSinceMidnightInTimezone(now, timezone)
+    const active = previewBlockId
+      ? previewActiveSchedule(
+          bundle,
+          previewBlockId,
+          Number.isFinite(requestedStartAt) ? Math.max(0, requestedStartAt) : 0
+        )
+      : findActiveSchedule(bundle, secondsOfDay)
     const override = await getActiveOutputOverride(bundle.day?.id)
     const music = await backgroundMusicForActive(bundle, active)
+    const base = {
+      serverSeconds: secondsOfDay,
+      generatedAt: now.toISOString()
+    }
     if (bundle.day && override?.sourceType === "reuters" && override.streamUrl) {
       return NextResponse.json(
         {
+          ...base,
           kind: "hls",
           signature: `reuters-override:${override.id}:${override.updatedAt}`,
           blockId: override.blockId,
@@ -54,6 +74,7 @@ export async function GET(request: Request) {
     if (reutersUrl) {
       return NextResponse.json(
         {
+          ...base,
           kind: "hls",
           signature: `reuters:${active.block.id}:${metadataText(active.block.metadata, "reuters_stream_refreshed_at")}`,
           blockId: active.block.id,
@@ -69,18 +90,23 @@ export async function GET(request: Request) {
       )
     }
     const token = searchParams.get("token") ?? process.env.OUTPUT_CAPTURE_TOKEN ?? ""
-    if (active.slide?.templateId) {
+    if (active.slide) {
       const renderUrl = appUrl(`/output/slide/${active.slide.id}`)
       if (token) renderUrl.searchParams.set("token", token)
       return NextResponse.json(
         {
+          ...base,
           kind: "slide",
-          signature: `slide:${active.block.id}:${active.slide.id}:${active.slide.templateId}`,
+          signature: `slide:${active.block.id}:${active.slide.id}:${active.slide.updatedAt}`,
           blockId: active.block.id,
           title: active.slide.title,
           slideId: active.slide.id,
           templateId: active.slide.templateId,
-          renderUrl: renderUrl.toString(),
+          ...(active.slide.templateId ? { renderUrl: renderUrl.toString() } : {}),
+          ...(active.slide.imageUrl ? { imageUrl: active.slide.imageUrl } : {}),
+          ...(active.slide.content || active.slide.htmlContent
+            ? { content: active.slide.content ?? active.slide.htmlContent ?? "" }
+            : {}),
           startOffsetSeconds,
           durationSeconds: active.block.durationSeconds,
           backgroundMusic: music
@@ -96,6 +122,7 @@ export async function GET(request: Request) {
         const playback = await getVimeoPlayback(vimeoToken, active.asset.vimeoId)
         return NextResponse.json(
           {
+            ...base,
             kind: "vimeo",
             signature: `vimeo:${active.block.id}:${active.asset.id}`,
             blockId: active.block.id,
@@ -112,6 +139,7 @@ export async function GET(request: Request) {
       if (active.asset.sourceType === "hls" && active.asset.url) {
         return NextResponse.json(
           {
+            ...base,
             kind: "hls",
             signature: `hls:${active.block.id}:${active.asset.id}`,
             blockId: active.block.id,
@@ -121,6 +149,44 @@ export async function GET(request: Request) {
             startOffsetSeconds,
             durationSeconds: active.asset.durationSeconds,
             backgroundMusic: null
+          },
+          { headers: { "Cache-Control": "no-store" } }
+        )
+      }
+      if (active.asset.sourceType === "remote_mp4" && active.asset.url) {
+        return NextResponse.json(
+          {
+            ...base,
+            kind: "mp4",
+            signature: `mp4:${active.block.id}:${active.asset.id}`,
+            blockId: active.block.id,
+            assetId: active.asset.id,
+            title: active.asset.title,
+            url: active.asset.url,
+            startOffsetSeconds,
+            durationSeconds: active.asset.durationSeconds ?? active.block.durationSeconds,
+            backgroundMusic: null
+          },
+          { headers: { "Cache-Control": "no-store" } }
+        )
+      }
+      if (
+        (active.asset.sourceType === "remote_image" ||
+          active.asset.sourceType === "supabase_image") &&
+        active.asset.url
+      ) {
+        return NextResponse.json(
+          {
+            ...base,
+            kind: "image",
+            signature: `image:${active.block.id}:${active.asset.id}`,
+            blockId: active.block.id,
+            assetId: active.asset.id,
+            title: active.asset.title,
+            imageUrl: active.asset.url,
+            startOffsetSeconds,
+            durationSeconds: active.block.durationSeconds,
+            backgroundMusic: music
           },
           { headers: { "Cache-Control": "no-store" } }
         )
@@ -142,6 +208,8 @@ function fallbackState(reason: string) {
     signature: `fallback:${reason}`,
     reason,
     title: "RTV fallback",
+    serverSeconds: secondsSinceMidnightInTimezone(),
+    generatedAt: new Date().toISOString(),
     backgroundMusic: null
   }
 }
@@ -176,5 +244,43 @@ async function backgroundMusicForActive(
     volume: preference.volume,
     fade: preference.fade,
     tracks
+  }
+}
+
+function previewActiveSchedule(
+  bundle: Awaited<ReturnType<typeof getLiveSchedule>>,
+  blockId: string,
+  elapsedInBlock: number
+): ReturnType<typeof findActiveSchedule> {
+  const block = bundle.blocks.find((candidate) => candidate.id === blockId) ?? null
+  if (!block) {
+    return {
+      day: bundle.day,
+      block: null,
+      elapsedInBlock: 0,
+      layers: [],
+      fallbackAsset:
+        bundle.mediaAssets.find(
+          (asset) => asset.assetType === "fallback" && asset.status === "ready"
+        ) ?? null,
+      reason: "Block not found"
+    }
+  }
+  return {
+    day: bundle.day,
+    block,
+    elapsedInBlock,
+    layers: block.hideOverlays ? [] : findActiveLayers(bundle.layers, block.id, elapsedInBlock),
+    asset: block.assetId
+      ? (bundle.mediaAssets.find((asset) => asset.id === block.assetId) ?? null)
+      : null,
+    slide: block.slideId
+      ? (bundle.slideAssets.find((slide) => slide.id === block.slideId) ?? null)
+      : null,
+    fallbackAsset: block.fallbackAssetId
+      ? (bundle.mediaAssets.find((asset) => asset.id === block.fallbackAssetId) ?? null)
+      : (bundle.mediaAssets.find(
+          (asset) => asset.assetType === "fallback" && asset.status === "ready"
+        ) ?? null)
   }
 }

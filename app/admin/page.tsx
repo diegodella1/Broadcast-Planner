@@ -64,12 +64,12 @@ export default async function AdminDashboardPage() {
   return (
     <AdminShell
       title="Dashboard"
-      description="Simple operator path: add content, schedule the day, play the continuous VLC output."
+      description="Simple operator path: add content, schedule the day, open browser output for OBS/vMix."
       actions={
         <>
           <ButtonLink href="/admin/assets">Add Content</ButtonLink>
           <ButtonLink href="/admin/output" variant="secondary">
-            VLC Output
+            Browser Output
           </ButtonLink>
         </>
       }
@@ -88,12 +88,12 @@ export default async function AdminDashboardPage() {
           !assets.length
             ? "Add your first video or slide"
             : blocks.length
-              ? "Check today, then copy the VLC link"
+              ? "Check today, then open browser output"
               : "Build today's schedule"
         }
         detail={
           !assets.length
-            ? "New operators only need three steps: add content to Library, place it on Schedule, then use Output for VLC."
+            ? "New operators only need three steps: add content to Library, place it on Schedule, then use Output for OBS/vMix capture."
             : blocks.length
               ? `${readyBlocksLabel(readyAssets, assets.length)} · ${blocks.length} blocks on today's rundown.`
               : "Library has content. Add the first block to today and the output will follow the schedule."
@@ -106,7 +106,7 @@ export default async function AdminDashboardPage() {
         secondary={
           blocks.length ? (
             <ButtonLink href="/admin/output" variant="secondary">
-              Copy VLC Link
+              Open Output
             </ButtonLink>
           ) : null
         }
@@ -187,8 +187,8 @@ export default async function AdminDashboardPage() {
             <ActionLink
               href="/admin/output"
               icon={<MonitorPlay size={17} />}
-              title="3. VLC Output"
-              detail="Copy the stable HLS link for VLC."
+              title="3. Browser Output"
+              detail="Open the capture page for OBS/vMix."
             />
             <ActionLink
               href="/admin/health"

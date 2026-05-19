@@ -49,6 +49,7 @@ export default async function AdminOutputPage() {
     ? (active.asset?.sourceType ?? active.slide?.slideType ?? "—")
     : "—"
   const activeBlockLabel = active.block?.title ?? t("output.fallback.noActiveBlock")
+  const outputHref = liveOutputHref(false)
   const initialMonitor = {
     generatedAt: new Date().toISOString(),
     timezone: liveBundle.day?.timezone ?? PLAYOUT_TIMEZONE,
@@ -152,20 +153,20 @@ export default async function AdminOutputPage() {
       ) : null}
       <PrimaryActionPanel
         eyebrow="Official playback"
-        title="Use VLC with the continuous HLS link"
+        title="Open browser output for OBS/vMix capture"
         detail={
           active.block
-            ? `${active.block.title} is the active scheduled block. The VLC URL stays the same when content changes.`
-            : "Copy the VLC link once the day has content. Browser playout is not the primary output."
+            ? `${active.block.title} is the active scheduled block. The output page resumes at the current schedule time after reload.`
+            : "Open the output page on the capture machine, click Start Output once, then capture it in OBS or vMix."
         }
         action={
-          <a className="btn-primary" href="#vlc-output">
-            Copy VLC Link
+          <a className="btn-primary" href={outputHref} target="_blank" rel="noreferrer">
+            Open Browser Output
           </a>
         }
         secondary={
           <a className="btn-secondary" href={monitorHref} target="_blank" rel="noreferrer">
-            Open Monitor
+            Open Debug Output
           </a>
         }
       />
@@ -180,21 +181,27 @@ export default async function AdminOutputPage() {
               : (active.reason ?? "No active block")
           }
           action={
-            <a className="btn-secondary" href="#vlc-output">
-              VLC Link
+            <a className="btn-secondary" href={outputHref} target="_blank" rel="noreferrer">
+              Browser Output
             </a>
           }
         />
       </div>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">
-          <div className="surface-panel p-5" id="vlc-output">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted">VLC output</p>
-            <h2 className="mt-2 text-2xl font-semibold">Use HLS for playback</h2>
+          <div className="surface-panel p-5" id="browser-output">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Browser output</p>
+            <h2 className="mt-2 text-2xl font-semibold">Capture the output page in OBS/vMix</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              Browser playout is disabled. Copy the active VLC playlist from Observability and open
-              it as a network stream; it starts at the current block time.
+              Open the output page on the capture machine and click Start Output once to unlock
+              audio. If the page reloads mid-show, it seeks to the current schedule time before
+              playback resumes.
             </p>
+            <div className="mt-5">
+              <a className="btn-primary" href={outputHref} target="_blank" rel="noreferrer">
+                Open Browser Output
+              </a>
+            </div>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               <StatusTile label="State" value={broadcastStatusLabel} />
               <StatusTile label="Source" value={activeSourceLabel} />

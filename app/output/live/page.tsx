@@ -1,8 +1,6 @@
-import { EmergencyOutputStub, OutputStub } from "@/components/output-stub"
-import { getLivePlaybackSchedule } from "@/lib/data"
+import { BrowserOutputRenderer } from "@/components/browser-output-renderer"
+import { EmergencyOutputStub } from "@/components/output-stub"
 import { isOutputRequestAllowed, outputAccessDeniedReason } from "@/lib/output-auth"
-import { findActiveSchedule } from "@/lib/scheduler"
-import { secondsSinceMidnightInTimezone } from "@/lib/time"
 
 export default async function OutputLivePage({
   searchParams
@@ -13,24 +11,12 @@ export default async function OutputLivePage({
   if (!(await isOutputRequestAllowed(params))) {
     return <EmergencyOutputStub reason={outputAccessDeniedReason()} />
   }
-  const schedule = await getScheduleOrEmergency()
-  if (!schedule) return <EmergencyOutputStub reason="Schedule data unavailable" />
   const startAt = params.startAt ? Number(params.startAt) : null
-  const secondsOfDay = Number.isFinite(startAt) ? startAt! : secondsSinceMidnightInTimezone()
   return (
-    <OutputStub
-      active={findActiveSchedule(schedule, secondsOfDay)}
-      secondsOfDay={secondsOfDay}
+    <BrowserOutputRenderer
       debug={params.debug === "true"}
-      label="Live output status"
+      startAt={Number.isFinite(startAt) ? startAt : null}
+      token={params.token}
     />
   )
-}
-
-async function getScheduleOrEmergency() {
-  try {
-    return await getLivePlaybackSchedule()
-  } catch {
-    return null
-  }
 }
