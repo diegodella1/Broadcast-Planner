@@ -1,335 +1,107 @@
 import {
-  Activity,
   BookOpen,
   CalendarDays,
   Clapperboard,
-  Eye,
   HeartPulse,
   Library,
   ListChecks,
   MonitorPlay,
-  Music,
-  RadioTower,
-  Settings,
-  Shield,
-  StepForward,
-  Video
+  Shield
 } from "lucide-react"
 import Link from "next/link"
 
-const operatorSections = [
-  {
-    id: "dashboard",
-    title: "Dashboard",
-    icon: Activity,
-    body: [
-      "The dashboard is the operator starting point. It shows the next recommended action and keeps the three-step operator path visible: Library, Schedule, Browser Output.",
-      "Use it before a broadcast to identify missing content, timing gaps, warnings, and whether today's schedule is ready to test in OBS or vMix browser capture."
-    ],
-    links: [{ label: "Open dashboard", href: "/admin" }]
-  },
-  {
-    id: "calendar",
-    title: "Programming calendar",
-    icon: CalendarDays,
-    body: [
-      "The calendar lists programming days by air date and status. Operators create future days, open an existing schedule, and move between draft, ready, active and archived operating states.",
-      "Each day owns its blocks, fallback asset, timezone and status. The broadcast output reads the active day and active block from this schedule."
-    ],
-    links: [{ label: "Open calendar", href: "/admin/calendar" }]
-  },
-  {
-    id: "schedule",
-    title: "Daily schedule and rundown",
-    icon: RadioTower,
-    body: [
-      "The schedule page is the main rundown. Blocks appear in time order with status, duration, current/next indicators and a live now-line on today's date.",
-      "Use Add Block to choose the content type, pick ready Library content, confirm start time and duration, then save.",
-      "Use the Rundown editor to drag reorder, move with buttons or keyboard, resize in 5 minute steps, duplicate, archive and bulk change block status.",
-      "For Reuters live content, paste the current HLS or RTMP endpoint into the Reuters dynamic stream fields when creating or editing the block."
-    ],
-    details: [
-      "Hierarchy: media asset or system slide -> scheduled block/show -> optional overlays -> output.",
-      "Block categories: mercados, earthcam, clima, calendario, trending, deuda, reuters and broadcast.",
-      "Schedule health detects overlaps, gaps, missing assets, unready assets, ad duration problems and missing fallback coverage.",
-      "The day readiness strip shows blockers before the day is marked active. Issue rows link to the block or route that needs attention and refresh while the page is open.",
-      "All rundown edits go through server conflict checks and the database overlap trigger."
-    ],
-    links: [{ label: "Open today's schedule", href: "/admin/calendar" }]
-  },
-  {
-    id: "operator-runbook",
-    title: "Operator runbook",
-    icon: ListChecks,
-    body: [
-      "The runbook page stores per-day operator checks and notes for preflight, live operation, incidents and shutdown.",
-      "Critical preflight checks warn on the schedule page but do not block output, so operators can still recover during live conditions.",
-      "Use this as the handoff surface: the next operator can see what was checked, what was reopened and what notes were left for the day."
-    ],
-    details: [
-      "Preflight covers schedule health, fallback readiness, output monitor, audio/video and Vimeo/storage readiness.",
-      "Live checks cover active block, next block, fallback reason and clock skew.",
-      "Incident and shutdown notes are persisted in Supabase and audited.",
-      "If checks do not save, confirm the operator_runbook_checks Supabase migration has been applied."
-    ],
-    links: [{ label: "Open runbook", href: "/admin/runbook" }]
-  },
-  {
-    id: "block-editor",
-    title: "Block detail editor",
-    icon: Clapperboard,
-    body: [
-      "A block detail page edits one scheduled block. Operators manage title, start time, duration, block type, category, status, primary asset, slide, fallback asset, notes and overlay behavior.",
-      "The page also manages scheduled layers such as logo bugs, sidebars and slide/image overlays. Each layer has timing, duration, z-index, position and enabled state."
-    ],
-    details: [
-      "Clean preview opens the block output without debug overlays.",
-      "Debug preview opens the same block with clock, active state and renderer diagnostics.",
-      "Assigned assets can be edited directly from the block page for fast corrections."
-    ]
-  },
-  {
-    id: "assets",
-    title: "Media asset library",
-    icon: Library,
-    body: [
-      "The asset library stores videos, Vimeo programs, Reuters channels, still images, HLS/MP4 links, ads, promos, fallbacks and music assets.",
-      "Operators upload files, add remote URLs, search and filter assets, inspect thumbnails, duration and file metadata, and edit asset metadata used by the renderer."
-    ],
-    details: [
-      "Library order is intentional: upload media or sync Vimeo first, review readiness, then schedule it as a block on a programming day.",
-      "The Library renders a paginated server-side list of 50 assets per page and preserves search, source/type, Vimeo show, month, year and sort filters across page links.",
-      "Images default to 25 seconds unless overridden. Video/audio use detected metadata duration unless overridden.",
-      "Ready assets are eligible for playout. Draft, syncing, failed and archived assets need review before they should be scheduled.",
-      "Fallback assets protect the output when primary media is missing or playback fails.",
-      "Vertical video metadata can use a blurred background presentation in the output renderer."
-    ],
-    links: [{ label: "Open assets", href: "/admin/assets" }]
-  },
-  {
-    id: "vimeo-import",
-    title: "Vimeo sync",
-    icon: StepForward,
-    body: [
-      "The Vimeo sync page mirrors account shows and uploaded episodes into the Library as playable Vimeo assets.",
-      "Use filters for episode title, show name, month, year and status. Schedule from the synced Library asset, not from raw Vimeo API results."
-    ],
-    details: [
-      "Daily sync should run from the production host; Sync now handles urgent uploads.",
-      "Synced Vimeo episodes include duration, thumbnail, show name, created date, privacy and status metadata.",
-      "If Vimeo removes an item, sync marks the Library asset stale/archived instead of deleting it."
-    ],
-    links: [{ label: "Open Vimeo sync", href: "/admin/vimeo" }]
-  },
-  {
-    id: "music",
-    title: "Background music",
-    icon: Music,
-    body: [
-      "The music page manages MP3 tracks used by image, slide and graphic blocks when no primary video audio should lead.",
-      "Operators upload tracks, set order, duration and readiness. Ready tracks rotate automatically; one ready track loops.",
-      "The right-rail music switch and volume persist per named operator session."
-    ],
-    details: [
-      "Video blocks suppress the background playlist because video audio should lead.",
-      "Music assets are stored as media assets with asset type music.",
-      "Persisted music preference is intended for output behavior on image, slide and graphic content."
-    ],
-    links: [{ label: "Open music", href: "/admin/music" }]
-  },
-  {
-    id: "slides",
-    title: "Slides and graphics",
-    icon: Clapperboard,
-    body: [
-      "The slide library manages static, HTML, markdown and template-based graphics for on-air use.",
-      "Operators can create and edit slides, preview templates, and assign slides as primary block content or scheduled overlays."
-    ],
-    details: [
-      "Current templates include market, calendar, debt, event, FX, metals, news, oil, SATA, show and video-oriented slides.",
-      "Reduced-motion preferences are respected for animated slide states."
-    ],
-    links: [{ label: "Open slides", href: "/admin/slides" }]
-  },
-  {
-    id: "manual-broadcast",
-    title: "Manual broadcast",
-    icon: Video,
-    body: [
-      "Manual broadcast lets operators quickly put a Vimeo video or Reuters stream on air now, or schedule it at a specific time.",
-      "Vimeo search uses the stored access token server-side. Selected Vimeo media is cached into the asset library before creating a broadcast block.",
-      "Reuters streams are dynamic: paste the current HLS or RTMP endpoint when scheduling Reuters or setting a live override."
-    ],
-    details: [
-      "Vimeo output resolves browser-ready playback inside the protected output route.",
-      "Reuters URLs are stored as per-airing snapshots on the block or output override. Refresh the URL if the Reuters endpoint rotates or expires.",
-      "OBS and vMix should capture the live browser output after the operator clicks Start Output to unlock audio."
-    ]
-  },
-  {
-    id: "pending",
-    title: "Pending developments",
-    icon: ListChecks,
-    body: [
-      "The pending page lists current functionality, remaining production MVP gaps, hardening tasks and future capabilities.",
-      "Use it as the short product backlog for deciding what must be done before unattended operation and wider operator handoff."
-    ],
-    details: [
-      "P0 items are required before unattended broadcast operation.",
-      "P1 items harden production and QA workflows.",
-      "P2 items are useful future capabilities after the core workflow is stable."
-    ],
-    links: [{ label: "Open pending", href: "/pending" }]
-  },
-  {
-    id: "settings",
-    title: "Settings and integrations",
-    icon: Settings,
-    body: [
-      "Settings configure Vimeo integration, optional folder/project URI and operating timezone.",
-      "A Vimeo token can come from infrastructure environment variables or encrypted database settings. Environment variables take priority.",
-      "Settings also include single-tenant operator provisioning. Use named operator handles for normal work and keep bootstrap login for emergency access."
-    ],
-    details: [
-      "The Vimeo sync area reports the last sync, updated count and stale count.",
-      "The health check reports whether required environment, Supabase, storage, Vimeo, Reuters dynamic stream readiness and output token checks pass.",
-      "Operator creation or token rotation writes audit entries and stores only token hashes."
-    ],
-    links: [
-      { label: "Open settings", href: "/admin/settings" },
-      { label: "Open admin health", href: "/admin/health" },
-      { label: "Open health API", href: "/api/health" }
-    ]
-  },
-  {
-    id: "admin-health",
-    title: "Admin health",
-    icon: HeartPulse,
-    body: [
-      "The admin health page is an authenticated operator readiness view for production playout.",
-      "Use it before handoff or live operation to verify environment variables, Supabase, storage, Vimeo, Reuters dynamic stream handling, output token and static asset readiness."
-    ],
-    details: [
-      "The page separates failing checks from degraded checks.",
-      "It complements /api/health, which remains the machine-readable smoke endpoint.",
-      "A passing health page does not replace schedule health or the per-day runbook."
-    ],
-    links: [{ label: "Open admin health", href: "/admin/health" }]
-  },
-  {
-    id: "output-control",
-    title: "Output control panel",
-    icon: MonitorPlay,
-    body: [
-      "The admin output page is an operator control surface for current broadcast status, active source, browser capture launch, live observability and stop-broadcast action.",
-      "Operators can set a Reuters live override by pasting the current HLS or RTMP endpoint, then return to the schedule when the override is no longer needed.",
-      "Stopping broadcast clears active output overrides and moves the current day back to ready, which prevents the ON AIR state from continuing."
-    ],
-    links: [{ label: "Open output controls", href: "/admin/output" }]
-  }
-]
-
-const publicSections = [
-  {
-    id: "home",
-    title: "Public landing page",
-    icon: Eye,
-    body: [
-      "The root page is a simple internal navigation hub. It links to dashboard, programming, library, graphics, music, output control and this manual.",
-      "It is not a public video website or consumer catalog. The product is an internal broadcast operations tool."
-    ],
-    links: [{ label: "Open home", href: "/" }]
-  },
-  {
-    id: "live-output",
-    title: "Live browser output",
-    icon: MonitorPlay,
-    body: [
-      "The live output route renders the current active schedule as browser playout for OBS or vMix capture.",
-      "If the page reloads mid-show, it asks the server for the current block and seeks media to the correct elapsed time before playback resumes."
-    ],
-    details: [
-      "Normal admin launches mint the protected output cookie before opening /output/live.",
-      "Direct ?token= access remains for setup scripts and status checks only.",
-      "A visible Start Output overlay is expected after fresh load or reload because browsers block autoplay audio until a user gesture unlocks it."
-    ],
-    links: [
-      { label: "Open output controls", href: "/admin/output" },
-      { label: "Open status route", href: "/output/live?debug=true" }
-    ]
-  },
-  {
-    id: "preview-output",
-    title: "Preview output",
-    icon: Clapperboard,
-    body: [
-      "Preview routes render a specific block independently from the current clock.",
-      "Use preview to certify Vimeo video, direct video, image and slide playback before marking the day active."
-    ]
-  },
-  {
-    id: "access",
-    title: "Access model",
-    icon: Shield,
-    body: [
-      "The manual and pending pages are public and do not require login. Admin routes require the configured bootstrap token. Output routes require the output capture token in production, either by admin-minted cookie or temporary query token.",
-      "Secrets such as Supabase service role keys, Vimeo tokens, output tokens and encryption keys must remain in environment variables or encrypted settings, never in public documentation."
-    ]
-  }
-]
-
 const workflowSteps = [
-  "Open Library and add content by uploading media, importing Vimeo, or creating slides.",
-  "Confirm each item is ready and has the right duration, thumbnail and metadata.",
-  "Open Schedule from the calendar and create the programming day if it does not exist.",
-  "Use Add Block, choose content type, search or filter content, then select the ready asset or slide.",
-  "For Reuters blocks, paste the current Reuters HLS or RTMP endpoint and optional expiry.",
-  "Confirm start time and duration. Save the block to the rundown.",
-  "Use the Rundown editor to reorder, resize, duplicate, archive or bulk-mark blocks before air.",
-  "Assign fallback assets and overlays when needed.",
-  "Review schedule health until critical items are clear.",
-  "Open the operator runbook for the day and complete critical preflight checks.",
-  "Mark the day ready, then active when it should drive output.",
-  "Open Output, launch Live Browser Output, then capture that browser window in OBS or vMix.",
-  "If Reuters must go live immediately, set the Reuters output override with the current endpoint, then return to schedule after the live segment.",
-  "During live operation, use the output monitor and runbook live checks to verify current block, next block, fallback reason and clock skew.",
-  "Use output status routes or block preview for troubleshooting schedule state.",
-  "Record incidents in the runbook, then complete shutdown checks and stop broadcast from the output control panel when the day is done."
+  "Add or sync content in Library, Vimeo, or Slides.",
+  "Create/open the program day in Calendar.",
+  "Add blocks in the daily Schedule and assign ready media or slides.",
+  "Assign a fallback asset for the day or block.",
+  "Resolve critical schedule health issues.",
+  "Complete the runbook preflight checks.",
+  "Set the day active.",
+  "Open Output, launch Live Browser Output, click Start Output, then capture the browser in OBS/vMix.",
+  "During live, watch active block, next block, fallback reason, clock skew, drift, and runbook notes.",
+  "Stop broadcast from Output and complete shutdown checks."
+]
+
+const sections = [
+  {
+    title: "Content",
+    icon: Library,
+    body: "Use Library for uploads, remote URLs and fallback assets. Use Vimeo sync for show episodes. Use Slides for graphics.",
+    href: "/admin/assets"
+  },
+  {
+    title: "Schedule",
+    icon: CalendarDays,
+    body: "Build the day from Calendar. Blocks drive what airs. Ready/active blocks can play; draft/failed content should not be used.",
+    href: "/admin/calendar"
+  },
+  {
+    title: "Runbook",
+    icon: ListChecks,
+    body: "Use the runbook for preflight, live checks, incidents and shutdown. It is the handoff surface for operators.",
+    href: "/admin/runbook"
+  },
+  {
+    title: "Output",
+    icon: MonitorPlay,
+    body: "Live Browser Output is the primary playback path. Open it from Admin Output, click Start Output once for audio, then capture in OBS/vMix.",
+    href: "/admin/output"
+  },
+  {
+    title: "Preview",
+    icon: Clapperboard,
+    body: "Use block preview to test Vimeo, direct video, images and slides before the day goes active.",
+    href: "/admin/calendar"
+  },
+  {
+    title: "Health",
+    icon: HeartPulse,
+    body: "Admin Health checks environment, database, storage, Vimeo, output token and the Go Live Drill.",
+    href: "/admin/health"
+  }
+]
+
+const limits = [
+  "OBS/vMix must still be certified on the actual capture machine.",
+  "Browser audio requires one operator click after load or reload.",
+  "Reuters endpoints are dynamic; refresh expired URLs before or during air.",
+  "Fallback assets are required for reliable unattended operation.",
+  "Secrets must stay in environment variables or encrypted settings."
 ]
 
 export default function ManualPage() {
   return (
     <main className="min-h-screen bg-surface-elevated-1 text-white/90">
-      <div className="mx-auto max-w-6xl px-6 py-10">
+      <div className="mx-auto max-w-5xl px-6 py-10">
         <header className="border-b border-white/10 pb-8">
           <Link href="/" className="text-sm font-semibold text-accent-positive hover:underline">
             Back to home
           </Link>
           <p className="eyebrow mt-6 text-accent-positive">Roxom TV</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-normal md:text-5xl">
-            RTV TL Manager Manual
+            Operator Manual
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
-            Public English guide for operators, producers, engineers and output viewers. This page
-            is available outside admin login. The app programs the broadcast day, validates the
-            signal and provides protected browser playout for OBS and vMix capture.
+            Current live workflow for programming the day and running browser output through
+            OBS/vMix. This page is public; admin actions still require login.
           </p>
         </header>
 
         <section className="grid gap-3 border-b border-white/10 py-6 md:grid-cols-4">
-          <ManualMetric label="Base path" value="/" />
-          <ManualMetric label="Manual access" value="Public" />
-          <ManualMetric label="Playback" value="Browser output" />
-          <ManualMetric label="Data store" value="Supabase" />
+          <ManualMetric label="Workflow" value="Library -> Schedule -> Output" />
+          <ManualMetric label="Playback" value="Browser" />
+          <ManualMetric label="Capture" value="OBS/vMix" />
+          <ManualMetric label="State" value="Supabase" />
         </section>
 
         <section className="border-b border-white/10 py-5">
           <div className="flex flex-wrap gap-2">
             <Link className="btn-secondary" href="/pending">
-              Pending developments
+              Pending
             </Link>
             <Link className="btn-secondary" href="/notion">
-              Notion-style status page
+              Status
             </Link>
           </div>
         </section>
@@ -337,7 +109,7 @@ export default function ManualPage() {
         <section className="py-8">
           <div className="flex items-center gap-3">
             <BookOpen size={22} className="text-accent-positive" aria-hidden="true" />
-            <h2 className="text-2xl font-semibold">Standard Operator Workflow</h2>
+            <h2 className="text-2xl font-semibold">Go Live Workflow</h2>
           </div>
           <ol className="mt-5 grid gap-3 md:grid-cols-2">
             {workflowSteps.map((step, index) => (
@@ -351,104 +123,39 @@ export default function ManualPage() {
           </ol>
         </section>
 
-        <ManualGroup title="Operator Features" sections={operatorSections} />
-        <ManualGroup title="General Public and Output Features" sections={publicSections} />
+        <section className="py-8">
+          <h2 className="text-2xl font-semibold">Core Surfaces</h2>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {sections.map((section) => (
+              <article key={section.title} className="surface-panel p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <section.icon size={22} className="text-accent-positive" aria-hidden="true" />
+                    <h3 className="text-xl font-semibold">{section.title}</h3>
+                  </div>
+                  <Link className="btn-secondary min-h-9 text-xs" href={section.href}>
+                    Open
+                  </Link>
+                </div>
+                <p className="mt-4 text-sm leading-6 text-white/70">{section.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
 
-        <section className="mt-10 rounded-lg border border-white/10 bg-surface-elevated-2 p-5">
-          <h2 className="text-xl font-semibold">Current Limits and Operating Notes</h2>
+        <section className="mt-8 rounded-lg border border-white/10 bg-surface-elevated-2 p-5">
+          <div className="flex items-center gap-3">
+            <Shield size={22} className="text-accent-positive" aria-hidden="true" />
+            <h2 className="text-xl font-semibold">Current Limits</h2>
+          </div>
           <ul className="mt-4 grid gap-2 text-sm leading-6 text-white/70">
-            <li>
-              Admin authentication is a single-tenant named-operator flow after the readiness
-              migration is applied. Bootstrap-token login remains for emergency admin access.
-            </li>
-            <li>The manual and pending backlog are public documentation pages.</li>
-            <li>
-              Runbook persistence requires the `operator_runbook_checks` Supabase migration in the
-              target database.
-            </li>
-            <li>
-              Browser playout is the primary playback path; legacy HLS routes remain only for
-              compatibility checks.
-            </li>
-            <li>Reuters HLS/RTMP endpoints are dynamic and captured per block or live override.</li>
-            <li>
-              If a Reuters endpoint expires or rotates while on air, refresh the block or output
-              override with the new URL.
-            </li>
-            <li>
-              Authenticated Playwright coverage still needs to be expanded for named login, Reuters
-              streams and output override cleanup.
-            </li>
-            <li>
-              Read-only smoke commands need production environment variables loaded, especially
-              OUTPUT_CAPTURE_TOKEN.
-            </li>
-            <li>
-              Build warnings are expected to be treated as actionable unless explicitly waived.
-            </li>
-            <li>Rotate any secret that was pasted into chat, logs or documentation.</li>
+            {limits.map((limit) => (
+              <li key={limit}>{limit}</li>
+            ))}
           </ul>
         </section>
       </div>
     </main>
-  )
-}
-
-function ManualGroup({
-  title,
-  sections
-}: {
-  title: string
-  sections: Array<{
-    id: string
-    title: string
-    icon: typeof Activity
-    body: string[]
-    details?: string[]
-    links?: Array<{ label: string; href: string }>
-  }>
-}) {
-  return (
-    <section className="py-8">
-      <h2 className="text-2xl font-semibold">{title}</h2>
-      <div className="mt-5 grid gap-4">
-        {sections.map((section) => (
-          <article key={section.id} id={section.id} className="surface-panel p-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <section.icon size={22} className="text-accent-positive" aria-hidden="true" />
-                <h3 className="text-xl font-semibold">{section.title}</h3>
-              </div>
-              {section.links?.length ? (
-                <div className="flex flex-wrap gap-2">
-                  {section.links.map((link) => (
-                    <Link
-                      key={link.href}
-                      className="btn-secondary min-h-9 text-xs"
-                      href={link.href}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <div className="mt-4 grid gap-3 text-sm leading-6 text-white/72">
-              {section.body.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
-            </div>
-            {section.details?.length ? (
-              <ul className="mt-4 grid gap-2 border-t border-white/10 pt-4 text-sm leading-6 text-white/62">
-                {section.details.map((detail) => (
-                  <li key={detail}>{detail}</li>
-                ))}
-              </ul>
-            ) : null}
-          </article>
-        ))}
-      </div>
-    </section>
   )
 }
 
