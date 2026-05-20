@@ -32,7 +32,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import type { MouseEvent } from "react"
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 
 import { PlayoutTime } from "@/components/playout-time"
 import { StatusPill } from "@/components/status-pill"
@@ -42,6 +42,7 @@ import {
   findScheduleConflicts,
   scheduleConflictMessage
 } from "@/lib/schedule-conflicts"
+import { getScheduleLiveState } from "@/lib/schedule-live-state"
 import { analyzeSchedule, type ScheduleIssue } from "@/lib/schedule-health"
 import { slidePreviewHref } from "@/lib/slide-preview"
 import { formatPlayoutTimeLabel, formatTimecode } from "@/lib/time"
@@ -1198,10 +1199,28 @@ function CalendarScheduleView({
   const hourHeight = 80
   const canvasHeight = hourHeight * 24
   const hours = Array.from({ length: 24 }, (_, hour) => hour)
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const hasAutoScrolledRef = useRef(false)
+  const timezone = schedule.day?.timezone ?? "America/Los_Angeles"
+  const liveState = useScheduleLiveState(date, timezone, blocks)
+  const liveTop = liveState.nowSeconds !== null ? (liveState.nowSeconds / 3600) * hourHeight : null
   const gaps = schedule.day ? findSameDayGaps(blocks, schedule.day.id) : []
   const issueMap = new Map(
     issues.filter((issue) => issue.blockId).map((issue) => [issue.blockId, issue])
   )
+
+  useEffect(() => {
+    hasAutoScrolledRef.current = false
+  }, [date])
+
+  useEffect(() => {
+    if (!liveState.isToday || liveTop === null || hasAutoScrolledRef.current) return
+    const scroller = scrollerRef.current
+    if (!scroller) return
+    const target = Math.max(0, liveTop - scroller.clientHeight * 0.35)
+    scroller.scrollTo({ top: target, behavior: "smooth" })
+    hasAutoScrolledRef.current = true
+  }, [liveState.isToday, liveTop])
 
   function addAtPointer(event: MouseEvent<HTMLDivElement>) {
     if ((event.target as HTMLElement).closest("[data-calendar-block]")) return
@@ -1228,12 +1247,15 @@ function CalendarScheduleView({
             </p>
           ) : null}
         </div>
-        <button type="button" className="btn-secondary min-h-8 px-2" onClick={() => onAdd()}>
-          <Plus size={14} aria-hidden="true" />
-          Add Block
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <LiveStatusBadge state={liveState} />
+          <button type="button" className="btn-secondary min-h-8 px-2" onClick={() => onAdd()}>
+            <Plus size={14} aria-hidden="true" />
+            Add Block
+          </button>
+        </div>
       </div>
-      <div className="max-h-[720px] overflow-y-auto p-4">
+      <div ref={scrollerRef} className="max-h-[720px] overflow-y-auto p-4">
         <div
           className="relative ml-14 border-l border-line"
           style={{ minHeight: `${canvasHeight}px` }}
@@ -1266,6 +1288,20 @@ function CalendarScheduleView({
               </div>
             )
           })}
+          {liveTop !== null ? (
+            <div
+              className="pointer-events-none absolute left-4 right-2 z-40 border-t-2 border-accent-live"
+              style={{ top: liveTop }}
+              role="separator"
+              aria-label={`Live position ${formatPlayoutTimeLabel(liveState.nowSeconds ?? 0, true)}`}
+            >
+              <span className="absolute -top-3 left-2 inline-flex items-center gap-1 rounded bg-accent-live px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+                {formatPlayoutTimeLabel(liveState.nowSeconds ?? 0, true)} ·{" "}
+                {liveState.activeBlock?.title ?? "No active block"}
+              </span>
+            </div>
+          ) : null}
           <div className="absolute inset-y-0 left-4 right-0">
             {gaps
               .filter((gap) => gap.durationSeconds >= CALENDAR_SNAP_SECONDS)
@@ -1296,6 +1332,7 @@ function CalendarScheduleView({
               const height = Math.max(42, (block.durationSeconds / 3600) * hourHeight)
               const selected = selectedBlockId === block.id
               const created = createdBlockId === block.id
+              const onAir = liveState.activeBlock?.id === block.id
               const issue = issueMap.get(block.id)
               return (
                 <button
@@ -1307,16 +1344,22 @@ function CalendarScheduleView({
                   aria-label={`${created ? "New block: " : "Edit "}${block.title}, ${formatBlockRange(block)}`}
                   className={[
                     "absolute left-0 right-2 overflow-hidden rounded-md border px-3 py-2 text-left text-sm shadow-sm focus-visible:z-30",
-                    created
-                      ? "schedule-new-block border-accent-positive bg-surface-selected-positive text-accent-positive ring-2 ring-accent-positive/50"
-                      : selected
-                        ? "border-accent-positive bg-surface-selected-positive text-accent-positive"
-                        : issue?.severity === "critical"
-                          ? "border-danger-line bg-danger-soft text-danger-strong hover:bg-danger-soft"
-                          : issue?.severity === "warning"
-                            ? "border-warn-line bg-warn-soft text-warn-strong hover:bg-warn-soft"
-                            : "border-line bg-surface text-ink hover:bg-panel-soft",
-                    created || selected ? "z-20" : issue?.severity === "critical" ? "z-10" : "",
+                    onAir
+                      ? "z-30 border-accent-live bg-surface-selected-positive text-accent-live ring-2 ring-accent-live/60"
+                      : created
+                        ? "schedule-new-block border-accent-positive bg-surface-selected-positive text-accent-positive ring-2 ring-accent-positive/50"
+                        : selected
+                          ? "border-accent-positive bg-surface-selected-positive text-accent-positive"
+                          : issue?.severity === "critical"
+                            ? "border-danger-line bg-danger-soft text-danger-strong hover:bg-danger-soft"
+                            : issue?.severity === "warning"
+                              ? "border-warn-line bg-warn-soft text-warn-strong hover:bg-warn-soft"
+                              : "border-line bg-surface text-ink hover:bg-panel-soft",
+                    !onAir && (created || selected)
+                      ? "z-20"
+                      : !onAir && issue?.severity === "critical"
+                        ? "z-10"
+                        : "",
                     height < 58 ? "py-1.5" : ""
                   ].join(" ")}
                   style={{ top, height }}
@@ -1324,6 +1367,11 @@ function CalendarScheduleView({
                   <span className="flex items-center justify-between gap-2">
                     <span className="font-bold tabular-nums">{formatBlockRange(block)}</span>
                     <span className="flex shrink-0 items-center gap-1">
+                      {onAir ? (
+                        <span className="rounded border border-current/30 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                          On Air
+                        </span>
+                      ) : null}
                       {created ? (
                         <span className="rounded border border-current/30 px-1.5 py-0.5 text-[10px] font-bold uppercase">
                           New
@@ -1352,6 +1400,44 @@ function CalendarScheduleView({
         </div>
       </div>
     </div>
+  )
+}
+
+function useScheduleLiveState(date: string, timezone: string, blocks: ProgramBlock[]) {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(interval)
+  }, [])
+
+  return useMemo(
+    () => getScheduleLiveState({ date, timezone, blocks, now }),
+    [blocks, date, now, timezone]
+  )
+}
+
+function LiveStatusBadge({ state }: { state: ReturnType<typeof getScheduleLiveState> }) {
+  if (!state.isToday || state.nowSeconds === null) {
+    return (
+      <span className="rounded-md border border-line bg-panel-soft px-2 py-1 text-xs font-semibold text-muted">
+        Offline planning view
+      </span>
+    )
+  }
+
+  return (
+    <span className="inline-flex min-h-8 max-w-full items-center gap-2 rounded-md border border-accent-live bg-surface-selected-positive px-2 py-1 text-xs font-semibold text-accent-live">
+      <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent-live" />
+      <span className="truncate">
+        On air: {state.activeBlock?.title ?? "No active block"} ·{" "}
+        {formatPlayoutTimeLabel(state.nowSeconds, true)}
+        {state.activeBlock
+          ? ` · ${formatTimecode(state.elapsedSeconds)} / ${formatTimecode(state.activeBlock.durationSeconds)}`
+          : ""}
+        {state.nextBlock ? ` · Next ${state.nextBlock.title}` : ""}
+      </span>
+    </span>
   )
 }
 
