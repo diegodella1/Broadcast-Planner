@@ -55,6 +55,7 @@ export default async function ScheduleDatePage({
     kind?: string
     source?: string
     show_name?: string
+    error?: string
     month?: string
     year?: string
     created?: string
@@ -66,48 +67,62 @@ export default async function ScheduleDatePage({
   const blocks = schedule.blocks.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
   async function addBlock(formData: FormData) {
     "use server"
-    const created = await createProgramBlock({
-      date,
-      title: String(formData.get("title")),
-      blockType: String(formData.get("block_type")),
-      assetId: String(formData.get("asset_id") || ""),
-      slideId: String(formData.get("slide_id") || ""),
-      startTime: String(formData.get("start_time")),
-      durationSeconds: Number(formData.get("duration_seconds")),
-      preRollSeconds: Number(formData.get("pre_roll_seconds") || 0),
-      postRollSeconds: Number(formData.get("post_roll_seconds") || 0),
-      hideOverlays: formData.get("hide_overlays") === "on",
-      conflictResolution:
-        formData.get("conflict_resolution") === "archive_conflicts" ? "archive_conflicts" : "none",
-      reutersStreamUrl: String(formData.get("reuters_stream_url") || ""),
-      reutersStreamLabel: String(formData.get("reuters_stream_label") || ""),
-      reutersStreamExpiresAt: String(formData.get("reuters_stream_expires_at") || "")
-    })
+    let created: { id: string }
+    try {
+      created = await createProgramBlock({
+        date,
+        title: String(formData.get("title")),
+        blockType: String(formData.get("block_type")),
+        assetId: String(formData.get("asset_id") || ""),
+        slideId: String(formData.get("slide_id") || ""),
+        startTime: String(formData.get("start_time")),
+        durationSeconds: Number(formData.get("duration_seconds")),
+        preRollSeconds: Number(formData.get("pre_roll_seconds") || 0),
+        postRollSeconds: Number(formData.get("post_roll_seconds") || 0),
+        hideOverlays: formData.get("hide_overlays") === "on",
+        conflictResolution:
+          formData.get("conflict_resolution") === "archive_conflicts"
+            ? "archive_conflicts"
+            : "none",
+        reutersStreamUrl: String(formData.get("reuters_stream_url") || ""),
+        reutersStreamLabel: String(formData.get("reuters_stream_label") || ""),
+        reutersStreamExpiresAt: String(formData.get("reuters_stream_expires_at") || "")
+      })
+    } catch (error) {
+      redirect(scheduleErrorHref(date, error, "add-block"))
+    }
     redirect(
       `/admin/schedule/${date}?created=${encodeURIComponent(created.id)}#block-${created.id}`
     )
   }
   async function updateBlockInline(formData: FormData) {
     "use server"
-    await updateProgramBlock({
-      date,
-      blockId: String(formData.get("block_id")),
-      title: String(formData.get("title")),
-      blockType: String(formData.get("block_type")),
-      assetId: String(formData.get("asset_id") || ""),
-      slideId: String(formData.get("slide_id") || ""),
-      startTime: String(formData.get("start_time")),
-      durationSeconds: Number(formData.get("duration_seconds")),
-      status: String(formData.get("status")),
-      hideOverlays: formData.get("hide_overlays") === "on",
-      fallbackAssetId: String(formData.get("fallback_asset_id") || ""),
-      notes: String(formData.get("notes") || ""),
-      conflictResolution:
-        formData.get("conflict_resolution") === "archive_conflicts" ? "archive_conflicts" : "none",
-      reutersStreamUrl: String(formData.get("reuters_stream_url") || ""),
-      reutersStreamLabel: String(formData.get("reuters_stream_label") || ""),
-      reutersStreamExpiresAt: String(formData.get("reuters_stream_expires_at") || "")
-    })
+    const blockId = String(formData.get("block_id"))
+    try {
+      await updateProgramBlock({
+        date,
+        blockId,
+        title: String(formData.get("title")),
+        blockType: String(formData.get("block_type")),
+        assetId: String(formData.get("asset_id") || ""),
+        slideId: String(formData.get("slide_id") || ""),
+        startTime: String(formData.get("start_time")),
+        durationSeconds: Number(formData.get("duration_seconds")),
+        status: String(formData.get("status")),
+        hideOverlays: formData.get("hide_overlays") === "on",
+        fallbackAssetId: String(formData.get("fallback_asset_id") || ""),
+        notes: String(formData.get("notes") || ""),
+        conflictResolution:
+          formData.get("conflict_resolution") === "archive_conflicts"
+            ? "archive_conflicts"
+            : "none",
+        reutersStreamUrl: String(formData.get("reuters_stream_url") || ""),
+        reutersStreamLabel: String(formData.get("reuters_stream_label") || ""),
+        reutersStreamExpiresAt: String(formData.get("reuters_stream_expires_at") || "")
+      })
+    } catch (error) {
+      redirect(scheduleErrorHref(date, error, blockId ? `block-${blockId}` : "add-block"))
+    }
   }
   async function generateLongSchedule(formData: FormData) {
     "use server"
@@ -409,6 +424,7 @@ export default async function ScheduleDatePage({
         initialContentValue={initialContentValue(query)}
         initialFilters={initialContentFilters(query)}
         createdBlockId={query.created}
+        initialMessage={query.error}
       />
 
       <details className="surface-panel mb-5 p-4">
@@ -506,6 +522,11 @@ function StatusPanel({
       )}
     </section>
   )
+}
+
+function scheduleErrorHref(date: string, error: unknown, anchor = "add-block") {
+  const message = error instanceof Error ? error.message : String(error)
+  return `/admin/schedule/${date}?error=${encodeURIComponent(message)}#${anchor}`
 }
 
 function blockAssetLabel(schedule: ScheduleBundle, block: ProgramBlock) {

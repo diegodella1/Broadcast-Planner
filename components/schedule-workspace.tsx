@@ -96,7 +96,8 @@ export function ScheduleWorkspace({
   bulkCreateAction,
   initialContentValue,
   initialFilters,
-  createdBlockId
+  createdBlockId,
+  initialMessage
 }: {
   date: string
   schedule: ScheduleBundle
@@ -111,6 +112,7 @@ export function ScheduleWorkspace({
   initialContentValue?: string | undefined
   initialFilters?: InitialContentFilters | undefined
   createdBlockId?: string | undefined
+  initialMessage?: string | undefined
 }) {
   const activeBlocks = useMemo(
     () => blocks.filter((block) => block.status !== "archived"),
@@ -130,7 +132,7 @@ export function ScheduleWorkspace({
   const [drawerOpen, setDrawerOpen] = useState(
     Boolean(initialOption) || (!createdBlock && activeBlocks.length === 0)
   )
-  const [message, setMessage] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(initialMessage ?? null)
   const [pendingStartTime, setPendingStartTime] = useState<string | null>(null)
   const [pendingDurationSeconds, setPendingDurationSeconds] = useState<number | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -1455,15 +1457,28 @@ function NowLineDock({ state }: { state: ReturnType<typeof getScheduleLiveState>
 }
 
 function useScheduleLiveState(date: string, timezone: string, blocks: ProgramBlock[]) {
-  const [now, setNow] = useState(() => new Date())
+  const [now, setNow] = useState<Date | null>(null)
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => setNow(new Date()), 0)
     const interval = window.setInterval(() => setNow(new Date()), 1000)
-    return () => window.clearInterval(interval)
+    return () => {
+      window.clearTimeout(timeout)
+      window.clearInterval(interval)
+    }
   }, [])
 
   return useMemo(
-    () => getScheduleLiveState({ date, timezone, blocks, now }),
+    () =>
+      now
+        ? getScheduleLiveState({ date, timezone, blocks, now })
+        : {
+            isToday: false,
+            nowSeconds: null,
+            activeBlock: null,
+            elapsedSeconds: 0,
+            nextBlock: null
+          },
     [blocks, date, now, timezone]
   )
 }
