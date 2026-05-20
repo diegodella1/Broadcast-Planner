@@ -11,9 +11,12 @@ release and go-live checklist for the Roxom TV browser-output workflow.
 - Backend: Supabase database/storage.
 - Playout: `/output/live` captured by OBS or vMix.
 - Operational model: named operators for normal use, bootstrap token for emergency access.
-- Main remaining gate: certify the real OBS/vMix capture runtime for audio, video and reload.
-- Product polish gate: replace remaining placeholder/static plate inputs with real data feeds or
+- Capture status: browser output has been confirmed through web player, vMix and OBS.
+- Main product gate: replace remaining placeholder/static plate inputs with real data feeds or
   operator-configurable inputs, then remodel the on-air plate design for a stronger broadcast look.
+- Alternate deploy path: OpenNext/Cloudflare Workers is configured and deployable, but the current
+  production host remains local standalone Next.js behind Cloudflare Tunnel until a Workers deploy
+  is smoke-tested.
 
 ## Required Gates
 
@@ -89,6 +92,7 @@ What to say in a demo:
 - "This is the daily control room for Roxom TV."
 - "The operator can see what is live, what is next and what can fail before it goes on air."
 - "The browser output is designed to be captured by OBS or vMix."
+- "The web player has already been confirmed in browser, vMix and OBS."
 - "If the output reloads mid-show, it asks the server where the schedule is and resumes near that offset."
 - "Supabase stores the operational state, and a fresh backend can be bootstrapped from SQL."
 - "Schedule editing now confirms newly-added blocks clearly, with highlighted placement and
@@ -99,8 +103,10 @@ Current demo caveat:
 - Some plates still need real production inputs and a visual remodel before they should represent
   the final channel identity.
 
-`cf:build` and `cf:*` commands remain available for Cloudflare Worker/OpenNext validation, but they
-are not the active production deploy path on this host.
+`cf:build` and `cf:*` commands remain available for Cloudflare Worker/OpenNext deploys. Those
+deploys must keep Cloudflare dashboard vars/secrets configured for Supabase, `APP_ENCRYPTION_KEY`,
+`ADMIN_BOOTSTRAP_TOKEN`, `OUTPUT_CAPTURE_TOKEN`, app base URLs and provider tokens. They are not the
+active production deploy path on this host until a real Workers deploy passes smoke.
 
 ## Output Token Rotation
 

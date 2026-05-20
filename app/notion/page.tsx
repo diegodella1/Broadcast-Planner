@@ -13,9 +13,11 @@ const shipped = [
   "Music preferences for image and slide blocks",
   "Dynamic Reuters HLS/RTMP stream snapshots",
   "Browser output for OBS/vMix capture",
+  "Browser output confirmed in web player, vMix and OBS",
   "Time-accurate video reload resume",
   "Audit identity for critical operations",
-  "Supabase readiness schema and fresh-project bootstrap SQL"
+  "Supabase readiness schema and fresh-project bootstrap SQL",
+  "OpenNext/Cloudflare Workers deploy path configured"
 ]
 
 const verification = [
@@ -34,12 +36,12 @@ const verification = [
 
 const nextSteps = [
   "Provision day-to-day named operators and keep bootstrap token as emergency-only access.",
-  "Run the browser output Go Live Drill in the actual OBS/vMix capture runtime.",
   "Replace remaining placeholder/static plate data with real feeds or editable operator inputs.",
   "Remodel the visual design of cards, plates and output surfaces for final broadcast identity.",
   "Add output drift monitoring and incident prompts for silence, black output and stalled video.",
   "Finish i18n and validation copy cleanup.",
-  "Record recent smoke status so health is not degraded only because smoke metadata is missing."
+  "Record recent smoke status so health is not degraded only because smoke metadata is missing.",
+  "Smoke-test a real OpenNext/Cloudflare Workers deploy before making it production-primary."
 ]
 
 const operationSteps = [
@@ -174,7 +176,8 @@ export default function NotionStatusPage() {
 
             <Callout>
               Status: <strong>production live.</strong> Ready for controlled broadcast operation
-              with an operator present and OBS/vMix certification as the main remaining gate.
+              with an operator present. Browser output has been confirmed in web player, vMix and
+              OBS; the main remaining product gate is real plate inputs and final broadcast design.
             </Callout>
 
             <h2 className={h2Class}>Current status</h2>
@@ -232,8 +235,13 @@ export default function NotionStatusPage() {
                 OUTPUT_CAPTURE_TOKEN.
               </li>
               <li>
-                Browser output is the active playout surface. OBS/vMix browser capture must be
-                certified separately from Playwright/headless testing.
+                Browser output is the active playout surface. OBS/vMix capture has been confirmed
+                for the current workflow and should be rechecked after deploy or machine changes.
+              </li>
+              <li>
+                OpenNext/Cloudflare Workers is configured as an alternate deploy path. Keep
+                Cloudflare dashboard vars/secrets set and smoke-test a real Workers deploy before
+                making it primary.
               </li>
               <li>
                 Some on-air plates are operational but not final: remaining placeholder/static data

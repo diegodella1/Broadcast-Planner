@@ -17,15 +17,16 @@ What is already working:
 - browser playout for OBS/vMix capture
 - Vimeo, HLS, MP4, images, slides and Reuters stream snapshots
 - reload recovery that resumes video near the current scheduled offset
+- validated web player capture in browser, vMix and OBS
 - output control, monitor state and live overrides
 - runbook for preflight, live notes, incident handling and shutdown
 - admin health, schedule health and Go Live Drill
 - named operators, sessions, role guards, CSRF protection and audit logging
 - fresh Supabase bootstrap SQL for moving to a new backend
 
-Main remaining gate: certify video, audio and reload behavior on the actual OBS/vMix capture machine before unattended operation.
+Main product gate now pending: wire the on-air plates/slides to real production inputs where mock/static content remains, then remodel the visual design of the output plates so the channel looks intentionally produced rather than just operationally correct.
 
-Main product polish still pending: wire the on-air plates/slides to real production inputs where mock/static content remains, then remodel the visual design of the output plates so the channel looks intentionally produced rather than just operationally correct.
+Deployment note: the active production path is still local standalone Next.js behind a Cloudflare tunnel. OpenNext/Cloudflare Workers support is configured and deployable, but should be treated as an alternate path until a real Workers deploy is smoke-tested.
 
 ## Product Promise
 
@@ -134,15 +135,26 @@ npm run build
 npm run smoke:http
 npm run smoke:prod
 npm run deploy:local
+npm run cf:build
+npm run cf:deploy
 ```
 
-Production deploy for `rtvtime.diegodella.ar`:
+Active production deploy for `rtvtime.diegodella.ar`:
 
 ```bash
 npm run deploy:local
 ```
 
-The active production path is local systemd service plus Cloudflare tunnel. Cloudflare Workers/OpenNext files remain for future or alternate deployment only.
+The active production path is local systemd service plus Cloudflare tunnel.
+
+Alternate Cloudflare Workers/OpenNext path:
+
+```bash
+npm run cf:build
+npm run cf:deploy
+```
+
+Cloudflare deploys must keep dashboard vars/secrets configured for Supabase, `APP_ENCRYPTION_KEY`, `ADMIN_BOOTSTRAP_TOKEN`, `OUTPUT_CAPTURE_TOKEN`, app base URLs and any provider tokens such as Vimeo or Reuters. The scripts use `--keep-vars` so dashboard variables are preserved.
 
 ## Database
 
@@ -179,7 +191,7 @@ Before live use:
 - current day exists and is `active`.
 - active block has ready media or a ready fallback.
 - `/output/live?debug=true` plays on the capture browser after `Start Output`.
-- OBS/vMix browser capture receives video and audio after reload.
+- OBS/vMix browser capture has been validated for video/audio; recheck after deploy or capture-machine changes.
 - operator confirms fallbacks, runbook and shutdown process.
 
 ## Roadmap

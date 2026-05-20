@@ -64,9 +64,10 @@ const sections = [
 
 const limits = [
   "Production app is live and usable with an operator present.",
-  "OBS/vMix must still be certified on the actual capture machine before unattended operation.",
+  "Browser output has been confirmed through web player, vMix and OBS.",
   "Some on-air plates still need real data inputs or editable operator inputs.",
   "The final broadcast plate design still needs a visual remodel.",
+  "OpenNext/Cloudflare Workers is configured as an alternate deploy path but still needs a real Workers smoke before becoming primary.",
   "Browser audio requires one operator click after load or reload.",
   "Reuters endpoints are dynamic; refresh expired URLs before or during air.",
   "Fallback assets are required for reliable unattended operation.",
@@ -74,10 +75,12 @@ const limits = [
 ]
 
 const recentUpdates = [
+  "Browser output was confirmed in the web player, vMix and OBS.",
   "Schedule now highlights the block that was just created.",
   "Calendar blocks show start/end ranges and a readable duration chip.",
   "Gaps show their full time range so operators can fill the right window faster.",
-  "Supabase bootstrap SQL is available for setting up a fresh backend."
+  "Supabase bootstrap SQL is available for setting up a fresh backend.",
+  "OpenNext/Cloudflare Workers deploy scripts are configured for alternate production validation."
 ]
 
 export default function ManualPage() {

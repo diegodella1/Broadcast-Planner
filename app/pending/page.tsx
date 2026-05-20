@@ -33,18 +33,36 @@ const liveNow: Item[] = [
     status: "Done"
   },
   {
+    title: "OBS/vMix capture validation",
+    detail:
+      "Browser output has been confirmed through the web player, vMix and OBS with the current capture flow.",
+    status: "Done"
+  },
+  {
     title: "Migration kit",
     detail:
       "The downloadable production bundle includes environment values and a Supabase bootstrap SQL for a fresh backend.",
+    status: "Done"
+  },
+  {
+    title: "OpenNext/Cloudflare deploy path",
+    detail:
+      "Cloudflare Workers config and deploy scripts are present with dashboard vars preserved; smoke it before making it primary.",
     status: "Done"
   }
 ]
 
 const nextWork: Item[] = [
   {
-    title: "OBS/vMix capture certification",
+    title: "Real plate inputs",
     detail:
-      "Run the Go Live Drill on the real capture machine and confirm video, audio and reload recovery in the actual runtime.",
+      "Connect remaining plates/cards to real feeds or editable operator inputs instead of placeholder/static data.",
+    status: "Next"
+  },
+  {
+    title: "On-air plate redesign",
+    detail:
+      "Remodel the visual language of cards, plates and output surfaces so the channel feels broadcast-ready.",
     status: "Next"
   },
   {
@@ -56,18 +74,6 @@ const nextWork: Item[] = [
     title: "Output alerts",
     detail:
       "Turn drift, stalled, waiting, silence and media error states into clear operator alerts.",
-    status: "Next"
-  },
-  {
-    title: "Real plate inputs",
-    detail:
-      "Connect remaining plates/cards to real feeds or editable operator inputs instead of placeholder/static data.",
-    status: "Next"
-  },
-  {
-    title: "On-air plate redesign",
-    detail:
-      "Remodel the visual language of cards, plates and output surfaces so the channel feels broadcast-ready.",
     status: "Next"
   },
   {
@@ -101,11 +107,11 @@ const later: Item[] = [
 ]
 
 const risks = [
-  "Actual OBS/vMix runtime still needs human certification before unattended operation.",
   "Browser audio needs one operator click after load or reload.",
   "Reuters URLs can expire and must be refreshed before or during air.",
   "Remaining placeholder plate data must be replaced before final programming handoff.",
   "The current output is operational; final plate design still needs a broadcast-quality remodel.",
+  "Cloudflare Workers/OpenNext should be smoke-tested before becoming the primary production path.",
   "Fallback assets must stay ready for unattended operation."
 ]
 
@@ -123,7 +129,7 @@ export default function PendingPage() {
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
             Current shipping status for RTV Planner. The core product is live; the remaining work is
-            certification, real plate inputs, output design polish and broadcast automation.
+            real plate inputs, output design polish, smoke visibility and broadcast automation.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link className="btn-secondary" href="/manual">
