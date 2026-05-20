@@ -9,6 +9,7 @@ release and go-live checklist for the Roxom TV browser-output workflow.
 - Public route: `https://rtvtime.diegodella.ar`.
 - Network: Cloudflare tunnel in front of local service.
 - Backend: Supabase database/storage.
+- Uploaded media: local Supabase Storage served publicly through `/api/media/assets/[assetId]`.
 - Playout: `/output/live` captured by OBS or vMix.
 - Operational model: named operators for normal use, bootstrap token for emergency access.
 - Capture status: browser output has been confirmed through web player, vMix and OBS.
@@ -65,16 +66,17 @@ For the current `rtvtime.diegodella.ar` host, production deploy is local standal
 `cloudflared`:
 
 ```bash
-rtk npm run deploy:local
+rtk bash scripts/deploy_local_tunnel.sh
 ```
 
-After deploy, run production output status smoke:
+The deploy script records persisted smoke status for `/api/health`. To run the public read-only
+smoke manually:
 
 ```bash
-export RTV_BASE_URL="https://rtvtime.diegodella.ar"
+export RTV_PROD_BASE_URL="https://rtvtime.diegodella.ar"
 export ADMIN_BOOTSTRAP_TOKEN="..."
 export OUTPUT_CAPTURE_TOKEN="..."
-rtk npm run e2e
+rtk npm run smoke:prod
 ```
 
 Before live operation, open `/admin/runbook/<air-date>` and complete the critical preflight checks:

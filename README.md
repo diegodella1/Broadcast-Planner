@@ -22,6 +22,7 @@ What is already working:
 - output control, monitor state and live overrides
 - runbook for preflight, live notes, incident handling and shutdown
 - admin health, schedule health and Go Live Drill
+- persisted smoke status from deploy/read-only smoke scripts
 - named operators, sessions, role guards, CSRF protection and audit logging
 - fresh Supabase bootstrap SQL for moving to a new backend
 
@@ -218,7 +219,6 @@ Near-term priorities:
 
 - replace remaining placeholder/static plate data with real feeds or operator-configurable inputs
 - remodel the visual design of on-air plates, cards and output surfaces
-- persist smoke status so health reflects the latest deploy checks
 - improve operator alerts for drift, stalled playback, silence and media errors
 - expand schedule copy/recurring-day tools after the live workflow is stable
 

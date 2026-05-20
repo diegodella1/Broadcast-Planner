@@ -12,6 +12,8 @@ Current roadmap only. The product is in controlled production: useful now, still
 | Reload time sync             | Live   | Reload mid-show resumes near the current scheduled video offset.                             |
 | OBS/vMix capture validation  | Live   | Browser output was confirmed through web player, vMix and OBS.                               |
 | Public upload playback       | Live   | Uploaded ads/promos stored in local Supabase play through the public app media proxy.        |
+| Media URL backfill           | Live   | Existing local media URLs were rewritten to app proxy URLs.                                  |
+| Persisted smoke status       | Live   | Deploy/read-only smoke scripts write the latest smoke result for `/api/health`.              |
 | Supabase migration kit       | Live   | Fresh-project SQL creates schema, RLS policies, buckets and operational tables.              |
 | Security baseline            | Live   | Named operators, sessions, roles, CSRF, output token flow, rate limiting and audit logging.  |
 | Schedule UX feedback         | Live   | Newly-created blocks are announced, highlighted and shown with clear start/end time ranges.  |
@@ -23,8 +25,6 @@ Current roadmap only. The product is in controlled production: useful now, still
 | ----------------------------- | -------- | --------------------------------------------------------------------------------------------- |
 | Real plate inputs             | P0       | Replace remaining placeholder/static plate data with real feeds or editable operator inputs.  |
 | Remodel on-air plate design   | P0       | Make cards, slides and output surfaces look broadcast-ready, not just technically functional. |
-| Backfill old media URLs       | P0       | Rewrite any uploaded assets still pointing to 127.0.0.1 so they use the app proxy URL.        |
-| Persist smoke status          | P1       | `/api/health` can show degraded when no recent smoke status is written.                       |
 | Improve output alerting       | P1       | Turn drift, stalled, waiting, silence and media errors into operator-facing alerts.           |
 | Named operator rollout        | P1       | Move day-to-day work off bootstrap access and improve audit identity.                         |
 | Cloudflare Workers smoke      | P1       | Prove the OpenNext deploy path in Workers before treating it as production-primary.           |

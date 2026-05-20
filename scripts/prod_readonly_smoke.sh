@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'node scripts/record_smoke_status.mjs fail production-readonly >/dev/null || true' ERR
 
 base_url="${RTV_PROD_BASE_URL:-${RTV_BASE_URL:-}}"
 if [[ -z "$base_url" ]]; then
@@ -94,4 +95,5 @@ echo "audit page"
 curl -fsS --cookie "rpm_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" "$base_url/admin/audit" >"$tmp_dir/audit.html"
 grep -qi "audit" "$tmp_dir/audit.html"
 
+node scripts/record_smoke_status.mjs ok production-readonly >/dev/null
 echo "production read-only smoke ok"

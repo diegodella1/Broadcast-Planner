@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'node scripts/record_smoke_status.mjs fail local-deploy >/dev/null || true' ERR
 
 npm run build
 
@@ -35,4 +36,5 @@ for css_href in "${css_hrefs[@]}"; do
   curl -fsS "http://127.0.0.1:3450${css_href}" >/dev/null
 done
 
+node scripts/record_smoke_status.mjs ok local-deploy >/dev/null
 echo "rtvplanner production deploy ok"

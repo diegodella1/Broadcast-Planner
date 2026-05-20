@@ -18,6 +18,7 @@ const shipped = [
   "Time-accurate video reload resume",
   "Audit identity for critical operations",
   "Supabase readiness schema and fresh-project bootstrap SQL",
+  "Persisted smoke status for deploy/read-only smoke checks",
   "OpenNext/Cloudflare Workers deploy path configured"
 ]
 
@@ -37,12 +38,10 @@ const verification = [
 
 const nextSteps = [
   "Provision day-to-day named operators and keep bootstrap token as emergency-only access.",
-  "Run the media URL backfill after deploy if any uploaded assets still point to 127.0.0.1.",
   "Replace remaining placeholder/static plate data with real feeds or editable operator inputs.",
   "Remodel the visual design of cards, plates and output surfaces for final broadcast identity.",
   "Add output drift monitoring and incident prompts for silence, black output and stalled video.",
   "Finish i18n and validation copy cleanup.",
-  "Record recent smoke status so health is not degraded only because smoke metadata is missing.",
   "Smoke-test a real OpenNext/Cloudflare Workers deploy before making it production-primary."
 ]
 
@@ -213,8 +212,8 @@ export default function NotionStatusPage() {
             <ul className={listClass}>
               <li>/api/health returns ok: true after deploy checks.</li>
               <li>
-                Status can show degraded when there is no live day loaded or no recent smoke status
-                configured.
+                Status can show degraded when there is no live day loaded or the persisted smoke
+                status is stale/failing.
               </li>
               <li>Schema, Supabase, storage, Vimeo, Reuters and output checks are healthy.</li>
               <li>

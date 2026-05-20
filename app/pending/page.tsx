@@ -51,6 +51,18 @@ const liveNow: Item[] = [
     status: "Done"
   },
   {
+    title: "Media URL backfill",
+    detail:
+      "Older uploaded assets that pointed at 127.0.0.1 were rewritten to public app media proxy URLs.",
+    status: "Done"
+  },
+  {
+    title: "Persisted smoke status",
+    detail:
+      "Deploy and read-only smoke scripts now write the latest smoke result for `/api/health`.",
+    status: "Done"
+  },
+  {
     title: "OpenNext/Cloudflare deploy path",
     detail:
       "Cloudflare Workers config and deploy scripts are present with dashboard vars preserved; smoke it before making it primary.",
@@ -59,12 +71,6 @@ const liveNow: Item[] = [
 ]
 
 const nextWork: Item[] = [
-  {
-    title: "Backfill old media URLs",
-    detail:
-      "Run the media backfill script after deploy if older uploaded assets still point at 127.0.0.1.",
-    status: "Next"
-  },
   {
     title: "Real plate inputs",
     detail:
@@ -75,11 +81,6 @@ const nextWork: Item[] = [
     title: "On-air plate redesign",
     detail:
       "Remodel the visual language of cards, plates and output surfaces so the channel feels broadcast-ready.",
-    status: "Next"
-  },
-  {
-    title: "Persist smoke status",
-    detail: "Store recent smoke results so `/api/health` stops showing smoke as degraded.",
     status: "Next"
   },
   {
