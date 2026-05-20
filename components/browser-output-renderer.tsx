@@ -35,6 +35,9 @@ type OutputState =
       durationSeconds: number | null
       serverSeconds: number
       generatedAt: string
+      muted?: boolean
+      loop?: boolean
+      reason?: string
       backgroundMusic: BackgroundMusic
     }
   | {
@@ -144,7 +147,8 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
     video.pause()
     video.removeAttribute("src")
     video.load()
-    video.muted = false
+    video.muted = Boolean(state.muted)
+    video.loop = Boolean(state.loop)
     video.playsInline = true
     video.preload = "auto"
 
@@ -372,12 +376,14 @@ function expectedOffset(
   state: Pick<Extract<OutputState, { startOffsetSeconds: number }>, "startOffsetSeconds"> & {
     generatedAt: string
     durationSeconds?: number | null
+    loop?: boolean
   }
 ) {
   const generated = Date.parse(state.generatedAt)
   const drift = Number.isFinite(generated) ? Math.max(0, (Date.now() - generated) / 1000) : 0
   const raw = state.startOffsetSeconds + drift
   if (!state.durationSeconds || state.durationSeconds <= 1) return Math.max(0, raw)
+  if (state.loop) return Math.max(0, raw % state.durationSeconds)
   return Math.min(Math.max(0, raw), Math.max(0, state.durationSeconds - 1))
 }
 

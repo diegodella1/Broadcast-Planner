@@ -1242,6 +1242,7 @@ export async function updateMediaAsset(input: {
   status: string
   lifecycleState?: string | undefined
   orientation?: string | undefined
+  fallbackLoop?: boolean | undefined
   playlistOrder?: number | undefined
   revalidatePaths?: string[] | undefined
 }) {
@@ -1265,6 +1266,10 @@ export async function updateMediaAsset(input: {
   metadata.orientation = orientation
   metadata.presentation = orientation === "vertical" ? "vertical_blur" : "fit"
   metadata.background = orientation === "vertical" ? "blur" : "black"
+  metadata.fallback_loop = input.fallbackLoop === true
+  metadata.fallback_muted = input.fallbackLoop === true
+  if (input.fallbackLoop) metadata.fallback_loop_selected_at = new Date().toISOString()
+  else delete metadata.fallback_loop_selected_at
   if (input.assetType === "music" && typeof input.playlistOrder === "number") {
     metadata.playlist_order = input.playlistOrder
   }
@@ -1306,9 +1311,34 @@ export async function updateMediaAsset(input: {
       if (error) throw error
     }
   )
+  if (input.fallbackLoop) await clearOtherFallbackLoops(input.id)
   revalidatePath("/admin/assets")
+  revalidatePath("/admin/output")
   for (const path of input.revalidatePaths ?? []) {
     revalidatePath(path)
+  }
+}
+
+async function clearOtherFallbackLoops(activeAssetId: string) {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase.from("media_assets").select("id,metadata")
+  if (error) throw error
+  const rows = Array.isArray(data) ? data : []
+  for (const row of rows) {
+    const id = typeof row?.id === "string" ? row.id : ""
+    const metadata =
+      typeof row?.metadata === "object" && row.metadata !== null
+        ? { ...(row.metadata as Record<string, unknown>) }
+        : {}
+    if (!id || id === activeAssetId || metadata.fallback_loop !== true) continue
+    metadata.fallback_loop = false
+    metadata.fallback_muted = false
+    delete metadata.fallback_loop_selected_at
+    const { error: updateError } = await supabase
+      .from("media_assets")
+      .update({ metadata, updated_at: new Date().toISOString() })
+      .eq("id", id)
+    if (updateError) throw updateError
   }
 }
 

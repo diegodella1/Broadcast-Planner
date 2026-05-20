@@ -65,6 +65,25 @@ describe("BrowserOutputRenderer", () => {
     await waitFor(() => expect(play.mock.calls.length).toBeGreaterThan(playsBeforeGap))
     expect(screen.queryByRole("button", { name: /Start Output/i })).not.toBeInTheDocument()
   }, 10000)
+
+  it("plays fallback loop video muted when the state requests it", async () => {
+    global.fetch = vi.fn(async () =>
+      jsonResponse({
+        ...videoState("fallback", "Fallback loop"),
+        signature: "fallback-loop:asset-fallback",
+        reason: "no-active-block",
+        muted: true,
+        loop: true
+      })
+    )
+
+    render(<BrowserOutputRenderer token="token" />)
+
+    await screen.findByText("Browser output ready")
+    const video = document.querySelector("video")!
+    await waitFor(() => expect(video.muted).toBe(true))
+    expect(video.loop).toBe(true)
+  })
 })
 
 function jsonResponse(payload: unknown) {

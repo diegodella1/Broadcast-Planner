@@ -10,7 +10,14 @@ import { getVimeoToken } from "@/lib/settings"
 import { PLAYOUT_TIMEZONE, secondsSinceMidnightInTimezone } from "@/lib/time"
 import { getVimeoPlayback } from "@/lib/vimeo"
 
+import type { MediaAsset, ScheduleBundle } from "@/lib/types"
+
 export const dynamic = "force-dynamic"
+
+type OutputBase = {
+  serverSeconds: number
+  generatedAt: string
+}
 
 export async function GET(request: Request) {
   try {
@@ -66,7 +73,7 @@ export async function GET(request: Request) {
     }
 
     if (!bundle.day || !active.block) {
-      return NextResponse.json(fallbackState("no-active-block"), {
+      return NextResponse.json(await fallbackStateForBundle(bundle, "no-active-block", base), {
         headers: { "Cache-Control": "no-store" }
       })
     }
@@ -120,7 +127,10 @@ export async function GET(request: Request) {
     if (active.asset) {
       if (active.asset.sourceType === "vimeo" && active.asset.vimeoId) {
         const vimeoToken = await getVimeoToken()
-        if (!vimeoToken) return NextResponse.json(fallbackState("missing-vimeo-token"))
+        if (!vimeoToken)
+          return NextResponse.json(
+            await fallbackStateForBundle(bundle, "missing-vimeo-token", base)
+          )
         const playback = await getVimeoPlayback(vimeoToken, active.asset.vimeoId)
         return NextResponse.json(
           {
@@ -195,23 +205,87 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json(fallbackState("unsupported-active-content"), {
-      headers: { "Cache-Control": "no-store" }
-    })
+    return NextResponse.json(
+      await fallbackStateForBundle(bundle, "unsupported-active-content", base),
+      {
+        headers: { "Cache-Control": "no-store" }
+      }
+    )
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error"
     return NextResponse.json({ ...fallbackState("state-error"), error: message }, { status: 200 })
   }
 }
 
-function fallbackState(reason: string) {
+async function fallbackStateForBundle(bundle: ScheduleBundle, reason: string, base: OutputBase) {
+  const fallbackAsset = findFallbackLoopAsset(bundle)
+  if (!fallbackAsset) return fallbackState(reason, base)
+  return (await fallbackVideoState(fallbackAsset, reason, base)) ?? fallbackState(reason, base)
+}
+
+async function fallbackVideoState(asset: MediaAsset, reason: string, base: OutputBase) {
+  const common = {
+    ...base,
+    signature: `fallback-loop:${asset.id}:${asset.updatedAt}`,
+    reason,
+    assetId: asset.id,
+    title: asset.title,
+    startOffsetSeconds: loopOffset(base.serverSeconds, asset.durationSeconds),
+    durationSeconds: asset.durationSeconds ?? null,
+    muted: true,
+    loop: true,
+    backgroundMusic: null
+  }
+  if (asset.sourceType === "remote_mp4" && asset.url) {
+    return { ...common, kind: "mp4", url: asset.url }
+  }
+  if (asset.sourceType === "hls" && asset.url) {
+    return { ...common, kind: "hls", hlsUrl: asset.url }
+  }
+  if (asset.sourceType === "vimeo" && asset.vimeoId) {
+    const vimeoToken = await getVimeoToken()
+    if (!vimeoToken) return null
+    const playback = await getVimeoPlayback(vimeoToken, asset.vimeoId)
+    return {
+      ...common,
+      kind: "vimeo",
+      title: playback.title || asset.title,
+      hlsUrl: playback.hlsUrl,
+      durationSeconds: playback.durationSeconds || asset.durationSeconds || null,
+      startOffsetSeconds: loopOffset(
+        base.serverSeconds,
+        playback.durationSeconds || asset.durationSeconds
+      )
+    }
+  }
+  return null
+}
+
+function findFallbackLoopAsset(bundle: ScheduleBundle) {
+  return (
+    bundle.mediaAssets.find(
+      (asset) =>
+        asset.status === "ready" &&
+        asset.mediaKind === "video" &&
+        asset.metadata?.fallback_loop === true &&
+        Boolean(asset.url || asset.vimeoId)
+    ) ?? null
+  )
+}
+
+function loopOffset(serverSeconds: number, durationSeconds?: number | null) {
+  if (!durationSeconds || durationSeconds <= 1) return 0
+  return Math.max(0, Math.floor(serverSeconds % durationSeconds))
+}
+
+function fallbackState(reason: string, base?: OutputBase) {
   return {
     kind: "fallback",
     signature: `fallback:${reason}`,
     reason,
     title: "RTV fallback",
-    serverSeconds: secondsSinceMidnightInTimezone(),
-    generatedAt: new Date().toISOString(),
+    serverSeconds: base?.serverSeconds ?? secondsSinceMidnightInTimezone(),
+    generatedAt: base?.generatedAt ?? new Date().toISOString(),
     backgroundMusic: null
   }
 }

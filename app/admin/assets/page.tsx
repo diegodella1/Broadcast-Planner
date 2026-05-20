@@ -154,7 +154,8 @@ export default async function AssetsPage({
       ...(durationSeconds !== undefined ? { durationSeconds } : {}),
       status: String(formData.get("status")),
       lifecycleState: String(formData.get("lifecycle_state") || "reviewed"),
-      orientation: String(formData.get("orientation") || "auto")
+      orientation: String(formData.get("orientation") || "auto"),
+      fallbackLoop: formData.get("fallback_loop") === "on"
     })
   }
   async function deleteAsset(formData: FormData) {
@@ -667,6 +668,7 @@ function LibraryItemRow({
   deleteAsset: (formData: FormData) => Promise<void>
 }) {
   const status = item.kind === "asset" ? item.asset.status : item.slide.status
+  const isFallbackLoop = item.kind === "asset" && fallbackLoopEnabled(item.asset)
   return (
     <details
       id={`${item.kind}-${item.id}`}
@@ -679,6 +681,12 @@ function LibraryItemRow({
           <p className="text-sm text-muted">{libraryItemMeta(item)}</p>
           <p className="mt-1 text-xs font-semibold uppercase text-muted">
             {item.kind === "asset" ? lifecycleState(item.asset).replaceAll("_", " ") : "slide"}
+            {item.kind === "asset" ? ` · ${item.asset.assetType}` : ""}
+            {isFallbackLoop ? (
+              <span className="ml-2 rounded border border-success/30 bg-success/10 px-1.5 py-0.5 text-success">
+                Silent fallback loop
+              </span>
+            ) : null}
           </p>
         </div>
         <span className="text-sm text-muted">{libraryItemDuration(item)}</span>
@@ -778,6 +786,8 @@ function AssetEditForm({
     asset.metadata?.orientation ||
       (asset.metadata?.presentation === "vertical_blur" ? "vertical" : "auto")
   )
+  const isFallbackLoop = fallbackLoopEnabled(asset)
+  const canFallbackLoop = asset.mediaKind === "video" && asset.assetType !== "music"
   return (
     <form
       action={action}
@@ -825,6 +835,7 @@ function AssetEditForm({
         name="asset_type"
         defaultValue={asset.assetType}
         className="border border-line px-3 py-2 text-sm"
+        aria-label="Library category"
       >
         <option value="image">Image</option>
         <option value="video">Video</option>
@@ -889,6 +900,27 @@ function AssetEditForm({
         placeholder="Description"
         className="border border-line px-3 py-2 text-sm lg:col-span-2"
       />
+      <label className="lg:col-span-4 flex items-start gap-3 rounded-md border border-line bg-surface px-3 py-3 text-sm text-ink">
+        <input
+          name="fallback_loop"
+          type="checkbox"
+          defaultChecked={isFallbackLoop}
+          disabled={!canFallbackLoop}
+          className="mt-1"
+        />
+        <span>
+          <span className="block font-semibold">Use as silent fallback loop</span>
+          <span className="block text-xs leading-5 text-muted">
+            Plays muted in /output/live whenever no scheduled block is active. Only one library
+            video can be the fallback loop at a time.
+          </span>
+          {!canFallbackLoop ? (
+            <span className="mt-1 block text-xs font-semibold text-warn">
+              Change this item to Video media before enabling fallback loop.
+            </span>
+          ) : null}
+        </span>
+      </label>
       <button className="btn-primary lg:col-span-4">Save changes</button>
       <div className="lg:col-span-4 rounded-md border border-line bg-surface px-3 py-2 text-xs leading-5 text-muted">
         <span className="font-semibold text-ink">File details:</span> {fileDetailLine(asset)}
@@ -1092,6 +1124,10 @@ function fileDetailLine(asset: MediaAsset) {
 function getMetadataText(asset: MediaAsset, key: string) {
   const value = asset.metadata?.[key]
   return typeof value === "string" ? value : ""
+}
+
+function fallbackLoopEnabled(asset: MediaAsset) {
+  return asset.metadata?.fallback_loop === true
 }
 
 function parseDate(value: string) {

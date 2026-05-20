@@ -1435,6 +1435,41 @@ describe("updateMediaAsset", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/admin/calendar")
   })
 
+  it("happy path: marks one asset as the silent fallback loop", async () => {
+    ;(supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() =>
+      Promise.resolve({ data: { metadata: { orientation: "horizontal" } }, error: null })
+    )
+    let thenCallCount = 0
+    ;(supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
+      (resolve: (value: MockResult) => void) => {
+        thenCallCount += 1
+        if (thenCallCount === 2) {
+          return Promise.resolve({
+            data: [
+              { id: "asset-1", metadata: { fallback_loop: true } },
+              { id: "asset-2", metadata: { fallback_loop: true, note: "old" } }
+            ],
+            error: null
+          }).then(resolve)
+        }
+        return Promise.resolve({ data: null, error: null }).then(resolve)
+      }
+    )
+
+    await updateMediaAsset({ ...baseInput, fallbackLoop: true })
+
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          fallback_loop: true,
+          fallback_muted: true
+        })
+      })
+    )
+    expect(supabaseMock.select).toHaveBeenCalledWith("id,metadata")
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/output")
+  })
+
   it("error path: throws when id is missing", async () => {
     await expect(updateMediaAsset({ ...baseInput, id: "" })).rejects.toThrow("Asset missing")
   })
