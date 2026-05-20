@@ -7,7 +7,14 @@ import { getDays, getProgrammedSecondsByDate, getScheduleForDate } from "@/lib/d
 import { DAY_TEMPLATES } from "@/lib/day-templates"
 import { createProgramDayFromTemplate, ensureProgramDay } from "@/lib/mutations"
 import { analyzeSchedule } from "@/lib/schedule-health"
-import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
+import { findActiveSchedule } from "@/lib/scheduler"
+import {
+  formatPlayoutTimeLabel,
+  formatTimecode,
+  isoDateInTimezone,
+  PLAYOUT_TIMEZONE,
+  secondsSinceMidnightInTimezone
+} from "@/lib/time"
 
 export const dynamic = "force-dynamic"
 
@@ -31,6 +38,14 @@ export default async function CalendarPage({
     })
   )
   const healthByDate = new Map(monthSchedules)
+  const todaySchedule = await getScheduleForDate(today)
+  const todayNowSeconds = secondsSinceMidnightInTimezone(new Date(), PLAYOUT_TIMEZONE)
+  const todayActive = todaySchedule.day ? findActiveSchedule(todaySchedule, todayNowSeconds) : null
+  const todayNextBlock =
+    todaySchedule.blocks
+      .filter((block) => block.status === "ready" || block.status === "active")
+      .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
+      .find((block) => block.startTimeSeconds > todayNowSeconds) ?? null
   const coverage = new Map(
     daysInMonth.map((day) => {
       const programmedSeconds = programmedSecondsByDate.get(day.airDate) ?? 0
@@ -91,6 +106,35 @@ export default async function CalendarPage({
           tone={activeDays ? "ok" : "neutral"}
         />
         <MetricTile label="Today" value={today} detail="San Francisco playout date" tone="info" />
+      </section>
+      <section className="surface-panel mb-5 overflow-hidden border-accent-live">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <div className="min-w-0">
+            <p className="eyebrow text-accent-live">Now</p>
+            <h2 className="mt-1 truncate text-lg font-semibold">
+              {todayActive?.block?.title ?? "Nothing scheduled right now"}
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              {formatPlayoutTimeLabel(todayNowSeconds, true)}
+              {todayActive?.block
+                ? ` · ${formatTimecode(todayActive.elapsedInBlock)} / ${formatTimecode(
+                    todayActive.block.durationSeconds
+                  )}`
+                : todayNextBlock
+                  ? ` · Next ${todayNextBlock.title}`
+                  : " · No upcoming ready block"}
+            </p>
+          </div>
+          <ButtonLink href={`/admin/schedule/${today}`} variant="secondary">
+            Open Today
+          </ButtonLink>
+        </div>
+        <div className="h-1 bg-panel">
+          <div
+            className="h-full bg-accent-live"
+            style={{ width: `${Math.round((todayNowSeconds / 86400) * 100)}%` }}
+          />
+        </div>
       </section>
       <section className="surface-panel mb-5 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
@@ -172,6 +216,16 @@ export default async function CalendarPage({
                   />
                 </div>
                 <p className="mt-2 text-xs font-semibold tabular-nums">{percent}% programmed</p>
+                {isToday ? (
+                  <div className="mt-2 rounded-md border border-accent-live bg-surface-selected-positive px-2 py-1 text-[11px] font-semibold text-accent-live">
+                    <span className="block tabular-nums">
+                      Now {formatPlayoutTimeLabel(todayNowSeconds, true)}
+                    </span>
+                    <span className="block truncate text-ink">
+                      {todayActive?.block?.title ?? "No active block"}
+                    </span>
+                  </div>
+                ) : null}
                 <p
                   className={[
                     "mt-1 truncate text-xs font-semibold",

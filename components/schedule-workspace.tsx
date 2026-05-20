@@ -1255,6 +1255,7 @@ function CalendarScheduleView({
           </button>
         </div>
       </div>
+      <NowLineDock state={liveState} />
       <div ref={scrollerRef} className="max-h-[720px] overflow-y-auto p-4">
         <div
           className="relative ml-14 border-l border-line"
@@ -1290,15 +1291,20 @@ function CalendarScheduleView({
           })}
           {liveTop !== null ? (
             <div
-              className="pointer-events-none absolute left-4 right-2 z-40 border-t-2 border-accent-live"
+              className="pointer-events-none absolute -left-14 right-2 z-40 border-t-2 border-accent-live"
               style={{ top: liveTop }}
               role="separator"
               aria-label={`Live position ${formatPlayoutTimeLabel(liveState.nowSeconds ?? 0, true)}`}
             >
-              <span className="absolute -top-3 left-2 inline-flex items-center gap-1 rounded bg-accent-live px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+              <span className="absolute -top-3 left-0 inline-flex min-w-12 justify-center rounded bg-accent-live px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+                Now
+              </span>
+              <span className="absolute -top-3 left-16 inline-flex max-w-[calc(100%-4rem)] items-center gap-1 rounded bg-accent-live px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
                 {formatPlayoutTimeLabel(liveState.nowSeconds ?? 0, true)} ·{" "}
-                {liveState.activeBlock?.title ?? "No active block"}
+                <span className="truncate">
+                  {liveState.activeBlock?.title ?? "No active block"}
+                </span>
               </span>
             </div>
           ) : null}
@@ -1397,6 +1403,51 @@ function CalendarScheduleView({
               )
             })}
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function NowLineDock({ state }: { state: ReturnType<typeof getScheduleLiveState> }) {
+  if (!state.isToday || state.nowSeconds === null) return null
+
+  const isOnAir = Boolean(state.activeBlock)
+  return (
+    <div
+      className={[
+        "sticky top-0 z-50 border-b px-4 py-2 shadow-sm",
+        isOnAir
+          ? "border-accent-live bg-surface-selected-positive text-accent-live"
+          : "border-warn-line bg-warn-soft text-warn-strong"
+      ].join(" ")}
+      aria-live="polite"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className={[
+              "h-2.5 w-2.5 shrink-0 rounded-full",
+              isOnAir ? "animate-pulse bg-accent-live" : "bg-warn"
+            ].join(" ")}
+          />
+          <span className="shrink-0 font-bold uppercase tracking-wide">
+            Now {formatPlayoutTimeLabel(state.nowSeconds, true)}
+          </span>
+          <span className="min-w-0 truncate font-semibold text-ink">
+            Should be playing: {state.activeBlock?.title ?? "nothing scheduled at this time"}
+          </span>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 font-semibold tabular-nums">
+          {state.activeBlock ? (
+            <span>
+              {formatTimecode(state.elapsedSeconds)} /{" "}
+              {formatTimecode(state.activeBlock.durationSeconds)}
+            </span>
+          ) : null}
+          {state.nextBlock ? (
+            <span className="text-muted">Next: {state.nextBlock.title}</span>
+          ) : null}
         </div>
       </div>
     </div>
