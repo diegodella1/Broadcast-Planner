@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 import { appUrl } from "@/lib/app-url"
 import { requireAdmin } from "@/lib/auth"
-import { verifyCsrfToken } from "@/lib/csrf"
+import { CSRF_FIELD, verifyCsrfTokenValue } from "@/lib/csrf"
 import { uploadedMediaFieldsFromForm, uploadMediaFile } from "@/lib/media-upload"
 import { createProgramBlock } from "@/lib/mutations"
 import { assertRateLimit, rateLimitErrorResponse } from "@/lib/rate-limit"
@@ -16,8 +16,8 @@ export async function POST(request: Request) {
       limit: 20,
       windowSeconds: 60
     })
-    await verifyCsrfToken(request)
     const form = await request.formData()
+    await verifyCsrfTokenValue(form.get(CSRF_FIELD))
     const file = form.get("media_file") ?? form.get("video_file")
     if (!(file instanceof File) || file.size === 0) {
       throw new Error("Select a media file")

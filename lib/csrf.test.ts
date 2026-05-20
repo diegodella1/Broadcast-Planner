@@ -48,6 +48,14 @@ describe("csrf", () => {
     ).resolves.toBeUndefined()
   })
 
+  it("accepts a matching form token value", async () => {
+    const { CSRF_COOKIE, getCsrfToken, verifyCsrfTokenValue } = await import("./csrf")
+    const token = String(await getCsrfToken())
+    cookieMap.set(CSRF_COOKIE, token)
+
+    await expect(verifyCsrfTokenValue(token)).resolves.toBeUndefined()
+  })
+
   it("rejects a missing token", async () => {
     const { verifyCsrfToken } = await import("./csrf")
 

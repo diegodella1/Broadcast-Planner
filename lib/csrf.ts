@@ -18,9 +18,13 @@ export async function verifyCsrfToken(request: Request) {
   const cookieStore = await cookies()
   const expected = cookieStore.get(CSRF_COOKIE)?.value ?? ""
   const actual = await csrfTokenFromRequest(request)
-  if (!constantTimeEqual(expected, actual)) {
-    throw new Error("Invalid CSRF token")
-  }
+  assertCsrfTokenMatches(expected, actual)
+}
+
+export async function verifyCsrfTokenValue(actual: FormDataEntryValue | null) {
+  const cookieStore = await cookies()
+  const expected = cookieStore.get(CSRF_COOKIE)?.value ?? ""
+  assertCsrfTokenMatches(expected, typeof actual === "string" ? actual : "")
 }
 
 async function csrfTokenFromRequest(request: Request) {
@@ -41,6 +45,12 @@ function constantTimeEqual(expected: string, actual: string) {
   const left = Buffer.from(expected)
   const right = Buffer.from(actual)
   return left.length === right.length && timingSafeEqual(left, right)
+}
+
+function assertCsrfTokenMatches(expected: string, actual: string) {
+  if (!constantTimeEqual(expected, actual)) {
+    throw new Error("Invalid CSRF token")
+  }
 }
 
 function isValidTokenShape(value: string | undefined): value is string {

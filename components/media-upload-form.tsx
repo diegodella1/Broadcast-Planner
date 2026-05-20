@@ -1,4 +1,5 @@
 import { CsrfInput } from "@/components/csrf-input"
+import { CsrfRefreshingForm } from "@/components/csrf-refreshing-form"
 import { MediaFilePicker } from "@/components/media-file-picker"
 import { SubmitButton } from "@/components/submit-button"
 import { Field, FormHeader } from "@/components/ui"
@@ -23,7 +24,7 @@ export async function MediaUploadForm({
   compact?: boolean
 }) {
   return (
-    <form
+    <CsrfRefreshingForm
       action={action}
       method="post"
       encType="multipart/form-data"
@@ -85,6 +86,6 @@ export async function MediaUploadForm({
         <MediaFilePicker includeAudio={includeAudio} compact={compact} />
         <SubmitButton pendingLabel="Uploading...">{submitLabel}</SubmitButton>
       </div>
-    </form>
+    </CsrfRefreshingForm>
   )
 }
