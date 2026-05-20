@@ -23,11 +23,5 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
-  },
-
-  "vars": {
-    // Safe, non-sensitive defaults. Override per environment via Cloudflare dashboard if needed.
-    "REUTERS_PROVIDER": "fixtures",
-    "SUPABASE_FETCH_TIMEOUT_MS": "4000"
   }
 }
