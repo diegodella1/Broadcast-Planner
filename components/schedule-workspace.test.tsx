@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import { ScheduleWorkspace } from "./schedule-workspace"
 
-import type { MediaAsset, ProgramBlock, ScheduleBundle } from "@/lib/types"
+import type { MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from "@/lib/types"
 
 describe("ScheduleWorkspace", () => {
   it("opens in full-day calendar mode for an empty schedule", () => {
@@ -33,7 +33,11 @@ describe("ScheduleWorkspace", () => {
 
     fireEvent.click(canvas, { clientY: 432 })
 
-    expect(screen.getByLabelText("Start")).toHaveValue("06:00:00")
+    expect(
+      screen
+        .getAllByLabelText("Start")
+        .some((input) => (input as HTMLInputElement).value === "06:00:00")
+    ).toBe(true)
   })
 
   it("keeps rundown tab available for existing blocks", () => {
@@ -44,9 +48,32 @@ describe("ScheduleWorkspace", () => {
     expect(screen.getByText("A")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Calendar/i })).toBeInTheDocument()
   })
+
+  it("opens add drawer when the page action targets #add-block", () => {
+    renderWorkspace({ blocks: [block] })
+
+    expect(screen.getByText("Select a block")).toBeInTheDocument()
+
+    window.location.hash = "#add-block"
+    fireEvent(window, new HashChangeEvent("hashchange"))
+
+    expect(screen.getByRole("heading", { name: "Choose content and time" })).toBeInTheDocument()
+  })
+
+  it("shows bulk card loop controls for ready slides", () => {
+    renderWorkspace({ blocks: [] })
+
+    expect(screen.getByText("Bulk Cards")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Create loop" })).toBeEnabled()
+
+    fireEvent.click(screen.getByRole("button", { name: "Add card" }))
+
+    expect(screen.getAllByLabelText("Card")).toHaveLength(2)
+  })
 })
 
 function renderWorkspace({ blocks }: { blocks: ProgramBlock[] }) {
+  window.history.replaceState(null, "", "/admin/schedule/2026-05-08")
   const schedule = { ...baseSchedule, blocks }
   return render(
     <ScheduleWorkspace
@@ -59,6 +86,7 @@ function renderWorkspace({ blocks }: { blocks: ProgramBlock[] }) {
       resizeAction={vi.fn()}
       duplicateAction={vi.fn()}
       archiveAction={vi.fn()}
+      bulkCreateAction={vi.fn()}
     />
   )
 }
@@ -119,5 +147,20 @@ const baseSchedule: ScheduleBundle = {
   blocks: [],
   layers: [],
   mediaAssets: [asset],
-  slideAssets: []
+  slideAssets: [
+    {
+      id: "slide-1",
+      title: "Markets Card",
+      slideType: "template",
+      content: null,
+      imageUrl: null,
+      htmlContent: null,
+      templateId: "markets",
+      defaultDurationSeconds: 30,
+      status: "ready",
+      metadata: null,
+      createdAt: "",
+      updatedAt: ""
+    } satisfies SlideAsset
+  ]
 }

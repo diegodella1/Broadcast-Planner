@@ -19,6 +19,8 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import {
   Archive,
+  ArrowDown,
+  ArrowUp,
   CalendarDays,
   Copy,
   ExternalLink,
@@ -27,11 +29,12 @@ import {
   Pencil,
   Plus,
   Search,
+  Trash2,
   X
 } from "lucide-react"
 import Link from "next/link"
 import type { MouseEvent } from "react"
-import { useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 
 import { PlayoutTime } from "@/components/playout-time"
 import { StatusPill } from "@/components/status-pill"
@@ -87,6 +90,7 @@ export function ScheduleWorkspace({
   resizeAction,
   duplicateAction,
   archiveAction,
+  bulkCreateAction,
   initialContentValue,
   initialFilters
 }: {
@@ -99,6 +103,7 @@ export function ScheduleWorkspace({
   resizeAction: (input: { blockId: string; durationSeconds: number }) => Promise<void>
   duplicateAction: (input: { blockId: string }) => Promise<void>
   archiveAction: (input: { blockId: string }) => Promise<void>
+  bulkCreateAction: (formData: FormData) => Promise<void>
   initialContentValue?: string | undefined
   initialFilters?: InitialContentFilters | undefined
 }) {
@@ -139,19 +144,29 @@ export function ScheduleWorkspace({
     .filter(Boolean) as ProgramBlock[]
   const selectedBlock = blockById.get(selectedBlockId) ?? orderedBlocks[0] ?? null
 
-  function openAdd(startSeconds?: number) {
+  const openAdd = useCallback((startSeconds?: number) => {
     setDrawerMode("add")
     setSelectedBlockId("")
     setPendingStartTime(typeof startSeconds === "number" ? formatTimecode(startSeconds) : null)
     setDrawerOpen(true)
-  }
+  }, [])
 
-  function openEdit(blockId: string) {
+  const openEdit = useCallback((blockId: string) => {
     setDrawerMode("edit")
     setSelectedBlockId(blockId)
     setPendingStartTime(null)
     setDrawerOpen(true)
-  }
+  }, [])
+
+  useEffect(() => {
+    function openFromHash() {
+      if (window.location.hash === "#add-block") openAdd()
+    }
+
+    openFromHash()
+    window.addEventListener("hashchange", openFromHash)
+    return () => window.removeEventListener("hashchange", openFromHash)
+  }, [openAdd])
 
   function run(action: () => Promise<void>, optimistic?: () => void) {
     setMessage(null)
@@ -190,7 +205,10 @@ export function ScheduleWorkspace({
   }
 
   return (
-    <section className="mb-5 grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_430px]">
+    <section
+      id="add-block"
+      className="mb-5 grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_430px]"
+    >
       <div className="surface-panel min-w-0 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div>
@@ -286,6 +304,7 @@ export function ScheduleWorkspace({
             </button>
           </div>
         )}
+        <BulkCardLoopPanel schedule={schedule} action={bulkCreateAction} />
       </div>
 
       <aside className="min-w-0">
@@ -322,6 +341,195 @@ export function ScheduleWorkspace({
         )}
       </aside>
     </section>
+  )
+}
+
+function BulkCardLoopPanel({
+  schedule,
+  action
+}: {
+  schedule: ScheduleBundle
+  action: (formData: FormData) => Promise<void>
+}) {
+  const readySlides = useMemo(
+    () =>
+      schedule.slideAssets
+        .filter((slide) => slide.status === "ready")
+        .sort((a, b) => a.title.localeCompare(b.title)),
+    [schedule.slideAssets]
+  )
+  const [rows, setRows] = useState(() => {
+    const first = readySlides[0]
+    return [
+      {
+        key: "row-1",
+        slideId: first?.id ?? "",
+        durationSeconds: first?.defaultDurationSeconds ?? DEFAULT_MANUAL_DURATION
+      }
+    ]
+  })
+
+  function addRow() {
+    const first = readySlides[0]
+    setRows((current) => [
+      ...current,
+      {
+        key: `row-${Date.now()}-${current.length}`,
+        slideId: first?.id ?? "",
+        durationSeconds: first?.defaultDurationSeconds ?? DEFAULT_MANUAL_DURATION
+      }
+    ])
+  }
+
+  function updateRow(index: number, patch: Partial<(typeof rows)[number]>) {
+    setRows((current) =>
+      current.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row))
+    )
+  }
+
+  function moveRow(index: number, delta: number) {
+    setRows((current) => {
+      const nextIndex = index + delta
+      if (nextIndex < 0 || nextIndex >= current.length) return current
+      return arrayMove(current, index, nextIndex)
+    })
+  }
+
+  function removeRow(index: number) {
+    setRows((current) =>
+      current.length > 1 ? current.filter((_, rowIndex) => rowIndex !== index) : current
+    )
+  }
+
+  function chooseSlide(index: number, slideId: string) {
+    const slide = readySlides.find((item) => item.id === slideId)
+    updateRow(index, {
+      slideId,
+      durationSeconds:
+        slide?.defaultDurationSeconds ?? rows[index]?.durationSeconds ?? DEFAULT_MANUAL_DURATION
+    })
+  }
+
+  return (
+    <details className="border-t border-line bg-panel-soft">
+      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">Bulk Cards</summary>
+      <form action={action} className="grid gap-4 px-4 pb-4">
+        <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+          <label className="grid gap-1 text-xs font-semibold text-muted">
+            Start
+            <input
+              name="start_time"
+              required
+              defaultValue="00:00:00"
+              className="border border-line px-3 py-2 text-sm font-normal text-ink"
+            />
+          </label>
+          <label className="grid gap-1 text-xs font-semibold text-muted">
+            End
+            <input
+              name="end_time"
+              required
+              defaultValue="01:00:00"
+              className="border border-line px-3 py-2 text-sm font-normal text-ink"
+            />
+          </label>
+          <label className="flex min-h-10 items-center gap-2 self-end rounded-md border border-line bg-surface px-3 text-sm font-medium">
+            <input name="replace_window" type="checkbox" />
+            Replace window
+          </label>
+        </div>
+
+        <div className="grid gap-2">
+          {rows.map((row, index) => (
+            <div
+              key={row.key}
+              className="grid gap-2 rounded-md border border-line bg-surface p-2 md:grid-cols-[72px_minmax(0,1fr)_110px_40px]"
+            >
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  className="grid h-8 w-8 place-items-center rounded-md border border-line"
+                  onClick={() => moveRow(index, -1)}
+                  disabled={index === 0}
+                  aria-label="Move card up"
+                >
+                  <ArrowUp size={14} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="grid h-8 w-8 place-items-center rounded-md border border-line"
+                  onClick={() => moveRow(index, 1)}
+                  disabled={index === rows.length - 1}
+                  aria-label="Move card down"
+                >
+                  <ArrowDown size={14} aria-hidden="true" />
+                </button>
+              </div>
+              <label className="grid gap-1 text-xs font-semibold text-muted">
+                Card
+                <select
+                  name="slide_ids"
+                  required
+                  value={row.slideId}
+                  onChange={(event) => chooseSlide(index, event.target.value)}
+                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                >
+                  {readySlides.map((slide) => (
+                    <option key={slide.id} value={slide.id}>
+                      {slide.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold text-muted">
+                Seconds
+                <input
+                  name="durations"
+                  required
+                  type="number"
+                  min="1"
+                  value={row.durationSeconds}
+                  onChange={(event) =>
+                    updateRow(index, { durationSeconds: Number(event.target.value) || 1 })
+                  }
+                  className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                />
+              </label>
+              <button
+                type="button"
+                className="grid h-10 w-10 place-items-center self-end rounded-md border border-line bg-surface"
+                onClick={() => removeRow(index)}
+                disabled={rows.length === 1}
+                aria-label="Remove card"
+              >
+                <Trash2 size={15} aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {!readySlides.length ? (
+          <p className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-sm text-warn-strong">
+            No ready cards. Create ready slides first.
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={addRow}
+            disabled={!readySlides.length}
+          >
+            <Plus size={15} aria-hidden="true" />
+            Add card
+          </button>
+          <button className="btn-primary" disabled={!readySlides.length}>
+            Create loop
+          </button>
+        </div>
+      </form>
+    </details>
   )
 }
 

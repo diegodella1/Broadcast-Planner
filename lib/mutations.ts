@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache"
 import { auditedMutation } from "./audit"
 import { getScheduleForDate } from "./data"
 import { buildTemplateBlocks, getDayTemplate } from "./day-templates"
-import { buildLongTestSchedule } from "./schedule-builder"
+import { buildBulkCardLoop, buildLongTestSchedule } from "./schedule-builder"
 import { findScheduleConflicts } from "./schedule-conflicts"
 import { analyzeSchedule } from "./schedule-health"
 import { parseReutersStreamInput, maskStreamUrl } from "./reuters-stream"
@@ -895,6 +895,118 @@ export async function createLongTestSchedule(input: {
   )
   revalidatePath(`/admin/schedule/${input.date}`)
   revalidatePath("/admin/calendar")
+}
+
+export async function createBulkCardLoop(input: {
+  date: string
+  startTime: string
+  endTime: string
+  cards: Array<{ slideId: string; durationSeconds: number }>
+  replaceWindow: boolean
+}) {
+  const dayId = await ensureProgramDay(input.date)
+  const schedule = await getScheduleForDate(input.date)
+  const slideById = new Map(
+    schedule.slideAssets
+      .filter((slide) => slide.status === "ready")
+      .map((slide) => [slide.id, slide])
+  )
+  const cards = input.cards
+    .map((card) => {
+      const slide = slideById.get(card.slideId)
+      if (!slide) return null
+      return {
+        slideId: slide.id,
+        title: slide.title,
+        durationSeconds: Math.max(
+          1,
+          Math.round(Number(card.durationSeconds || slide.defaultDurationSeconds || 30))
+        )
+      }
+    })
+    .filter(Boolean) as Array<{ slideId: string; title: string; durationSeconds: number }>
+  if (!cards.length) throw new Error("Selecciona al menos una card ready")
+
+  const generatedBlocks = buildBulkCardLoop({
+    cards,
+    startTime: input.startTime,
+    endTime: input.endTime
+  })
+  const firstBlock = generatedBlocks[0]
+  const lastBlock = generatedBlocks[generatedBlocks.length - 1]
+  if (!firstBlock || !lastBlock) {
+    throw new Error("El rango no admite ninguna card completa")
+  }
+  const startSeconds = firstBlock.startTimeSeconds
+  const endSeconds = parseTimecode(input.endTime)
+  const conflicts = schedule.blocks
+    .filter((block) => block.programDayId === dayId && block.status !== "archived")
+    .filter((block) => {
+      const blockEnd = block.startTimeSeconds + block.durationSeconds
+      return startSeconds < blockEnd && endSeconds > block.startTimeSeconds
+    })
+  if (conflicts.length && !input.replaceWindow) {
+    throw new Error("El rango se solapa con bloques existentes")
+  }
+
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "program_blocks.bulk_card_loop_created",
+      entityType: "program_blocks",
+      metadata: {
+        date: input.date,
+        start_time: input.startTime,
+        end_time: input.endTime,
+        cards: cards.length,
+        blocks: generatedBlocks.length,
+        replace_window: input.replaceWindow
+      },
+      previous: {
+        conflicts: conflicts.map((block) => ({
+          id: block.id,
+          title: block.title,
+          start_time: block.startTime
+        }))
+      },
+      next: {
+        start_seconds: startSeconds,
+        end_seconds: endSeconds,
+        blocks: generatedBlocks.length
+      }
+    },
+    async () => {
+      if (conflicts.length) {
+        const { error: archiveError } = await supabase
+          .from("program_blocks")
+          .update({ status: "archived", updated_at: new Date().toISOString() })
+          .in(
+            "id",
+            conflicts.map((block) => block.id)
+          )
+        if (archiveError) throw archiveError
+      }
+      const { error } = await supabase.from("program_blocks").insert(
+        generatedBlocks.map((block) => ({
+          program_day_id: dayId,
+          title: block.title,
+          block_type: "slide",
+          category: "broadcast" satisfies BlockCategory,
+          asset_id: null,
+          slide_id: block.slideId,
+          start_time: block.startTime,
+          start_time_seconds: block.startTimeSeconds,
+          duration_seconds: block.durationSeconds,
+          status: "ready",
+          hide_overlays: false
+        }))
+      )
+      if (error) throw error
+    }
+  )
+  revalidatePath(`/admin/schedule/${input.date}`)
+  revalidatePath("/admin/calendar")
+  revalidatePath("/admin/output")
 }
 
 export async function createSlideAsset(input: {

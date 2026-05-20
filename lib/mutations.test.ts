@@ -106,7 +106,29 @@ const fakeGeneratedBlocks: GeneratedBlock[] = [
   }
 ]
 
+const fakeGeneratedCardBlocks: GeneratedBlock[] = [
+  {
+    title: "Markets Card",
+    blockType: "slide",
+    assetId: null,
+    slideId: "slide-1",
+    startTime: "10:00:00",
+    startTimeSeconds: 36000,
+    durationSeconds: 30
+  },
+  {
+    title: "Weather Card",
+    blockType: "slide",
+    assetId: null,
+    slideId: "slide-2",
+    startTime: "10:00:30",
+    startTimeSeconds: 36030,
+    durationSeconds: 30
+  }
+]
+
 vi.mock("@/lib/schedule-builder", () => ({
+  buildBulkCardLoop: vi.fn(() => fakeGeneratedCardBlocks),
   buildLongTestSchedule: vi.fn(() => fakeGeneratedBlocks)
 }))
 
@@ -143,7 +165,7 @@ const healthClean: ScheduleHealth = {
 import { revalidatePath } from "next/cache"
 
 import { getScheduleForDate } from "@/lib/data"
-import { buildLongTestSchedule } from "@/lib/schedule-builder"
+import { buildBulkCardLoop, buildLongTestSchedule } from "@/lib/schedule-builder"
 
 import {
   ensureProgramDay,
@@ -152,6 +174,7 @@ import {
   fillProgramBlockContent,
   updateProgramDayStatus,
   updateProgramBlock,
+  createBulkCardLoop,
   createLongTestSchedule,
   reorderProgramBlocks,
   resizeProgramBlock,
@@ -171,6 +194,7 @@ import type { ProgramBlock, ScheduleBundle } from "./types"
 
 // Typed references to the mocked functions for easy use in tests
 const getScheduleForDateMock = vi.mocked(getScheduleForDate)
+const buildBulkCardLoopMock = vi.mocked(buildBulkCardLoop)
 const buildLongTestScheduleMock = vi.mocked(buildLongTestSchedule)
 
 // ---------------------------------------------------------------------------
@@ -199,6 +223,7 @@ function resetMocks() {
   // Re-wire module mocks
   getScheduleForDateMock.mockResolvedValue(mockSchedule)
   analyzeScheduleMock.mockReturnValue(healthClean)
+  buildBulkCardLoopMock.mockReturnValue(fakeGeneratedCardBlocks)
   buildLongTestScheduleMock.mockReturnValue(fakeGeneratedBlocks)
 }
 
@@ -951,6 +976,141 @@ describe("createLongTestSchedule", () => {
     )
 
     await expect(createLongTestSchedule(baseInput)).rejects.toThrow("Bulk insert failed")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// createBulkCardLoop
+// ---------------------------------------------------------------------------
+describe("createBulkCardLoop", () => {
+  const readySlide = {
+    id: "slide-1",
+    title: "Markets Card",
+    slideType: "template",
+    templateId: "markets",
+    defaultDurationSeconds: 30,
+    status: "ready",
+    createdAt: "",
+    updatedAt: ""
+  } as const
+  const secondSlide = {
+    ...readySlide,
+    id: "slide-2",
+    title: "Weather Card",
+    templateId: "weather"
+  } as const
+  const baseInput = {
+    date: "2026-05-08",
+    startTime: "10:00:00",
+    endTime: "10:01:00",
+    cards: [
+      { slideId: "slide-1", durationSeconds: 30 },
+      { slideId: "slide-2", durationSeconds: 30 }
+    ],
+    replaceWindow: false
+  }
+
+  beforeEach(async () => {
+    await resetMocks()
+    supabaseMock.setResult({ data: { id: "day-1" }, error: null })
+    getScheduleForDateMock.mockResolvedValue({
+      ...mockSchedule,
+      slideAssets: [readySlide, secondSlide],
+      blocks: []
+    } as ScheduleBundle)
+  })
+
+  it("happy path: inserts ready slide blocks in generated order", async () => {
+    await createBulkCardLoop(baseInput)
+
+    expect(buildBulkCardLoopMock).toHaveBeenCalledWith({
+      cards: [
+        { slideId: "slide-1", title: "Markets Card", durationSeconds: 30 },
+        { slideId: "slide-2", title: "Weather Card", durationSeconds: 30 }
+      ],
+      startTime: "10:00:00",
+      endTime: "10:01:00"
+    })
+    const insertCall = (supabaseMock.insert as ReturnType<typeof vi.fn>).mock.calls.find(
+      (call) => Array.isArray(call[0]) && call[0][0]?.block_type === "slide"
+    )
+    expect(insertCall).toBeDefined()
+    const inserted = insertCall![0] as Array<{
+      slide_id: string
+      block_type: string
+      duration_seconds: number
+      status: string
+    }>
+    expect(inserted.map((row) => row.slide_id)).toEqual(["slide-1", "slide-2"])
+    inserted.forEach((row) => {
+      expect(row.block_type).toBe("slide")
+      expect(row.status).toBe("ready")
+    })
+  })
+
+  it("error path: blocks conflicts unless replaceWindow=true", async () => {
+    getScheduleForDateMock.mockResolvedValue({
+      ...mockSchedule,
+      slideAssets: [readySlide, secondSlide],
+      blocks: [
+        {
+          id: "block-1",
+          programDayId: "day-1",
+          title: "Existing",
+          blockType: "video",
+          category: "broadcast",
+          assetId: null,
+          slideId: null,
+          startTime: "10:00:00",
+          startTimeSeconds: 36000,
+          durationSeconds: 300,
+          status: "ready",
+          hideOverlays: false,
+          createdAt: "",
+          updatedAt: ""
+        }
+      ]
+    } as ScheduleBundle)
+
+    await expect(createBulkCardLoop(baseInput)).rejects.toThrow("se solapa")
+  })
+
+  it("happy path: archives conflicts when replaceWindow=true", async () => {
+    getScheduleForDateMock.mockResolvedValue({
+      ...mockSchedule,
+      slideAssets: [readySlide, secondSlide],
+      blocks: [
+        {
+          id: "block-1",
+          programDayId: "day-1",
+          title: "Existing",
+          blockType: "video",
+          category: "broadcast",
+          assetId: null,
+          slideId: null,
+          startTime: "10:00:00",
+          startTimeSeconds: 36000,
+          durationSeconds: 300,
+          status: "ready",
+          hideOverlays: false,
+          createdAt: "",
+          updatedAt: ""
+        }
+      ]
+    } as ScheduleBundle)
+
+    await createBulkCardLoop({ ...baseInput, replaceWindow: true })
+
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "archived" })
+    )
+    expect(supabaseMock.in).toHaveBeenCalledWith("id", ["block-1"])
+  })
+
+  it("error path: throws when no complete card fits", async () => {
+    buildBulkCardLoopMock.mockReturnValue([])
+
+    await expect(createBulkCardLoop(baseInput)).rejects.toThrow("ninguna card completa")
   })
 })
 

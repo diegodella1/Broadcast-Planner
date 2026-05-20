@@ -18,6 +18,7 @@ import { getScheduleForDate } from "@/lib/data"
 import { DAY_TEMPLATES } from "@/lib/day-templates"
 import {
   archiveProgramBlock,
+  createBulkCardLoop,
   createLongTestSchedule,
   createProgramDayFromTemplate,
   createProgramBlock,
@@ -113,6 +114,21 @@ export default async function ScheduleDatePage({
       programMinutes: Number(formData.get("program_minutes") || 48),
       adBreakMinutes: Number(formData.get("ad_break_minutes") || 4),
       imageBumperSeconds: Number(formData.get("image_bumper_seconds") || 30),
+      replaceWindow: formData.get("replace_window") === "on"
+    })
+  }
+  async function bulkCreateCardLoop(formData: FormData) {
+    "use server"
+    const slideIds = formData.getAll("slide_ids").map(String)
+    const durations = formData.getAll("durations").map(Number)
+    await createBulkCardLoop({
+      date,
+      startTime: String(formData.get("start_time") || "00:00:00"),
+      endTime: String(formData.get("end_time") || "00:00:00"),
+      cards: slideIds.map((slideId, index) => ({
+        slideId,
+        durationSeconds: durations[index] || 30
+      })),
       replaceWindow: formData.get("replace_window") === "on"
     })
   }
@@ -385,6 +401,7 @@ export default async function ScheduleDatePage({
         resizeAction={resizeRundownBlock}
         duplicateAction={duplicateRundownBlock}
         archiveAction={archiveRundownBlock}
+        bulkCreateAction={bulkCreateCardLoop}
         initialContentValue={initialContentValue(query)}
         initialFilters={initialContentFilters(query)}
       />

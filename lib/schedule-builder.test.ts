@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { buildLongTestSchedule } from "./schedule-builder"
+import { buildBulkCardLoop, buildLongTestSchedule } from "./schedule-builder"
 
 import type { MediaAsset } from "./types"
 
@@ -63,6 +63,40 @@ describe("buildLongTestSchedule", () => {
         .filter((block) => block.blockType === "ad")
         .every((block) => block.durationSeconds <= 300)
     ).toBe(true)
+  })
+})
+
+describe("buildBulkCardLoop", () => {
+  it("repeats cards in order until the range is full", () => {
+    const blocks = buildBulkCardLoop({
+      startTime: "10:00:00",
+      endTime: "10:10:00",
+      cards: [
+        { slideId: "slide-1", title: "Markets", durationSeconds: 30 },
+        { slideId: "slide-2", title: "Weather", durationSeconds: 30 },
+        { slideId: "slide-3", title: "Debt", durationSeconds: 30 }
+      ]
+    })
+
+    expect(blocks).toHaveLength(20)
+    expect(blocks.slice(0, 4).map((block) => block.slideId)).toEqual([
+      "slide-1",
+      "slide-2",
+      "slide-3",
+      "slide-1"
+    ])
+    expect(blocks.at(-1)!.startTimeSeconds + blocks.at(-1)!.durationSeconds).toBe(36600)
+  })
+
+  it("does not create a partial final card", () => {
+    const blocks = buildBulkCardLoop({
+      startTime: "10:00:00",
+      endTime: "10:01:10",
+      cards: [{ slideId: "slide-1", title: "Markets", durationSeconds: 30 }]
+    })
+
+    expect(blocks).toHaveLength(2)
+    expect(blocks.at(-1)!.startTimeSeconds + blocks.at(-1)!.durationSeconds).toBe(36060)
   })
 })
 

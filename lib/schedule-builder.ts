@@ -12,6 +12,16 @@ type BuildInput = {
   imageBumperSeconds: number
 }
 
+type BulkCardLoopInput = {
+  cards: Array<{
+    slideId: string
+    title: string
+    durationSeconds: number
+  }>
+  startTime: string
+  endTime: string
+}
+
 export type GeneratedBlock = {
   title: string
   blockType: string
@@ -20,6 +30,41 @@ export type GeneratedBlock = {
   startTime: string
   startTimeSeconds: number
   durationSeconds: number
+}
+
+export function buildBulkCardLoop(input: BulkCardLoopInput): GeneratedBlock[] {
+  const startSeconds = parseTimecode(input.startTime)
+  const endSeconds = parseTimecode(input.endTime)
+  if (startSeconds < 0 || endSeconds > 86400 || startSeconds >= endSeconds) return []
+
+  const cards = input.cards
+    .map((card) => ({
+      ...card,
+      durationSeconds: Math.max(1, Math.round(Number(card.durationSeconds || 0)))
+    }))
+    .filter((card) => card.slideId && card.durationSeconds > 0)
+  if (!cards.length) return []
+
+  const blocks: GeneratedBlock[] = []
+  let cursor = startSeconds
+  let index = 0
+  while (cursor < endSeconds) {
+    const card = cards[index % cards.length]
+    if (!card || cursor + card.durationSeconds > endSeconds) break
+    blocks.push({
+      title: card.title,
+      blockType: "slide",
+      assetId: null,
+      slideId: card.slideId,
+      startTime: formatTime(cursor),
+      startTimeSeconds: cursor,
+      durationSeconds: card.durationSeconds
+    })
+    cursor += card.durationSeconds
+    index += 1
+  }
+
+  return blocks
 }
 
 export function buildLongTestSchedule(input: BuildInput): GeneratedBlock[] {
