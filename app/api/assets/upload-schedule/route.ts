@@ -57,8 +57,22 @@ export async function POST(request: Request) {
         { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
       )
     }
+    if (isUnreadableMultipartError(error)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Upload request could not be read. Keep browser uploads under 95 MB, or use Vimeo/remote URL for larger videos."
+        },
+        { status: 413 }
+      )
+    }
     return NextResponse.json({ ok: false, error: String(error) }, { status: 400 })
   }
+}
+
+function isUnreadableMultipartError(error: unknown) {
+  return error instanceof TypeError && error.message.includes("Failed to parse body as FormData")
 }
 
 function blockTypeFor(assetType: string, mediaKind: string) {

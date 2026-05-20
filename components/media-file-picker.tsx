@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 
+import { MAX_SMALL_MEDIA_BYTES, formatUploadLimit } from "@/lib/media-upload-constants"
+
 type MediaMetadata = {
   durationSeconds: string
   width: string
@@ -79,6 +81,13 @@ export function MediaFilePicker({
     revokeCurrentUrl()
     reset()
     if (!file) return
+    if (file.size > MAX_SMALL_MEDIA_BYTES) {
+      event.target.value = ""
+      reset(
+        `File is ${formatBytes(file.size)}. Browser uploads must be ${formatUploadLimit()} or less; use Vimeo or a remote URL for larger videos.`
+      )
+      return
+    }
 
     const objectUrl = URL.createObjectURL(file)
     objectUrlRef.current = objectUrl
@@ -183,7 +192,8 @@ export function MediaFilePicker({
           className="border border-line px-3 py-2 text-sm font-normal text-ink"
         />
         <span className="text-[0.7rem] font-normal">
-          Blank or 0 uses detected duration. Short video uploads max out at 5 minutes.
+          Blank or 0 uses detected duration. Short video uploads max out at 5 minutes and{" "}
+          {formatUploadLimit()}.
         </span>
       </label>
       <label
@@ -199,6 +209,7 @@ export function MediaFilePicker({
           type="file"
           accept={accept}
           onChange={onFileChange}
+          data-max-file-bytes={MAX_SMALL_MEDIA_BYTES}
           className="w-full min-w-0 border border-line bg-surface px-3 py-2 text-sm font-normal text-ink file:mr-3 file:rounded-md file:border-0 file:bg-panel-soft file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
         />
       </label>

@@ -296,7 +296,7 @@ export default async function AssetsPage({
               <MediaUploadForm
                 action="/api/assets/upload"
                 title="Upload media"
-                detail="MP4/WebM videos up to 5 minutes, images or MP3 files up to 500 MB."
+                detail="MP4/WebM videos up to 5 minutes, images or MP3 files up to 95 MB. Use Vimeo or direct URLs for larger videos."
                 returnTo="/admin/assets?uploaded=1"
                 includeAudio
                 compact

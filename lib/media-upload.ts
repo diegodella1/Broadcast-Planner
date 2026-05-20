@@ -1,19 +1,14 @@
 import { createMediaAsset } from "./mutations"
+import {
+  MAX_SHORT_VIDEO_SECONDS,
+  MAX_SMALL_MEDIA_BYTES,
+  SMALL_MEDIA_MIME_TYPES,
+  formatUploadLimit
+} from "./media-upload-constants"
 import { createServiceClient } from "./supabase/server"
 
 export const SMALL_MEDIA_BUCKET = "small-media-assets"
-export const MAX_SMALL_MEDIA_BYTES = 500 * 1024 * 1024
-export const MAX_SHORT_VIDEO_SECONDS = 5 * 60
-export const SMALL_MEDIA_MIME_TYPES = [
-  "video/mp4",
-  "video/webm",
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif",
-  "audio/mpeg",
-  "audio/mp3"
-] as const
+export { MAX_SHORT_VIDEO_SECONDS, MAX_SMALL_MEDIA_BYTES, SMALL_MEDIA_MIME_TYPES }
 
 type MediaKind = "video" | "image" | "audio"
 type SourceType = "remote_mp4" | "supabase_image" | "supabase_audio"
@@ -50,7 +45,7 @@ export function resolveUploadedMedia(
   fields: UploadedMediaFields
 ) {
   if (file.size > MAX_SMALL_MEDIA_BYTES) {
-    throw new Error("The file cannot exceed 500 MB")
+    throw new Error(`The file cannot exceed ${formatUploadLimit()}`)
   }
   if (!SMALL_MEDIA_MIME_TYPES.includes(file.type as (typeof SMALL_MEDIA_MIME_TYPES)[number])) {
     throw new Error("Unsupported format. Use MP4, WebM, PNG, JPG, WebP, GIF or MP3")

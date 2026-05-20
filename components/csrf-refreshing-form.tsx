@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, type FormEvent, type ReactNode } from "react"
+import { useState, type FormEvent, type ReactNode } from "react"
 
 import { CSRF_FIELD } from "@/lib/csrf-constants"
 
@@ -17,26 +17,26 @@ export function CsrfRefreshingForm({
   className?: string
   children: ReactNode
 }) {
-  const submittingWithFreshToken = useRef(false)
+  const [error, setError] = useState("")
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    if (submittingWithFreshToken.current) {
-      submittingWithFreshToken.current = false
+    event.preventDefault()
+    const form = event.currentTarget
+    setError("")
+
+    const fileError = firstFileLimitError(form)
+    if (fileError) {
+      setError(fileError)
       return
     }
 
-    event.preventDefault()
-    const form = event.currentTarget
-    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLElement | null
-    const token = await fetchFreshCsrfToken()
-    const input = form.elements.namedItem(CSRF_FIELD)
-    if (input instanceof HTMLInputElement) input.value = token
-
-    submittingWithFreshToken.current = true
-    if (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) {
-      form.requestSubmit(submitter)
-    } else {
-      form.requestSubmit()
+    try {
+      const token = await fetchFreshCsrfToken()
+      const input = form.elements.namedItem(CSRF_FIELD)
+      if (input instanceof HTMLInputElement) input.value = token
+      form.submit()
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not submit the form")
     }
   }
 
@@ -48,9 +48,30 @@ export function CsrfRefreshingForm({
       className={className}
       onSubmit={onSubmit}
     >
+      {error ? (
+        <div className="mb-3 rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm font-semibold text-danger-strong">
+          {error}
+        </div>
+      ) : null}
       {children}
     </form>
   )
+}
+
+function firstFileLimitError(form: HTMLFormElement) {
+  const inputs = Array.from(form.elements).filter(
+    (element): element is HTMLInputElement =>
+      element instanceof HTMLInputElement && element.type === "file"
+  )
+  for (const input of inputs) {
+    const maxBytes = Number(input.dataset.maxFileBytes)
+    if (!Number.isFinite(maxBytes) || maxBytes <= 0) continue
+    const file = input.files?.[0]
+    if (file && file.size > maxBytes) {
+      return `File is ${formatBytes(file.size)}. Browser uploads must be ${formatBytes(maxBytes)} or less; use Vimeo or a remote URL for larger videos.`
+    }
+  }
+  return ""
 }
 
 async function fetchFreshCsrfToken() {
@@ -62,4 +83,16 @@ async function fetchFreshCsrfToken() {
   const data = (await response.json()) as { csrfToken?: string }
   if (!data.csrfToken) throw new Error("Missing CSRF token")
   return data.csrfToken
+}
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B"
+  const units = ["B", "KB", "MB", "GB"]
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`
 }
