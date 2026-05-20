@@ -80,10 +80,7 @@ export default async function ScheduleDatePage({
         preRollSeconds: Number(formData.get("pre_roll_seconds") || 0),
         postRollSeconds: Number(formData.get("post_roll_seconds") || 0),
         hideOverlays: formData.get("hide_overlays") === "on",
-        conflictResolution:
-          formData.get("conflict_resolution") === "archive_conflicts"
-            ? "archive_conflicts"
-            : "none",
+        conflictResolution: formConflictResolution(formData),
         reutersStreamUrl: String(formData.get("reuters_stream_url") || ""),
         reutersStreamLabel: String(formData.get("reuters_stream_label") || ""),
         reutersStreamExpiresAt: String(formData.get("reuters_stream_expires_at") || "")
@@ -112,10 +109,7 @@ export default async function ScheduleDatePage({
         hideOverlays: formData.get("hide_overlays") === "on",
         fallbackAssetId: String(formData.get("fallback_asset_id") || ""),
         notes: String(formData.get("notes") || ""),
-        conflictResolution:
-          formData.get("conflict_resolution") === "archive_conflicts"
-            ? "archive_conflicts"
-            : "none",
+        conflictResolution: formConflictResolution(formData),
         reutersStreamUrl: String(formData.get("reuters_stream_url") || ""),
         reutersStreamLabel: String(formData.get("reuters_stream_label") || ""),
         reutersStreamExpiresAt: String(formData.get("reuters_stream_expires_at") || "")
@@ -547,6 +541,12 @@ function StatusPanel({
 function scheduleErrorHref(date: string, error: unknown, anchor = "add-block") {
   const message = error instanceof Error ? error.message : String(error)
   return `/admin/schedule/${date}?error=${encodeURIComponent(message)}#${anchor}`
+}
+
+function formConflictResolution(formData: FormData) {
+  const value = String(formData.get("conflict_resolution") || "insert_shift")
+  if (value === "archive_conflicts" || value === "strict") return value
+  return "insert_shift"
 }
 
 function blockAssetLabel(schedule: ScheduleBundle, block: ProgramBlock) {

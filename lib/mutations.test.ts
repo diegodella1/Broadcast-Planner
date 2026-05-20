@@ -458,14 +458,22 @@ describe("rundown editor mutations", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/admin/schedule/2026-05-08")
   })
 
-  it("rejects moving a block into another block", async () => {
-    await expect(
-      moveProgramBlock({
-        date: "2026-05-08",
-        blockId: "block-3",
-        startTimeSeconds: 3600
-      })
-    ).rejects.toThrow("solapa")
+  it("auto-inserts when moving a block into another block", async () => {
+    await moveProgramBlock({
+      date: "2026-05-08",
+      blockId: "block-3",
+      startTimeSeconds: 3600
+    })
+
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "archived" })
+    )
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ start_time: "01:00:00", start_time_seconds: 3600 })
+    )
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ start_time: "01:05:00", start_time_seconds: 3900 })
+    )
   })
 
   it("rejects moving a missing block", async () => {
@@ -618,7 +626,7 @@ describe("createProgramBlock", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/admin/schedule/2026-05-08")
   })
 
-  it("error path: throws when a conflicting block exists", async () => {
+  it("auto-inserts when a conflicting block exists", async () => {
     supabaseMock.setResult({ data: { id: "day-1" }, error: null })
     // Existing block occupying 10:00 - 10:30
     getScheduleForDateMock.mockResolvedValue({
@@ -642,16 +650,24 @@ describe("createProgramBlock", () => {
       ]
     })
 
-    await expect(
-      createProgramBlock({
-        date: "2026-05-08",
-        title: "Overlap Block",
-        blockType: "video",
-        startTime: "10:15:00",
-        durationSeconds: 600,
-        hideOverlays: false
-      })
-    ).rejects.toThrow("solapa")
+    await createProgramBlock({
+      date: "2026-05-08",
+      title: "Overlap Block",
+      blockType: "video",
+      startTime: "10:15:00",
+      durationSeconds: 600,
+      hideOverlays: false
+    })
+
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "archived" })
+    )
+    expect(supabaseMock.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Overlap Block", start_time: "10:15:00" })
+    )
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({ start_time: "10:25:00", start_time_seconds: 37500 })
+    )
   })
 
   it("allows exact short blocks over archived time ranges", async () => {

@@ -81,7 +81,8 @@ export async function goLiveWithVimeo(input: GoLiveNowInput): Promise<{ programB
     assetId,
     startTime,
     durationSeconds,
-    hideOverlays: false
+    hideOverlays: false,
+    conflictResolution: "archive_conflicts"
   })
 
   const programBlockId = await fetchInsertedBlockId(airDate, startSeconds)
@@ -225,7 +226,8 @@ export async function goLiveWithReuters(
     assetId: input.assetId,
     startTime,
     durationSeconds,
-    hideOverlays: false
+    hideOverlays: false,
+    conflictResolution: "archive_conflicts"
   })
 
   const programBlockId = await fetchInsertedBlockId(airDate, startSeconds)

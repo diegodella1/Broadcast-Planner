@@ -43,6 +43,7 @@ import {
   scheduleConflictMessage
 } from "@/lib/schedule-conflicts"
 import { getScheduleLiveState } from "@/lib/schedule-live-state"
+import { previewInsertShift } from "@/lib/schedule-planner"
 import { analyzeSchedule, type ScheduleIssue } from "@/lib/schedule-health"
 import { slidePreviewHref } from "@/lib/slide-preview"
 import { formatPlayoutTimeLabel, formatTimecode } from "@/lib/time"
@@ -684,7 +685,9 @@ function BlockDrawer({
     metadataTextFromBlock(block, "reuters_stream_expires_at")
   )
   const [status, setStatus] = useState<ProgramStatus>(block?.status ?? "ready")
-  const [conflictResolution, setConflictResolution] = useState<"none" | "archive_conflicts">("none")
+  const [conflictResolution, setConflictResolution] = useState<
+    "insert_shift" | "archive_conflicts" | "strict"
+  >("insert_shift")
   const [isPending, startTransition] = useTransition()
   const availableShows = useMemo(
     () => uniqueSorted(options.map((option) => option.showName)),
@@ -708,8 +711,9 @@ function BlockDrawer({
   const durationSeconds = Math.max(1, Number(duration || DEFAULT_MANUAL_DURATION))
   const startSeconds = parseTimeInput(startTime)
   const endSeconds = Math.min(DAY_SECONDS, startSeconds + durationSeconds)
+  const exceedsDay = startSeconds + durationSeconds > DAY_SECONDS
   const conflict =
-    selected && schedule.day
+    selected && schedule.day && !exceedsDay
       ? findScheduleConflicts(blocks, {
           id: block?.id ?? "new",
           programDayId: schedule.day.id,
@@ -718,7 +722,23 @@ function BlockDrawer({
         })
       : null
   const conflictMessage = conflict ? scheduleConflictMessage(conflict) : ""
-  const canSave = Boolean(selected || mode === "edit" || hasReutersStream) && !conflict?.hasConflict
+  const insertPreview =
+    schedule.day && status !== "archived" && !exceedsDay
+      ? previewInsertShift({
+          blocks,
+          candidate: {
+            id: block?.id ?? "new",
+            programDayId: schedule.day.id,
+            startTimeSeconds: startSeconds,
+            durationSeconds,
+            status
+          }
+        })
+      : null
+  const canSave =
+    Boolean(selected || mode === "edit" || hasReutersStream) &&
+    !exceedsDay &&
+    (!conflict?.hasConflict || conflictResolution !== "strict")
 
   function chooseKind(value: BlockType) {
     setKind(value)
@@ -878,6 +898,12 @@ function BlockDrawer({
           </span>
         </div>
 
+        {exceedsDay ? (
+          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm font-semibold text-danger-strong">
+            This block runs past the 24 hour day. Shorten it or start earlier.
+          </p>
+        ) : null}
+
         {selected?.durationSeconds ? (
           <p className="rounded-md bg-success-soft px-3 py-2 text-xs font-semibold text-success-strong">
             Duration from content: {formatTimecode(selected.durationSeconds)}
@@ -949,10 +975,34 @@ function BlockDrawer({
           </a>
         ) : null}
 
+        {insertPreview?.blocksToShift.length ? (
+          <div className="rounded-md border border-info-line bg-info-soft px-3 py-2 text-sm text-info-strong">
+            <p className="font-semibold">
+              Auto-insert will move {insertPreview.blocksToShift.length} following block
+              {insertPreview.blocksToShift.length === 1 ? "" : "s"}.
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              Next affected: {insertPreview.blocksToShift[0]?.title} to{" "}
+              {formatPlayoutTimeLabel(insertPreview.blocksToShift[0]?.startTimeSeconds ?? 0, true)}
+            </p>
+          </div>
+        ) : null}
+
         {conflict?.hasConflict ? (
           <div className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-sm text-warn-strong">
             <p className="font-semibold">{conflictMessage}</p>
             <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={
+                  conflictResolution === "insert_shift"
+                    ? "btn-primary min-h-8 px-2"
+                    : "btn-secondary min-h-8 px-2"
+                }
+                onClick={() => setConflictResolution("insert_shift")}
+              >
+                Auto-insert
+              </button>
               {conflict.suggestedStartSeconds !== null ? (
                 <button
                   type="button"
@@ -964,19 +1014,31 @@ function BlockDrawer({
               ) : null}
               <button
                 type="button"
-                className="btn-secondary min-h-8 px-2"
+                className={
+                  conflictResolution === "archive_conflicts"
+                    ? "btn-primary min-h-8 px-2"
+                    : "btn-secondary min-h-8 px-2"
+                }
                 onClick={() => setConflictResolution("archive_conflicts")}
               >
                 Archive conflicts
+              </button>
+              <button
+                type="button"
+                className={
+                  conflictResolution === "strict"
+                    ? "btn-primary min-h-8 px-2"
+                    : "btn-secondary min-h-8 px-2"
+                }
+                onClick={() => setConflictResolution("strict")}
+              >
+                Strict gap
               </button>
             </div>
           </div>
         ) : null}
 
-        <button
-          className="btn-primary justify-center"
-          disabled={!canSave && conflictResolution === "none"}
-        >
+        <button className="btn-primary justify-center" disabled={!canSave}>
           {mode === "add" ? "Add to Rundown" : "Save Block"}
         </button>
       </form>

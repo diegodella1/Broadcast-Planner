@@ -4,15 +4,19 @@ import { auditedMutation } from "./audit"
 import { getScheduleForDate } from "./data"
 import { buildTemplateBlocks, getDayTemplate } from "./day-templates"
 import { buildBulkCardLoop, buildLongTestSchedule } from "./schedule-builder"
-import { findScheduleConflicts } from "./schedule-conflicts"
 import { analyzeSchedule } from "./schedule-health"
+import {
+  planScheduleMutation,
+  type ScheduleBlockShift,
+  type ScheduleMutationMode
+} from "./schedule-planner"
 import { parseReutersStreamInput, maskStreamUrl } from "./reuters-stream"
 import { createServiceClient } from "./supabase/server"
 import { formatTimecode, parseTimecode, PLAYOUT_TIMEZONE } from "./time"
 
 import type { BlockCategory, ProgramBlock, ProgramStatus, RunbookSection } from "./types"
 
-type ConflictResolutionMode = "none" | "archive_conflicts"
+type ConflictResolutionMode = "none" | "insert_shift" | "archive_conflicts" | "strict"
 
 export async function ensureProgramDay(date: string) {
   const supabase = createServiceClient()
@@ -86,17 +90,8 @@ export async function createProgramBlock(input: {
     createdAt: "",
     updatedAt: ""
   }
-  const conflict = findScheduleConflicts(schedule.blocks, candidate)
-  if (conflict.hasConflict && input.conflictResolution !== "archive_conflicts") {
-    throw new Error("El bloque se solapa con otro bloque")
-  }
-  if (conflict.hasConflict) {
-    await archiveConflictingBlocks({
-      date: input.date,
-      conflicts: conflict.conflicts,
-      reason: "program_block.conflict_replaced"
-    })
-  }
+  const mutationMode = scheduleMutationMode(input.conflictResolution)
+  const plan = planScheduleMutation({ blocks: schedule.blocks, candidate, mode: mutationMode })
   let createdBlock = { id: "", start_time_seconds: startTimeSeconds }
   await auditedMutation(
     {
@@ -117,6 +112,12 @@ export async function createProgramBlock(input: {
       }
     },
     async () => {
+      await applySchedulePlanPreparation({
+        date: input.date,
+        shifts: plan.blocksToShift,
+        archives: plan.blocksToArchive,
+        reason: "program_block.conflict_replaced"
+      })
       const { data, error } = await supabase
         .from("program_blocks")
         .insert({
@@ -137,6 +138,7 @@ export async function createProgramBlock(input: {
         .single()
       if (error) throw error
       createdBlock = data as { id: string; start_time_seconds: number }
+      await applyScheduleShiftRestores(plan.blocksToShift)
     }
   )
   revalidatePath(`/admin/schedule/${input.date}`)
@@ -382,25 +384,17 @@ export async function updateProgramBlock(input: {
   if (input.blockType === "ad" && durationSeconds > 300) {
     throw new Error("Ads cannot be longer than 300 seconds")
   }
-  const conflict =
-    input.status === "archived"
-      ? { hasConflict: false, conflicts: [] }
-      : findScheduleConflicts(schedule.blocks, {
-          id: input.blockId,
-          programDayId: block.programDayId,
-          startTimeSeconds,
-          durationSeconds
-        })
-  if (conflict.hasConflict && input.conflictResolution !== "archive_conflicts") {
-    throw new Error("El bloque se solapa con otro bloque")
-  }
-  if (conflict.hasConflict) {
-    await archiveConflictingBlocks({
-      date: input.date,
-      conflicts: conflict.conflicts,
-      reason: "program_block.conflict_replaced"
-    })
-  }
+  const plan = planScheduleMutation({
+    blocks: schedule.blocks,
+    candidate: {
+      id: input.blockId,
+      programDayId: block.programDayId,
+      startTimeSeconds,
+      durationSeconds,
+      status: input.status as ProgramStatus
+    },
+    mode: scheduleMutationMode(input.conflictResolution)
+  })
   const supabase = createServiceClient()
   await auditedMutation(
     {
@@ -428,6 +422,12 @@ export async function updateProgramBlock(input: {
       }
     },
     async () => {
+      await applySchedulePlanPreparation({
+        date: input.date,
+        shifts: plan.blocksToShift,
+        archives: plan.blocksToArchive,
+        reason: "program_block.conflict_replaced"
+      })
       const { error } = await supabase
         .from("program_blocks")
         .update({
@@ -448,6 +448,7 @@ export async function updateProgramBlock(input: {
         })
         .eq("id", input.blockId)
       if (error) throw error
+      await applyScheduleShiftRestores(plan.blocksToShift)
     }
   )
   revalidatePath(`/admin/schedule/${input.date}`)
@@ -534,15 +535,17 @@ export async function resizeProgramBlock(input: {
   const block = schedule.blocks.find((item) => item.id === input.blockId)
   if (!block) throw new Error("Bloque no encontrado")
   const durationSeconds = Math.max(1, Math.floor(Number(input.durationSeconds || 0)))
-  const conflict = findScheduleConflicts(schedule.blocks, {
-    id: block.id,
-    programDayId: block.programDayId,
-    startTimeSeconds: block.startTimeSeconds,
-    durationSeconds
+  const plan = planScheduleMutation({
+    blocks: schedule.blocks,
+    candidate: {
+      id: block.id,
+      programDayId: block.programDayId,
+      startTimeSeconds: block.startTimeSeconds,
+      durationSeconds,
+      status: block.status
+    },
+    mode: "insert_shift"
   })
-  if (conflict.hasConflict) {
-    throw new Error("El nuevo largo se solapa con otro bloque")
-  }
   const supabase = createServiceClient()
   await auditedMutation(
     {
@@ -554,11 +557,18 @@ export async function resizeProgramBlock(input: {
       next: { duration_seconds: durationSeconds }
     },
     async () => {
+      await applySchedulePlanPreparation({
+        date: input.date,
+        shifts: plan.blocksToShift,
+        archives: [],
+        reason: "program_block.resize_shift"
+      })
       const { error } = await supabase
         .from("program_blocks")
         .update({ duration_seconds: durationSeconds, updated_at: new Date().toISOString() })
         .eq("id", block.id)
       if (error) throw error
+      await applyScheduleShiftRestores(plan.blocksToShift)
     }
   )
   revalidateSchedule(input.date)
@@ -576,15 +586,17 @@ export async function moveProgramBlock(input: {
     Math.max(0, Math.floor(Number(input.startTimeSeconds || 0))),
     86400 - block.durationSeconds
   )
-  const conflict = findScheduleConflicts(schedule.blocks, {
-    id: block.id,
-    programDayId: block.programDayId,
-    startTimeSeconds,
-    durationSeconds: block.durationSeconds
+  const plan = planScheduleMutation({
+    blocks: schedule.blocks,
+    candidate: {
+      id: block.id,
+      programDayId: block.programDayId,
+      startTimeSeconds,
+      durationSeconds: block.durationSeconds,
+      status: block.status
+    },
+    mode: "insert_shift"
   })
-  if (conflict.hasConflict) {
-    throw new Error("El bloque se solapa con otro bloque")
-  }
   const startTime = formatTimecode(startTimeSeconds)
   const supabase = createServiceClient()
   await auditedMutation(
@@ -597,6 +609,12 @@ export async function moveProgramBlock(input: {
       next: { start_time: startTime, start_time_seconds: startTimeSeconds }
     },
     async () => {
+      await applySchedulePlanPreparation({
+        date: input.date,
+        shifts: plan.blocksToShift,
+        archives: [],
+        reason: "program_block.move_shift"
+      })
       const { error } = await supabase
         .from("program_blocks")
         .update({
@@ -606,6 +624,7 @@ export async function moveProgramBlock(input: {
         })
         .eq("id", block.id)
       if (error) throw error
+      await applyScheduleShiftRestores(plan.blocksToShift)
     }
   )
   revalidateSchedule(input.date)
@@ -616,40 +635,32 @@ export async function duplicateProgramBlock(input: { date: string; blockId: stri
   const block = schedule.blocks.find((item) => item.id === input.blockId)
   if (!block) throw new Error("Bloque no encontrado")
   const insertStart = block.startTimeSeconds + block.durationSeconds
-  const followingBlocks = schedule.blocks
-    .filter((item) => item.status !== "archived" && item.startTimeSeconds >= insertStart)
-    .sort((a, b) => b.startTimeSeconds - a.startTimeSeconds)
-  const dayEnd = Math.max(
-    insertStart + block.durationSeconds,
-    ...followingBlocks.map(
-      (item) => item.startTimeSeconds + item.durationSeconds + block.durationSeconds
-    )
-  )
-  if (dayEnd > 86400) {
-    throw new Error("Duplicar el bloque excede las 24 horas")
-  }
+  const plan = planScheduleMutation({
+    blocks: schedule.blocks,
+    candidate: {
+      programDayId: block.programDayId,
+      startTimeSeconds: insertStart,
+      durationSeconds: block.durationSeconds,
+      status: "draft"
+    },
+    mode: "insert_shift"
+  })
   const supabase = createServiceClient()
   await auditedMutation(
     {
       action: "program_block.duplicated",
       entityType: "program_blocks",
       entityId: block.id,
-      metadata: { date: input.date, shifted_blocks: followingBlocks.length },
+      metadata: { date: input.date, shifted_blocks: plan.blocksToShift.length },
       next: { title: `${block.title} copy`, start_time: formatTimecode(insertStart) }
     },
     async () => {
-      for (const item of followingBlocks) {
-        const shiftedStart = item.startTimeSeconds + block.durationSeconds
-        const { error } = await supabase
-          .from("program_blocks")
-          .update({
-            start_time: formatTimecode(shiftedStart),
-            start_time_seconds: shiftedStart,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", item.id)
-        if (error) throw error
-      }
+      await applySchedulePlanPreparation({
+        date: input.date,
+        shifts: plan.blocksToShift,
+        archives: [],
+        reason: "program_block.duplicate_shift"
+      })
       const { error } = await supabase.from("program_blocks").insert({
         program_day_id: block.programDayId,
         title: `${block.title} copy`,
@@ -666,6 +677,7 @@ export async function duplicateProgramBlock(input: { date: string; blockId: stri
         notes: block.notes || null
       })
       if (error) throw error
+      await applyScheduleShiftRestores(plan.blocksToShift)
     }
   )
   revalidateSchedule(input.date)
@@ -761,6 +773,53 @@ function revalidateSchedule(date: string) {
   revalidatePath(`/admin/schedule/${date}`)
   revalidatePath("/admin/calendar")
   revalidatePath("/admin/output")
+}
+
+function scheduleMutationMode(value?: ConflictResolutionMode): ScheduleMutationMode {
+  if (value === "archive_conflicts") return "replace_window"
+  if (value === "strict" || value === "none") return "strict"
+  return "insert_shift"
+}
+
+async function applySchedulePlanPreparation(input: {
+  date: string
+  shifts: ScheduleBlockShift[]
+  archives: Parameters<typeof archiveConflictingBlocks>[0]["conflicts"]
+  reason: string
+}) {
+  if (input.archives.length) {
+    await archiveConflictingBlocks({
+      date: input.date,
+      conflicts: input.archives,
+      reason: input.reason
+    })
+  }
+  if (!input.shifts.length) return
+  const supabase = createServiceClient()
+  for (const shift of input.shifts) {
+    const { error } = await supabase
+      .from("program_blocks")
+      .update({ status: "archived", updated_at: new Date().toISOString() })
+      .eq("id", shift.id)
+    if (error) throw error
+  }
+}
+
+async function applyScheduleShiftRestores(shifts: ScheduleBlockShift[]) {
+  if (!shifts.length) return
+  const supabase = createServiceClient()
+  for (const shift of shifts) {
+    const { error } = await supabase
+      .from("program_blocks")
+      .update({
+        start_time: shift.startTime,
+        start_time_seconds: shift.startTimeSeconds,
+        status: shift.status,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", shift.id)
+    if (error) throw error
+  }
 }
 
 async function archiveConflictingBlocks(input: {
