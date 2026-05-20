@@ -1,4 +1,5 @@
 import { Film, Link as LinkIcon, UploadCloud } from "lucide-react"
+import { redirect } from "next/navigation"
 
 import { AdminShell } from "@/components/admin-shell"
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button"
@@ -46,6 +47,7 @@ export default async function AssetsPage({
     imported?: string
     playback?: string
     count?: string
+    fallback_loop?: string
   }>
 }) {
   const params = await searchParams
@@ -127,6 +129,7 @@ export default async function AssetsPage({
     assets.filter((asset) => asset.status === "ready").length +
     slides.filter((slide) => slide.status === "ready").length
   const attentionCount = libraryItems.filter(libraryItemNeedsAttention).length
+  const fallbackLoopAsset = assets.find(fallbackLoopEnabled) ?? null
   async function addAsset(formData: FormData) {
     "use server"
     const durationSeconds = Number(formData.get("duration_seconds") || 0) || undefined
@@ -165,6 +168,28 @@ export default async function AssetsPage({
       force: formData.get("force_delete") === "on"
     })
   }
+  async function setFallbackLoop(formData: FormData) {
+    "use server"
+    const id = String(formData.get("id"))
+    const asset = (await getAssets()).find((item) => item.id === id)
+    if (!asset) throw new Error("Asset not found")
+    await updateMediaAsset({
+      id: asset.id,
+      title: asset.title,
+      description: asset.description ?? "",
+      sourceType: asset.sourceType,
+      mediaKind: asset.mediaKind,
+      assetType: asset.assetType,
+      url: asset.url ?? "",
+      thumbnailUrl: asset.thumbnailUrl ?? "",
+      ...(asset.durationSeconds ? { durationSeconds: asset.durationSeconds } : {}),
+      status: asset.status,
+      lifecycleState: lifecycleState(asset),
+      orientation: String(asset.metadata?.orientation || "auto"),
+      fallbackLoop: true
+    })
+    redirect("/admin/assets?kind=fallback&fallback_loop=1")
+  }
   return (
     <AdminShell
       title="Library"
@@ -176,6 +201,7 @@ export default async function AssetsPage({
       }
     >
       {params.uploaded ? <Notice tone="ok">Media uploaded and saved as an asset.</Notice> : null}
+      {params.fallback_loop ? <Notice tone="ok">Silent fallback loop updated.</Notice> : null}
       {params.imported ? (
         <Notice tone={params.playback === "failed" ? "warn" : "ok"} title="Vimeo imported">
           {params.count ?? "1"} episode added to the library.
@@ -236,6 +262,28 @@ export default async function AssetsPage({
           detail="Missing source, duration or ready status"
           tone={attentionCount ? "warn" : "ok"}
         />
+      </section>
+
+      <section className="mb-5 rounded-lg border border-line bg-surface p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="eyebrow text-muted">Output safety</p>
+            <h2 className="mt-1 text-xl font-semibold">Silent fallback loop</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">
+              {fallbackLoopAsset
+                ? `${fallbackLoopAsset.title} is muted and loops whenever the schedule has an empty gap.`
+                : "No silent fallback loop is selected. Empty schedule gaps will show the generic fallback screen."}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/admin/assets?kind=fallback" variant="secondary">
+              Show Fallbacks
+            </ButtonLink>
+            <ButtonLink href="/admin/assets?kind=videos" variant="secondary">
+              Pick Video
+            </ButtonLink>
+          </div>
+        </div>
       </section>
 
       <section className="mb-5 overflow-hidden rounded-lg border border-accent-positive bg-surface-selected-positive shadow-accent-positive-glow">
@@ -510,6 +558,7 @@ export default async function AssetsPage({
             params={params}
             editAsset={editAsset}
             deleteAsset={deleteAsset}
+            setFallbackLoop={setFallbackLoop}
           />
         ))}
         {filteredItems.length === 0 && (
@@ -659,16 +708,20 @@ function LibraryItemRow({
   today,
   params,
   editAsset,
-  deleteAsset
+  deleteAsset,
+  setFallbackLoop
 }: {
   item: LibraryItem
   today: string
   params: Record<string, string | undefined>
   editAsset: (formData: FormData) => Promise<void>
   deleteAsset: (formData: FormData) => Promise<void>
+  setFallbackLoop: (formData: FormData) => Promise<void>
 }) {
   const status = item.kind === "asset" ? item.asset.status : item.slide.status
   const isFallbackLoop = item.kind === "asset" && fallbackLoopEnabled(item.asset)
+  const canUseFallbackLoop =
+    item.kind === "asset" && canUseAsFallbackLoop(item.asset) && !isFallbackLoop
   return (
     <details
       id={`${item.kind}-${item.id}`}
@@ -734,6 +787,16 @@ function LibraryItemRow({
         <a className="btn-secondary" href="/admin/calendar">
           Choose Day
         </a>
+        {isFallbackLoop ? (
+          <span className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm font-semibold text-success">
+            Active fallback loop
+          </span>
+        ) : canUseFallbackLoop ? (
+          <form action={setFallbackLoop}>
+            <input type="hidden" name="id" value={item.asset.id} />
+            <button className="btn-secondary">Use as fallback loop</button>
+          </form>
+        ) : null}
       </div>
       {item.kind === "asset" ? (
         <>
@@ -1128,6 +1191,12 @@ function getMetadataText(asset: MediaAsset, key: string) {
 
 function fallbackLoopEnabled(asset: MediaAsset) {
   return asset.metadata?.fallback_loop === true
+}
+
+function canUseAsFallbackLoop(asset: MediaAsset) {
+  return (
+    asset.status === "ready" && asset.mediaKind === "video" && Boolean(asset.url || asset.vimeoId)
+  )
 }
 
 function parseDate(value: string) {
