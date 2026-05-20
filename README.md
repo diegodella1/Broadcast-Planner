@@ -1,19 +1,42 @@
-# RTV TL Manager
+# RTV Planner
 
-Internal Roxom TV playout manager. It builds the broadcast day, keeps media and slides ready, checks schedule risk, and opens a protected browser output for OBS/vMix capture.
+RTV Planner is the broadcast control room for Roxom TV. It lets an operator plan the day, prepare media, validate schedule risk, run a live checklist, and send a protected browser playout signal into OBS or vMix.
 
-This is not a public video site. It is an operator console.
+It is not a public video site. It is an internal operator console for keeping a daily TV-style stream organized, auditable and ready to recover.
 
-## Current Production Workflow
+## Current Status
 
-1. Add content in `/admin/assets`, `/admin/vimeo`, or `/admin/slides`.
-2. Build the day in `/admin/calendar` -> `/admin/schedule/[date]`.
-3. Resolve schedule health issues and assign fallback assets.
-4. Complete the runbook in `/admin/runbook/[date]`.
-5. Set the day `active`.
-6. Open `/admin/output`, launch Live Browser Output, click `Start Output`, then capture that browser window in OBS/vMix.
+Production is live at `rtvtime.diegodella.ar` using local standalone Next.js behind a Cloudflare tunnel. The core workflow is ready for controlled operation with an operator present.
 
-If the output page reloads mid-show, it asks the server for the active block and resumes video at the current scheduled offset.
+What is already working:
+
+- daily schedule builder with timed blocks
+- media library for uploads, remote URLs, Vimeo, slides, music and fallbacks
+- Supabase database/storage backend
+- browser playout for OBS/vMix capture
+- Vimeo, HLS, MP4, images, slides and Reuters stream snapshots
+- reload recovery that resumes video near the current scheduled offset
+- output control, monitor state and live overrides
+- runbook for preflight, live notes, incident handling and shutdown
+- admin health, schedule health and Go Live Drill
+- named operators, sessions, role guards, CSRF protection and audit logging
+- fresh Supabase bootstrap SQL for moving to a new backend
+
+Main remaining gate: certify video, audio and reload behavior on the actual OBS/vMix capture machine before unattended operation.
+
+## Product Promise
+
+RTV Planner replaces scattered broadcast prep with one operational flow:
+
+1. Load or sync content.
+2. Build the broadcast day.
+3. Catch gaps, overlaps and missing fallbacks before air.
+4. Complete preflight.
+5. Launch browser output.
+6. Monitor the current signal.
+7. Stop cleanly with an audit trail.
+
+The value is not just playing media. The value is reducing live mistakes: wrong block, missing fallback, expired live URL, unreviewed media, silent output, or unclear operator handoff.
 
 ## Main Routes
 
@@ -25,28 +48,29 @@ If the output page reloads mid-show, it asks the server for the active block and
 - `/admin/assets` - media library
 - `/admin/vimeo` - Vimeo sync/import
 - `/admin/slides` - slide library
-- `/admin/output` - live output control
+- `/admin/music` - background music assets
+- `/admin/output` - live output control and overrides
 - `/admin/health` - production readiness and Go Live Drill
+- `/admin/audit` - operational audit trail
 - `/manual` - public operator manual
-- `/pending` - current backlog
+- `/notion` - status and operating guide
+- `/pending` - current roadmap and backlog
 - `/output/live` - fullscreen browser playout
 - `/output/preview/[blockId]` - fullscreen block preview
 - `/api/health` - machine health check
 
-## Output Capabilities
+## Production Workflow
 
-Browser output currently supports:
+1. Add content in `/admin/assets`, `/admin/vimeo`, `/admin/music` or `/admin/slides`.
+2. Build the day in `/admin/calendar` -> `/admin/schedule/[date]`.
+3. Resolve schedule health issues and assign fallback assets.
+4. Complete the runbook in `/admin/runbook/[date]`.
+5. Set the day `active`.
+6. Open `/admin/output`, launch Live Browser Output, click `Start Output`, then capture that browser window in OBS/vMix.
+7. During live, watch active block, next block, fallback reason, playback state and runbook notes.
+8. Stop broadcast and complete shutdown checks.
 
-- Vimeo playback through browser HLS
-- direct HLS URLs
-- public MP4 URLs
-- still images
-- rendered slides
-- fallback asset state
-- audio unlock by operator click
-- drift/stall/debug attributes for monitoring
-
-OBS/vMix certification still must happen on the actual capture machine because browser codec and autoplay behavior can differ by runtime.
+If the output page reloads mid-show, it asks the server for the active block and resumes video at the current scheduled offset. Browser audio still requires one operator click after load or reload.
 
 ## Stack
 
@@ -56,6 +80,7 @@ OBS/vMix certification still must happen on the actual capture machine because b
 - Tailwind CSS
 - Supabase database/storage
 - Vimeo API
+- Reuters stream snapshots
 - `hls.js`
 - Vitest
 - Playwright
@@ -114,17 +139,23 @@ Production deploy for `rtvtime.diegodella.ar`:
 npm run deploy:local
 ```
 
-The current production path is local systemd service plus Cloudflare tunnel. Cloudflare Workers/OpenNext files remain for future/alternate deployment only.
+The active production path is local systemd service plus Cloudflare tunnel. Cloudflare Workers/OpenNext files remain for future or alternate deployment only.
 
 ## Database
 
-Migrations:
+Normal migrations live in:
 
 ```txt
 supabase/migrations/
 ```
 
-Seed:
+Fresh Supabase bootstrap SQL for migration/offline setup:
+
+```txt
+public/manual/supabase-bootstrap.sql
+```
+
+Seed data:
 
 ```txt
 supabase/seed.sql
@@ -146,11 +177,13 @@ Before live use:
 - active block has ready media or a ready fallback.
 - `/output/live?debug=true` plays on the capture browser after `Start Output`.
 - OBS/vMix browser capture receives video and audio after reload.
+- operator confirms fallbacks, runbook and shutdown process.
 
-## Backlog
+## Roadmap
 
 See:
 
 - `/pending`
+- `/notion`
 - `docs/gantt.md`
 - `docs/production-readiness.md`

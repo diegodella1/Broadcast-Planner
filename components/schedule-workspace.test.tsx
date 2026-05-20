@@ -9,10 +9,12 @@ describe("ScheduleWorkspace", () => {
   it("opens in full-day calendar mode for an empty schedule", () => {
     renderWorkspace({ blocks: [] })
 
-    expect(screen.getByText("Full-day calendar · America/Los_Angeles")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Timeline" })).toBeInTheDocument()
+    expect(screen.getByText("Click a gap to fill it · America/Los_Angeles")).toBeInTheDocument()
     expect(screen.getByText("Empty day. Click any time slot to add a block.")).toBeInTheDocument()
     expect(screen.getByText("00:00")).toBeInTheDocument()
     expect(screen.getByText("23:00")).toBeInTheDocument()
+    expect(screen.getAllByRole("button", { name: /Fill Gap/i }).length).toBeGreaterThan(0)
     expect(screen.getByRole("heading", { name: "Choose content and time" })).toBeInTheDocument()
   })
 
@@ -40,13 +42,12 @@ describe("ScheduleWorkspace", () => {
     ).toBe(true)
   })
 
-  it("keeps rundown tab available for existing blocks", () => {
+  it("keeps rundown controls available for existing blocks", () => {
     renderWorkspace({ blocks: [block] })
 
-    fireEvent.click(screen.getByRole("button", { name: /Rundown/i }))
-
-    expect(screen.getByText("A")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /Calendar/i })).toBeInTheDocument()
+    expect(screen.getByText("Rundown Controls")).toBeInTheDocument()
+    expect(screen.getAllByText("A").length).toBeGreaterThan(0)
+    expect(screen.getByRole("button", { name: "Edit A" })).toBeInTheDocument()
   })
 
   it("opens add drawer when the page action targets #add-block", () => {

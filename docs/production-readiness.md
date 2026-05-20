@@ -1,5 +1,18 @@
 # Production Readiness Runbook
 
+RTV Planner is live for controlled production with an operator present. Treat this runbook as the
+release and go-live checklist for the Roxom TV browser-output workflow.
+
+## Current Production Shape
+
+- App: standalone Next.js service on the host.
+- Public route: `https://rtvtime.diegodella.ar`.
+- Network: Cloudflare tunnel in front of local service.
+- Backend: Supabase database/storage.
+- Playout: `/output/live` captured by OBS or vMix.
+- Operational model: named operators for normal use, bootstrap token for emergency access.
+- Main remaining gate: certify the real OBS/vMix capture runtime for audio, video and reload.
+
 ## Required Gates
 
 Run these before a production release:
@@ -62,6 +75,20 @@ rtk npm run e2e
 Before live operation, open `/admin/runbook/<air-date>` and complete the critical preflight checks:
 schedule health, fallback readiness, output monitor and media readiness. The app warns on open
 critical checks but does not block output, so the operator owns final go/no-go.
+
+## Sales-Ready Summary
+
+RTV Planner gives Roxom TV one place to plan, verify and operate the daily signal. The product is
+ready to demonstrate as a practical broadcast operations console: content library, schedule health,
+runbook, browser playout, output monitor, live overrides, fallbacks and audit trail.
+
+What to say in a demo:
+
+- "This is the daily control room for Roxom TV."
+- "The operator can see what is live, what is next and what can fail before it goes on air."
+- "The browser output is designed to be captured by OBS or vMix."
+- "If the output reloads mid-show, it asks the server where the schedule is and resumes near that offset."
+- "Supabase stores the operational state, and a fresh backend can be bootstrapped from SQL."
 
 `cf:build` and `cf:*` commands remain available for Cloudflare Worker/OpenNext validation, but they
 are not the active production deploy path on this host.

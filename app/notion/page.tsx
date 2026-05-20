@@ -2,19 +2,19 @@ import Link from "next/link"
 import type { ReactNode } from "react"
 
 const shipped = [
-  "Named single-tenant operators",
-  "Admin sessions and role guards",
-  "Rate limiting",
-  "Admin health checks",
-  "Output overrides",
-  "Music preferences",
+  "Single-tenant operator console for Roxom TV",
+  "Named operators, admin sessions and role guards",
+  "Rate limiting, CSRF protection and output token flow",
+  "Admin health checks and Go Live Drill",
+  "Daily schedule builder with schedule health polling",
+  "Runbook for preflight, live operation, incident notes and shutdown",
+  "Output overrides for urgent live cuts",
+  "Music preferences for image and slide blocks",
   "Dynamic Reuters HLS/RTMP stream snapshots",
-  "Output session cookie flow",
   "Browser output for OBS/vMix capture",
   "Time-accurate video reload resume",
-  "Schedule health polling",
-  "Audit identity",
-  "Required Supabase readiness schema"
+  "Audit identity for critical operations",
+  "Supabase readiness schema and fresh-project bootstrap SQL"
 ]
 
 const verification = [
@@ -33,7 +33,7 @@ const verification = [
 
 const nextSteps = [
   "Provision day-to-day named operators and keep bootstrap token as emergency-only access.",
-  "Run a browser output go-live drill in the actual OBS/vMix capture runtime.",
+  "Run the browser output Go Live Drill in the actual OBS/vMix capture runtime.",
   "Add output drift monitoring and incident prompts for silence, black output and stalled video.",
   "Finish i18n and validation copy cleanup.",
   "Record recent smoke status so health is not degraded only because smoke metadata is missing."
@@ -166,19 +166,25 @@ export default function NotionStatusPage() {
             <div className="text-6xl leading-none">📡</div>
             <p className="text-sm font-medium text-[#787774]">RTV Planner</p>
             <h1 className="text-4xl font-bold leading-tight tracking-[-0.01em] text-[#2f2f2b] md:text-5xl">
-              Status and next steps
+              RTV Planner status
             </h1>
 
             <Callout>
-              Status: <strong>P0 shipped in code and applied to Supabase.</strong> Ready for
-              controlled production with an operator present.
+              Status: <strong>production live.</strong> Ready for controlled broadcast operation
+              with an operator present and OBS/vMix certification as the main remaining gate.
             </Callout>
 
             <h2 className={h2Class}>Current status</h2>
             <p>
-              RTV Planner is ready for controlled production with an operator present. The workflow
-              is browser-output-first: the operator opens Browser Output from Admin Output, clicks
-              Start Output once to unlock audio and captures the page in OBS/vMix.
+              RTV Planner is the broadcast control room for Roxom TV. It gives operators one place
+              to load content, build the daily rundown, check schedule risk, run preflight and send
+              browser playout into OBS or vMix.
+            </p>
+            <p>
+              The workflow is browser-output-first: the operator opens Browser Output from Admin
+              Output, clicks Start Output once to unlock audio and captures the page in OBS/vMix.
+              Reload recovery seeks video to the current scheduled offset so the signal can resume
+              near the correct moment.
             </p>
 
             <h2 className={h2Class}>Implemented and applied</h2>
@@ -197,7 +203,7 @@ export default function NotionStatusPage() {
 
             <h2 className={h2Class}>Health status</h2>
             <ul className={listClass}>
-              <li>/api/health returns ok: true.</li>
+              <li>/api/health returns ok: true after deploy checks.</li>
               <li>
                 Status can show degraded when there is no live day loaded or no recent smoke status
                 configured.
@@ -243,8 +249,8 @@ export default function NotionStatusPage() {
 
             <h2 className={h2Class}>Objective</h2>
             <p>
-              RTV Planner organizes the daily schedule, validates risks before going live and
-              provides the fullscreen browser output used by OBS/vMix capture.
+              RTV Planner turns a daily broadcast plan into an operator-run signal: media library,
+              schedule, runbook, fallbacks, live monitor and fullscreen browser output.
             </p>
 
             <h2 className={h2Class}>Standard workflow</h2>

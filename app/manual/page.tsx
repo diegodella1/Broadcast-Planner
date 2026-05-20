@@ -11,15 +11,15 @@ import {
 import Link from "next/link"
 
 const workflowSteps = [
-  "Add or sync content in Library, Vimeo, or Slides.",
-  "Create/open the program day in Calendar.",
-  "Add blocks in the daily Schedule and assign ready media or slides.",
-  "Assign a fallback asset for the day or block.",
-  "Resolve critical schedule health issues.",
-  "Complete the runbook preflight checks.",
+  "Add or sync videos, graphics, slides, audio, Vimeo shows and live endpoints.",
+  "Create the broadcast day in Calendar.",
+  "Build the rundown in Schedule and assign ready media, slides or live streams.",
+  "Assign fallback media at day or block level.",
+  "Resolve critical health issues before the signal goes live.",
+  "Complete runbook preflight checks.",
   "Set the day active.",
-  "Open Output, launch Live Browser Output, click Start Output, then capture the browser in OBS/vMix.",
-  "During live, watch active block, next block, fallback reason, clock skew, drift, and runbook notes.",
+  "Open Output, launch Live Browser Output, click Start Output, then capture the browser in OBS or vMix.",
+  "During live, watch active block, next block, fallback reason, drift, playback state and runbook notes.",
   "Stop broadcast from Output and complete shutdown checks."
 ]
 
@@ -27,43 +27,44 @@ const sections = [
   {
     title: "Content",
     icon: Library,
-    body: "Use Library for uploads, remote URLs and fallback assets. Use Vimeo sync for show episodes. Use Slides for graphics.",
+    body: "Centralize uploaded media, remote URLs, music beds, fallbacks, Vimeo episodes and reusable graphics before anything reaches air.",
     href: "/admin/assets"
   },
   {
     title: "Schedule",
     icon: CalendarDays,
-    body: "Build the day from Calendar. Blocks drive what airs. Ready/active blocks can play; draft/failed content should not be used.",
+    body: "Build a broadcast day as a timed rundown. Blocks define what airs, when it starts, how long it runs and what fallback protects it.",
     href: "/admin/calendar"
   },
   {
     title: "Runbook",
     icon: ListChecks,
-    body: "Use the runbook for preflight, live checks, incidents and shutdown. It is the handoff surface for operators.",
+    body: "Give operators a repeatable checklist for preflight, live operation, incident response and shutdown.",
     href: "/admin/runbook"
   },
   {
     title: "Output",
     icon: MonitorPlay,
-    body: "Live Browser Output is the primary playback path. Open it from Admin Output, click Start Output once for audio, then capture in OBS/vMix.",
+    body: "Use Live Browser Output as the playout surface. It resumes on reload, exposes monitor state and is built for OBS/vMix capture.",
     href: "/admin/output"
   },
   {
     title: "Preview",
     icon: Clapperboard,
-    body: "Use block preview to test Vimeo, direct video, images and slides before the day goes active.",
+    body: "Check Vimeo, HLS, MP4, images, audio-backed slides and fallback behavior before a block becomes part of the active day.",
     href: "/admin/calendar"
   },
   {
     title: "Health",
     icon: HeartPulse,
-    body: "Admin Health checks environment, database, storage, Vimeo, output token and the Go Live Drill.",
+    body: "Confirm environment, Supabase, storage, Vimeo, Reuters, output token, schema and Go Live Drill readiness from one screen.",
     href: "/admin/health"
   }
 ]
 
 const limits = [
-  "OBS/vMix must still be certified on the actual capture machine.",
+  "Production app is live and usable with an operator present.",
+  "OBS/vMix must still be certified on the actual capture machine before unattended operation.",
   "Browser audio requires one operator click after load or reload.",
   "Reuters endpoints are dynamic; refresh expired URLs before or during air.",
   "Fallback assets are required for reliable unattended operation.",
@@ -83,16 +84,17 @@ export default function ManualPage() {
             Operator Manual
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
-            Current live workflow for programming the day and running browser output through
-            OBS/vMix. This page is public; admin actions still require login.
+            RTV Planner is the control room for Roxom TV: build the schedule, protect every block
+            with fallbacks, run preflight and send a browser-based signal into OBS or vMix. This
+            page is public; admin actions still require login.
           </p>
         </header>
 
         <section className="grid gap-3 border-b border-white/10 py-6 md:grid-cols-4">
-          <ManualMetric label="Workflow" value="Library -> Schedule -> Output" />
-          <ManualMetric label="Playback" value="Browser" />
-          <ManualMetric label="Capture" value="OBS/vMix" />
-          <ManualMetric label="State" value="Supabase" />
+          <ManualMetric label="Status" value="Production live" />
+          <ManualMetric label="Workflow" value="Plan -> Verify -> Air" />
+          <ManualMetric label="Output" value="Browser playout" />
+          <ManualMetric label="Backend" value="Supabase" />
         </section>
 
         <section className="border-b border-white/10 py-5">

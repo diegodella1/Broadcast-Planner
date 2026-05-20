@@ -9,27 +9,36 @@ type Item = {
 
 const liveNow: Item[] = [
   {
-    title: "Browser output",
-    detail: "Vimeo, HLS, MP4, images, slides, fallback, audio unlock and reload resume.",
-    status: "Done"
-  },
-  {
-    title: "Operator workflow",
-    detail: "Library -> Schedule -> Runbook -> Browser Output -> Shutdown.",
-    status: "Done"
-  },
-  {
-    title: "Production checks",
+    title: "Production playout path",
     detail:
-      "Admin Health, schedule health, output monitor, audit, CSRF and output token protection.",
+      "Browser output supports Vimeo, HLS, MP4, images, slides, audio-backed blocks, fallback, audio unlock and reload resume.",
+    status: "Done"
+  },
+  {
+    title: "End-to-end operator workflow",
+    detail:
+      "Content library, daily rundown, health checks, runbook, output control, monitor state and clean shutdown are live.",
+    status: "Done"
+  },
+  {
+    title: "Production guardrails",
+    detail:
+      "Admin Health, schedule health, output monitor, audit, CSRF, rate limiting, output token protection and Supabase readiness are in place.",
+    status: "Done"
+  },
+  {
+    title: "Migration kit",
+    detail:
+      "The downloadable production bundle includes environment values and a Supabase bootstrap SQL for a fresh backend.",
     status: "Done"
   }
 ]
 
 const nextWork: Item[] = [
   {
-    title: "OBS/vMix certification",
-    detail: "Run the Go Live Drill on the real capture machine and confirm audio after reload.",
+    title: "OBS/vMix capture certification",
+    detail:
+      "Run the Go Live Drill on the real capture machine and confirm video, audio and reload recovery in the actual runtime.",
     status: "Next"
   },
   {
@@ -39,7 +48,8 @@ const nextWork: Item[] = [
   },
   {
     title: "Output alerts",
-    detail: "Turn drift, stalled, waiting and media error states into clear operator alerts.",
+    detail:
+      "Turn drift, stalled, waiting, silence and media error states into clear operator alerts.",
     status: "Next"
   },
   {
@@ -68,9 +78,9 @@ const later: Item[] = [
 ]
 
 const risks = [
-  "Actual OBS/vMix runtime still needs human certification.",
-  "Browser audio always needs one click after load or reload.",
-  "Reuters URLs can expire and must be refreshed by the operator.",
+  "Actual OBS/vMix runtime still needs human certification before unattended operation.",
+  "Browser audio needs one operator click after load or reload.",
+  "Reuters URLs can expire and must be refreshed before or during air.",
   "Fallback assets must stay ready for unattended operation."
 ]
 
@@ -87,7 +97,8 @@ export default function PendingPage() {
             What Is Done, What Is Next
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
-            Short production backlog. No old implementation history, no duplicate shipped lists.
+            Current shipping status for RTV Planner. The core product is live; the remaining work is
+            certification, operator polish and broadcast automation.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link className="btn-secondary" href="/manual">
@@ -103,9 +114,9 @@ export default function PendingPage() {
         </header>
 
         <section className="grid gap-3 border-b border-white/10 py-6 md:grid-cols-3">
-          <Metric label="Current state" value="Usable live" />
-          <Metric label="Main blocker" value="OBS/vMix certify" />
-          <Metric label="Future work" value="Capabilities" />
+          <Metric label="Current state" value="Production live" />
+          <Metric label="Main gate" value="Capture certify" />
+          <Metric label="Next value" value="Operator scale" />
         </section>
 
         <ItemGroup
@@ -147,8 +158,9 @@ export default function PendingPage() {
             <h2 className="text-xl font-semibold">Definition of Workable</h2>
           </div>
           <p className="mt-4 text-sm leading-6 text-white/70">
-            A non-technical operator can create a day, schedule ready media, run preflight, launch
-            browser output, survive reload, confirm audio/video in OBS or vMix, and stop cleanly.
+            A non-technical operator can create a broadcast day, schedule ready content, run
+            preflight, launch browser output, recover from reload, confirm audio/video in OBS or
+            vMix, and stop cleanly with an audit trail.
           </p>
         </section>
       </div>

@@ -21,11 +21,9 @@ import {
   Archive,
   ArrowDown,
   ArrowUp,
-  CalendarDays,
   Copy,
   ExternalLink,
   GripVertical,
-  List,
   Pencil,
   Plus,
   Search,
@@ -39,7 +37,12 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { PlayoutTime } from "@/components/playout-time"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
-import { findScheduleConflicts, scheduleConflictMessage } from "@/lib/schedule-conflicts"
+import {
+  findSameDayGaps,
+  findScheduleConflicts,
+  scheduleConflictMessage
+} from "@/lib/schedule-conflicts"
+import { analyzeSchedule, type ScheduleIssue } from "@/lib/schedule-health"
 import { slidePreviewHref } from "@/lib/slide-preview"
 import { formatPlayoutTimeLabel, formatTimecode } from "@/lib/time"
 
@@ -68,7 +71,6 @@ type ContentOption = {
 }
 
 type DrawerMode = "add" | "edit"
-type WorkspaceMode = "rundown" | "calendar"
 
 type InitialContentFilters = {
   query?: string | undefined
@@ -121,8 +123,8 @@ export function ScheduleWorkspace({
   const [selectedBlockId, setSelectedBlockId] = useState(activeBlocks[0]?.id ?? "")
   const [drawerOpen, setDrawerOpen] = useState(Boolean(initialOption) || activeBlocks.length === 0)
   const [message, setMessage] = useState<string | null>(null)
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("calendar")
   const [pendingStartTime, setPendingStartTime] = useState<string | null>(null)
+  const [pendingDurationSeconds, setPendingDurationSeconds] = useState<number | null>(null)
   const [isPending, startTransition] = useTransition()
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -143,11 +145,13 @@ export function ScheduleWorkspace({
     .map((id) => blockById.get(id))
     .filter(Boolean) as ProgramBlock[]
   const selectedBlock = blockById.get(selectedBlockId) ?? orderedBlocks[0] ?? null
+  const health = useMemo(() => analyzeSchedule(schedule, orderedBlocks), [orderedBlocks, schedule])
 
-  const openAdd = useCallback((startSeconds?: number) => {
+  const openAdd = useCallback((startSeconds?: number, durationSeconds?: number) => {
     setDrawerMode("add")
     setSelectedBlockId("")
     setPendingStartTime(typeof startSeconds === "number" ? formatTimecode(startSeconds) : null)
+    setPendingDurationSeconds(typeof durationSeconds === "number" ? durationSeconds : null)
     setDrawerOpen(true)
   }, [])
 
@@ -155,6 +159,7 @@ export function ScheduleWorkspace({
     setDrawerMode("edit")
     setSelectedBlockId(blockId)
     setPendingStartTime(null)
+    setPendingDurationSeconds(null)
     setDrawerOpen(true)
   }, [])
 
@@ -212,38 +217,14 @@ export function ScheduleWorkspace({
       <div className="surface-panel min-w-0 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div>
-            <p className="eyebrow">One-page editor</p>
-            <h2 className="mt-1 text-xl font-semibold">Rundown</h2>
+            <p className="eyebrow">Day Planner</p>
+            <h2 className="mt-1 text-xl font-semibold">Timeline</h2>
             <p className="mt-1 text-sm text-muted">
               {formatScheduleDate(date, schedule.day?.timezone)} ·{" "}
               {schedule.day?.timezone ?? "Schedule timezone"}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex min-h-10 overflow-hidden rounded-md border border-line bg-surface text-sm font-semibold">
-              <button
-                type="button"
-                className={[
-                  "flex items-center gap-2 px-3",
-                  workspaceMode === "rundown" ? "bg-ink text-white" : "text-muted"
-                ].join(" ")}
-                onClick={() => setWorkspaceMode("rundown")}
-              >
-                <List size={15} aria-hidden="true" />
-                Rundown
-              </button>
-              <button
-                type="button"
-                className={[
-                  "flex items-center gap-2 border-l border-line px-3",
-                  workspaceMode === "calendar" ? "bg-ink text-white" : "text-muted"
-                ].join(" ")}
-                onClick={() => setWorkspaceMode("calendar")}
-              >
-                <CalendarDays size={15} aria-hidden="true" />
-                Calendar
-              </button>
-            </div>
             <button className="btn-primary" type="button" onClick={() => openAdd()}>
               <Plus size={16} aria-hidden="true" />
               Add Block
@@ -255,62 +236,23 @@ export function ScheduleWorkspace({
             {message}
           </div>
         ) : null}
-        {workspaceMode === "calendar" ? (
-          <CalendarScheduleView
-            date={date}
-            schedule={schedule}
-            blocks={orderedBlocks}
-            selectedBlockId={drawerOpen && drawerMode === "edit" ? selectedBlockId : ""}
-            onSelect={openEdit}
-            onAdd={openAdd}
-          />
-        ) : orderedBlocks.length ? (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-            <SortableContext items={displayOrderedIds} strategy={verticalListSortingStrategy}>
-              <div className="divide-y divide-line">
-                {orderedBlocks.map((block, index) => (
-                  <SortableScheduleRow
-                    key={block.id}
-                    block={block}
-                    date={date}
-                    schedule={schedule}
-                    selected={drawerOpen && drawerMode === "edit" && selectedBlockId === block.id}
-                    disabled={isPending}
-                    canMoveUp={index > 0}
-                    canMoveDown={index < orderedBlocks.length - 1}
-                    onSelect={() => openEdit(block.id)}
-                    onMoveUp={() => moveByButton(block.id, -1)}
-                    onMoveDown={() => moveByButton(block.id, 1)}
-                    onDuplicate={() => run(() => duplicateAction({ blockId: block.id }))}
-                    onArchive={() => run(() => archiveAction({ blockId: block.id }))}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        ) : (
-          <div className="p-4">
-            <button
-              type="button"
-              onClick={() => openAdd()}
-              className="w-full rounded-md border border-dashed border-accent-positive bg-surface-selected-positive px-4 py-8 text-center"
-            >
-              <span className="block text-lg font-semibold text-accent-positive">
-                Add the first block
-              </span>
-              <span className="mt-1 block text-sm text-muted">
-                Choose ready Library content and set the on-air time.
-              </span>
-            </button>
-          </div>
-        )}
+        <TimelineSummary schedule={schedule} blocks={orderedBlocks} health={health} />
+        <CalendarScheduleView
+          date={date}
+          schedule={schedule}
+          blocks={orderedBlocks}
+          issues={health.issues}
+          selectedBlockId={drawerOpen && drawerMode === "edit" ? selectedBlockId : ""}
+          onSelect={openEdit}
+          onAdd={openAdd}
+        />
         <BulkCardLoopPanel schedule={schedule} action={bulkCreateAction} />
       </div>
 
       <aside className="min-w-0">
         {drawerOpen ? (
           <BlockDrawer
-            key={`${drawerMode}-${selectedBlock?.id ?? "new"}-${initialContentValue ?? ""}-${pendingStartTime ?? ""}`}
+            key={`${drawerMode}-${selectedBlock?.id ?? "new"}-${initialContentValue ?? ""}-${pendingStartTime ?? ""}-${pendingDurationSeconds ?? ""}`}
             mode={drawerMode}
             date={date}
             schedule={schedule}
@@ -324,6 +266,7 @@ export function ScheduleWorkspace({
             initialContentValue={drawerMode === "add" ? initialContentValue : undefined}
             initialFilters={drawerMode === "add" ? initialFilters : undefined}
             initialStartTime={drawerMode === "add" ? pendingStartTime : null}
+            initialDurationSeconds={drawerMode === "add" ? pendingDurationSeconds : null}
             onClose={() => setDrawerOpen(false)}
           />
         ) : (
@@ -339,8 +282,89 @@ export function ScheduleWorkspace({
             </button>
           </section>
         )}
+        <RundownControls
+          date={date}
+          schedule={schedule}
+          blocks={orderedBlocks}
+          selectedBlockId={drawerOpen && drawerMode === "edit" ? selectedBlockId : ""}
+          disabled={isPending}
+          sensors={sensors}
+          displayOrderedIds={displayOrderedIds}
+          onDragEnd={onDragEnd}
+          onSelect={openEdit}
+          onMoveByButton={moveByButton}
+          onDuplicate={(blockId) => run(() => duplicateAction({ blockId }))}
+          onArchive={(blockId) => run(() => archiveAction({ blockId }))}
+        />
       </aside>
     </section>
+  )
+}
+
+function TimelineSummary({
+  schedule,
+  blocks,
+  health
+}: {
+  schedule: ScheduleBundle
+  blocks: ProgramBlock[]
+  health: ReturnType<typeof analyzeSchedule>
+}) {
+  const programmedSeconds = blocks.reduce((total, block) => total + block.durationSeconds, 0)
+  const readyBlocks = blocks.filter(
+    (block) => block.status === "ready" || block.status === "active"
+  )
+  const gaps = schedule.day ? findSameDayGaps(blocks, schedule.day.id) : []
+  const nextGap = gaps.find((gap) => gap.durationSeconds >= CALENDAR_SNAP_SECONDS)
+  const hasReadyFallback = schedule.mediaAssets.some(
+    (asset) => asset.assetType === "fallback" && asset.status === "ready"
+  )
+
+  return (
+    <div className="grid gap-2 border-b border-line bg-panel-soft p-3 md:grid-cols-5">
+      <PlannerStat label="Programmed" value={formatTimecode(programmedSeconds)} />
+      <PlannerStat label="Ready" value={`${readyBlocks.length}/${blocks.length}`} />
+      <PlannerStat
+        label="Next Gap"
+        value={nextGap ? `${formatPlayoutTimeLabel(nextGap.startTimeSeconds)}` : "None"}
+        tone={nextGap ? "warn" : "ok"}
+      />
+      <PlannerStat
+        label="Issues"
+        value={`${health.criticalCount}C / ${health.warnCount}W`}
+        tone={health.criticalCount ? "danger" : health.warnCount ? "warn" : "ok"}
+      />
+      <PlannerStat
+        label="Fallback"
+        value={hasReadyFallback ? "Ready" : "Missing"}
+        tone={hasReadyFallback ? "ok" : "warn"}
+      />
+    </div>
+  )
+}
+
+function PlannerStat({
+  label,
+  value,
+  tone = "neutral"
+}: {
+  label: string
+  value: string
+  tone?: "neutral" | "ok" | "warn" | "danger"
+}) {
+  const toneClass =
+    tone === "ok"
+      ? "text-success"
+      : tone === "warn"
+        ? "text-warn"
+        : tone === "danger"
+          ? "text-danger"
+          : "text-ink"
+  return (
+    <div className="rounded-md border border-line bg-surface px-3 py-2">
+      <p className="text-[10px] font-bold uppercase text-muted">{label}</p>
+      <p className={`mt-1 truncate text-sm font-semibold tabular-nums ${toneClass}`}>{value}</p>
+    </div>
   )
 }
 
@@ -547,6 +571,7 @@ function BlockDrawer({
   initialContentValue,
   initialFilters,
   initialStartTime,
+  initialDurationSeconds,
   onClose
 }: {
   mode: DrawerMode
@@ -562,6 +587,7 @@ function BlockDrawer({
   initialContentValue?: string | undefined
   initialFilters?: InitialContentFilters | undefined
   initialStartTime?: string | null | undefined
+  initialDurationSeconds?: number | null | undefined
   onClose: () => void
 }) {
   const selectedFromBlock = block ? contentValueForBlock(block) : ""
@@ -585,7 +611,12 @@ function BlockDrawer({
     block?.startTime ?? initialStartTime ?? nextSuggestedStart(blocks)
   )
   const [duration, setDuration] = useState(
-    String(block?.durationSeconds ?? initialOption?.durationSeconds ?? DEFAULT_MANUAL_DURATION)
+    String(
+      block?.durationSeconds ??
+        initialDurationSeconds ??
+        initialOption?.durationSeconds ??
+        DEFAULT_MANUAL_DURATION
+    )
   )
   const [reutersStreamUrl, setReutersStreamUrl] = useState(
     metadataTextFromBlock(block, "reuters_stream_url")
@@ -929,7 +960,67 @@ function BlockDrawer({
   )
 }
 
-function SortableScheduleRow({
+function RundownControls({
+  date,
+  schedule,
+  blocks,
+  selectedBlockId,
+  disabled,
+  sensors,
+  displayOrderedIds,
+  onDragEnd,
+  onSelect,
+  onMoveByButton,
+  onDuplicate,
+  onArchive
+}: {
+  date: string
+  schedule: ScheduleBundle
+  blocks: ProgramBlock[]
+  selectedBlockId: string
+  disabled: boolean
+  sensors: ReturnType<typeof useSensors>
+  displayOrderedIds: string[]
+  onDragEnd: (event: DragEndEvent) => void
+  onSelect: (blockId: string) => void
+  onMoveByButton: (blockId: string, delta: number) => void
+  onDuplicate: (blockId: string) => void
+  onArchive: (blockId: string) => void
+}) {
+  if (!blocks.length) return null
+  return (
+    <details className="surface-panel mt-4 overflow-hidden" open>
+      <summary className="cursor-pointer border-b border-line px-4 py-3 text-sm font-semibold">
+        Rundown Controls
+      </summary>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={displayOrderedIds} strategy={verticalListSortingStrategy}>
+          <div className="divide-y divide-line">
+            {blocks.map((block, index) => (
+              <CompactRundownRow
+                key={block.id}
+                block={block}
+                date={date}
+                schedule={schedule}
+                selected={selectedBlockId === block.id}
+                disabled={disabled}
+                canMoveUp={index > 0}
+                canMoveDown={index < blocks.length - 1}
+                onSelect={() => onSelect(block.id)}
+                onMoveUp={() => onMoveByButton(block.id, -1)}
+                onMoveDown={() => onMoveByButton(block.id, 1)}
+                onDuplicate={() => onDuplicate(block.id)}
+                onArchive={() => onArchive(block.id)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </details>
+  )
+}
+
+function CompactRundownRow({
   block,
   date,
   schedule,
@@ -960,43 +1051,36 @@ function SortableScheduleRow({
     id: block.id,
     disabled
   })
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition
-  }
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
       className={[
-        "grid gap-3 px-4 py-3 text-sm md:grid-cols-[42px_96px_minmax(0,1fr)_130px_120px_190px] md:items-center",
+        "grid gap-2 p-3 text-sm",
         selected ? "bg-surface-selected-positive" : "bg-panel",
         isDragging ? "relative z-20 shadow-lg" : ""
       ].join(" ")}
     >
-      <button
-        className="grid h-9 w-9 place-items-center rounded-md border border-line bg-surface text-muted"
-        disabled={disabled}
-        aria-label={`Drag ${block.title}`}
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical size={16} aria-hidden="true" />
-      </button>
-      <button type="button" onClick={onSelect} className="text-left tabular-nums text-muted">
-        <PlayoutTime airDate={date} seconds={block.startTimeSeconds} />
-      </button>
-      <button type="button" onClick={onSelect} className="min-w-0 text-left">
-        <span className="block truncate font-semibold">{block.title}</span>
-        <span className="block truncate text-xs text-muted">
-          {blockAssetLabel(schedule, block)} · {block.blockType}
-        </span>
-      </button>
-      <button type="button" onClick={onSelect} className="text-left">
-        <Timecode seconds={block.durationSeconds} />
-      </button>
-      <StatusPill status={block.status} />
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex min-w-0 items-start gap-2">
+        <button
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-line bg-surface text-muted"
+          disabled={disabled}
+          aria-label={`Drag ${block.title}`}
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical size={15} aria-hidden="true" />
+        </button>
+        <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left">
+          <span className="block truncate font-semibold">{block.title}</span>
+          <span className="block truncate text-xs text-muted">
+            <PlayoutTime airDate={date} seconds={block.startTimeSeconds} /> ·{" "}
+            <Timecode seconds={block.durationSeconds} /> · {blockAssetLabel(schedule, block)}
+          </span>
+        </button>
+        <StatusPill status={block.status} />
+      </div>
+      <div className="flex flex-wrap items-center gap-2 pl-10">
         <button
           className="btn-secondary min-h-8 px-2"
           disabled={disabled || !canMoveUp}
@@ -1043,6 +1127,7 @@ function CalendarScheduleView({
   date,
   schedule,
   blocks,
+  issues,
   selectedBlockId,
   onSelect,
   onAdd
@@ -1050,16 +1135,22 @@ function CalendarScheduleView({
   date: string
   schedule: ScheduleBundle
   blocks: ProgramBlock[]
+  issues: ScheduleIssue[]
   selectedBlockId: string
   onSelect: (blockId: string) => void
-  onAdd: (startSeconds?: number) => void
+  onAdd: (startSeconds?: number, durationSeconds?: number) => void
 }) {
   const hourHeight = 72
   const canvasHeight = hourHeight * 24
   const hours = Array.from({ length: 24 }, (_, hour) => hour)
+  const gaps = schedule.day ? findSameDayGaps(blocks, schedule.day.id) : []
+  const issueMap = new Map(
+    issues.filter((issue) => issue.blockId).map((issue) => [issue.blockId, issue])
+  )
 
   function addAtPointer(event: MouseEvent<HTMLDivElement>) {
     if ((event.target as HTMLElement).closest("[data-calendar-block]")) return
+    if ((event.target as HTMLElement).closest("[data-calendar-gap]")) return
     const rect = event.currentTarget.getBoundingClientRect()
     const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height)
     onAdd(snapCalendarSeconds((y / rect.height) * DAY_SECONDS))
@@ -1073,7 +1164,7 @@ function CalendarScheduleView({
             {formatScheduleDate(date, schedule.day?.timezone)}
           </p>
           <p className="mt-1 text-xs text-muted">
-            Full-day calendar · {schedule.day?.timezone ?? "schedule timezone"}
+            Click a gap to fill it · {schedule.day?.timezone ?? "schedule timezone"}
           </p>
           {!blocks.length ? (
             <p className="mt-1 text-xs font-semibold text-accent-positive">
@@ -1114,10 +1205,35 @@ function CalendarScheduleView({
             )
           })}
           <div className="absolute inset-y-0 left-4 right-0">
+            {gaps
+              .filter((gap) => gap.durationSeconds >= CALENDAR_SNAP_SECONDS)
+              .map((gap) => {
+                const top = (gap.startTimeSeconds / 3600) * hourHeight
+                const height = Math.max(34, (gap.durationSeconds / 3600) * hourHeight)
+                return (
+                  <button
+                    key={`${gap.startTimeSeconds}-${gap.durationSeconds}`}
+                    type="button"
+                    data-calendar-gap
+                    onClick={() => onAdd(gap.startTimeSeconds, gap.durationSeconds)}
+                    className="absolute left-0 right-2 rounded-md border border-dashed border-warn-line bg-warn-soft/50 px-3 py-2 text-left text-xs text-warn-strong hover:bg-warn-soft"
+                    style={{ top, height }}
+                  >
+                    <span className="block font-semibold">Fill Gap</span>
+                    <span className="block truncate tabular-nums">
+                      {formatPlayoutTimeLabel(gap.startTimeSeconds)} ·{" "}
+                      {formatTimecode(gap.durationSeconds)}
+                    </span>
+                  </button>
+                )
+              })}
+          </div>
+          <div className="absolute inset-y-0 left-4 right-0">
             {blocks.map((block) => {
               const top = (block.startTimeSeconds / 3600) * hourHeight
               const height = Math.max(42, (block.durationSeconds / 3600) * hourHeight)
               const selected = selectedBlockId === block.id
+              const issue = issueMap.get(block.id)
               return (
                 <button
                   key={block.id}
@@ -1128,14 +1244,25 @@ function CalendarScheduleView({
                     "absolute left-0 right-2 overflow-hidden rounded-md border px-3 py-2 text-left text-sm shadow-sm",
                     selected
                       ? "border-accent-positive bg-surface-selected-positive text-accent-positive"
-                      : "border-line bg-surface text-ink hover:bg-panel-soft"
+                      : issue?.severity === "critical"
+                        ? "border-danger-line bg-danger-soft text-danger-strong hover:bg-danger-soft"
+                        : issue?.severity === "warning"
+                          ? "border-warn-line bg-warn-soft text-warn-strong hover:bg-warn-soft"
+                          : "border-line bg-surface text-ink hover:bg-panel-soft"
                   ].join(" ")}
                   style={{ top, height }}
                 >
-                  <span className="block font-semibold tabular-nums">
-                    {formatPlayoutTimeLabel(block.startTimeSeconds)}
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="font-semibold tabular-nums">
+                      {formatPlayoutTimeLabel(block.startTimeSeconds)}
+                    </span>
+                    {issue ? (
+                      <span className="rounded border border-current/25 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                        {issue.severity}
+                      </span>
+                    ) : null}
                   </span>
-                  <span className="block truncate font-semibold">{block.title}</span>
+                  <span className="mt-0.5 block truncate font-semibold">{block.title}</span>
                   <span className="mt-0.5 block truncate text-xs opacity-75">
                     {blockAssetLabel(schedule, block)} · {formatTimecode(block.durationSeconds)}
                   </span>

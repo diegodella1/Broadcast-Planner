@@ -72,10 +72,10 @@ export default function HomePage() {
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-8 px-6 py-10">
       <header>
         <p className="eyebrow text-signal">Roxom TV</p>
-        <h1 className="mt-2 text-4xl font-semibold">Playout Manager</h1>
+        <h1 className="mt-2 text-4xl font-semibold">Broadcast Control Room</h1>
         <p className="mt-3 max-w-2xl text-lg leading-8 text-muted">
-          Internal console for programming the day, validating the signal and keeping the broadcast
-          on air.
+          Program the day, verify every block, launch browser playout and keep the live signal ready
+          for OBS or vMix from one operator console.
         </p>
       </header>
       <nav className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

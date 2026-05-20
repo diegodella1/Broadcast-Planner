@@ -3,9 +3,10 @@ import { redirect } from "next/navigation"
 import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { ButtonLink, EmptyState, Field, FormHeader, MetricTile } from "@/components/ui"
-import { getDays, getProgrammedSecondsByDate } from "@/lib/data"
+import { getDays, getProgrammedSecondsByDate, getScheduleForDate } from "@/lib/data"
 import { DAY_TEMPLATES } from "@/lib/day-templates"
 import { createProgramDayFromTemplate, ensureProgramDay } from "@/lib/mutations"
+import { analyzeSchedule } from "@/lib/schedule-health"
 import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
 
 export const dynamic = "force-dynamic"
@@ -23,6 +24,13 @@ export default async function CalendarPage({
   const selectedMonthKey = monthKey(selectedMonth.year, selectedMonth.month)
   const daysInMonth = days.filter((day) => day.airDate.startsWith(selectedMonthKey))
   const programmedSecondsByDate = await getProgrammedSecondsByDate(daysInMonth)
+  const monthSchedules = await Promise.all(
+    daysInMonth.map(async (day) => {
+      const schedule = await getScheduleForDate(day.airDate)
+      return [day.airDate, analyzeSchedule(schedule)] as const
+    })
+  )
+  const healthByDate = new Map(monthSchedules)
   const coverage = new Map(
     daysInMonth.map((day) => {
       const programmedSeconds = programmedSecondsByDate.get(day.airDate) ?? 0
@@ -33,6 +41,11 @@ export default async function CalendarPage({
   const previousMonth = addMonths(selectedMonth.year, selectedMonth.month, -1)
   const nextMonth = addMonths(selectedMonth.year, selectedMonth.month, 1)
   const activeDays = days.filter((day) => day.status === "active").length
+  const completeDays = daysInMonth.filter((day) => (coverage.get(day.airDate) ?? 0) >= 100).length
+  const riskyDays = daysInMonth.filter((day) => {
+    const health = healthByDate.get(day.airDate)
+    return health && (health.criticalCount > 0 || health.warnCount > 0)
+  }).length
   async function createDay(formData: FormData) {
     "use server"
     await ensureProgramDay(String(formData.get("date")))
@@ -50,11 +63,27 @@ export default async function CalendarPage({
   return (
     <AdminShell
       title="Schedule"
-      description="Pick a day and build output like an agenda: time, content and save."
-      actions={<ButtonLink href={`/admin/schedule/${today}`}>Schedule today</ButtonLink>}
+      description="Choose a broadcast day, check coverage and open the timeline planner."
+      actions={<ButtonLink href={`/admin/schedule/${today}`}>Open Today</ButtonLink>}
     >
-      <section className="mb-5 grid gap-3 md:grid-cols-3">
-        <MetricTile label="Days" value={String(days.length)} detail="Created days" />
+      <section className="mb-5 grid gap-3 md:grid-cols-4">
+        <MetricTile
+          label="Month Days"
+          value={String(daysInMonth.length)}
+          detail="Created this month"
+        />
+        <MetricTile
+          label="Complete"
+          value={String(completeDays)}
+          detail="100% programmed"
+          tone="ok"
+        />
+        <MetricTile
+          label="Risky"
+          value={String(riskyDays)}
+          detail="Warnings or critical"
+          tone={riskyDays ? "warn" : "ok"}
+        />
         <MetricTile
           label="Active"
           value={String(activeDays)}
@@ -66,9 +95,9 @@ export default async function CalendarPage({
       <section className="surface-panel mb-5 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div>
-            <h2 className="font-semibold">Monthly calendar</h2>
+            <h2 className="font-semibold">Broadcast Month</h2>
             <p className="mt-1 text-sm text-muted">
-              Each day shows how much of the grid is already programmed.
+              Coverage, readiness and schedule risk for every created day.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -100,8 +129,18 @@ export default async function CalendarPage({
           {monthDays.map((date) => {
             const day = dayByDate.get(date)
             const percent = coverage.get(date) ?? 0
+            const health = healthByDate.get(date)
             const inMonth = date.startsWith(monthKey(selectedMonth.year, selectedMonth.month))
             const isToday = date === today
+            const dayTone = !day
+              ? "Setup"
+              : health?.criticalCount
+                ? `${health.criticalCount} critical`
+                : health?.warnCount
+                  ? `${health.warnCount} warning`
+                  : percent >= 100
+                    ? "Ready"
+                    : "In progress"
             return (
               <Link
                 key={date}
@@ -133,6 +172,20 @@ export default async function CalendarPage({
                   />
                 </div>
                 <p className="mt-2 text-xs font-semibold tabular-nums">{percent}% programmed</p>
+                <p
+                  className={[
+                    "mt-1 truncate text-xs font-semibold",
+                    health?.criticalCount
+                      ? "text-danger"
+                      : health?.warnCount
+                        ? "text-warn"
+                        : day
+                          ? "text-muted"
+                          : "text-accent-positive"
+                  ].join(" ")}
+                >
+                  {dayTone}
+                </p>
               </Link>
             )
           })}
@@ -188,32 +241,59 @@ export default async function CalendarPage({
           className="min-w-0 flex-1 border border-line px-3 py-2 text-sm"
           defaultValue={today}
         />
-        <button className="btn-primary">Create day</button>
+        <button className="btn-primary">Create Empty Day</button>
       </form>
-      <div className="grid gap-3">
-        {days.map((day) => (
-          <Link
-            key={day.id}
-            href={`/admin/schedule/${day.airDate}`}
-            className="surface-card p-4 hover:border-line-strong hover:bg-panel-soft"
-          >
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-lg font-semibold">{day.title ?? day.airDate}</p>
-                <p className="text-sm text-muted">
-                  {day.airDate} · {day.timezone}
-                </p>
-              </div>
-              <StatusPill status={day.status} />
-            </div>
-          </Link>
-        ))}
+      <section className="surface-panel overflow-hidden">
+        <div className="border-b border-line px-4 py-3">
+          <h2 className="font-semibold">This Month</h2>
+          <p className="mt-1 text-sm text-muted">
+            Fast access to created days in the selected month.
+          </p>
+        </div>
+        <div className="divide-y divide-line">
+          {daysInMonth.map((day) => {
+            const percent = coverage.get(day.airDate) ?? 0
+            const health = healthByDate.get(day.airDate)
+            return (
+              <Link
+                key={day.id}
+                href={`/admin/schedule/${day.airDate}`}
+                className="grid gap-3 px-4 py-3 text-sm hover:bg-panel-soft md:grid-cols-[150px_1fr_120px_130px_120px] md:items-center"
+              >
+                <span className="font-semibold tabular-nums">{day.airDate}</span>
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold">
+                    {day.title ?? "Programming day"}
+                  </span>
+                  <span className="block truncate text-xs text-muted">{day.timezone}</span>
+                </span>
+                <StatusPill status={day.status} />
+                <span className="font-semibold tabular-nums">{percent}% programmed</span>
+                <span
+                  className={
+                    health?.criticalCount
+                      ? "text-danger"
+                      : health?.warnCount
+                        ? "text-warn"
+                        : "text-muted"
+                  }
+                >
+                  {health?.criticalCount
+                    ? `${health.criticalCount} critical`
+                    : health?.warnCount
+                      ? `${health.warnCount} warning`
+                      : "Clear"}
+                </span>
+              </Link>
+            )
+          })}
+        </div>
         {days.length === 0 ? (
           <EmptyState title="No scheduled days yet">
             Pick a date and create the day before adding content.
           </EmptyState>
         ) : null}
-      </div>
+      </section>
     </AdminShell>
   )
 }
