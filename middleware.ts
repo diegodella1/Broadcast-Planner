@@ -38,6 +38,8 @@ export function middleware(request: NextRequest) {
   if (actual === expected) return withSecurityHeaders(nextWithCsrfHeader(request))
   const url = request.nextUrl.clone()
   url.pathname = "/admin/login"
+  url.search = ""
+  url.searchParams.set("return_to", `${request.nextUrl.pathname}${request.nextUrl.search}`)
   return withCsrfCookie(request, withSecurityHeaders(NextResponse.redirect(url)))
 }
 
@@ -71,6 +73,7 @@ function nextWithCsrfHeader(request: NextRequest) {
   const token = csrfTokenFor(request)
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set(INTERNAL_CSRF_HEADER, token)
+  requestHeaders.set("x-rtv-current-path", `${request.nextUrl.pathname}${request.nextUrl.search}`)
   return withCsrfCookie(
     request,
     NextResponse.next({

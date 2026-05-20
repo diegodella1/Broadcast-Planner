@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 
 import { describe, expect, it } from "vitest"
 
-import { shouldFailClosedForMissingAdminToken } from "./auth"
+import { safeAdminReturnTo, shouldFailClosedForMissingAdminToken } from "./auth"
 import { shouldFailClosedForMissingOutputToken } from "./output-auth"
 
 const serviceRoleApiRoutes = [
@@ -21,6 +21,25 @@ describe("service-role API guards", () => {
       expect(source, `${route} must import requireAdmin`).toContain("requireAdmin")
       expect(source, `${route} must call requireAdmin`).toContain("await requireAdmin()")
     }
+  })
+})
+
+describe("admin page shell guard", () => {
+  it("validates the real operator session before rendering admin shell pages", () => {
+    const source = readFileSync("components/admin-shell.tsx", "utf8")
+
+    expect(source).toContain("requireAdmin")
+    expect(source).toContain("revokeCurrentOperatorSession")
+  })
+})
+
+describe("admin return_to safety", () => {
+  it("accepts only local admin destinations outside the login page", () => {
+    expect(safeAdminReturnTo("/admin/output?debug=1")).toBe("/admin/output?debug=1")
+    expect(safeAdminReturnTo("/admin/login?return_to=/admin/output")).toBe("/admin/calendar")
+    expect(safeAdminReturnTo("/manual")).toBe("/admin/calendar")
+    expect(safeAdminReturnTo("https://evil.example/admin")).toBe("/admin/calendar")
+    expect(safeAdminReturnTo("//evil.example/admin")).toBe("/admin/calendar")
   })
 })
 

@@ -1,12 +1,15 @@
 import { MonitorPlay, Tv } from "lucide-react"
+import { headers } from "next/headers"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 
 import { AdminNav } from "@/components/admin-nav"
 import { OperatorPath } from "@/components/operator-path"
+import { requireAdmin, revokeCurrentOperatorSession, safeAdminReturnTo } from "@/lib/auth"
 
 import type { ReactNode } from "react"
 
-export function AdminShell({
+export async function AdminShell({
   title,
   description,
   actions,
@@ -17,6 +20,21 @@ export function AdminShell({
   actions?: ReactNode
   children: ReactNode
 }) {
+  const requestHeaders = await headers()
+  const returnTo = safeAdminReturnTo(requestHeaders.get("x-rtv-current-path"))
+  const session = await requireAdmin().catch((error) => {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      redirect(`/admin/login?return_to=${encodeURIComponent(returnTo)}`)
+    }
+    throw error
+  })
+
+  async function logout() {
+    "use server"
+    await revokeCurrentOperatorSession()
+    redirect("/admin/login?logged_out=1")
+  }
+
   return (
     <div className="min-h-screen bg-panel text-ink">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-line bg-surface px-4 py-5 md:block">
@@ -34,15 +52,26 @@ export function AdminShell({
         </Link>
         <AdminNav />
         <div className="absolute bottom-5 left-4 right-4 rounded-md border border-line bg-panel-soft p-3 text-xs text-muted">
-          <p className="font-semibold text-ink">Browser output</p>
+          <p className="truncate font-semibold text-ink">{session.displayName}</p>
+          <p className="mt-0.5 truncate">
+            {session.handle} · {session.role}
+          </p>
+          <p className="mt-3 font-semibold text-ink">Browser output</p>
           <p className="mt-1">Open the output page for OBS/vMix capture.</p>
-          <Link
-            href="/admin/output"
-            className="mt-3 inline-flex min-h-8 items-center gap-2 rounded-md border border-line bg-surface px-2 font-semibold text-ink hover:bg-panel"
-          >
-            <MonitorPlay size={14} aria-hidden="true" />
-            Open output
-          </Link>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              href="/admin/output"
+              className="inline-flex min-h-8 items-center gap-2 rounded-md border border-line bg-surface px-2 font-semibold text-ink hover:bg-panel"
+            >
+              <MonitorPlay size={14} aria-hidden="true" />
+              Open output
+            </Link>
+            <form action={logout}>
+              <button className="inline-flex min-h-8 items-center rounded-md border border-line bg-surface px-2 font-semibold text-ink hover:bg-panel">
+                Logout
+              </button>
+            </form>
+          </div>
         </div>
       </aside>
       <main className="min-w-0 md:pl-64">

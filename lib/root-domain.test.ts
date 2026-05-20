@@ -45,4 +45,23 @@ describe("root-domain routing", () => {
       process.env.ADMIN_BOOTSTRAP_TOKEN = previous
     }
   })
+
+  it("redirects anonymous admin requests to login with return_to", () => {
+    const previous = process.env.ADMIN_BOOTSTRAP_TOKEN
+    process.env.ADMIN_BOOTSTRAP_TOKEN = "required-admin-token"
+
+    const request = new NextRequest("https://rtvtime.diegodella.ar/admin/output?debug=1")
+    const response = middleware(request)
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get("location")).toBe(
+      "https://rtvtime.diegodella.ar/admin/login?return_to=%2Fadmin%2Foutput%3Fdebug%3D1"
+    )
+
+    if (previous === undefined) {
+      delete process.env.ADMIN_BOOTSTRAP_TOKEN
+    } else {
+      process.env.ADMIN_BOOTSTRAP_TOKEN = previous
+    }
+  })
 })

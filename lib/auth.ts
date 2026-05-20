@@ -34,6 +34,37 @@ export async function requireAdmin() {
   return bootstrapSession()
 }
 
+export async function revokeCurrentOperatorSession() {
+  const cookieStore = await cookies()
+  const sessionToken = cookieStore.get(ADMIN_SESSION_COOKIE)?.value
+  if (sessionToken) {
+    try {
+      const supabase = createServiceClient()
+      await supabase
+        .from("admin_sessions")
+        .update({ revoked_at: new Date().toISOString() })
+        .eq("session_hash", hashSecret(sessionToken))
+    } catch {
+      // Logout must still clear browser access if the revoke write fails.
+    }
+  }
+  cookieStore.delete(ADMIN_SESSION_COOKIE)
+  cookieStore.delete("rpm_admin_token")
+}
+
+export function safeAdminReturnTo(value: string | null | undefined) {
+  if (!value) return "/admin/calendar"
+  if (!value.startsWith("/admin") || value.startsWith("/admin/login")) return "/admin/calendar"
+  if (value.startsWith("//")) return "/admin/calendar"
+  try {
+    const parsed = new URL(value, "http://local")
+    if (parsed.origin !== "http://local") return "/admin/calendar"
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`
+  } catch {
+    return "/admin/calendar"
+  }
+}
+
 export async function requireRole(roles: OperatorRole[]) {
   const session = (await requireAdmin()) ?? bootstrapSession()
   if (session.operatorId === "bootstrap") return session

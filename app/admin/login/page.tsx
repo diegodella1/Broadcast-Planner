@@ -5,8 +5,10 @@ import { getTranslations } from "next-intl/server"
 import {
   ADMIN_SESSION_COOKIE,
   createOperatorSession,
+  getCurrentOperatorSession,
   hashSecret,
-  isAdminTokenValid
+  isAdminTokenValid,
+  safeAdminReturnTo
 } from "@/lib/auth"
 import { assertRateLimit } from "@/lib/rate-limit"
 import { loginSchema } from "@/lib/schemas"
@@ -14,8 +16,11 @@ import { loginSchema } from "@/lib/schemas"
 export default async function LoginPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; logged_out?: string; return_to?: string }>
 }) {
+  const params = await searchParams
+  const returnTo = safeAdminReturnTo(params.return_to)
+  if (await getCurrentOperatorSession()) redirect(returnTo)
   const t = await getTranslations("login")
 
   async function login(formData: FormData) {
@@ -24,6 +29,7 @@ export default async function LoginPage({
       handle: String(formData.get("handle") ?? "").trim() || undefined,
       token: formData.get("token") ?? ""
     })
+    const formReturnTo = safeAdminReturnTo(String(formData.get("return_to") ?? ""))
     if (parsed.success) {
       const handle = parsed.data.handle?.trim().toLowerCase() || "bootstrap"
       await assertRateLimit({
@@ -39,7 +45,7 @@ export default async function LoginPage({
         })
       : null
     if (!parsed.success || !session) {
-      redirect("/admin/login?error=1")
+      redirect(`/admin/login?error=1&return_to=${encodeURIComponent(formReturnTo)}`)
     }
     const cookieStore = await cookies()
     const secureCookie =
@@ -63,7 +69,7 @@ export default async function LoginPage({
       path: "/",
       maxAge: 60 * 60 * 12
     })
-    redirect("/admin/calendar")
+    redirect(formReturnTo)
   }
 
   return (
@@ -93,21 +99,28 @@ export default async function LoginPage({
             autoComplete="current-password"
           />
         </label>
-        <ErrorMessage searchParams={searchParams} errorText={t("errorInvalid")} />
+        <input type="hidden" name="return_to" value={returnTo} />
+        <LoginNotice params={params} errorText={t("errorInvalid")} />
         <button className="btn-primary mt-5 w-full">{t("submit")}</button>
       </form>
     </main>
   )
 }
 
-async function ErrorMessage({
-  searchParams,
+function LoginNotice({
+  params,
   errorText
 }: {
-  searchParams: Promise<{ error?: string }>
+  params: { error?: string; logged_out?: string }
   errorText: string
 }) {
-  const params = await searchParams
+  if (params.logged_out) {
+    return (
+      <p className="mt-3 rounded-md border border-accent-positive/40 bg-surface-selected-positive px-3 py-2 text-sm text-accent-positive">
+        Signed out.
+      </p>
+    )
+  }
   if (!params.error) return null
   return (
     <p className="mt-3 rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger-strong">
