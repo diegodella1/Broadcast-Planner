@@ -6,6 +6,9 @@ const withNextIntl = createNextIntlPlugin("./i18n.ts")
 const nextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  experimental: {
+    middlewareClientMaxBodySize: "100mb"
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.vimeocdn.com" },
