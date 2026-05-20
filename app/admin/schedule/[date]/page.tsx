@@ -57,6 +57,7 @@ export default async function ScheduleDatePage({
     show_name?: string
     month?: string
     year?: string
+    created?: string
   }>
 }) {
   const { date } = await params
@@ -65,7 +66,7 @@ export default async function ScheduleDatePage({
   const blocks = schedule.blocks.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
   async function addBlock(formData: FormData) {
     "use server"
-    await createProgramBlock({
+    const created = await createProgramBlock({
       date,
       title: String(formData.get("title")),
       blockType: String(formData.get("block_type")),
@@ -82,6 +83,9 @@ export default async function ScheduleDatePage({
       reutersStreamLabel: String(formData.get("reuters_stream_label") || ""),
       reutersStreamExpiresAt: String(formData.get("reuters_stream_expires_at") || "")
     })
+    redirect(
+      `/admin/schedule/${date}?created=${encodeURIComponent(created.id)}#block-${created.id}`
+    )
   }
   async function updateBlockInline(formData: FormData) {
     "use server"
@@ -404,6 +408,7 @@ export default async function ScheduleDatePage({
         bulkCreateAction={bulkCreateCardLoop}
         initialContentValue={initialContentValue(query)}
         initialFilters={initialContentFilters(query)}
+        createdBlockId={query.created}
       />
 
       <details className="surface-panel mb-5 p-4">

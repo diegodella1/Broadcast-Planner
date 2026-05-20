@@ -200,7 +200,7 @@ describe("goLiveWithVimeo", () => {
     vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
     vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-1" } as MediaAsset)
     vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ durationSeconds: 600 }))
-    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    vi.mocked(createProgramBlock).mockResolvedValue({ id: "block-created", startTimeSeconds: 0 })
     // fetchInsertedBlockId: program_days query returns null, so programBlockId falls back to ""
     supabaseMock.setResult({ data: null, error: null })
 
@@ -222,7 +222,7 @@ describe("goLiveWithVimeo", () => {
     vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
     vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-2" } as MediaAsset)
     vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ durationSeconds: 3600 }))
-    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    vi.mocked(createProgramBlock).mockResolvedValue({ id: "block-created", startTimeSeconds: 0 })
     supabaseMock.setResult({ data: null, error: null })
 
     await goLiveWithVimeo({ vimeoUri: "/videos/999" })
@@ -236,7 +236,7 @@ describe("goLiveWithVimeo", () => {
     vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
     vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-3" } as MediaAsset)
     vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ durationSeconds: null }))
-    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    vi.mocked(createProgramBlock).mockResolvedValue({ id: "block-created", startTimeSeconds: 0 })
     supabaseMock.setResult({ data: null, error: null })
 
     await goLiveWithVimeo({ vimeoUri: "/videos/999" })
@@ -255,7 +255,7 @@ describe("goLiveWithVimeo", () => {
     vi.mocked(getVimeoVideo).mockResolvedValue(makeVimeoVideo())
     vi.mocked(upsertVimeoVideos).mockResolvedValue(undefined)
     vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ id: "asset-new" }))
-    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    vi.mocked(createProgramBlock).mockResolvedValue({ id: "block-created", startTimeSeconds: 0 })
     supabaseMock.setResult({ data: null, error: null })
 
     await goLiveWithVimeo({ vimeoUri: "/videos/123" })
@@ -271,7 +271,7 @@ describe("goLiveWithVimeo", () => {
     vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
     vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-1" } as MediaAsset)
     vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset())
-    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    vi.mocked(createProgramBlock).mockResolvedValue({ id: "block-created", startTimeSeconds: 0 })
     supabaseMock.setResult({ data: null, error: null })
 
     await goLiveWithVimeo({ vimeoUri: "/videos/123" })
@@ -300,7 +300,7 @@ describe("scheduleVimeoBlock", () => {
     vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
     vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-1" } as MediaAsset)
     vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset())
-    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    vi.mocked(createProgramBlock).mockResolvedValue({ id: "block-created", startTimeSeconds: 0 })
     supabaseMock.setResult({ data: null, error: null })
 
     await scheduleVimeoBlock({ vimeoUri: "/videos/123", startAt: "14:30" })
@@ -315,7 +315,7 @@ describe("scheduleVimeoBlock", () => {
     vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
     vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-1" } as MediaAsset)
     vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset())
-    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    vi.mocked(createProgramBlock).mockResolvedValue({ id: "block-created", startTimeSeconds: 0 })
     supabaseMock.setResult({ data: null, error: null })
 
     await scheduleVimeoBlock({
@@ -331,7 +331,7 @@ describe("scheduleVimeoBlock", () => {
     vi.mocked(getVimeoToken).mockResolvedValue("fake-token")
     vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: "asset-1" } as MediaAsset)
     vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset())
-    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    vi.mocked(createProgramBlock).mockResolvedValue({ id: "block-created", startTimeSeconds: 0 })
     supabaseMock.setResult({ data: null, error: null })
 
     // Freeze time to a known instant so the derived date is predictable
@@ -381,7 +381,7 @@ describe("goLiveWithReuters", () => {
 
   it("creates a ProgramBlock with category=reuters and 1800s default for live channels", async () => {
     vi.mocked(getMediaAssetById).mockResolvedValue(makeReutersAsset())
-    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    vi.mocked(createProgramBlock).mockResolvedValue({ id: "block-created", startTimeSeconds: 0 })
     supabaseMock.setResult({ data: null, error: null })
 
     await goLiveWithReuters({ assetId: "11111111-1111-1111-1111-111111111111" })
@@ -399,7 +399,7 @@ describe("goLiveWithReuters", () => {
 
   it("calls revalidatePath for /admin/output and /admin/schedule/<date>", async () => {
     vi.mocked(getMediaAssetById).mockResolvedValue(makeReutersAsset())
-    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    vi.mocked(createProgramBlock).mockResolvedValue({ id: "block-created", startTimeSeconds: 0 })
     supabaseMock.setResult({ data: null, error: null })
 
     await goLiveWithReuters({ assetId: "11111111-1111-1111-1111-111111111111" })
@@ -429,7 +429,7 @@ describe("scheduleReutersBlock", () => {
 
   it("normalizes HH:MM startAt to HH:MM:SS in the ProgramBlock", async () => {
     vi.mocked(getMediaAssetById).mockResolvedValue(makeReutersAsset())
-    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    vi.mocked(createProgramBlock).mockResolvedValue({ id: "block-created", startTimeSeconds: 0 })
     supabaseMock.setResult({ data: null, error: null })
 
     await scheduleReutersBlock({
@@ -445,7 +445,7 @@ describe("scheduleReutersBlock", () => {
 
   it("uses the supplied airDate", async () => {
     vi.mocked(getMediaAssetById).mockResolvedValue(makeReutersAsset())
-    vi.mocked(createProgramBlock).mockResolvedValue(undefined)
+    vi.mocked(createProgramBlock).mockResolvedValue({ id: "block-created", startTimeSeconds: 0 })
     supabaseMock.setResult({ data: null, error: null })
 
     await scheduleReutersBlock({

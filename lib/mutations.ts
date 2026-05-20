@@ -97,6 +97,7 @@ export async function createProgramBlock(input: {
       reason: "program_block.conflict_replaced"
     })
   }
+  let createdBlock = { id: "", start_time_seconds: startTimeSeconds }
   await auditedMutation(
     {
       action: "program_block.created",
@@ -116,24 +117,33 @@ export async function createProgramBlock(input: {
       }
     },
     async () => {
-      const { error } = await supabase.from("program_blocks").insert({
-        program_day_id: dayId,
-        title: input.title,
-        block_type: input.blockType,
-        category: reutersStream ? "reuters" : (input.category ?? "mercados"),
-        asset_id: input.assetId || null,
-        slide_id: input.slideId || null,
-        start_time: input.startTime,
-        start_time_seconds: startTimeSeconds,
-        duration_seconds: durationSeconds,
-        status: "ready",
-        hide_overlays: input.hideOverlays,
-        metadata: reutersStream ? reutersBlockMetadata(reutersStream) : {}
-      })
+      const { data, error } = await supabase
+        .from("program_blocks")
+        .insert({
+          program_day_id: dayId,
+          title: input.title,
+          block_type: input.blockType,
+          category: reutersStream ? "reuters" : (input.category ?? "mercados"),
+          asset_id: input.assetId || null,
+          slide_id: input.slideId || null,
+          start_time: input.startTime,
+          start_time_seconds: startTimeSeconds,
+          duration_seconds: durationSeconds,
+          status: "ready",
+          hide_overlays: input.hideOverlays,
+          metadata: reutersStream ? reutersBlockMetadata(reutersStream) : {}
+        })
+        .select("id,start_time_seconds")
+        .single()
       if (error) throw error
+      createdBlock = data as { id: string; start_time_seconds: number }
     }
   )
   revalidatePath(`/admin/schedule/${input.date}`)
+  return {
+    id: createdBlock.id,
+    startTimeSeconds: createdBlock.start_time_seconds
+  }
 }
 
 export async function createProgramDayFromTemplate(input: {

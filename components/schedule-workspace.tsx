@@ -94,7 +94,8 @@ export function ScheduleWorkspace({
   archiveAction,
   bulkCreateAction,
   initialContentValue,
-  initialFilters
+  initialFilters,
+  createdBlockId
 }: {
   date: string
   schedule: ScheduleBundle
@@ -108,6 +109,7 @@ export function ScheduleWorkspace({
   bulkCreateAction: (formData: FormData) => Promise<void>
   initialContentValue?: string | undefined
   initialFilters?: InitialContentFilters | undefined
+  createdBlockId?: string | undefined
 }) {
   const activeBlocks = useMemo(
     () => blocks.filter((block) => block.status !== "archived"),
@@ -116,12 +118,17 @@ export function ScheduleWorkspace({
   const activeIds = useMemo(() => activeBlocks.map((block) => block.id), [activeBlocks])
   const options = useMemo(() => buildContentOptions(schedule), [schedule])
   const initialOption = options.find((option) => option.value === initialContentValue) ?? null
+  const createdBlock = activeBlocks.find((block) => block.id === createdBlockId) ?? null
   const [orderedIds, setOrderedIds] = useState(activeIds)
   const [drawerMode, setDrawerMode] = useState<DrawerMode>(
-    initialOption || activeBlocks.length === 0 ? "add" : "edit"
+    initialOption || (!createdBlock && activeBlocks.length === 0) ? "add" : "edit"
   )
-  const [selectedBlockId, setSelectedBlockId] = useState(activeBlocks[0]?.id ?? "")
-  const [drawerOpen, setDrawerOpen] = useState(Boolean(initialOption) || activeBlocks.length === 0)
+  const [selectedBlockId, setSelectedBlockId] = useState(
+    createdBlock?.id ?? activeBlocks[0]?.id ?? ""
+  )
+  const [drawerOpen, setDrawerOpen] = useState(
+    Boolean(initialOption) || (!createdBlock && activeBlocks.length === 0)
+  )
   const [message, setMessage] = useState<string | null>(null)
   const [pendingStartTime, setPendingStartTime] = useState<string | null>(null)
   const [pendingDurationSeconds, setPendingDurationSeconds] = useState<number | null>(null)
@@ -172,6 +179,14 @@ export function ScheduleWorkspace({
     window.addEventListener("hashchange", openFromHash)
     return () => window.removeEventListener("hashchange", openFromHash)
   }, [openAdd])
+
+  useEffect(() => {
+    if (!createdBlock) return
+    const element = document.getElementById(`block-${createdBlock.id}`)
+    if (!element) return
+    element.scrollIntoView({ block: "center", behavior: "smooth" })
+    window.setTimeout(() => element.focus({ preventScroll: true }), 250)
+  }, [createdBlock])
 
   function run(action: () => Promise<void>, optimistic?: () => void) {
     setMessage(null)
@@ -236,6 +251,9 @@ export function ScheduleWorkspace({
             {message}
           </div>
         ) : null}
+        {createdBlock ? (
+          <CreatedBlockNotice date={date} schedule={schedule} block={createdBlock} />
+        ) : null}
         <TimelineSummary schedule={schedule} blocks={orderedBlocks} health={health} />
         <CalendarScheduleView
           date={date}
@@ -243,6 +261,7 @@ export function ScheduleWorkspace({
           blocks={orderedBlocks}
           issues={health.issues}
           selectedBlockId={drawerOpen && drawerMode === "edit" ? selectedBlockId : ""}
+          createdBlockId={createdBlock?.id ?? ""}
           onSelect={openEdit}
           onAdd={openAdd}
         />
@@ -339,6 +358,40 @@ function TimelineSummary({
         value={hasReadyFallback ? "Ready" : "Missing"}
         tone={hasReadyFallback ? "ok" : "warn"}
       />
+    </div>
+  )
+}
+
+function CreatedBlockNotice({
+  date,
+  schedule,
+  block
+}: {
+  date: string
+  schedule: ScheduleBundle
+  block: ProgramBlock
+}) {
+  return (
+    <div
+      aria-live="polite"
+      className="border-b border-accent-positive bg-surface-selected-positive px-4 py-3 text-sm text-accent-positive"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase">Block Added</p>
+          <p className="mt-1 truncate font-semibold text-ink">{block.title}</p>
+          <p className="mt-0.5 text-xs text-muted">
+            {formatBlockRange(block)} · {formatDurationLabel(block.durationSeconds)} ·{" "}
+            {blockAssetLabel(schedule, block)}
+          </p>
+        </div>
+        <a
+          className="btn-secondary min-h-8 px-2"
+          href={`/admin/schedule/${date}/blocks/${block.id}`}
+        >
+          Advanced Settings
+        </a>
+      </div>
     </div>
   )
 }
@@ -1129,6 +1182,7 @@ function CalendarScheduleView({
   blocks,
   issues,
   selectedBlockId,
+  createdBlockId,
   onSelect,
   onAdd
 }: {
@@ -1137,10 +1191,11 @@ function CalendarScheduleView({
   blocks: ProgramBlock[]
   issues: ScheduleIssue[]
   selectedBlockId: string
+  createdBlockId: string
   onSelect: (blockId: string) => void
   onAdd: (startSeconds?: number, durationSeconds?: number) => void
 }) {
-  const hourHeight = 72
+  const hourHeight = 80
   const canvasHeight = hourHeight * 24
   const hours = Array.from({ length: 24 }, (_, hour) => hour)
   const gaps = schedule.day ? findSameDayGaps(blocks, schedule.day.id) : []
@@ -1164,7 +1219,8 @@ function CalendarScheduleView({
             {formatScheduleDate(date, schedule.day?.timezone)}
           </p>
           <p className="mt-1 text-xs text-muted">
-            Click a gap to fill it · {schedule.day?.timezone ?? "schedule timezone"}
+            Click an empty slot or gap to add content ·{" "}
+            {schedule.day?.timezone ?? "schedule timezone"}
           </p>
           {!blocks.length ? (
             <p className="mt-1 text-xs font-semibold text-accent-positive">
@@ -1179,7 +1235,7 @@ function CalendarScheduleView({
       </div>
       <div className="max-h-[720px] overflow-y-auto p-4">
         <div
-          className="relative border-l border-line"
+          className="relative ml-14 border-l border-line"
           style={{ minHeight: `${canvasHeight}px` }}
           aria-label="Calendar schedule"
           data-testid="calendar-schedule-canvas"
@@ -1193,14 +1249,20 @@ function CalendarScheduleView({
           {hours.map((hour) => {
             const top = hour * hourHeight
             return (
-              <div
-                key={hour}
-                className="absolute left-0 right-0 border-t border-line"
-                style={{ top }}
-              >
-                <span className="absolute -left-1 top-2 -translate-x-full pr-3 text-xs font-semibold tabular-nums text-muted">
-                  {String(hour).padStart(2, "0")}:00
-                </span>
+              <div key={hour}>
+                <div className="absolute left-0 right-0 border-t border-line" style={{ top }}>
+                  <span className="absolute -left-2 top-2 -translate-x-full pr-3 text-xs font-semibold tabular-nums text-muted">
+                    {String(hour).padStart(2, "0")}:00
+                  </span>
+                </div>
+                <div
+                  className="absolute left-0 right-0 border-t border-dashed border-line/60"
+                  style={{ top: top + hourHeight / 2 }}
+                >
+                  <span className="absolute -left-2 top-1 -translate-x-full pr-3 text-[10px] font-semibold tabular-nums text-muted/70">
+                    {String(hour).padStart(2, "0")}:30
+                  </span>
+                </div>
               </div>
             )
           })}
@@ -1221,7 +1283,7 @@ function CalendarScheduleView({
                   >
                     <span className="block font-semibold">Fill Gap</span>
                     <span className="block truncate tabular-nums">
-                      {formatPlayoutTimeLabel(gap.startTimeSeconds)} ·{" "}
+                      {formatCalendarRange(gap.startTimeSeconds, gap.durationSeconds)} ·{" "}
                       {formatTimecode(gap.durationSeconds)}
                     </span>
                   </button>
@@ -1233,38 +1295,55 @@ function CalendarScheduleView({
               const top = (block.startTimeSeconds / 3600) * hourHeight
               const height = Math.max(42, (block.durationSeconds / 3600) * hourHeight)
               const selected = selectedBlockId === block.id
+              const created = createdBlockId === block.id
               const issue = issueMap.get(block.id)
               return (
                 <button
                   key={block.id}
+                  id={`block-${block.id}`}
                   type="button"
                   data-calendar-block
                   onClick={() => onSelect(block.id)}
+                  aria-label={`${created ? "New block: " : "Edit "}${block.title}, ${formatBlockRange(block)}`}
                   className={[
-                    "absolute left-0 right-2 overflow-hidden rounded-md border px-3 py-2 text-left text-sm shadow-sm",
-                    selected
-                      ? "border-accent-positive bg-surface-selected-positive text-accent-positive"
-                      : issue?.severity === "critical"
-                        ? "border-danger-line bg-danger-soft text-danger-strong hover:bg-danger-soft"
-                        : issue?.severity === "warning"
-                          ? "border-warn-line bg-warn-soft text-warn-strong hover:bg-warn-soft"
-                          : "border-line bg-surface text-ink hover:bg-panel-soft"
+                    "absolute left-0 right-2 overflow-hidden rounded-md border px-3 py-2 text-left text-sm shadow-sm focus-visible:z-30",
+                    created
+                      ? "schedule-new-block border-accent-positive bg-surface-selected-positive text-accent-positive ring-2 ring-accent-positive/50"
+                      : selected
+                        ? "border-accent-positive bg-surface-selected-positive text-accent-positive"
+                        : issue?.severity === "critical"
+                          ? "border-danger-line bg-danger-soft text-danger-strong hover:bg-danger-soft"
+                          : issue?.severity === "warning"
+                            ? "border-warn-line bg-warn-soft text-warn-strong hover:bg-warn-soft"
+                            : "border-line bg-surface text-ink hover:bg-panel-soft",
+                    created || selected ? "z-20" : issue?.severity === "critical" ? "z-10" : "",
+                    height < 58 ? "py-1.5" : ""
                   ].join(" ")}
                   style={{ top, height }}
                 >
                   <span className="flex items-center justify-between gap-2">
-                    <span className="font-semibold tabular-nums">
-                      {formatPlayoutTimeLabel(block.startTimeSeconds)}
+                    <span className="font-bold tabular-nums">{formatBlockRange(block)}</span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      {created ? (
+                        <span className="rounded border border-current/30 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                          New
+                        </span>
+                      ) : null}
+                      {issue ? (
+                        <span className="rounded border border-current/25 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                          {issue.severity}
+                        </span>
+                      ) : null}
                     </span>
-                    {issue ? (
-                      <span className="rounded border border-current/25 px-1.5 py-0.5 text-[10px] font-bold uppercase">
-                        {issue.severity}
-                      </span>
-                    ) : null}
                   </span>
-                  <span className="mt-0.5 block truncate font-semibold">{block.title}</span>
-                  <span className="mt-0.5 block truncate text-xs opacity-75">
-                    {blockAssetLabel(schedule, block)} · {formatTimecode(block.durationSeconds)}
+                  <span className="mt-0.5 block truncate font-semibold text-ink">
+                    {block.title}
+                  </span>
+                  <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs opacity-80">
+                    <span className="shrink-0 rounded border border-current/20 px-1.5 py-0.5 font-semibold tabular-nums">
+                      {formatDurationLabel(block.durationSeconds)}
+                    </span>
+                    <span className="truncate">{blockAssetLabel(schedule, block)}</span>
                   </span>
                 </button>
               )
@@ -1284,6 +1363,25 @@ function snapCalendarSeconds(seconds: number) {
       Math.round(seconds / CALENDAR_SNAP_SECONDS) * CALENDAR_SNAP_SECONDS
     )
   )
+}
+
+function formatBlockRange(block: ProgramBlock) {
+  return formatCalendarRange(block.startTimeSeconds, block.durationSeconds)
+}
+
+function formatCalendarRange(startTimeSeconds: number, durationSeconds: number) {
+  return `${formatPlayoutTimeLabel(startTimeSeconds)} → ${formatPlayoutTimeLabel(
+    Math.min(DAY_SECONDS, startTimeSeconds + durationSeconds)
+  )}`
+}
+
+function formatDurationLabel(seconds: number) {
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`
 }
 
 function buildContentOptions(schedule: ScheduleBundle): ContentOption[] {

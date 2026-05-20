@@ -275,6 +275,19 @@ textarea::placeholder {
   animation: var(--motion-ticker-stocks-duration, 28s) linear infinite ticker-scroll-stocks;
 }
 
+@keyframes schedule-new-block-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(26, 231, 132, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(26, 231, 132, 0);
+  }
+}
+
+.schedule-new-block {
+  animation: schedule-new-block-pulse 1.6s ease-out 2;
+}
+
 /* ---------------------------------------------------------------------------
    Reduced-motion guard
    Zeros out the custom-property durations used by every .anim-* class above,
@@ -299,7 +312,8 @@ textarea::placeholder {
   .anim-flash-up,
   .anim-flash-down,
   .anim-ticker-scroll-news,
-  .anim-ticker-scroll-stocks {
+  .anim-ticker-scroll-stocks,
+  .schedule-new-block {
     animation: none !important;
   }
 }

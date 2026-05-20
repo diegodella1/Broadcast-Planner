@@ -10,7 +10,9 @@ describe("ScheduleWorkspace", () => {
     renderWorkspace({ blocks: [] })
 
     expect(screen.getByRole("heading", { name: "Timeline" })).toBeInTheDocument()
-    expect(screen.getByText("Click a gap to fill it · America/Los_Angeles")).toBeInTheDocument()
+    expect(
+      screen.getByText("Click an empty slot or gap to add content · America/Los_Angeles")
+    ).toBeInTheDocument()
     expect(screen.getByText("Empty day. Click any time slot to add a block.")).toBeInTheDocument()
     expect(screen.getByText("00:00")).toBeInTheDocument()
     expect(screen.getByText("23:00")).toBeInTheDocument()
@@ -50,6 +52,20 @@ describe("ScheduleWorkspace", () => {
     expect(screen.getByRole("button", { name: "Edit A" })).toBeInTheDocument()
   })
 
+  it("highlights and announces the newly created block", () => {
+    Element.prototype.scrollIntoView = vi.fn()
+    renderWorkspace({ blocks: [block], createdBlockId: block.id })
+
+    expect(screen.getByText("Block Added")).toBeInTheDocument()
+    expect(screen.getAllByText("01:00 SF → 01:15 SF").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("15 min").length).toBeGreaterThan(0)
+    expect(screen.getByText("New")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "New block: A, 01:00 SF → 01:15 SF" })
+    ).toBeInTheDocument()
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+  })
+
   it("opens add drawer when the page action targets #add-block", () => {
     renderWorkspace({ blocks: [block] })
 
@@ -73,7 +89,13 @@ describe("ScheduleWorkspace", () => {
   })
 })
 
-function renderWorkspace({ blocks }: { blocks: ProgramBlock[] }) {
+function renderWorkspace({
+  blocks,
+  createdBlockId
+}: {
+  blocks: ProgramBlock[]
+  createdBlockId?: string
+}) {
   window.history.replaceState(null, "", "/admin/schedule/2026-05-08")
   const schedule = { ...baseSchedule, blocks }
   return render(
@@ -88,6 +110,7 @@ function renderWorkspace({ blocks }: { blocks: ProgramBlock[] }) {
       duplicateAction={vi.fn()}
       archiveAction={vi.fn()}
       bulkCreateAction={vi.fn()}
+      createdBlockId={createdBlockId}
     />
   )
 }

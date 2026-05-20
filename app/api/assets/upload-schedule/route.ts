@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     if (!startTime) throw new Error("Start time is required")
 
     const uploaded = await uploadMediaFile(file, uploadedMediaFieldsFromForm(form))
-    await createProgramBlock({
+    const created = await createProgramBlock({
       date,
       title: uploaded.title,
       blockType: blockTypeFor(uploaded.assetType, uploaded.mediaKind),
@@ -42,7 +42,9 @@ export async function POST(request: Request) {
       hideOverlays: form.get("hide_overlays") === "on"
     })
 
-    const returnTo = String(form.get("return_to") || `/admin/schedule/${date}?uploaded=1`)
+    const returnTo = String(
+      form.get("return_to") || `/admin/schedule/${date}?uploaded=1&created=${created.id}`
+    )
     return NextResponse.redirect(appUrl(returnTo), 303)
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {

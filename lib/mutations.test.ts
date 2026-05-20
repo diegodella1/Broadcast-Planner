@@ -587,10 +587,14 @@ describe("createProgramBlock", () => {
   })
 
   it("happy path: inserts a block for a non-conflicting time slot", async () => {
-    // ensureProgramDay needs to succeed first
-    supabaseMock.setResult({ data: { id: "day-1" }, error: null })
+    ;(supabaseMock.single as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ data: { id: "day-1" }, error: null })
+      .mockResolvedValueOnce({
+        data: { id: "block-created", start_time_seconds: 36000 },
+        error: null
+      })
 
-    await createProgramBlock({
+    const result = await createProgramBlock({
       date: "2026-05-08",
       title: "Mercados en Vivo",
       blockType: "video",
@@ -609,6 +613,8 @@ describe("createProgramBlock", () => {
         duration_seconds: 1800
       })
     )
+    expect(supabaseMock.select).toHaveBeenCalledWith("id,start_time_seconds")
+    expect(result).toEqual({ id: "block-created", startTimeSeconds: 36000 })
     expect(revalidatePath).toHaveBeenCalledWith("/admin/schedule/2026-05-08")
   })
 
@@ -693,14 +699,9 @@ describe("createProgramBlock", () => {
     // ensureProgramDay resolves via .single(); the program_blocks insert is
     // awaited directly on the builder (via .then) — so make single succeed
     // and then always return an error.
-    ;(supabaseMock.single as ReturnType<typeof vi.fn>).mockResolvedValue({
-      data: { id: "day-1" },
-      error: null
-    })
-    ;(supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-      (resolve: (value: MockResult) => void) =>
-        Promise.resolve({ data: null, error: new Error("Insert failed") }).then(resolve)
-    )
+    ;(supabaseMock.single as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ data: { id: "day-1" }, error: null })
+      .mockResolvedValueOnce({ data: null, error: new Error("Insert failed") })
 
     await expect(
       createProgramBlock({
