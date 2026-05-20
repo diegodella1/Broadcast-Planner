@@ -1,6 +1,7 @@
 import { createMediaAsset } from "./mutations"
 import {
   MAX_SHORT_VIDEO_SECONDS,
+  SMALL_MEDIA_BUCKET,
   MAX_SMALL_MEDIA_BYTES,
   SMALL_MEDIA_MIME_TYPES,
   formatUploadLimit
@@ -8,8 +9,12 @@ import {
 import { publicMediaAssetUrl } from "./media-asset-url"
 import { createServiceClient } from "./supabase/server"
 
-export const SMALL_MEDIA_BUCKET = "small-media-assets"
-export { MAX_SHORT_VIDEO_SECONDS, MAX_SMALL_MEDIA_BYTES, SMALL_MEDIA_MIME_TYPES }
+export {
+  MAX_SHORT_VIDEO_SECONDS,
+  SMALL_MEDIA_BUCKET,
+  MAX_SMALL_MEDIA_BYTES,
+  SMALL_MEDIA_MIME_TYPES
+}
 
 type MediaKind = "video" | "image" | "audio"
 type SourceType = "remote_mp4" | "supabase_image" | "supabase_audio"
@@ -125,22 +130,31 @@ export async function uploadMediaFile(file: FileLike, fields: UploadedMediaField
     .upload(storagePath, bytes, { contentType: file.type, upsert: false })
   if (uploadError) throw uploadError
 
-  const assetId = await createMediaAsset({
-    title: resolved.title,
-    sourceType: resolved.sourceType,
-    mediaKind: resolved.mediaKind,
-    assetType: resolved.assetType,
-    storageBucket: SMALL_MEDIA_BUCKET,
-    storagePath,
-    durationSeconds: resolved.durationSeconds,
-    metadata: resolved.metadata
-  })
+  let assetId = ""
+  try {
+    assetId = await createMediaAsset({
+      title: resolved.title,
+      sourceType: resolved.sourceType,
+      mediaKind: resolved.mediaKind,
+      assetType: resolved.assetType,
+      storageBucket: SMALL_MEDIA_BUCKET,
+      storagePath,
+      durationSeconds: resolved.durationSeconds,
+      metadata: resolved.metadata
+    })
+  } catch (error) {
+    await removeUploadedObject(supabase, storagePath)
+    throw error
+  }
   const url = publicMediaAssetUrl(assetId)
   const { error: urlError } = await supabase
     .from("media_assets")
     .update({ url, updated_at: new Date().toISOString() })
     .eq("id", assetId)
-  if (urlError) throw urlError
+  if (urlError) {
+    await markUploadedAssetFailed(supabase, assetId, urlError)
+    throw urlError
+  }
 
   return { ...resolved, assetId, url, storagePath }
 }
@@ -185,6 +199,38 @@ async function ensureSmallMediaBucket(supabase: ReturnType<typeof createServiceC
     allowedMimeTypes: [...SMALL_MEDIA_MIME_TYPES]
   })
   if (error) throw error
+}
+
+async function removeUploadedObject(
+  supabase: ReturnType<typeof createServiceClient>,
+  storagePath: string
+) {
+  try {
+    await supabase.storage.from(SMALL_MEDIA_BUCKET).remove([storagePath])
+  } catch {
+    // The database row failed, so the upload route should not be blocked by best-effort cleanup.
+  }
+}
+
+async function markUploadedAssetFailed(
+  supabase: ReturnType<typeof createServiceClient>,
+  assetId: string,
+  error: unknown
+) {
+  const message = error instanceof Error ? error.message : String(error)
+  try {
+    await supabase
+      .from("media_assets")
+      .update({
+        status: "failed",
+        playback_readiness_status: "failed",
+        playback_error: message,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", assetId)
+  } catch {
+    // Preserve the original upload error for the caller.
+  }
 }
 
 function extensionFor(file: Pick<FileLike, "name" | "type">) {

@@ -2,7 +2,12 @@ import { getLiveSchedule } from "./data"
 import { getActiveOutputOverride } from "./output-overrides"
 import { getReutersSettings } from "./reuters-credentials"
 import { getVimeoSettings, getVimeoToken } from "./settings"
-import { isSmokeStatusOk, readSmokeStatus, smokeStatusMessage } from "./smoke-status"
+import {
+  isSmokeStatusOk,
+  isSmokeStatusStale,
+  readSmokeStatus,
+  smokeStatusMessage
+} from "./smoke-status"
 import { createServiceClient } from "./supabase/server"
 
 export type OperatorHealthStatus = "ok" | "degraded" | "fail"
@@ -217,6 +222,9 @@ async function checkSmoke(): Promise<OperatorHealthCheck> {
   const smoke = readSmokeStatus()
   if (!smoke) {
     return degraded("smoke", "Smoke", "No recent smoke status configured")
+  }
+  if (smoke.status === "ok" && isSmokeStatusStale(smoke)) {
+    return degraded("smoke", "Smoke", smokeStatusMessage(smoke))
   }
   return isSmokeStatusOk(smoke)
     ? pass("smoke", "Smoke", smokeStatusMessage(smoke))

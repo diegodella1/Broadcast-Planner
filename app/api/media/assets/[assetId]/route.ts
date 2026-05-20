@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server"
 
+import { requireAdmin } from "@/lib/auth"
+import { isOutputRequestAllowed, outputAccessDeniedReason } from "@/lib/output-auth"
+import { assertRateLimit, rateLimitErrorResponse } from "@/lib/rate-limit"
+import { SMALL_MEDIA_BUCKET } from "@/lib/media-upload-constants"
 import { createServiceClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
+
+const MEDIA_ASSET_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const STORAGE_FETCH_TIMEOUT_MS = 15_000
+const SIMPLE_RANGE_PATTERN = /^bytes=[0-9]*-[0-9]*$/
 
 type RouteContext = {
   params: Promise<{ assetId: string }>
@@ -10,6 +19,26 @@ type RouteContext = {
 
 export async function GET(request: Request, { params }: RouteContext) {
   const { assetId } = await params
+  if (!MEDIA_ASSET_ID_PATTERN.test(assetId)) {
+    return NextResponse.json({ error: "Media not found" }, { status: 404 })
+  }
+  const allowed = await isMediaRequestAllowed(request)
+  if (!allowed) {
+    return NextResponse.json({ error: outputAccessDeniedReason() }, { status: 401 })
+  }
+  try {
+    await assertRateLimit({ scope: "api:media:assets", request, limit: 240, windowSeconds: 60 })
+  } catch (error) {
+    if (error instanceof Error && error.message === "Rate limit exceeded") {
+      const { retryAfterSeconds } = rateLimitErrorResponse(error)
+      return NextResponse.json(
+        { error: "Rate limit exceeded" },
+        { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
+      )
+    }
+    throw error
+  }
+
   const supabase = createServiceClient()
   const { data: asset, error } = await supabase
     .from("media_assets")
@@ -21,11 +50,14 @@ export async function GET(request: Request, { params }: RouteContext) {
   if (asset.status !== "ready" || !asset.storage_bucket || !asset.storage_path) {
     return NextResponse.json({ error: "Media unavailable" }, { status: 404 })
   }
+  if (!isAllowedStorageObject(String(asset.storage_bucket), String(asset.storage_path))) {
+    return NextResponse.json({ error: "Media unavailable" }, { status: 404 })
+  }
 
   const upstream = await fetchStorageObject({
     bucket: String(asset.storage_bucket),
     path: String(asset.storage_path),
-    range: request.headers.get("range")
+    range: validRangeHeader(request.headers.get("range"))
   })
   if (upstream.status === 404)
     return NextResponse.json({ error: "Media not found" }, { status: 404 })
@@ -35,6 +67,21 @@ export async function GET(request: Request, { params }: RouteContext) {
 
   const headers = responseHeaders(upstream.headers, asset.metadata)
   return new Response(upstream.body, { status: upstream.status, headers })
+}
+
+export async function HEAD(request: Request, context: RouteContext) {
+  const response = await GET(request, context)
+  return new Response(null, { status: response.status, headers: response.headers })
+}
+
+async function isMediaRequestAllowed(request: Request) {
+  try {
+    await requireAdmin()
+    return true
+  } catch {
+    const { searchParams } = new URL(request.url)
+    return isOutputRequestAllowed({ token: searchParams.get("token") ?? undefined })
+  }
 }
 
 async function fetchStorageObject({
@@ -53,12 +100,18 @@ async function fetchStorageObject({
     `/storage/v1/object/${encodeURIComponent(bucket)}/${encodeStoragePath(path)}`,
     baseUrl
   )
-  const headers = new Headers({
+  const headers: Record<string, string> = {
     apikey: key,
     Authorization: `Bearer ${key}`
-  })
-  if (range) headers.set("range", range)
-  return fetch(url, { headers, cache: "no-store" })
+  }
+  if (range) headers.Range = range
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), STORAGE_FETCH_TIMEOUT_MS)
+  try {
+    return await fetch(url, { headers, cache: "no-store", signal: controller.signal })
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 function responseHeaders(upstream: Headers, metadata: unknown) {
@@ -74,7 +127,7 @@ function responseHeaders(upstream: Headers, metadata: unknown) {
     if (mimeType) headers.set("content-type", mimeType)
   }
   if (!headers.has("accept-ranges")) headers.set("accept-ranges", "bytes")
-  headers.set("cache-control", "public, max-age=31536000, immutable")
+  headers.set("cache-control", "private, max-age=3600")
   return headers
 }
 
@@ -95,4 +148,14 @@ function encodeStoragePath(path: string) {
     .filter(Boolean)
     .map((part) => encodeURIComponent(part))
     .join("/")
+}
+
+function isAllowedStorageObject(bucket: string, path: string) {
+  return bucket === SMALL_MEDIA_BUCKET && Boolean(path) && !path.includes("..")
+}
+
+function validRangeHeader(range: string | null) {
+  if (!range) return null
+  const normalized = range.trim()
+  return SIMPLE_RANGE_PATTERN.test(normalized) ? normalized : null
 }

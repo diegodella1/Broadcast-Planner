@@ -24,6 +24,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const allowed = await isOutputRequestAllowed({ token: searchParams.get("token") ?? undefined })
     if (!allowed) return NextResponse.json({ error: outputAccessDeniedReason() }, { status: 401 })
+    const mediaAccessToken = searchParams.get("token") ?? process.env.OUTPUT_CAPTURE_TOKEN ?? ""
 
     const now = new Date()
     const previewBlockId = searchParams.get("previewBlockId")
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
         )
       : findActiveSchedule(bundle, secondsOfDay)
     const override = await getActiveOutputOverride(bundle.day?.id)
-    const music = await backgroundMusicForActive(bundle, active)
+    const music = await backgroundMusicForActive(bundle, active, mediaAccessToken)
     const base = {
       serverSeconds: secondsOfDay,
       generatedAt: now.toISOString()
@@ -73,9 +74,12 @@ export async function GET(request: Request) {
     }
 
     if (!bundle.day || !active.block) {
-      return NextResponse.json(await fallbackStateForBundle(bundle, "no-active-block", base), {
-        headers: { "Cache-Control": "no-store" }
-      })
+      return NextResponse.json(
+        await fallbackStateForBundle(bundle, "no-active-block", base, mediaAccessToken),
+        {
+          headers: { "Cache-Control": "no-store" }
+        }
+      )
     }
 
     const startOffsetSeconds = Math.max(0, Math.floor(active.elapsedInBlock))
@@ -98,10 +102,9 @@ export async function GET(request: Request) {
         { headers: { "Cache-Control": "no-store" } }
       )
     }
-    const token = searchParams.get("token") ?? process.env.OUTPUT_CAPTURE_TOKEN ?? ""
     if (active.slide) {
       const renderUrl = appUrl(`/output/slide/${active.slide.id}`)
-      if (token) renderUrl.searchParams.set("token", token)
+      if (mediaAccessToken) renderUrl.searchParams.set("token", mediaAccessToken)
       return NextResponse.json(
         {
           ...base,
@@ -129,7 +132,7 @@ export async function GET(request: Request) {
         const vimeoToken = await getVimeoToken()
         if (!vimeoToken)
           return NextResponse.json(
-            await fallbackStateForBundle(bundle, "missing-vimeo-token", base)
+            await fallbackStateForBundle(bundle, "missing-vimeo-token", base, mediaAccessToken)
           )
         const playback = await getVimeoPlayback(vimeoToken, active.asset.vimeoId)
         return NextResponse.json(
@@ -157,7 +160,7 @@ export async function GET(request: Request) {
             blockId: active.block.id,
             assetId: active.asset.id,
             title: active.asset.title,
-            hlsUrl: active.asset.url,
+            hlsUrl: withMediaAccessToken(active.asset.url, mediaAccessToken),
             startOffsetSeconds,
             durationSeconds: active.asset.durationSeconds,
             backgroundMusic: null
@@ -174,7 +177,7 @@ export async function GET(request: Request) {
             blockId: active.block.id,
             assetId: active.asset.id,
             title: active.asset.title,
-            url: active.asset.url,
+            url: withMediaAccessToken(active.asset.url, mediaAccessToken),
             startOffsetSeconds,
             durationSeconds: active.asset.durationSeconds ?? active.block.durationSeconds,
             backgroundMusic: null
@@ -195,7 +198,7 @@ export async function GET(request: Request) {
             blockId: active.block.id,
             assetId: active.asset.id,
             title: active.asset.title,
-            imageUrl: active.asset.url,
+            imageUrl: withMediaAccessToken(active.asset.url, mediaAccessToken),
             startOffsetSeconds,
             durationSeconds: active.block.durationSeconds,
             backgroundMusic: music
@@ -206,7 +209,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json(
-      await fallbackStateForBundle(bundle, "unsupported-active-content", base),
+      await fallbackStateForBundle(bundle, "unsupported-active-content", base, mediaAccessToken),
       {
         headers: { "Cache-Control": "no-store" }
       }
@@ -217,13 +220,26 @@ export async function GET(request: Request) {
   }
 }
 
-async function fallbackStateForBundle(bundle: ScheduleBundle, reason: string, base: OutputBase) {
+async function fallbackStateForBundle(
+  bundle: ScheduleBundle,
+  reason: string,
+  base: OutputBase,
+  mediaAccessToken = ""
+) {
   const fallbackAsset = findFallbackLoopAsset(bundle)
   if (!fallbackAsset) return fallbackState(reason, base)
-  return (await fallbackVideoState(fallbackAsset, reason, base)) ?? fallbackState(reason, base)
+  return (
+    (await fallbackVideoState(fallbackAsset, reason, base, mediaAccessToken)) ??
+    fallbackState(reason, base)
+  )
 }
 
-async function fallbackVideoState(asset: MediaAsset, reason: string, base: OutputBase) {
+async function fallbackVideoState(
+  asset: MediaAsset,
+  reason: string,
+  base: OutputBase,
+  mediaAccessToken = ""
+) {
   const common = {
     ...base,
     signature: `fallback-loop:${asset.id}:${asset.updatedAt}`,
@@ -237,10 +253,10 @@ async function fallbackVideoState(asset: MediaAsset, reason: string, base: Outpu
     backgroundMusic: null
   }
   if (asset.sourceType === "remote_mp4" && asset.url) {
-    return { ...common, kind: "mp4", url: asset.url }
+    return { ...common, kind: "mp4", url: withMediaAccessToken(asset.url, mediaAccessToken) }
   }
   if (asset.sourceType === "hls" && asset.url) {
-    return { ...common, kind: "hls", hlsUrl: asset.url }
+    return { ...common, kind: "hls", hlsUrl: withMediaAccessToken(asset.url, mediaAccessToken) }
   }
   if (asset.sourceType === "vimeo" && asset.vimeoId) {
     const vimeoToken = await getVimeoToken()
@@ -297,7 +313,8 @@ function metadataText(metadata: Record<string, unknown> | null | undefined, key:
 
 async function backgroundMusicForActive(
   bundle: Awaited<ReturnType<typeof getLiveSchedule>>,
-  active: ReturnType<typeof findActiveSchedule>
+  active: ReturnType<typeof findActiveSchedule>,
+  mediaAccessToken = ""
 ) {
   const eligible =
     active.block?.blockType === "image" ||
@@ -312,7 +329,7 @@ async function backgroundMusicForActive(
     .map((asset) => ({
       id: asset.id,
       title: asset.title,
-      url: asset.url!
+      url: withMediaAccessToken(asset.url!, mediaAccessToken)
     }))
   if (!tracks.length) return null
   return {
@@ -320,6 +337,23 @@ async function backgroundMusicForActive(
     volume: preference.volume,
     fade: preference.fade,
     tracks
+  }
+}
+
+function withMediaAccessToken(value: string, token: string) {
+  if (!token || !value.includes("/api/media/assets/")) return value
+  try {
+    const url = new URL(value)
+    if (url.pathname.startsWith("/api/media/assets/")) {
+      url.searchParams.set("token", token)
+      return url.toString()
+    }
+    return value
+  } catch {
+    if (!value.startsWith("/api/media/assets/")) return value
+    const url = new URL(value, "https://local.rtv")
+    url.searchParams.set("token", token)
+    return `${url.pathname}${url.search}`
   }
 }
 
