@@ -382,12 +382,15 @@ export async function updateProgramBlock(input: {
   if (input.blockType === "ad" && durationSeconds > 300) {
     throw new Error("Ads cannot be longer than 300 seconds")
   }
-  const conflict = findScheduleConflicts(schedule.blocks, {
-    id: input.blockId,
-    programDayId: block.programDayId,
-    startTimeSeconds,
-    durationSeconds
-  })
+  const conflict =
+    input.status === "archived"
+      ? { hasConflict: false, conflicts: [] }
+      : findScheduleConflicts(schedule.blocks, {
+          id: input.blockId,
+          programDayId: block.programDayId,
+          startTimeSeconds,
+          durationSeconds
+        })
   if (conflict.hasConflict && input.conflictResolution !== "archive_conflicts") {
     throw new Error("El bloque se solapa con otro bloque")
   }
@@ -474,7 +477,8 @@ export async function reorderProgramBlocks(input: { date: string; orderedBlockId
     const next = {
       id,
       startTimeSeconds: cursor,
-      startTime: formatTimecode(cursor)
+      startTime: formatTimecode(cursor),
+      status: block.status
     }
     cursor += block.durationSeconds
     return next
@@ -494,13 +498,11 @@ export async function reorderProgramBlocks(input: { date: string; orderedBlockId
       next: { blocks: updates }
     },
     async () => {
-      for (let index = 0; index < updates.length; index += 1) {
-        const update = updates[index]!
+      for (const update of updates) {
         const { error } = await supabase
           .from("program_blocks")
           .update({
-            start_time: formatTimecode(200000 + index * 100000),
-            start_time_seconds: 200000 + index * 100000,
+            status: "archived",
             updated_at: new Date().toISOString()
           })
           .eq("id", update.id)
@@ -512,6 +514,7 @@ export async function reorderProgramBlocks(input: { date: string; orderedBlockId
           .update({
             start_time: update.startTime,
             start_time_seconds: update.startTimeSeconds,
+            status: update.status,
             updated_at: new Date().toISOString()
           })
           .eq("id", update.id)
@@ -530,16 +533,13 @@ export async function resizeProgramBlock(input: {
   const schedule = await getScheduleForDate(input.date)
   const block = schedule.blocks.find((item) => item.id === input.blockId)
   if (!block) throw new Error("Bloque no encontrado")
-  const durationSeconds = Math.max(1, Math.round(Number(input.durationSeconds || 0) / 300) * 300)
-  const conflict = findScheduleConflicts(
-    schedule.blocks.filter((item) => item.status !== "archived"),
-    {
-      id: block.id,
-      programDayId: block.programDayId,
-      startTimeSeconds: block.startTimeSeconds,
-      durationSeconds
-    }
-  )
+  const durationSeconds = Math.max(1, Math.floor(Number(input.durationSeconds || 0)))
+  const conflict = findScheduleConflicts(schedule.blocks, {
+    id: block.id,
+    programDayId: block.programDayId,
+    startTimeSeconds: block.startTimeSeconds,
+    durationSeconds
+  })
   if (conflict.hasConflict) {
     throw new Error("El nuevo largo se solapa con otro bloque")
   }
@@ -573,18 +573,15 @@ export async function moveProgramBlock(input: {
   const block = schedule.blocks.find((item) => item.id === input.blockId)
   if (!block) throw new Error("Bloque no encontrado")
   const startTimeSeconds = Math.min(
-    Math.max(0, Math.round(Number(input.startTimeSeconds || 0) / 300) * 300),
+    Math.max(0, Math.floor(Number(input.startTimeSeconds || 0))),
     86400 - block.durationSeconds
   )
-  const conflict = findScheduleConflicts(
-    schedule.blocks.filter((item) => item.status !== "archived"),
-    {
-      id: block.id,
-      programDayId: block.programDayId,
-      startTimeSeconds,
-      durationSeconds: block.durationSeconds
-    }
-  )
+  const conflict = findScheduleConflicts(schedule.blocks, {
+    id: block.id,
+    programDayId: block.programDayId,
+    startTimeSeconds,
+    durationSeconds: block.durationSeconds
+  })
   if (conflict.hasConflict) {
     throw new Error("El bloque se solapa con otro bloque")
   }

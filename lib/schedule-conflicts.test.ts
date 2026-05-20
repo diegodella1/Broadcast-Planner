@@ -31,6 +31,17 @@ describe("schedule conflict helpers", () => {
     expect(result.maxSafeDurationSeconds).toBe(1800)
   })
 
+  it("ignores archived blocks when detecting conflicts", () => {
+    const result = findScheduleConflicts([block("archived", 900, 1800, "archived")], {
+      programDayId: "day-1",
+      startTimeSeconds: 900,
+      durationSeconds: 57
+    })
+
+    expect(result.hasConflict).toBe(false)
+    expect(result.maxSafeDurationSeconds).toBe(85500)
+  })
+
   it("finds the nearest safe slot when preferred start is occupied", () => {
     expect(findNearestSafeStart(blocks, "day-1", 1200, 3500)).toBe(1800)
   })
@@ -50,7 +61,12 @@ describe("schedule conflict helpers", () => {
   })
 })
 
-function block(id: string, startTimeSeconds: number, durationSeconds: number): ProgramBlock {
+function block(
+  id: string,
+  startTimeSeconds: number,
+  durationSeconds: number,
+  status: ProgramBlock["status"] = "ready"
+): ProgramBlock {
   return {
     id,
     programDayId: "day-1",
@@ -62,7 +78,7 @@ function block(id: string, startTimeSeconds: number, durationSeconds: number): P
     startTime: "00:00:00",
     startTimeSeconds,
     durationSeconds,
-    status: "ready",
+    status,
     hideOverlays: false,
     fallbackAssetId: null,
     notes: null,

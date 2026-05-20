@@ -33,7 +33,12 @@ export function findScheduleConflicts(
 ): ScheduleConflictResult {
   const candidateEnd = candidate.startTimeSeconds + candidate.durationSeconds
   const conflicts = blocks
-    .filter((block) => block.programDayId === candidate.programDayId && block.id !== candidate.id)
+    .filter(
+      (block) =>
+        block.programDayId === candidate.programDayId &&
+        block.id !== candidate.id &&
+        block.status !== "archived"
+    )
     .filter((block) => {
       const blockEnd = block.startTimeSeconds + block.durationSeconds
       return candidate.startTimeSeconds < blockEnd && candidateEnd > block.startTimeSeconds
@@ -74,7 +79,7 @@ export function findNearestSafeStart(
   preferredStartSeconds = 0
 ) {
   const sorted = blocks
-    .filter((block) => block.programDayId === programDayId)
+    .filter((block) => block.programDayId === programDayId && block.status !== "archived")
     .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
   const candidates = [
     preferredStartSeconds,
@@ -110,7 +115,12 @@ export function findMaxSafeDuration(
 ) {
   if (startTimeSeconds < 0 || startTimeSeconds >= DAY_SECONDS) return null
   const next = blocks
-    .filter((block) => block.programDayId === programDayId && block.id !== ignoredBlockId)
+    .filter(
+      (block) =>
+        block.programDayId === programDayId &&
+        block.id !== ignoredBlockId &&
+        block.status !== "archived"
+    )
     .filter((block) => block.startTimeSeconds >= startTimeSeconds)
     .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)[0]
   const end = next ? next.startTimeSeconds : DAY_SECONDS

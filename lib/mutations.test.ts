@@ -418,22 +418,22 @@ describe("rundown editor mutations", () => {
     })
   })
 
-  it("reorders blocks by moving them through temporary positions first", async () => {
+  it("reorders blocks by temporarily archiving them to avoid overlap checks", async () => {
     await reorderProgramBlocks({
       date: "2026-05-08",
       orderedBlockIds: ["block-2", "block-1", "block-3"]
     })
 
     expect(supabaseMock.update).toHaveBeenCalledWith(
-      expect.objectContaining({ start_time_seconds: 200000 })
+      expect.objectContaining({ status: "archived" })
     )
     expect(supabaseMock.update).toHaveBeenCalledWith(
-      expect.objectContaining({ start_time: "01:00:00", start_time_seconds: 3600 })
+      expect.objectContaining({ start_time: "01:00:00", start_time_seconds: 3600, status: "ready" })
     )
     expect(revalidatePath).toHaveBeenCalledWith("/admin/schedule/2026-05-08")
   })
 
-  it("resizes a block in 5 minute increments", async () => {
+  it("resizes a block to exact seconds", async () => {
     await resizeProgramBlock({
       date: "2026-05-08",
       blockId: "block-3",
@@ -441,11 +441,11 @@ describe("rundown editor mutations", () => {
     })
 
     expect(supabaseMock.update).toHaveBeenCalledWith(
-      expect.objectContaining({ duration_seconds: 300 })
+      expect.objectContaining({ duration_seconds: 430 })
     )
   })
 
-  it("moves a block to a snapped start time", async () => {
+  it("moves a block to exact seconds", async () => {
     await moveProgramBlock({
       date: "2026-05-08",
       blockId: "block-3",
@@ -453,7 +453,7 @@ describe("rundown editor mutations", () => {
     })
 
     expect(supabaseMock.update).toHaveBeenCalledWith(
-      expect.objectContaining({ start_time: "02:00:00", start_time_seconds: 7200 })
+      expect.objectContaining({ start_time: "02:00:01", start_time_seconds: 7201 })
     )
     expect(revalidatePath).toHaveBeenCalledWith("/admin/schedule/2026-05-08")
   })
@@ -652,6 +652,36 @@ describe("createProgramBlock", () => {
         hideOverlays: false
       })
     ).rejects.toThrow("solapa")
+  })
+
+  it("allows exact short blocks over archived time ranges", async () => {
+    supabaseMock.setResult({ data: { id: "day-1" }, error: null })
+    getScheduleForDateMock.mockResolvedValue({
+      ...mockSchedule,
+      day: mockSchedule.day,
+      blocks: [
+        testBlock({
+          id: "block-archived",
+          title: "Archived",
+          startTimeSeconds: 36000,
+          durationSeconds: 1800,
+          status: "archived"
+        })
+      ]
+    })
+
+    await createProgramBlock({
+      date: "2026-05-08",
+      title: "57 second ad",
+      blockType: "ad",
+      startTime: "10:15:00",
+      durationSeconds: 57,
+      hideOverlays: false
+    })
+
+    expect(supabaseMock.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "57 second ad", duration_seconds: 57 })
+    )
   })
 
   it("archives conflicting blocks when replacement is explicit", async () => {

@@ -153,31 +153,51 @@ export default async function ScheduleDatePage({
   }
   async function setDayStatus(formData: FormData) {
     "use server"
-    await updateProgramDayStatus({
-      date,
-      status: String(formData.get("status")),
-      allowWarnings: formData.get("allow_warnings") === "on"
-    })
+    try {
+      await updateProgramDayStatus({
+        date,
+        status: String(formData.get("status")),
+        allowWarnings: formData.get("allow_warnings") === "on"
+      })
+    } catch (error) {
+      redirect(scheduleErrorHref(date, error))
+    }
   }
   async function reorderRundown(input: { orderedBlockIds: string[] }) {
     "use server"
-    await reorderProgramBlocks({ date, orderedBlockIds: input.orderedBlockIds })
+    try {
+      await reorderProgramBlocks({ date, orderedBlockIds: input.orderedBlockIds })
+    } catch (error) {
+      redirect(scheduleErrorHref(date, error))
+    }
   }
   async function resizeRundownBlock(input: { blockId: string; durationSeconds: number }) {
     "use server"
-    await resizeProgramBlock({
-      date,
-      blockId: input.blockId,
-      durationSeconds: input.durationSeconds
-    })
+    try {
+      await resizeProgramBlock({
+        date,
+        blockId: input.blockId,
+        durationSeconds: input.durationSeconds
+      })
+    } catch (error) {
+      redirect(scheduleErrorHref(date, error, `block-${input.blockId}`))
+    }
   }
   async function duplicateRundownBlock(input: { blockId: string }) {
     "use server"
-    await duplicateProgramBlock({ date, blockId: input.blockId })
+    try {
+      await duplicateProgramBlock({ date, blockId: input.blockId })
+    } catch (error) {
+      redirect(scheduleErrorHref(date, error, `block-${input.blockId}`))
+    }
   }
   async function archiveRundownBlock(input: { blockId: string }) {
     "use server"
-    await archiveProgramBlock({ date, blockId: input.blockId })
+    try {
+      await archiveProgramBlock({ date, blockId: input.blockId })
+    } catch (error) {
+      redirect(scheduleErrorHref(date, error, `block-${input.blockId}`))
+    }
   }
   async function createEmptyDay() {
     "use server"

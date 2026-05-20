@@ -707,6 +707,7 @@ function BlockDrawer({
   const hasReutersStream = Boolean(reutersStreamUrl.trim())
   const durationSeconds = Math.max(1, Number(duration || DEFAULT_MANUAL_DURATION))
   const startSeconds = parseTimeInput(startTime)
+  const endSeconds = Math.min(DAY_SECONDS, startSeconds + durationSeconds)
   const conflict =
     selected && schedule.day
       ? findScheduleConflicts(blocks, {
@@ -868,6 +869,13 @@ function BlockDrawer({
               className="border border-line px-3 py-2 text-sm font-normal text-ink"
             />
           </label>
+        </div>
+        <div className="rounded-md border border-line bg-panel-soft px-3 py-2 text-xs font-semibold text-muted">
+          <span className="uppercase">Ends automatically</span>
+          <span className="mt-1 block text-sm tabular-nums text-ink">
+            {formatPlayoutTimeLabel(endSeconds, true)}
+            {startSeconds + durationSeconds > DAY_SECONDS ? " (clamped to end of day)" : ""}
+          </span>
         </div>
 
         {selected?.durationSeconds ? (
