@@ -27,6 +27,12 @@ const liveNow: Item[] = [
     status: "Done"
   },
   {
+    title: "Schedule creation feedback",
+    detail:
+      "Newly-created blocks are highlighted, announced and shown with readable start/end ranges so operators can immediately see what changed.",
+    status: "Done"
+  },
+  {
     title: "Migration kit",
     detail:
       "The downloadable production bundle includes environment values and a Supabase bootstrap SQL for a fresh backend.",
@@ -53,6 +59,18 @@ const nextWork: Item[] = [
     status: "Next"
   },
   {
+    title: "Real plate inputs",
+    detail:
+      "Connect remaining plates/cards to real feeds or editable operator inputs instead of placeholder/static data.",
+    status: "Next"
+  },
+  {
+    title: "On-air plate redesign",
+    detail:
+      "Remodel the visual language of cards, plates and output surfaces so the channel feels broadcast-ready.",
+    status: "Next"
+  },
+  {
     title: "Named operator rollout",
     detail: "Use named handles for normal work and keep bootstrap login only for emergency access.",
     status: "Next"
@@ -71,6 +89,11 @@ const later: Item[] = [
     status: "Later"
   },
   {
+    title: "Design system sweep",
+    detail: "Bring admin, manual and output surfaces into a tighter shared visual system.",
+    status: "Later"
+  },
+  {
     title: "Broadcast upgrades",
     detail: "Captions, recording, failover, multiple bitrates and direct OBS/vMix automation.",
     status: "Later"
@@ -81,6 +104,8 @@ const risks = [
   "Actual OBS/vMix runtime still needs human certification before unattended operation.",
   "Browser audio needs one operator click after load or reload.",
   "Reuters URLs can expire and must be refreshed before or during air.",
+  "Remaining placeholder plate data must be replaced before final programming handoff.",
+  "The current output is operational; final plate design still needs a broadcast-quality remodel.",
   "Fallback assets must stay ready for unattended operation."
 ]
 
@@ -98,7 +123,7 @@ export default function PendingPage() {
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
             Current shipping status for RTV Planner. The core product is live; the remaining work is
-            certification, operator polish and broadcast automation.
+            certification, real plate inputs, output design polish and broadcast automation.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link className="btn-secondary" href="/manual">

@@ -11,6 +11,7 @@ Production is live at `rtvtime.diegodella.ar` using local standalone Next.js beh
 What is already working:
 
 - daily schedule builder with timed blocks
+- timeline-first schedule UI with visible newly-added block confirmation, time ranges and gap filling
 - media library for uploads, remote URLs, Vimeo, slides, music and fallbacks
 - Supabase database/storage backend
 - browser playout for OBS/vMix capture
@@ -23,6 +24,8 @@ What is already working:
 - fresh Supabase bootstrap SQL for moving to a new backend
 
 Main remaining gate: certify video, audio and reload behavior on the actual OBS/vMix capture machine before unattended operation.
+
+Main product polish still pending: wire the on-air plates/slides to real production inputs where mock/static content remains, then remodel the visual design of the output plates so the channel looks intentionally produced rather than just operationally correct.
 
 ## Product Promise
 
@@ -180,6 +183,14 @@ Before live use:
 - operator confirms fallbacks, runbook and shutdown process.
 
 ## Roadmap
+
+Near-term priorities:
+
+- replace remaining placeholder/static plate data with real feeds or operator-configurable inputs
+- remodel the visual design of on-air plates, cards and output surfaces
+- persist smoke status so health reflects the latest deploy checks
+- improve operator alerts for drift, stalled playback, silence and media errors
+- expand schedule copy/recurring-day tools after the live workflow is stable
 
 See:
 

@@ -7,6 +7,7 @@ const shipped = [
   "Rate limiting, CSRF protection and output token flow",
   "Admin health checks and Go Live Drill",
   "Daily schedule builder with schedule health polling",
+  "Schedule add-block confirmation with highlighted placement and readable time ranges",
   "Runbook for preflight, live operation, incident notes and shutdown",
   "Output overrides for urgent live cuts",
   "Music preferences for image and slide blocks",
@@ -34,6 +35,8 @@ const verification = [
 const nextSteps = [
   "Provision day-to-day named operators and keep bootstrap token as emergency-only access.",
   "Run the browser output Go Live Drill in the actual OBS/vMix capture runtime.",
+  "Replace remaining placeholder/static plate data with real feeds or editable operator inputs.",
+  "Remodel the visual design of cards, plates and output surfaces for final broadcast identity.",
   "Add output drift monitoring and incident prompts for silence, black output and stalled video.",
   "Finish i18n and validation copy cleanup.",
   "Record recent smoke status so health is not degraded only because smoke metadata is missing."
@@ -231,6 +234,11 @@ export default function NotionStatusPage() {
               <li>
                 Browser output is the active playout surface. OBS/vMix browser capture must be
                 certified separately from Playwright/headless testing.
+              </li>
+              <li>
+                Some on-air plates are operational but not final: remaining placeholder/static data
+                must be connected to real inputs, and the visual design needs a broadcast-quality
+                remodel.
               </li>
               <li>
                 If output reloads mid-show, the video seeks to the current schedule offset before

@@ -12,6 +12,8 @@ release and go-live checklist for the Roxom TV browser-output workflow.
 - Playout: `/output/live` captured by OBS or vMix.
 - Operational model: named operators for normal use, bootstrap token for emergency access.
 - Main remaining gate: certify the real OBS/vMix capture runtime for audio, video and reload.
+- Product polish gate: replace remaining placeholder/static plate inputs with real data feeds or
+  operator-configurable inputs, then remodel the on-air plate design for a stronger broadcast look.
 
 ## Required Gates
 
@@ -89,6 +91,13 @@ What to say in a demo:
 - "The browser output is designed to be captured by OBS or vMix."
 - "If the output reloads mid-show, it asks the server where the schedule is and resumes near that offset."
 - "Supabase stores the operational state, and a fresh backend can be bootstrapped from SQL."
+- "Schedule editing now confirms newly-added blocks clearly, with highlighted placement and
+  readable start/end ranges."
+
+Current demo caveat:
+
+- Some plates still need real production inputs and a visual remodel before they should represent
+  the final channel identity.
 
 `cf:build` and `cf:*` commands remain available for Cloudflare Worker/OpenNext validation, but they
 are not the active production deploy path on this host.

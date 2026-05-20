@@ -65,10 +65,19 @@ const sections = [
 const limits = [
   "Production app is live and usable with an operator present.",
   "OBS/vMix must still be certified on the actual capture machine before unattended operation.",
+  "Some on-air plates still need real data inputs or editable operator inputs.",
+  "The final broadcast plate design still needs a visual remodel.",
   "Browser audio requires one operator click after load or reload.",
   "Reuters endpoints are dynamic; refresh expired URLs before or during air.",
   "Fallback assets are required for reliable unattended operation.",
   "Secrets must stay in environment variables or encrypted settings."
+]
+
+const recentUpdates = [
+  "Schedule now highlights the block that was just created.",
+  "Calendar blocks show start/end ranges and a readable duration chip.",
+  "Gaps show their full time range so operators can fill the right window faster.",
+  "Supabase bootstrap SQL is available for setting up a fresh backend."
 ]
 
 export default function ManualPage() {
@@ -105,6 +114,17 @@ export default function ManualPage() {
             <Link className="btn-secondary" href="/notion">
               Status
             </Link>
+          </div>
+        </section>
+
+        <section className="border-b border-white/10 py-8">
+          <h2 className="text-2xl font-semibold">Latest Updates</h2>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {recentUpdates.map((item) => (
+              <div key={item} className="surface-panel p-4 text-sm leading-6 text-white/72">
+                {item}
+              </div>
+            ))}
           </div>
         </section>
 
