@@ -30,6 +30,7 @@ import {
   X
 } from "lucide-react"
 import Link from "next/link"
+import type { MouseEvent } from "react"
 import { useMemo, useState, useTransition } from "react"
 
 import { PlayoutTime } from "@/components/playout-time"
@@ -73,6 +74,8 @@ type InitialContentFilters = {
 }
 
 const DEFAULT_MANUAL_DURATION = 30
+const DAY_SECONDS = 86400
+const CALENDAR_SNAP_SECONDS = 300
 
 export function ScheduleWorkspace({
   date,
@@ -107,11 +110,14 @@ export function ScheduleWorkspace({
   const options = useMemo(() => buildContentOptions(schedule), [schedule])
   const initialOption = options.find((option) => option.value === initialContentValue) ?? null
   const [orderedIds, setOrderedIds] = useState(activeIds)
-  const [drawerMode, setDrawerMode] = useState<DrawerMode>(initialOption ? "add" : "edit")
+  const [drawerMode, setDrawerMode] = useState<DrawerMode>(
+    initialOption || activeBlocks.length === 0 ? "add" : "edit"
+  )
   const [selectedBlockId, setSelectedBlockId] = useState(activeBlocks[0]?.id ?? "")
   const [drawerOpen, setDrawerOpen] = useState(Boolean(initialOption) || activeBlocks.length === 0)
   const [message, setMessage] = useState<string | null>(null)
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("rundown")
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("calendar")
+  const [pendingStartTime, setPendingStartTime] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -133,15 +139,17 @@ export function ScheduleWorkspace({
     .filter(Boolean) as ProgramBlock[]
   const selectedBlock = blockById.get(selectedBlockId) ?? orderedBlocks[0] ?? null
 
-  function openAdd() {
+  function openAdd(startSeconds?: number) {
     setDrawerMode("add")
     setSelectedBlockId("")
+    setPendingStartTime(typeof startSeconds === "number" ? formatTimecode(startSeconds) : null)
     setDrawerOpen(true)
   }
 
   function openEdit(blockId: string) {
     setDrawerMode("edit")
     setSelectedBlockId(blockId)
+    setPendingStartTime(null)
     setDrawerOpen(true)
   }
 
@@ -218,7 +226,7 @@ export function ScheduleWorkspace({
                 Calendar
               </button>
             </div>
-            <button className="btn-primary" type="button" onClick={openAdd}>
+            <button className="btn-primary" type="button" onClick={() => openAdd()}>
               <Plus size={16} aria-hidden="true" />
               Add Block
             </button>
@@ -266,7 +274,7 @@ export function ScheduleWorkspace({
           <div className="p-4">
             <button
               type="button"
-              onClick={openAdd}
+              onClick={() => openAdd()}
               className="w-full rounded-md border border-dashed border-accent-positive bg-surface-selected-positive px-4 py-8 text-center"
             >
               <span className="block text-lg font-semibold text-accent-positive">
@@ -283,7 +291,7 @@ export function ScheduleWorkspace({
       <aside className="min-w-0">
         {drawerOpen ? (
           <BlockDrawer
-            key={`${drawerMode}-${selectedBlock?.id ?? "new"}-${initialContentValue ?? ""}`}
+            key={`${drawerMode}-${selectedBlock?.id ?? "new"}-${initialContentValue ?? ""}-${pendingStartTime ?? ""}`}
             mode={drawerMode}
             date={date}
             schedule={schedule}
@@ -296,6 +304,7 @@ export function ScheduleWorkspace({
             archiveAction={archiveAction}
             initialContentValue={drawerMode === "add" ? initialContentValue : undefined}
             initialFilters={drawerMode === "add" ? initialFilters : undefined}
+            initialStartTime={drawerMode === "add" ? pendingStartTime : null}
             onClose={() => setDrawerOpen(false)}
           />
         ) : (
@@ -306,7 +315,7 @@ export function ScheduleWorkspace({
               Click a rundown row to edit content, time, duration and status. Use Add Block for new
               content.
             </p>
-            <button type="button" className="btn-primary mt-4" onClick={openAdd}>
+            <button type="button" className="btn-primary mt-4" onClick={() => openAdd()}>
               Add Block
             </button>
           </section>
@@ -329,6 +338,7 @@ function BlockDrawer({
   archiveAction,
   initialContentValue,
   initialFilters,
+  initialStartTime,
   onClose
 }: {
   mode: DrawerMode
@@ -343,6 +353,7 @@ function BlockDrawer({
   archiveAction: (input: { blockId: string }) => Promise<void>
   initialContentValue?: string | undefined
   initialFilters?: InitialContentFilters | undefined
+  initialStartTime?: string | null | undefined
   onClose: () => void
 }) {
   const selectedFromBlock = block ? contentValueForBlock(block) : ""
@@ -362,7 +373,9 @@ function BlockDrawer({
   )
   const [contentValue, setContentValue] = useState(initialOption?.value ?? "")
   const [title, setTitle] = useState(block?.title ?? initialOption?.title ?? "")
-  const [startTime, setStartTime] = useState(block?.startTime ?? nextSuggestedStart(blocks))
+  const [startTime, setStartTime] = useState(
+    block?.startTime ?? initialStartTime ?? nextSuggestedStart(blocks)
+  )
   const [duration, setDuration] = useState(
     String(block?.durationSeconds ?? initialOption?.durationSeconds ?? DEFAULT_MANUAL_DURATION)
   )
@@ -831,36 +844,18 @@ function CalendarScheduleView({
   blocks: ProgramBlock[]
   selectedBlockId: string
   onSelect: (blockId: string) => void
-  onAdd: () => void
+  onAdd: (startSeconds?: number) => void
 }) {
-  if (!blocks.length) {
-    return (
-      <div className="p-4">
-        <button
-          type="button"
-          onClick={onAdd}
-          className="w-full rounded-md border border-dashed border-accent-positive bg-surface-selected-positive px-4 py-8 text-center"
-        >
-          <span className="block text-lg font-semibold text-accent-positive">
-            Add the first block
-          </span>
-          <span className="mt-1 block text-sm text-muted">
-            {formatScheduleDate(date, schedule.day?.timezone)}
-          </span>
-        </button>
-      </div>
-    )
-  }
-
-  const firstStart = Math.min(...blocks.map((block) => block.startTimeSeconds))
-  const lastEnd = Math.max(...blocks.map((block) => block.startTimeSeconds + block.durationSeconds))
-  const startHour = Math.max(0, Math.floor(firstStart / 3600) - 1)
-  const endHour = Math.min(24, Math.max(startHour + 2, Math.ceil(lastEnd / 3600) + 1))
   const hourHeight = 72
-  const baseSeconds = startHour * 3600
-  const totalSeconds = Math.max(3600, (endHour - startHour) * 3600)
-  const canvasHeight = Math.max(hourHeight * 2, (totalSeconds / 3600) * hourHeight)
-  const hours = Array.from({ length: endHour - startHour + 1 }, (_, index) => startHour + index)
+  const canvasHeight = hourHeight * 24
+  const hours = Array.from({ length: 24 }, (_, hour) => hour)
+
+  function addAtPointer(event: MouseEvent<HTMLDivElement>) {
+    if ((event.target as HTMLElement).closest("[data-calendar-block]")) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height)
+    onAdd(snapCalendarSeconds((y / rect.height) * DAY_SECONDS))
+  }
 
   return (
     <div className="bg-panel">
@@ -870,10 +865,15 @@ function CalendarScheduleView({
             {formatScheduleDate(date, schedule.day?.timezone)}
           </p>
           <p className="mt-1 text-xs text-muted">
-            Calendar view · {schedule.day?.timezone ?? "schedule timezone"}
+            Full-day calendar · {schedule.day?.timezone ?? "schedule timezone"}
           </p>
+          {!blocks.length ? (
+            <p className="mt-1 text-xs font-semibold text-accent-positive">
+              Empty day. Click any time slot to add a block.
+            </p>
+          ) : null}
         </div>
-        <button type="button" className="btn-secondary min-h-8 px-2" onClick={onAdd}>
+        <button type="button" className="btn-secondary min-h-8 px-2" onClick={() => onAdd()}>
           <Plus size={14} aria-hidden="true" />
           Add Block
         </button>
@@ -883,9 +883,16 @@ function CalendarScheduleView({
           className="relative border-l border-line"
           style={{ minHeight: `${canvasHeight}px` }}
           aria-label="Calendar schedule"
+          data-testid="calendar-schedule-canvas"
+          role="button"
+          tabIndex={0}
+          onClick={addAtPointer}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") onAdd()
+          }}
         >
           {hours.map((hour) => {
-            const top = (hour - startHour) * hourHeight
+            const top = hour * hourHeight
             return (
               <div
                 key={hour}
@@ -900,13 +907,14 @@ function CalendarScheduleView({
           })}
           <div className="absolute inset-y-0 left-4 right-0">
             {blocks.map((block) => {
-              const top = ((block.startTimeSeconds - baseSeconds) / 3600) * hourHeight
+              const top = (block.startTimeSeconds / 3600) * hourHeight
               const height = Math.max(42, (block.durationSeconds / 3600) * hourHeight)
               const selected = selectedBlockId === block.id
               return (
                 <button
                   key={block.id}
                   type="button"
+                  data-calendar-block
                   onClick={() => onSelect(block.id)}
                   className={[
                     "absolute left-0 right-2 overflow-hidden rounded-md border px-3 py-2 text-left text-sm shadow-sm",
@@ -930,6 +938,16 @@ function CalendarScheduleView({
         </div>
       </div>
     </div>
+  )
+}
+
+function snapCalendarSeconds(seconds: number) {
+  return Math.max(
+    0,
+    Math.min(
+      DAY_SECONDS - CALENDAR_SNAP_SECONDS,
+      Math.round(seconds / CALENDAR_SNAP_SECONDS) * CALENDAR_SNAP_SECONDS
+    )
   )
 }
 

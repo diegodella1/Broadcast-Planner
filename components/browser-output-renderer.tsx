@@ -202,8 +202,25 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
   }, [armed, state?.signature])
 
   useEffect(() => {
+    const video = videoRef.current
+    if (!video || !state || isVideoState(state)) return
+    hlsRef.current?.destroy()
+    hlsRef.current = null
+    video.pause()
+    video.removeAttribute("src")
+    video.load()
+    setCurrentTime(0)
+    setMediaState(state.kind === "fallback" ? "fallback" : "idle")
+  }, [state])
+
+  useEffect(() => {
     const music = musicRef.current
-    if (!music || !state?.backgroundMusic?.tracks.length) return
+    if (!music) return
+    if (!state?.backgroundMusic?.tracks.length) {
+      music.pause()
+      music.removeAttribute("src")
+      return
+    }
     const track = state.backgroundMusic.tracks[0]
     if (!track) return
     if (music.src !== track.url) music.src = track.url
