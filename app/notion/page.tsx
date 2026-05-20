@@ -14,6 +14,7 @@ const shipped = [
   "Dynamic Reuters HLS/RTMP stream snapshots",
   "Browser output for OBS/vMix capture",
   "Browser output confirmed in web player, vMix and OBS",
+  "Public media proxy for uploaded ads/promos stored in local Supabase Storage",
   "Time-accurate video reload resume",
   "Audit identity for critical operations",
   "Supabase readiness schema and fresh-project bootstrap SQL",
@@ -36,6 +37,7 @@ const verification = [
 
 const nextSteps = [
   "Provision day-to-day named operators and keep bootstrap token as emergency-only access.",
+  "Run the media URL backfill after deploy if any uploaded assets still point to 127.0.0.1.",
   "Replace remaining placeholder/static plate data with real feeds or editable operator inputs.",
   "Remodel the visual design of cards, plates and output surfaces for final broadcast identity.",
   "Add output drift monitoring and incident prompts for silence, black output and stalled video.",
@@ -215,6 +217,10 @@ export default function NotionStatusPage() {
                 configured.
               </li>
               <li>Schema, Supabase, storage, Vimeo, Reuters and output checks are healthy.</li>
+              <li>
+                Uploaded local-storage assets play through{" "}
+                <code className={codeClass}>/api/media/assets/&lt;assetId&gt;</code>.
+              </li>
             </ul>
 
             <h2 className={h2Class}>Next steps</h2>
@@ -233,6 +239,10 @@ export default function NotionStatusPage() {
               <li>
                 Smoke scripts require environment variables to be loaded, including
                 OUTPUT_CAPTURE_TOKEN.
+              </li>
+              <li>
+                Supabase can remain local in production. Uploaded media should expose public app
+                proxy URLs, not raw <code className={codeClass}>127.0.0.1</code> storage URLs.
               </li>
               <li>
                 Browser output is the active playout surface. OBS/vMix capture has been confirmed

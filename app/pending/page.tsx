@@ -45,6 +45,12 @@ const liveNow: Item[] = [
     status: "Done"
   },
   {
+    title: "Public upload playback",
+    detail:
+      "Uploaded ads/promos stored in local Supabase now play through the public app media proxy instead of 127.0.0.1 storage URLs.",
+    status: "Done"
+  },
+  {
     title: "OpenNext/Cloudflare deploy path",
     detail:
       "Cloudflare Workers config and deploy scripts are present with dashboard vars preserved; smoke it before making it primary.",
@@ -53,6 +59,12 @@ const liveNow: Item[] = [
 ]
 
 const nextWork: Item[] = [
+  {
+    title: "Backfill old media URLs",
+    detail:
+      "Run the media backfill script after deploy if older uploaded assets still point at 127.0.0.1.",
+    status: "Next"
+  },
   {
     title: "Real plate inputs",
     detail:
@@ -146,8 +158,8 @@ export default function PendingPage() {
 
         <section className="grid gap-3 border-b border-white/10 py-6 md:grid-cols-3">
           <Metric label="Current state" value="Production live" />
-          <Metric label="Main gate" value="Capture certify" />
-          <Metric label="Next value" value="Operator scale" />
+          <Metric label="Main gate" value="Real plates" />
+          <Metric label="Next value" value="Broadcast polish" />
         </section>
 
         <ItemGroup

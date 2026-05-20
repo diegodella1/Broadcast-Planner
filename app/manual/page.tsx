@@ -27,7 +27,7 @@ const sections = [
   {
     title: "Content",
     icon: Library,
-    body: "Centralize uploaded media, remote URLs, music beds, fallbacks, Vimeo episodes and reusable graphics before anything reaches air.",
+    body: "Centralize uploaded media, remote URLs, music beds, fallbacks, Vimeo episodes and reusable graphics before anything reaches air. Uploaded ads/promos play through the public app media proxy even when Supabase storage is local.",
     href: "/admin/assets"
   },
   {
@@ -65,6 +65,7 @@ const sections = [
 const limits = [
   "Production app is live and usable with an operator present.",
   "Browser output has been confirmed through web player, vMix and OBS.",
+  "Uploaded ads/promos use the public app proxy; run the backfill script for any older 127.0.0.1 asset URLs.",
   "Some on-air plates still need real data inputs or editable operator inputs.",
   "The final broadcast plate design still needs a visual remodel.",
   "OpenNext/Cloudflare Workers is configured as an alternate deploy path but still needs a real Workers smoke before becoming primary.",
@@ -79,6 +80,7 @@ const recentUpdates = [
   "Schedule now highlights the block that was just created.",
   "Calendar blocks show start/end ranges and a readable duration chip.",
   "Gaps show their full time range so operators can fill the right window faster.",
+  "Local Supabase media uploads now play publicly through /api/media/assets/:assetId.",
   "Supabase bootstrap SQL is available for setting up a fresh backend.",
   "OpenNext/Cloudflare Workers deploy scripts are configured for alternate production validation."
 ]

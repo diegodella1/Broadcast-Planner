@@ -1,0 +1,106 @@
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
+import { createServiceClient } from "@/lib/supabase/server"
+
+import { GET } from "./route"
+
+vi.mock("@/lib/supabase/server", () => ({
+  createServiceClient: vi.fn()
+}))
+
+describe("GET /api/media/assets/[assetId]", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:54321")
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "service-role")
+    global.fetch = vi.fn()
+  })
+
+  it("returns 404 for a missing asset", async () => {
+    vi.mocked(createServiceClient).mockReturnValue(mockSupabase(null))
+
+    const response = await GET(new Request("https://rtvtime.diegodella.ar/api/media/assets/a"), {
+      params: Promise.resolve({ assetId: "a" })
+    })
+
+    expect(response.status).toBe(404)
+  })
+
+  it("returns 404 for an asset without storage metadata", async () => {
+    vi.mocked(createServiceClient).mockReturnValue(
+      mockSupabase({ id: "a", status: "ready", storage_bucket: null, storage_path: null })
+    )
+
+    const response = await GET(new Request("https://rtvtime.diegodella.ar/api/media/assets/a"), {
+      params: Promise.resolve({ assetId: "a" })
+    })
+
+    expect(response.status).toBe(404)
+  })
+
+  it("streams a full file response from local Supabase storage", async () => {
+    vi.mocked(createServiceClient).mockReturnValue(mockSupabase(readyAsset()))
+    vi.mocked(global.fetch).mockResolvedValue(
+      new Response("video", {
+        status: 200,
+        headers: { "content-type": "video/mp4", "content-length": "5" }
+      })
+    )
+
+    const response = await GET(new Request("https://rtvtime.diegodella.ar/api/media/assets/a"), {
+      params: Promise.resolve({ assetId: "a" })
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toBe("video/mp4")
+    expect(response.headers.get("accept-ranges")).toBe("bytes")
+    expect(await response.text()).toBe("video")
+  })
+
+  it("forwards Range requests and returns partial content", async () => {
+    vi.mocked(createServiceClient).mockReturnValue(mockSupabase(readyAsset()))
+    vi.mocked(global.fetch).mockResolvedValue(
+      new Response("vid", {
+        status: 206,
+        headers: {
+          "content-type": "video/mp4",
+          "content-range": "bytes 0-2/5",
+          "content-length": "3",
+          "accept-ranges": "bytes"
+        }
+      })
+    )
+
+    const response = await GET(
+      { headers: { get: (name: string) => (name === "range" ? "bytes=0-2" : null) } } as Request,
+      {
+        params: Promise.resolve({ assetId: "a" })
+      }
+    )
+
+    expect(response.status).toBe(206)
+    expect(response.headers.get("content-range")).toBe("bytes 0-2/5")
+  })
+})
+
+function readyAsset() {
+  return {
+    id: "a",
+    status: "ready",
+    storage_bucket: "small-media-assets",
+    storage_path: "2026-05-20/ad spot.mp4",
+    metadata: { mime_type: "video/mp4" }
+  }
+}
+
+function mockSupabase(asset: Record<string, unknown> | null) {
+  return {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: asset, error: asset ? null : new Error("not found") })
+        })
+      })
+    })
+  } as unknown as ReturnType<typeof createServiceClient>
+}

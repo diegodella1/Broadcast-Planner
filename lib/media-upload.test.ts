@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { publicMediaAssetUrl } from "./media-asset-url"
 import { resolveUploadedMedia } from "./media-upload"
 
 const baseFile = {
@@ -68,5 +69,35 @@ describe("resolveUploadedMedia", () => {
         detectedDurationSeconds: "301"
       })
     ).toThrow("Uploaded videos cannot be longer than 5 minutes")
+  })
+})
+
+describe("publicMediaAssetUrl", () => {
+  it("builds public app proxy URLs without using localhost", () => {
+    const url = publicMediaAssetUrl("asset-1", {
+      NEXT_PUBLIC_APP_BASE_URL: "https://rtvtime.diegodella.ar",
+      NODE_ENV: "production"
+    })
+
+    expect(url).toBe("https://rtvtime.diegodella.ar/api/media/assets/asset-1")
+  })
+
+  it("prefers an explicit app base URL", () => {
+    const url = publicMediaAssetUrl("asset-1", {
+      APP_BASE_URL: "https://broadcast.example.com",
+      NEXT_PUBLIC_APP_BASE_URL: "https://rtvtime.diegodella.ar",
+      NODE_ENV: "production"
+    })
+
+    expect(url).toBe("https://broadcast.example.com/api/media/assets/asset-1")
+  })
+
+  it("rejects local app URLs in production", () => {
+    expect(() =>
+      publicMediaAssetUrl("asset-1", {
+        NEXT_PUBLIC_APP_BASE_URL: "http://127.0.0.1:3450",
+        NODE_ENV: "production"
+      })
+    ).toThrow("public HTTPS app URL")
   })
 })

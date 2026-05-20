@@ -13,11 +13,12 @@ What is already working:
 - daily schedule builder with timed blocks
 - timeline-first schedule UI with visible newly-added block confirmation, time ranges and gap filling
 - media library for uploads, remote URLs, Vimeo, slides, music and fallbacks
-- Supabase database/storage backend
+- Supabase database/storage backend, including local-storage media proxy for public playback
 - browser playout for OBS/vMix capture
 - Vimeo, HLS, MP4, images, slides and Reuters stream snapshots
 - reload recovery that resumes video near the current scheduled offset
 - validated web player capture in browser, vMix and OBS
+- uploaded ads/promos served through `/api/media/assets/:assetId` so local Supabase storage stays playable from OBS/vMix and remote browsers
 - output control, monitor state and live overrides
 - runbook for preflight, live notes, incident handling and shutdown
 - admin health, schedule health and Go Live Drill
@@ -62,6 +63,7 @@ The value is not just playing media. The value is reducing live mistakes: wrong 
 - `/output/live` - fullscreen browser playout
 - `/output/preview/[blockId]` - fullscreen block preview
 - `/api/health` - machine health check
+- `/api/media/assets/[assetId]` - public media proxy for uploaded assets stored in local Supabase Storage
 
 ## Production Workflow
 
@@ -117,6 +119,11 @@ APP_BASE_URL=
 VIMEO_ACCESS_TOKEN=
 ```
 
+Production currently uses local Supabase for database/storage. Keep `NEXT_PUBLIC_SUPABASE_URL`
+pointed at the local Supabase service, and set `NEXT_PUBLIC_APP_BASE_URL` or `APP_BASE_URL` to the
+public app origin, for example `https://rtvtime.diegodella.ar`. Uploaded ads/promos are stored in
+Supabase but played through the public app proxy at `/api/media/assets/[assetId]`.
+
 Generate an encryption key:
 
 ```bash
@@ -134,7 +141,7 @@ npm test -- --run
 npm run build
 npm run smoke:http
 npm run smoke:prod
-npm run deploy:local
+bash scripts/deploy_local_tunnel.sh
 npm run cf:build
 npm run cf:deploy
 ```
@@ -142,7 +149,7 @@ npm run cf:deploy
 Active production deploy for `rtvtime.diegodella.ar`:
 
 ```bash
-npm run deploy:local
+bash scripts/deploy_local_tunnel.sh
 ```
 
 The active production path is local systemd service plus Cloudflare tunnel.
@@ -182,6 +189,16 @@ Regenerate Supabase types:
 npm run supabase:types
 ```
 
+Backfill uploaded assets that were saved with local `127.0.0.1` storage URLs:
+
+```bash
+node scripts/backfill_public_storage_urls.mjs
+node scripts/backfill_public_storage_urls.mjs --apply
+```
+
+The dry run prints candidate rows. `--apply` rewrites rows with `storage_bucket` and `storage_path`
+to the public app proxy URL.
+
 ## Production Gates
 
 Before live use:
@@ -190,6 +207,7 @@ Before live use:
 - `/admin/health` Go Live Drill passes.
 - current day exists and is `active`.
 - active block has ready media or a ready fallback.
+- uploaded media URLs use `https://rtvtime.diegodella.ar/api/media/assets/...`, not `127.0.0.1`.
 - `/output/live?debug=true` plays on the capture browser after `Start Output`.
 - OBS/vMix browser capture has been validated for video/audio; recheck after deploy or capture-machine changes.
 - operator confirms fallbacks, runbook and shutdown process.

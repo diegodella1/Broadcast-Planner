@@ -5,6 +5,7 @@ import {
   SMALL_MEDIA_MIME_TYPES,
   formatUploadLimit
 } from "./media-upload-constants"
+import { publicMediaAssetUrl } from "./media-asset-url"
 import { createServiceClient } from "./supabase/server"
 
 export const SMALL_MEDIA_BUCKET = "small-media-assets"
@@ -124,20 +125,24 @@ export async function uploadMediaFile(file: FileLike, fields: UploadedMediaField
     .upload(storagePath, bytes, { contentType: file.type, upsert: false })
   if (uploadError) throw uploadError
 
-  const { data: publicUrl } = supabase.storage.from(SMALL_MEDIA_BUCKET).getPublicUrl(storagePath)
   const assetId = await createMediaAsset({
     title: resolved.title,
     sourceType: resolved.sourceType,
     mediaKind: resolved.mediaKind,
     assetType: resolved.assetType,
-    url: publicUrl.publicUrl,
     storageBucket: SMALL_MEDIA_BUCKET,
     storagePath,
     durationSeconds: resolved.durationSeconds,
     metadata: resolved.metadata
   })
+  const url = publicMediaAssetUrl(assetId)
+  const { error: urlError } = await supabase
+    .from("media_assets")
+    .update({ url, updated_at: new Date().toISOString() })
+    .eq("id", assetId)
+  if (urlError) throw urlError
 
-  return { ...resolved, assetId, url: publicUrl.publicUrl, storagePath }
+  return { ...resolved, assetId, url, storagePath }
 }
 
 export function uploadedMediaFieldsFromForm(form: FormData): UploadedMediaFields {
