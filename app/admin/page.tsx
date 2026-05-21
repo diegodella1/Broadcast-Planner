@@ -14,7 +14,7 @@ import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
 import { PlayoutTime } from "@/components/playout-time"
 import { ButtonLink, EmptyState, MetricTile, Notice, PrimaryActionPanel } from "@/components/ui"
-import { getAssets, getDays, getScheduleForDate, getSlides } from "@/lib/data"
+import { getAssets, getDays, getScheduleForDate } from "@/lib/data"
 import { collectOperatorHealth } from "@/lib/health-checks"
 import { analyzeSchedule } from "@/lib/schedule-health"
 import { findActiveSchedule } from "@/lib/scheduler"
@@ -30,11 +30,10 @@ export const dynamic = "force-dynamic"
 
 export default async function AdminDashboardPage() {
   const today = isoDateInTimezone(new Date(), PLAYOUT_TIMEZONE)
-  const [days, schedule, assets, slides] = await Promise.all([
+  const [days, schedule, assets] = await Promise.all([
     getDays(),
     getScheduleForDate(today),
-    getAssets(),
-    getSlides()
+    getAssets()
   ])
   const healthReport = await collectOperatorHealth()
   const blocks = [...schedule.blocks].sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
@@ -50,14 +49,6 @@ export default async function AdminDashboardPage() {
   const readyAssets = assets.filter((asset) => asset.status === "ready").length
   const reviewAssets = assets.filter(
     (asset) => asset.status !== "ready" || (asset.mediaKind === "video" && !asset.durationSeconds)
-  ).length
-  const videoAssets = assets.filter(
-    (asset) => asset.mediaKind === "video" && asset.assetType !== "ad"
-  ).length
-  const imageAssets = assets.filter((asset) => asset.mediaKind === "image").length
-  const adAssets = assets.filter((asset) => asset.assetType === "ad").length
-  const audioAssets = assets.filter(
-    (asset) => asset.mediaKind === "audio" || asset.assetType === "music"
   ).length
   const scheduledHours = blocks.reduce((total, block) => total + block.durationSeconds, 0) / 3600
 
@@ -219,19 +210,6 @@ export default async function AdminDashboardPage() {
           value={scheduledHours.toFixed(1)}
           detail="Scheduled today"
           tone={blocks.length ? "info" : "warn"}
-        />
-      </section>
-
-      <section className="mb-5 grid gap-3 md:grid-cols-5">
-        <MetricTile label="Video" value={String(videoAssets)} detail="Program sources" />
-        <MetricTile label="Audio" value={String(audioAssets)} detail="Music and audio" />
-        <MetricTile label="Images" value={String(imageAssets)} detail="Still plates" />
-        <MetricTile label="Ads" value={String(adAssets)} detail="Commercial assets" />
-        <MetricTile
-          label="Graphics"
-          value={String(slides.length)}
-          detail="Slides and overlays"
-          tone="info"
         />
       </section>
 

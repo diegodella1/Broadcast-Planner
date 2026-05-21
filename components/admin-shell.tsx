@@ -4,8 +4,6 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { AdminNav } from "@/components/admin-nav"
-import { OperatorPath } from "@/components/operator-path"
-import { ClearStateBadge } from "@/components/ui"
 import { requireAdmin, revokeCurrentOperatorSession, safeAdminReturnTo } from "@/lib/auth"
 import { getLiveSchedule } from "@/lib/data"
 import { collectOperatorHealth } from "@/lib/health-checks"
@@ -31,6 +29,8 @@ export async function AdminShell({
 }) {
   const requestHeaders = await headers()
   const returnTo = safeAdminReturnTo(requestHeaders.get("x-rtv-current-path"))
+  const showBroadcastStatus =
+    returnTo === "/admin" || returnTo.startsWith("/admin/schedule") || returnTo === "/admin/output"
   const session = await requireAdmin().catch((error) => {
     if (error instanceof Error && error.message === "Unauthorized") {
       redirect(`/admin/login?return_to=${encodeURIComponent(returnTo)}`)
@@ -66,8 +66,6 @@ export async function AdminShell({
           <p className="mt-0.5 truncate">
             {session.handle} · {session.role}
           </p>
-          <p className="mt-3 font-semibold text-ink">Browser output</p>
-          <p className="mt-1">Open the output page for OBS/vMix capture.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link
               href="/admin/output"
@@ -85,12 +83,12 @@ export async function AdminShell({
         </div>
       </aside>
       <main className="min-w-0 md:pl-64">
-        <header className="sticky top-0 z-30 border-b border-line bg-surface/95 px-4 py-4 backdrop-blur md:px-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
+        <header className="sticky top-0 z-30 border-b border-line bg-surface/95 px-4 py-3 backdrop-blur md:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="text-2xl font-semibold tracking-normal md:text-[1.7rem]">{title}</h1>
+              <h1 className="text-xl font-semibold tracking-normal md:text-2xl">{title}</h1>
               {description ? (
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">{description}</p>
+                <p className="mt-0.5 max-w-3xl truncate text-sm text-muted">{description}</p>
               ) : null}
             </div>
             {actions ? (
@@ -99,8 +97,7 @@ export async function AdminShell({
           </div>
           <AdminNav mobile />
         </header>
-        <BroadcastStatusStrip status={status} />
-        <OperatorPath />
+        {showBroadcastStatus ? <BroadcastStatusStrip status={status} /> : null}
         <div className="min-w-0 p-4 md:p-6 xl:p-7">{children}</div>
       </main>
     </div>
@@ -154,16 +151,14 @@ function BroadcastStatusStrip({
 }: {
   status: Awaited<ReturnType<typeof loadBroadcastStatus>>
 }) {
+  const healthTone =
+    status.health === "ok" ? "text-success" : status.health === "fail" ? "text-danger" : "text-warn"
   return (
-    <section className="border-b border-line bg-panel-soft px-4 py-3 md:px-6">
-      <div className="grid gap-2 text-sm lg:grid-cols-[1.2fr_1fr_1fr_auto] lg:items-center">
+    <section className="border-b border-line bg-panel-soft px-4 py-1.5 md:px-6">
+      <div className="flex min-h-8 flex-wrap items-center gap-x-4 gap-y-1 text-xs">
         <StatusItem
-          label="Now playing"
-          value={
-            status.ok
-              ? (status.activeTitle ?? "Nothing scheduled now")
-              : "Schedule status unavailable"
-          }
+          label="Now"
+          value={status.ok ? (status.activeTitle ?? "Nothing scheduled") : "Status unavailable"}
           tone={status.activeTitle ? "ok" : "warn"}
         />
         <StatusItem
@@ -177,18 +172,12 @@ function BroadcastStatusStrip({
         />
         <StatusItem
           label="Fallback"
-          value={status.fallbackTitle ?? "No fallback loop"}
+          value={status.fallbackTitle ?? "Missing"}
           tone={status.fallbackTitle ? "ok" : "warn"}
         />
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-          <ClearStateBadge
-            tone={status.health === "ok" ? "ok" : status.health === "fail" ? "danger" : "warn"}
-          >
-            Health {status.health}
-          </ClearStateBadge>
-          <ClearStateBadge tone={status.dayStatus === "active" ? "ok" : "neutral"}>
-            Day {status.dayStatus}
-          </ClearStateBadge>
+        <div className="ml-auto flex min-w-0 items-center gap-3 font-semibold uppercase text-muted">
+          <span className={healthTone}>Health {status.health}</span>
+          <span>Day {status.dayStatus}</span>
         </div>
       </div>
     </section>
@@ -206,9 +195,9 @@ function StatusItem({
 }) {
   const toneClass = tone === "ok" ? "text-success" : tone === "warn" ? "text-warn" : "text-ink"
   return (
-    <div className="min-w-0">
-      <p className="text-[0.68rem] font-bold uppercase text-muted">{label}</p>
-      <p className={`mt-0.5 truncate font-semibold ${toneClass}`}>{value}</p>
+    <div className="flex min-w-0 items-center gap-1.5">
+      <p className="font-bold uppercase text-muted">{label}</p>
+      <p className={`max-w-[22rem] truncate font-semibold ${toneClass}`}>{value}</p>
     </div>
   )
 }

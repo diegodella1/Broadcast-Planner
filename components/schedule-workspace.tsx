@@ -37,7 +37,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { PlayoutTime } from "@/components/playout-time"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
-import { ActionHint, ClearStateBadge } from "@/components/ui"
 import {
   findSameDayGaps,
   findScheduleConflicts,
@@ -788,10 +787,6 @@ function BlockDrawer({
         <input type="hidden" name="notes" value={block?.notes ?? ""} />
         <input type="hidden" name="conflict_resolution" value={conflictResolution} />
 
-        <ActionHint label="Step 1" tone="info">
-          Choose the type of content you want to add.
-        </ActionHint>
-
         <div className="grid grid-cols-3 gap-2">
           {(["video", "slide", "image", "ad", "promo", "fallback"] as BlockType[]).map((item) => (
             <button
@@ -875,10 +870,6 @@ function BlockDrawer({
           />
         </label>
 
-        <ActionHint label="Step 2" tone="info">
-          Set when this starts. End time is calculated from the duration.
-        </ActionHint>
-
         <div className="grid grid-cols-2 gap-3">
           <label className="grid gap-1 text-xs font-semibold text-muted">
             Starts at
@@ -918,9 +909,9 @@ function BlockDrawer({
         ) : null}
 
         {selected?.durationSeconds ? (
-          <ActionHint label="Duration detected" tone="ok">
+          <p className="rounded-md border border-success-line bg-success-soft px-3 py-2 text-xs font-semibold text-success-strong">
             This block uses the media duration: {formatTimecode(selected.durationSeconds)}.
-          </ActionHint>
+          </p>
         ) : null}
 
         {kind === "video" ? (
@@ -1051,20 +1042,16 @@ function BlockDrawer({
           </div>
         ) : null}
 
-        <div className="rounded-md border border-line bg-panel-soft px-3 py-2 text-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <ClearStateBadge tone={canSave ? "ok" : "warn"}>
-              {canSave ? "Ready to save" : "Needs attention"}
-            </ClearStateBadge>
-            <span className="text-muted">
-              {formatPlayoutTimeLabel(startSeconds, true)} to{" "}
-              {formatPlayoutTimeLabel(endSeconds, true)}
-            </span>
-          </div>
-        </div>
+        {!canSave ? (
+          <p className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-sm font-semibold text-warn-strong">
+            Select ready content and resolve timing issues before saving.
+          </p>
+        ) : null}
 
         <button className="btn-primary justify-center" disabled={!canSave}>
-          {mode === "add" ? "Add block to schedule" : "Save block"}
+          {mode === "add"
+            ? `Add ${formatPlayoutTimeLabel(startSeconds, true)}-${formatPlayoutTimeLabel(endSeconds, true)}`
+            : "Save block"}
         </button>
       </form>
       {mode === "edit" && block ? (
@@ -1420,13 +1407,10 @@ function CalendarScheduleView({
                     className="absolute left-0 right-2 rounded-md border border-dashed border-warn-line bg-warn-soft/50 px-3 py-2 text-left text-xs text-warn-strong hover:bg-warn-soft"
                     style={{ top, height }}
                   >
-                    <span className="block font-semibold">Fallback loop plays here</span>
+                    <span className="block font-semibold">Fallback gap</span>
                     <span className="block truncate tabular-nums">
                       {formatCalendarRange(gap.startTimeSeconds, gap.durationSeconds)} ·{" "}
                       {formatTimecode(gap.durationSeconds)}
-                    </span>
-                    <span className="mt-0.5 block truncate opacity-80">
-                      Click to schedule content in this empty time.
                     </span>
                   </button>
                 )

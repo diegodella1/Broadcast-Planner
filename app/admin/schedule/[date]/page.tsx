@@ -1,4 +1,3 @@
-import clsx from "clsx"
 import { redirect } from "next/navigation"
 
 import { AdminShell } from "@/components/admin-shell"
@@ -6,14 +5,7 @@ import { ScheduleHealthPoller } from "@/components/schedule-health-poller"
 import { ScheduleWorkspace } from "@/components/schedule-workspace"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
-import {
-  ButtonLink,
-  Field,
-  FormHeader,
-  Notice,
-  PrimaryActionPanel,
-  StatusBanner
-} from "@/components/ui"
+import { ButtonLink, Field, FormHeader, Notice } from "@/components/ui"
 import { getScheduleForDate } from "@/lib/data"
 import { DAY_TEMPLATES } from "@/lib/day-templates"
 import {
@@ -39,8 +31,6 @@ import {
   PLAYOUT_TIMEZONE,
   secondsSinceMidnightInTimezone
 } from "@/lib/time"
-
-import type { MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from "@/lib/types"
 
 export default async function ScheduleDatePage({
   params,
@@ -295,124 +285,38 @@ export default async function ScheduleDatePage({
       }
     >
       {query.uploaded ? <Notice tone="ok">Media uploaded and scheduled.</Notice> : null}
-      <PrimaryActionPanel
-        eyebrow="Schedule"
-        title={
-          blocks.length ? "Today has a playable rundown" : "Add the first thing that should play"
+      <ScheduleControlBar
+        date={date}
+        timezone={timezone}
+        dayStatus={schedule.day.status}
+        readyBlocks={readyBlocks}
+        totalBlocks={blocks.length}
+        totalScheduledSeconds={totalScheduledSeconds}
+        healthCriticalCount={health.criticalCount}
+        healthWarnCount={health.warnCount}
+        activeLabel={active?.block?.title ?? (isToday ? "No active block" : "Planning view")}
+        activeMeta={
+          active?.block
+            ? `${formatTimecode(active.elapsedInBlock)} / ${formatTimecode(active.block.durationSeconds)}`
+            : isToday
+              ? (active?.reason ?? "Outside scheduled window")
+              : date
         }
-        detail={
-          blocks.length
-            ? `${readyBlocks}/${blocks.length} blocks ready · ${formatTimecode(totalScheduledSeconds)} scheduled. Empty gaps are covered by the fallback loop.`
-            : "Choose ready Library content, set the start time, and the end time is calculated automatically."
+        nextLabel={nextBlock?.title ?? firstBlock?.title ?? "No blocks"}
+        nextMeta={
+          nextBlock
+            ? `Next ${formatPlayoutTimeLabel(nextBlock.startTimeSeconds)}`
+            : firstBlock
+              ? `First ${formatPlayoutTimeLabel(firstBlock.startTimeSeconds)}`
+              : "Empty day"
         }
-        action={
-          <a className="btn-primary" href="#add-block">
-            Add content
-          </a>
+        coverageLabel={
+          firstBlock && lastBlock
+            ? `${formatPlayoutTimeLabel(firstBlock.startTimeSeconds)}-${formatPlayoutTimeLabel(lastEnd)}`
+            : "No coverage"
         }
-        secondary={
-          <ButtonLink href="/admin/output" variant="secondary">
-            Browser Output
-          </ButtonLink>
-        }
+        setDayStatus={setDayStatus}
       />
-      <StatusBanner
-        tone={health.criticalCount ? "danger" : health.warnCount ? "warn" : "ok"}
-        label="Day readiness"
-        title={
-          health.criticalCount
-            ? `${health.criticalCount} critical blockers`
-            : health.warnCount
-              ? `${health.warnCount} warnings before air`
-              : "Ready to test"
-        }
-        detail={`${readyBlocks}/${blocks.length} blocks ready · ${formatTimecode(totalScheduledSeconds)} scheduled · ${timezone}`}
-        action={
-          <>
-            <ButtonLink href="/admin/assets" variant="secondary">
-              1. Library
-            </ButtonLink>
-            <ButtonLink href={`/admin/schedule/${date}`} variant="secondary">
-              2. Timeline
-            </ButtonLink>
-            <ButtonLink href="/admin/output" variant="secondary">
-              3. Control
-            </ButtonLink>
-          </>
-        }
-      />
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          {schedule.day && (
-            <p className="mt-1 flex items-center gap-2 text-sm text-muted">
-              {schedule.day.timezone}
-              <StatusPill status={schedule.day.status} />
-            </p>
-          )}
-        </div>
-        <details className="rounded-md border border-line bg-surface px-3 py-2">
-          <summary className="cursor-pointer text-sm font-semibold">Day status</summary>
-          <form action={setDayStatus} className="mt-3 flex flex-wrap items-center gap-2">
-            <label className="flex min-h-10 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium">
-              <input name="allow_warnings" type="checkbox" />
-              Allow warnings
-            </label>
-            <button name="status" value="draft" className="btn-secondary">
-              Draft
-            </button>
-            <button name="status" value="ready" className="btn-secondary">
-              Ready
-            </button>
-            <button name="status" value="active" className="btn-primary">
-              Active
-            </button>
-          </form>
-        </details>
-      </div>
-
-      <section className="mb-5 mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[1.2fr_1fr_1fr]">
-        <StatusPanel
-          title={isToday ? "Now" : "Selected day"}
-          tone={active?.block ? "ok" : isToday ? "danger" : "neutral"}
-          primary={active?.block?.title ?? (isToday ? "No active block" : date)}
-          meta={
-            active?.block
-              ? `${formatTimecode(active.elapsedInBlock)} / ${formatTimecode(active.block.durationSeconds)}`
-              : isToday
-                ? (active?.reason ?? "Outside scheduled window")
-                : "Offline planning view"
-          }
-          detail={
-            active?.asset?.title ?? active?.slide?.title ?? active?.fallbackAsset?.title ?? null
-          }
-        />
-        <StatusPanel
-          title="Next"
-          tone={nextBlock ? "neutral" : isToday ? "warn" : "neutral"}
-          primary={
-            nextBlock?.title ?? (isToday ? "No next block" : (firstBlock?.title ?? "No blocks"))
-          }
-          meta={
-            nextBlock
-              ? `Starts ${formatPlayoutTimeLabel(nextBlock.startTimeSeconds)}`
-              : firstBlock
-                ? `First ${formatPlayoutTimeLabel(firstBlock.startTimeSeconds)}`
-                : "Empty schedule"
-          }
-          detail={nextBlock ? blockAssetLabel(schedule, nextBlock) : null}
-        />
-        <StatusPanel
-          title="Coverage"
-          tone={health.criticalCount ? "danger" : health.warnCount ? "warn" : "ok"}
-          primary={`${formatTimecode(totalScheduledSeconds)} loaded`}
-          meta={`${readyBlocks}/${blocks.length} blocks ready`}
-          detail={
-            firstBlock && lastBlock
-              ? `${formatPlayoutTimeLabel(firstBlock.startTimeSeconds)} to ${formatPlayoutTimeLabel(lastEnd)}`
-              : "No coverage"
-          }
-        />
-      </section>
 
       <ScheduleHealthPoller
         date={date}
@@ -442,7 +346,7 @@ export default async function ScheduleDatePage({
       />
 
       <details className="surface-panel mb-5 p-4">
-        <summary className="cursor-pointer font-semibold">Advanced grid tools</summary>
+        <summary className="cursor-pointer font-semibold">More tools</summary>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <FormHeader
@@ -511,30 +415,107 @@ export default async function ScheduleDatePage({
   )
 }
 
-function StatusPanel({
-  title,
-  primary,
-  meta,
-  detail,
-  tone
+function ScheduleControlBar({
+  date,
+  timezone,
+  dayStatus,
+  readyBlocks,
+  totalBlocks,
+  totalScheduledSeconds,
+  healthCriticalCount,
+  healthWarnCount,
+  activeLabel,
+  activeMeta,
+  nextLabel,
+  nextMeta,
+  coverageLabel,
+  setDayStatus
 }: {
-  title: string
-  primary: string
-  meta: string
-  detail: string | null
-  tone: "ok" | "warn" | "danger" | "neutral"
+  date: string
+  timezone: string
+  dayStatus: string
+  readyBlocks: number
+  totalBlocks: number
+  totalScheduledSeconds: number
+  healthCriticalCount: number
+  healthWarnCount: number
+  activeLabel: string
+  activeMeta: string
+  nextLabel: string
+  nextMeta: string
+  coverageLabel: string
+  setDayStatus: (formData: FormData) => Promise<void>
 }) {
+  const healthLabel = healthCriticalCount
+    ? `${healthCriticalCount} critical`
+    : healthWarnCount
+      ? `${healthWarnCount} warnings`
+      : "Ready"
   return (
-    <section className={clsx("surface-card p-4", panelTone(tone))}>
-      <p className="eyebrow">{title}</p>
-      <p className="mt-2 truncate text-xl font-semibold">{primary}</p>
-      <p className="mt-1 text-sm text-muted">{meta}</p>
-      {detail && (
-        <p className="mt-3 truncate rounded-md bg-panel-soft px-3 py-2 text-sm text-muted">
-          {detail}
-        </p>
-      )}
+    <section className="surface-panel mb-4 px-3 py-2">
+      <div className="grid gap-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-center">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold">{date}</p>
+            <StatusPill status={dayStatus} />
+            <span className="text-xs text-muted">{timezone}</span>
+          </div>
+          <p className="mt-1 truncate text-xs text-muted">
+            {readyBlocks}/{totalBlocks} ready · {formatTimecode(totalScheduledSeconds)} loaded ·{" "}
+            {coverageLabel}
+          </p>
+        </div>
+        <CompactSignal label="Now" value={activeLabel} meta={activeMeta} />
+        <CompactSignal label="Next" value={nextLabel} meta={nextMeta} />
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          <span
+            className={[
+              "rounded-md border px-2 py-1 text-xs font-semibold",
+              healthCriticalCount
+                ? "border-danger-line bg-danger-soft text-danger-strong"
+                : healthWarnCount
+                  ? "border-warn-line bg-warn-soft text-warn-strong"
+                  : "border-success-line bg-success-soft text-success-strong"
+            ].join(" ")}
+          >
+            {healthLabel}
+          </span>
+          <a className="btn-primary min-h-8 px-2" href="#add-block">
+            Add content
+          </a>
+          <details className="rounded-md border border-line bg-surface px-2 py-1.5">
+            <summary className="cursor-pointer text-xs font-semibold">Day</summary>
+            <form action={setDayStatus} className="mt-2 grid gap-2">
+              <label className="flex min-h-8 items-center gap-2 rounded-md border border-line bg-surface px-2 text-xs font-medium">
+                <input name="allow_warnings" type="checkbox" />
+                Allow warnings
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button name="status" value="draft" className="btn-secondary min-h-8 px-2 text-xs">
+                  Draft
+                </button>
+                <button name="status" value="ready" className="btn-secondary min-h-8 px-2 text-xs">
+                  Ready
+                </button>
+                <button name="status" value="active" className="btn-primary min-h-8 px-2 text-xs">
+                  Active
+                </button>
+              </div>
+            </form>
+          </details>
+        </div>
+      </div>
     </section>
+  )
+}
+
+function CompactSignal({ label, value, meta }: { label: string; value: string; meta: string }) {
+  return (
+    <div className="min-w-0 rounded-md border border-line bg-panel-soft px-3 py-2">
+      <p className="text-[10px] font-bold uppercase text-muted">{label}</p>
+      <p className="mt-0.5 truncate text-sm font-semibold">{value}</p>
+      <p className="truncate text-xs text-muted">{meta}</p>
+    </div>
   )
 }
 
@@ -547,22 +528,6 @@ function formConflictResolution(formData: FormData) {
   const value = String(formData.get("conflict_resolution") || "insert_shift")
   if (value === "archive_conflicts" || value === "strict") return value
   return "insert_shift"
-}
-
-function blockAssetLabel(schedule: ScheduleBundle, block: ProgramBlock) {
-  const asset = block.assetId
-    ? schedule.mediaAssets.find((item) => item.id === block.assetId)
-    : null
-  const slide = block.slideId
-    ? schedule.slideAssets.find((item) => item.id === block.slideId)
-    : null
-  return assetLabel(asset, slide)
-}
-
-function assetLabel(asset: MediaAsset | null | undefined, slide: SlideAsset | null | undefined) {
-  if (asset) return `${asset.title} (${asset.status})`
-  if (slide) return `${slide.title} (${slide.status})`
-  return "No asset"
 }
 
 function initialContentValue(query: { asset?: string; slide?: string }) {
@@ -595,17 +560,4 @@ function normalizeScheduleKind(kind?: string) {
   if (kind === "slides") return "slide"
   if (kind === "all") return undefined
   return kind
-}
-
-function panelTone(tone: "ok" | "warn" | "danger" | "neutral") {
-  switch (tone) {
-    case "ok":
-      return "border-success-line"
-    case "warn":
-      return "border-warn-line"
-    case "danger":
-      return "border-danger-line"
-    default:
-      return "border-line"
-  }
 }

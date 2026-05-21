@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server"
 import { AdminShell } from "@/components/admin-shell"
 import { OutputMonitorPanel } from "@/components/output-monitor-panel"
 import { StopBroadcastButton } from "@/components/stop-broadcast-button"
-import { ActionHint, ClearStateBadge, PrimaryActionPanel, StatusBanner } from "@/components/ui"
+import { ClearStateBadge, StatusBanner } from "@/components/ui"
 import { recordAuditEvent } from "@/lib/audit"
 import { getLiveSchedule } from "@/lib/data"
 import { collectOperatorHealth } from "@/lib/health-checks"
@@ -151,61 +151,26 @@ export default async function AdminOutputPage() {
           }
         />
       ) : null}
-      <PrimaryActionPanel
-        eyebrow="Output"
-        title="Send the scheduled broadcast to OBS/vMix"
-        detail={
-          active.block
-            ? `Currently scheduled: ${active.block.title}. Open this page on the capture machine.`
-            : "No active block right now. If a fallback loop is configured, the output page will use it during the gap."
-        }
-        action={
-          <a className="btn-primary" href={outputHref} target="_blank" rel="noreferrer">
-            Open output page
-          </a>
-        }
-        secondary={
-          <a className="btn-secondary" href={monitorHref} target="_blank" rel="noreferrer">
-            Open debug view
-          </a>
-        }
-      />
-      <div className="mb-5">
-        <StatusBanner
-          tone={isLive ? "ok" : dayStatus === "active" ? "warn" : "info"}
-          label="Current output"
-          title={broadcastStatusLabel}
-          detail={
-            active.block
-              ? `${active.block.title} · ${activeSourceLabel}`
-              : (active.reason ?? "No active block")
-          }
-          action={
-            <a className="btn-secondary" href={outputHref} target="_blank" rel="noreferrer">
-              Open output
-            </a>
-          }
-        />
-      </div>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">
           <div className="surface-panel p-5" id="browser-output">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted">Capture URL</p>
-            <h2 className="mt-2 text-2xl font-semibold">Use this page as the browser source</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              Open the output page on the capture machine. Click Start Output once to unlock audio.
-              If it reloads, it seeks back to the current schedule time.
-            </p>
-            <div className="mt-4">
-              <ActionHint label="Operator steps" tone="info">
-                1. Open output on the capture machine. 2. Click Start Output. 3. Capture that
-                browser window in OBS/vMix.
-              </ActionHint>
-            </div>
-            <div className="mt-5">
-              <a className="btn-primary" href={outputHref} target="_blank" rel="noreferrer">
-                Open output page
-              </a>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted">Capture URL</p>
+                <h2 className="mt-2 text-2xl font-semibold">Browser output</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+                  Open this page on the capture machine, click Start Output once, then capture the
+                  browser window in OBS/vMix.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <a className="btn-primary" href={outputHref} target="_blank" rel="noreferrer">
+                  Open output page
+                </a>
+                <a className="btn-secondary" href={monitorHref} target="_blank" rel="noreferrer">
+                  Debug view
+                </a>
+              </div>
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               <StatusTile label="State" value={broadcastStatusLabel} />

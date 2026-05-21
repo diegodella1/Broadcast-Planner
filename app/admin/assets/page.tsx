@@ -13,9 +13,7 @@ import {
   Field,
   FilterLink,
   FormHeader,
-  MetricTile,
-  Notice,
-  PrimaryActionPanel
+  Notice
 } from "@/components/ui"
 import { getAssets, getSlides } from "@/lib/data"
 import { createMediaAsset, deleteMediaAsset, updateMediaAsset } from "@/lib/mutations"
@@ -213,95 +211,19 @@ export default async function AssetsPage({
               : null}
         </Notice>
       ) : null}
-      <PrimaryActionPanel
-        eyebrow="Step 1"
-        title={attentionCount ? "Fix content before scheduling" : "Library content is ready"}
-        detail={
-          attentionCount
-            ? `${attentionCount} items need a source, duration or ready status. New blocks should use Ready content.`
-            : "Add Vimeo episodes, uploads, images or slides here, then schedule them from each row."
-        }
-        action={<ButtonLink href="/admin/vimeo">Import Vimeo</ButtonLink>}
-        secondary={
-          <ButtonLink href={`/admin/schedule/${today}`} variant="secondary">
-            Schedule Today
-          </ButtonLink>
-        }
+      <LibraryConsoleBar
+        total={libraryItems.length}
+        ready={readyCount}
+        attention={attentionCount}
+        fallbackTitle={fallbackLoopAsset?.title ?? null}
+        today={today}
       />
-      <section className="mb-5 grid gap-3 lg:grid-cols-3">
-        <WorkflowStep
-          number="1"
-          title="Add"
-          detail="Upload a short video, register a playable URL, or import a Vimeo episode into Videos."
-        />
-        <WorkflowStep
-          number="2"
-          title="Verify"
-          detail="Ready content can be scheduled. Broken content shows exactly what to fix."
-        />
-        <WorkflowStep
-          number="3"
-          title="Schedule"
-          detail="Use Schedule today on library content to send it straight into today's rundown."
-        />
-      </section>
-      <section className="mb-5 grid gap-3 md:grid-cols-3">
-        <MetricTile
-          label="Total"
-          value={String(libraryItems.length)}
-          detail="Saved library items"
-        />
-        <MetricTile
-          label="Ready"
-          value={String(readyCount)}
-          detail="Playable or renderable"
-          tone="ok"
-        />
-        <MetricTile
-          label="Review"
-          value={String(attentionCount)}
-          detail="Missing source, duration or ready status"
-          tone={attentionCount ? "warn" : "ok"}
-        />
-      </section>
 
-      <section className="mb-5 rounded-lg border border-line bg-surface p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="eyebrow text-muted">Output safety</p>
-            <h2 className="mt-1 text-xl font-semibold">Silent fallback loop</h2>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">
-              {fallbackLoopAsset
-                ? `${fallbackLoopAsset.title} is muted and loops whenever the schedule has an empty gap.`
-                : "No silent fallback loop is selected. Empty schedule gaps will show the generic fallback screen."}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <ButtonLink href="/admin/assets?kind=fallback" variant="secondary">
-              Show Fallbacks
-            </ButtonLink>
-            <ButtonLink href="/admin/assets?kind=videos" variant="secondary">
-              Pick Video
-            </ButtonLink>
-          </div>
-        </div>
-      </section>
-
-      <section className="mb-5 overflow-hidden rounded-lg border border-accent-positive bg-surface-selected-positive shadow-accent-positive-glow">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-accent-positive/30 px-4 py-4">
-          <div>
-            <p className="eyebrow text-accent-positive">Add or Import Content</p>
-            <h2 className="mt-1 text-2xl font-semibold">Get media ready for scheduling</h2>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">
-              Start here. Import Vimeo for episodes, upload files for local media, or use direct URL
-              only for advanced sources.
-            </p>
-          </div>
-          <ButtonLink href={`/admin/schedule/${today}`} variant="secondary">
-            Schedule Today
-          </ButtonLink>
-        </div>
-        <div className="grid gap-4 p-4 xl:grid-cols-[1.05fr_1fr]">
+      <details className="surface-panel mb-4 overflow-hidden">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+          Add/import content
+        </summary>
+        <div className="grid gap-4 border-t border-line p-4 xl:grid-cols-[1.05fr_1fr]">
           <section className="rounded-md border border-accent-positive bg-surface p-4">
             <div className="flex items-start gap-3">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-accent-positive text-surface-elevated-1">
@@ -407,7 +329,7 @@ export default async function AssetsPage({
             </details>
           </section>
         </div>
-      </section>
+      </details>
 
       <section className="mb-4 rounded-lg border border-line bg-surface p-3">
         <form
@@ -607,6 +529,70 @@ function Pagination({
         Next
       </PageLink>
     </nav>
+  )
+}
+
+function LibraryConsoleBar({
+  total,
+  ready,
+  attention,
+  fallbackTitle,
+  today
+}: {
+  total: number
+  ready: number
+  attention: number
+  fallbackTitle: string | null
+  today: string
+}) {
+  return (
+    <section className="surface-panel mb-4 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <CompactLibraryStat label="Total" value={String(total)} />
+        <CompactLibraryStat label="Ready" value={String(ready)} tone="ok" />
+        <CompactLibraryStat
+          label="Needs fix"
+          value={String(attention)}
+          tone={attention ? "warn" : "ok"}
+        />
+        <div className="min-w-0 flex-1 rounded-md border border-line bg-panel-soft px-3 py-2 text-sm">
+          <p className="text-[10px] font-bold uppercase text-muted">Fallback loop</p>
+          <p
+            className={
+              fallbackTitle ? "truncate font-semibold text-success" : "font-semibold text-warn"
+            }
+          >
+            {fallbackTitle ?? "Missing"}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href="/admin/assets?kind=fallback" variant="secondary">
+            Fallbacks
+          </ButtonLink>
+          <ButtonLink href={`/admin/schedule/${today}`} variant="secondary">
+            Schedule
+          </ButtonLink>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function CompactLibraryStat({
+  label,
+  value,
+  tone = "neutral"
+}: {
+  label: string
+  value: string
+  tone?: "neutral" | "ok" | "warn"
+}) {
+  const toneClass = tone === "ok" ? "text-success" : tone === "warn" ? "text-warn" : "text-ink"
+  return (
+    <div className="min-w-24 rounded-md border border-line bg-panel-soft px-3 py-2">
+      <p className="text-[10px] font-bold uppercase text-muted">{label}</p>
+      <p className={`text-sm font-semibold tabular-nums ${toneClass}`}>{value}</p>
+    </div>
   )
 }
 
@@ -1245,26 +1231,4 @@ function formatBytes(bytes: number) {
     unit += 1
   }
   return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`
-}
-
-function WorkflowStep({
-  number,
-  title,
-  detail
-}: {
-  number: string
-  title: string
-  detail: string
-}) {
-  return (
-    <div className="rounded-lg border border-line bg-surface p-4">
-      <div className="flex items-center gap-3">
-        <span className="grid h-8 w-8 place-items-center rounded-md border border-accent-positive bg-surface-selected-positive text-sm font-bold text-accent-positive">
-          {number}
-        </span>
-        <p className="font-semibold">{title}</p>
-      </div>
-      <p className="mt-2 text-sm leading-5 text-muted">{detail}</p>
-    </div>
-  )
 }

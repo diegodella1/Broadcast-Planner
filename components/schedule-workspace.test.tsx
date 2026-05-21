@@ -16,9 +16,7 @@ describe("ScheduleWorkspace", () => {
     expect(screen.getByText("Empty day. Click any time slot to add a block.")).toBeInTheDocument()
     expect(screen.getByText("00:00")).toBeInTheDocument()
     expect(screen.getByText("23:00")).toBeInTheDocument()
-    expect(
-      screen.getAllByRole("button", { name: /Fallback loop plays here/i }).length
-    ).toBeGreaterThan(0)
+    expect(screen.getAllByRole("button", { name: /Fallback gap/i }).length).toBeGreaterThan(0)
     expect(screen.getByRole("heading", { name: "Add content to the day" })).toBeInTheDocument()
   })
 
