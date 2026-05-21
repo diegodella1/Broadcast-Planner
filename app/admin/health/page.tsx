@@ -1,7 +1,13 @@
 import Link from "next/link"
 
 import { AdminShell } from "@/components/admin-shell"
-import { MetricTile, Notice } from "@/components/ui"
+import {
+  ActionHint,
+  ClearStateBadge,
+  MetricTile,
+  Notice,
+  PrimaryActionPanel
+} from "@/components/ui"
 import { collectOperatorHealth, type OperatorHealthCheck } from "@/lib/health-checks"
 
 export const dynamic = "force-dynamic"
@@ -31,6 +37,34 @@ export default async function AdminHealthPage() {
         </Notice>
       )}
 
+      <PrimaryActionPanel
+        eyebrow="Readiness"
+        title={
+          failed
+            ? "Broadcast is blocked"
+            : degraded
+              ? "Broadcast needs attention"
+              : "Ready for broadcast"
+        }
+        detail={
+          failed
+            ? "Fix failing checks before unattended operation."
+            : degraded
+              ? "You can keep working, but resolve warnings before handoff."
+              : "Runtime, storage, output and integrations are reporting healthy."
+        }
+        action={
+          <a className="btn-primary" href="/admin/output">
+            Open Output
+          </a>
+        }
+        secondary={
+          <a className="btn-secondary" href="/admin/calendar">
+            Open Schedule
+          </a>
+        }
+      />
+
       <section className="mb-5 grid gap-3 md:grid-cols-4">
         <MetricTile
           label="Failing"
@@ -54,6 +88,12 @@ export default async function AdminHealthPage() {
       </section>
 
       <section className="surface-panel overflow-hidden">
+        <div className="border-b border-line bg-panel-soft px-4 py-3">
+          <h2 className="font-semibold">What needs action</h2>
+          <p className="mt-1 text-sm text-muted">
+            Green checks are fine. Yellow checks should be reviewed. Red checks block production.
+          </p>
+        </div>
         {checks.map((check) => (
           <HealthRow key={check.id} check={check} />
         ))}
@@ -90,8 +130,21 @@ function HealthRow({ check }: { check: OperatorHealthCheck }) {
   const content = (
     <>
       <p className="font-semibold">{check.label}</p>
-      <span className={statusClass(check.status)}>{check.status}</span>
-      <p className="text-sm leading-6 text-muted">{check.message}</p>
+      <ClearStateBadge
+        tone={check.status === "ok" ? "ok" : check.status === "degraded" ? "warn" : "danger"}
+      >
+        {statusLabel(check.status)}
+      </ClearStateBadge>
+      <div>
+        <p className="text-sm leading-6 text-muted">{check.message}</p>
+        {check.status !== "ok" ? (
+          <div className="mt-2">
+            <ActionHint label="Action" tone={check.status === "fail" ? "danger" : "warn"}>
+              {healthAction(check)}
+            </ActionHint>
+          </div>
+        ) : null}
+      </div>
     </>
   )
   const className =
@@ -105,10 +158,17 @@ function HealthRow({ check }: { check: OperatorHealthCheck }) {
   )
 }
 
-function statusClass(status: OperatorHealthCheck["status"]) {
-  if (status === "ok")
-    return "rounded-md border border-success bg-success-soft px-2 py-1 text-xs font-bold text-success-strong"
-  if (status === "degraded")
-    return "rounded-md border border-warn-line bg-warn-soft px-2 py-1 text-xs font-bold text-warn-strong"
-  return "rounded-md border border-danger-line bg-danger-soft px-2 py-1 text-xs font-bold text-danger-strong"
+function statusLabel(status: OperatorHealthCheck["status"]) {
+  if (status === "ok") return "OK"
+  if (status === "degraded") return "Needs attention"
+  return "Blocked"
+}
+
+function healthAction(check: OperatorHealthCheck) {
+  if (check.href) return "Open the linked admin page and fix this before handoff."
+  if (check.id === "smoke")
+    return "Run the deploy or read-only smoke script so this status is fresh."
+  if (check.id === "storage") return "Create or verify the required Supabase storage buckets."
+  if (check.id === "env") return "Fix the production environment variables and restart the app."
+  return "Review this check before broadcast operation."
 }

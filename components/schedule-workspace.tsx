@@ -37,6 +37,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { PlayoutTime } from "@/components/playout-time"
 import { StatusPill } from "@/components/status-pill"
 import { Timecode } from "@/components/timecode"
+import { ActionHint, ClearStateBadge } from "@/components/ui"
 import {
   findSameDayGaps,
   findScheduleConflicts,
@@ -297,8 +298,7 @@ export function ScheduleWorkspace({
             <p className="eyebrow">Editor</p>
             <h2 className="mt-1 text-lg font-semibold">Select a block</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Click a rundown row to edit content, time, duration and status. Use Add Block for new
-              content.
+              Pick a block on the timeline, or add content into the empty time you want to fill.
             </p>
             <button type="button" className="btn-primary mt-4" onClick={() => openAdd()}>
               Add Block
@@ -762,8 +762,13 @@ function BlockDrawer({
         <div>
           <p className="eyebrow">{mode === "add" ? "Add Block" : "Edit Block"}</p>
           <h2 className="mt-1 text-lg font-semibold">
-            {mode === "add" ? "Choose content and time" : block?.title}
+            {mode === "add" ? "Add content to the day" : block?.title}
           </h2>
+          <p className="mt-1 text-xs text-muted">
+            {mode === "add"
+              ? "Choose what plays, when it starts, and confirm what happens next."
+              : "Change what plays, when it starts, or how long it stays on air."}
+          </p>
         </div>
         <button
           type="button"
@@ -783,6 +788,10 @@ function BlockDrawer({
         <input type="hidden" name="notes" value={block?.notes ?? ""} />
         <input type="hidden" name="conflict_resolution" value={conflictResolution} />
 
+        <ActionHint label="Step 1" tone="info">
+          Choose the type of content you want to add.
+        </ActionHint>
+
         <div className="grid grid-cols-3 gap-2">
           {(["video", "slide", "image", "ad", "promo", "fallback"] as BlockType[]).map((item) => (
             <button
@@ -797,7 +806,7 @@ function BlockDrawer({
         </div>
 
         <label className="grid gap-1 text-xs font-semibold text-muted">
-          Search content
+          Find ready content
           <span className="relative">
             <Search
               size={15}
@@ -850,13 +859,13 @@ function BlockDrawer({
           ))}
           {!filteredOptions.length ? (
             <p className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-sm text-warn-strong">
-              No ready content for this filter. Add it in Library first.
+              No ready content for this type. Add it in Library first, then come back here.
             </p>
           ) : null}
         </div>
 
         <label className="grid gap-1 text-xs font-semibold text-muted">
-          Title
+          Block name
           <input
             name="title"
             required
@@ -866,9 +875,13 @@ function BlockDrawer({
           />
         </label>
 
+        <ActionHint label="Step 2" tone="info">
+          Set when this starts. End time is calculated from the duration.
+        </ActionHint>
+
         <div className="grid grid-cols-2 gap-3">
           <label className="grid gap-1 text-xs font-semibold text-muted">
-            Start
+            Starts at
             <input
               name="start_time"
               required
@@ -878,7 +891,7 @@ function BlockDrawer({
             />
           </label>
           <label className="grid gap-1 text-xs font-semibold text-muted">
-            Seconds
+            Duration in seconds
             <input
               name="duration_seconds"
               required
@@ -891,7 +904,7 @@ function BlockDrawer({
           </label>
         </div>
         <div className="rounded-md border border-line bg-panel-soft px-3 py-2 text-xs font-semibold text-muted">
-          <span className="uppercase">Ends automatically</span>
+          <span className="uppercase">End time</span>
           <span className="mt-1 block text-sm tabular-nums text-ink">
             {formatPlayoutTimeLabel(endSeconds, true)}
             {startSeconds + durationSeconds > DAY_SECONDS ? " (clamped to end of day)" : ""}
@@ -905,9 +918,9 @@ function BlockDrawer({
         ) : null}
 
         {selected?.durationSeconds ? (
-          <p className="rounded-md bg-success-soft px-3 py-2 text-xs font-semibold text-success-strong">
-            Duration from content: {formatTimecode(selected.durationSeconds)}
-          </p>
+          <ActionHint label="Duration detected" tone="ok">
+            This block uses the media duration: {formatTimecode(selected.durationSeconds)}.
+          </ActionHint>
         ) : null}
 
         {kind === "video" ? (
@@ -978,7 +991,7 @@ function BlockDrawer({
         {insertPreview?.blocksToShift.length ? (
           <div className="rounded-md border border-info-line bg-info-soft px-3 py-2 text-sm text-info-strong">
             <p className="font-semibold">
-              Auto-insert will move {insertPreview.blocksToShift.length} following block
+              This will make room by moving {insertPreview.blocksToShift.length} following block
               {insertPreview.blocksToShift.length === 1 ? "" : "s"}.
             </p>
             <p className="mt-1 text-xs text-muted">
@@ -1001,7 +1014,7 @@ function BlockDrawer({
                 }
                 onClick={() => setConflictResolution("insert_shift")}
               >
-                Auto-insert
+                Make room
               </button>
               {conflict.suggestedStartSeconds !== null ? (
                 <button
@@ -1009,7 +1022,7 @@ function BlockDrawer({
                   className="btn-secondary min-h-8 px-2"
                   onClick={() => setStartTime(formatTimecode(conflict.suggestedStartSeconds!))}
                 >
-                  Use {formatPlayoutTimeLabel(conflict.suggestedStartSeconds)}
+                  Start after conflict
                 </button>
               ) : null}
               <button
@@ -1021,7 +1034,7 @@ function BlockDrawer({
                 }
                 onClick={() => setConflictResolution("archive_conflicts")}
               >
-                Archive conflicts
+                Replace overlap
               </button>
               <button
                 type="button"
@@ -1032,14 +1045,26 @@ function BlockDrawer({
                 }
                 onClick={() => setConflictResolution("strict")}
               >
-                Strict gap
+                Do not allow overlap
               </button>
             </div>
           </div>
         ) : null}
 
+        <div className="rounded-md border border-line bg-panel-soft px-3 py-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <ClearStateBadge tone={canSave ? "ok" : "warn"}>
+              {canSave ? "Ready to save" : "Needs attention"}
+            </ClearStateBadge>
+            <span className="text-muted">
+              {formatPlayoutTimeLabel(startSeconds, true)} to{" "}
+              {formatPlayoutTimeLabel(endSeconds, true)}
+            </span>
+          </div>
+        </div>
+
         <button className="btn-primary justify-center" disabled={!canSave}>
-          {mode === "add" ? "Add to Rundown" : "Save Block"}
+          {mode === "add" ? "Add block to schedule" : "Save block"}
         </button>
       </form>
       {mode === "edit" && block ? (
@@ -1310,7 +1335,7 @@ function CalendarScheduleView({
             {formatScheduleDate(date, schedule.day?.timezone)}
           </p>
           <p className="mt-1 text-xs text-muted">
-            Click an empty slot or gap to add content ·{" "}
+            Click a time or fallback gap to add content ·{" "}
             {schedule.day?.timezone ?? "schedule timezone"}
           </p>
           {!blocks.length ? (
@@ -1395,10 +1420,13 @@ function CalendarScheduleView({
                     className="absolute left-0 right-2 rounded-md border border-dashed border-warn-line bg-warn-soft/50 px-3 py-2 text-left text-xs text-warn-strong hover:bg-warn-soft"
                     style={{ top, height }}
                   >
-                    <span className="block font-semibold">Fill Gap</span>
+                    <span className="block font-semibold">Fallback loop plays here</span>
                     <span className="block truncate tabular-nums">
                       {formatCalendarRange(gap.startTimeSeconds, gap.durationSeconds)} ·{" "}
                       {formatTimecode(gap.durationSeconds)}
+                    </span>
+                    <span className="mt-0.5 block truncate opacity-80">
+                      Click to schedule content in this empty time.
                     </span>
                   </button>
                 )

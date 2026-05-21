@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server"
 import { AdminShell } from "@/components/admin-shell"
 import { OutputMonitorPanel } from "@/components/output-monitor-panel"
 import { StopBroadcastButton } from "@/components/stop-broadcast-button"
-import { PrimaryActionPanel, StatusBanner } from "@/components/ui"
+import { ActionHint, ClearStateBadge, PrimaryActionPanel, StatusBanner } from "@/components/ui"
 import { recordAuditEvent } from "@/lib/audit"
 import { getLiveSchedule } from "@/lib/data"
 import { collectOperatorHealth } from "@/lib/health-checks"
@@ -152,28 +152,28 @@ export default async function AdminOutputPage() {
         />
       ) : null}
       <PrimaryActionPanel
-        eyebrow="Official playback"
-        title="Open browser output for OBS/vMix capture"
+        eyebrow="Output"
+        title="Send the scheduled broadcast to OBS/vMix"
         detail={
           active.block
-            ? `${active.block.title} is the active scheduled block. The output page resumes at the current schedule time after reload.`
-            : "Open the output page on the capture machine, click Start Output once, then capture it in OBS or vMix."
+            ? `Currently scheduled: ${active.block.title}. Open this page on the capture machine.`
+            : "No active block right now. If a fallback loop is configured, the output page will use it during the gap."
         }
         action={
           <a className="btn-primary" href={outputHref} target="_blank" rel="noreferrer">
-            Open Browser Output
+            Open output page
           </a>
         }
         secondary={
           <a className="btn-secondary" href={monitorHref} target="_blank" rel="noreferrer">
-            Open Debug Output
+            Open debug view
           </a>
         }
       />
       <div className="mb-5">
         <StatusBanner
           tone={isLive ? "ok" : dayStatus === "active" ? "warn" : "info"}
-          label="Output control"
+          label="Current output"
           title={broadcastStatusLabel}
           detail={
             active.block
@@ -182,7 +182,7 @@ export default async function AdminOutputPage() {
           }
           action={
             <a className="btn-secondary" href={outputHref} target="_blank" rel="noreferrer">
-              Browser Output
+              Open output
             </a>
           }
         />
@@ -190,16 +190,21 @@ export default async function AdminOutputPage() {
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">
           <div className="surface-panel p-5" id="browser-output">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted">Browser output</p>
-            <h2 className="mt-2 text-2xl font-semibold">Capture the output page in OBS/vMix</h2>
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Capture URL</p>
+            <h2 className="mt-2 text-2xl font-semibold">Use this page as the browser source</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              Open the output page on the capture machine and click Start Output once to unlock
-              audio. If the page reloads mid-show, it seeks to the current schedule time before
-              playback resumes.
+              Open the output page on the capture machine. Click Start Output once to unlock audio.
+              If it reloads, it seeks back to the current schedule time.
             </p>
+            <div className="mt-4">
+              <ActionHint label="Operator steps" tone="info">
+                1. Open output on the capture machine. 2. Click Start Output. 3. Capture that
+                browser window in OBS/vMix.
+              </ActionHint>
+            </div>
             <div className="mt-5">
               <a className="btn-primary" href={outputHref} target="_blank" rel="noreferrer">
-                Open Browser Output
+                Open output page
               </a>
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -231,28 +236,14 @@ export default async function AdminOutputPage() {
           </div>
         </div>
 
-        {/* ── Operator control surface ──────────────────────────────────── */}
         <aside
           className="w-full shrink-0 overflow-y-auto rounded-md border border-white/10 bg-surface-elevated-1 lg:w-[320px]"
           aria-label="Operator controls"
         >
-          {/* Broadcast status section */}
           <ControlSection title="Broadcast status">
-            <div className="flex items-center gap-2">
-              <span
-                className={
-                  isLive
-                    ? "h-2 w-2 rounded-full bg-accent-live-text animate-pulse"
-                    : "h-2 w-2 rounded-full bg-white/20"
-                }
-                aria-hidden="true"
-              />
-              <span
-                className={`text-xs font-semibold ${isLive ? "text-accent-live-text" : "text-white/50"}`}
-              >
-                {broadcastStatusLabel}
-              </span>
-            </div>
+            <ClearStateBadge tone={isLive ? "ok" : dayStatus === "active" ? "warn" : "info"}>
+              {broadcastStatusLabel}
+            </ClearStateBadge>
             {active.block && (
               <p className="mt-1 truncate text-[11px] text-white/40">{active.block.title}</p>
             )}

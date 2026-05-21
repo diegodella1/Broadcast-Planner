@@ -11,13 +11,15 @@ describe("ScheduleWorkspace", () => {
 
     expect(screen.getByRole("heading", { name: "Timeline" })).toBeInTheDocument()
     expect(
-      screen.getByText("Click an empty slot or gap to add content · America/Los_Angeles")
+      screen.getByText("Click a time or fallback gap to add content · America/Los_Angeles")
     ).toBeInTheDocument()
     expect(screen.getByText("Empty day. Click any time slot to add a block.")).toBeInTheDocument()
     expect(screen.getByText("00:00")).toBeInTheDocument()
     expect(screen.getByText("23:00")).toBeInTheDocument()
-    expect(screen.getAllByRole("button", { name: /Fill Gap/i }).length).toBeGreaterThan(0)
-    expect(screen.getByRole("heading", { name: "Choose content and time" })).toBeInTheDocument()
+    expect(
+      screen.getAllByRole("button", { name: /Fallback loop plays here/i }).length
+    ).toBeGreaterThan(0)
+    expect(screen.getByRole("heading", { name: "Add content to the day" })).toBeInTheDocument()
   })
 
   it("prefills add block start time from clicked calendar slot", () => {
@@ -39,7 +41,7 @@ describe("ScheduleWorkspace", () => {
 
     expect(
       screen
-        .getAllByLabelText("Start")
+        .getAllByLabelText("Starts at")
         .some((input) => (input as HTMLInputElement).value === "06:00:00")
     ).toBe(true)
   })
@@ -74,7 +76,7 @@ describe("ScheduleWorkspace", () => {
     window.location.hash = "#add-block"
     fireEvent(window, new HashChangeEvent("hashchange"))
 
-    expect(screen.getByRole("heading", { name: "Choose content and time" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Add content to the day" })).toBeInTheDocument()
   })
 
   it("shows bulk card loop controls for ready slides", () => {

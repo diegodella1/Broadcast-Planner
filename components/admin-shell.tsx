@@ -5,7 +5,16 @@ import { redirect } from "next/navigation"
 
 import { AdminNav } from "@/components/admin-nav"
 import { OperatorPath } from "@/components/operator-path"
+import { ClearStateBadge } from "@/components/ui"
 import { requireAdmin, revokeCurrentOperatorSession, safeAdminReturnTo } from "@/lib/auth"
+import { getLiveSchedule } from "@/lib/data"
+import { collectOperatorHealth } from "@/lib/health-checks"
+import { findActiveSchedule } from "@/lib/scheduler"
+import {
+  formatPlayoutTimeLabel,
+  PLAYOUT_TIMEZONE,
+  secondsSinceMidnightInTimezone
+} from "@/lib/time"
 
 import type { ReactNode } from "react"
 
@@ -28,6 +37,7 @@ export async function AdminShell({
     }
     throw error
   })
+  const status = await loadBroadcastStatus()
 
   async function logout() {
     "use server"
@@ -89,9 +99,116 @@ export async function AdminShell({
           </div>
           <AdminNav mobile />
         </header>
+        <BroadcastStatusStrip status={status} />
         <OperatorPath />
         <div className="min-w-0 p-4 md:p-6 xl:p-7">{children}</div>
       </main>
+    </div>
+  )
+}
+
+async function loadBroadcastStatus() {
+  try {
+    const [bundle, health] = await Promise.all([getLiveSchedule(), collectOperatorHealth()])
+    const timezone = bundle.day?.timezone ?? PLAYOUT_TIMEZONE
+    const nowSeconds = secondsSinceMidnightInTimezone(new Date(), timezone)
+    const active = findActiveSchedule(bundle, nowSeconds)
+    const next =
+      bundle.blocks
+        .filter((block) => block.status === "ready" || block.status === "active")
+        .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
+        .find((block) => block.startTimeSeconds > nowSeconds) ?? null
+    const fallback =
+      bundle.mediaAssets.find(
+        (asset) =>
+          asset.status === "ready" &&
+          asset.mediaKind === "video" &&
+          asset.metadata?.fallback_loop === true
+      ) ?? null
+    return {
+      ok: true,
+      health: health.status,
+      dayStatus: bundle.day?.status ?? "draft",
+      nowSeconds,
+      activeTitle: active.block?.title ?? null,
+      nextTitle: next?.title ?? null,
+      nextSeconds: next?.startTimeSeconds ?? null,
+      fallbackTitle: fallback?.title ?? null
+    }
+  } catch {
+    return {
+      ok: false,
+      health: "fail" as const,
+      dayStatus: "draft",
+      nowSeconds: null,
+      activeTitle: null,
+      nextTitle: null,
+      nextSeconds: null,
+      fallbackTitle: null
+    }
+  }
+}
+
+function BroadcastStatusStrip({
+  status
+}: {
+  status: Awaited<ReturnType<typeof loadBroadcastStatus>>
+}) {
+  return (
+    <section className="border-b border-line bg-panel-soft px-4 py-3 md:px-6">
+      <div className="grid gap-2 text-sm lg:grid-cols-[1.2fr_1fr_1fr_auto] lg:items-center">
+        <StatusItem
+          label="Now playing"
+          value={
+            status.ok
+              ? (status.activeTitle ?? "Nothing scheduled now")
+              : "Schedule status unavailable"
+          }
+          tone={status.activeTitle ? "ok" : "warn"}
+        />
+        <StatusItem
+          label="Next"
+          value={
+            status.nextTitle && status.nextSeconds !== null
+              ? `${formatPlayoutTimeLabel(status.nextSeconds)} · ${status.nextTitle}`
+              : "No next block"
+          }
+          tone={status.nextTitle ? "neutral" : "warn"}
+        />
+        <StatusItem
+          label="Fallback"
+          value={status.fallbackTitle ?? "No fallback loop"}
+          tone={status.fallbackTitle ? "ok" : "warn"}
+        />
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          <ClearStateBadge
+            tone={status.health === "ok" ? "ok" : status.health === "fail" ? "danger" : "warn"}
+          >
+            Health {status.health}
+          </ClearStateBadge>
+          <ClearStateBadge tone={status.dayStatus === "active" ? "ok" : "neutral"}>
+            Day {status.dayStatus}
+          </ClearStateBadge>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function StatusItem({
+  label,
+  value,
+  tone
+}: {
+  label: string
+  value: string
+  tone: "neutral" | "ok" | "warn"
+}) {
+  const toneClass = tone === "ok" ? "text-success" : tone === "warn" ? "text-warn" : "text-ink"
+  return (
+    <div className="min-w-0">
+      <p className="text-[0.68rem] font-bold uppercase text-muted">{label}</p>
+      <p className={`mt-0.5 truncate font-semibold ${toneClass}`}>{value}</p>
     </div>
   )
 }

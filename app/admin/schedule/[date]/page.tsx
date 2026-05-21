@@ -296,18 +296,18 @@ export default async function ScheduleDatePage({
     >
       {query.uploaded ? <Notice tone="ok">Media uploaded and scheduled.</Notice> : null}
       <PrimaryActionPanel
-        eyebrow="Step 2"
+        eyebrow="Schedule"
         title={
-          blocks.length ? "Review the rundown and fill missing content" : "Add the first block"
+          blocks.length ? "Today has a playable rundown" : "Add the first thing that should play"
         }
         detail={
           blocks.length
-            ? `${readyBlocks}/${blocks.length} blocks ready · ${formatTimecode(totalScheduledSeconds)} scheduled.`
-            : "Choose ready Library content, confirm start time, then save it to the rundown."
+            ? `${readyBlocks}/${blocks.length} blocks ready · ${formatTimecode(totalScheduledSeconds)} scheduled. Empty gaps are covered by the fallback loop.`
+            : "Choose ready Library content, set the start time, and the end time is calculated automatically."
         }
         action={
           <a className="btn-primary" href="#add-block">
-            Add Block
+            Add content
           </a>
         }
         secondary={

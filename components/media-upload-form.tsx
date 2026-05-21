@@ -2,7 +2,7 @@ import { CsrfInput } from "@/components/csrf-input"
 import { CsrfRefreshingForm } from "@/components/csrf-refreshing-form"
 import { MediaFilePicker } from "@/components/media-file-picker"
 import { SubmitButton } from "@/components/submit-button"
-import { Field, FormHeader } from "@/components/ui"
+import { ActionHint, Field, FormHeader } from "@/components/ui"
 
 export async function MediaUploadForm({
   action,
@@ -34,6 +34,12 @@ export async function MediaUploadForm({
     >
       <CsrfInput />
       <FormHeader title={title} detail={detail} />
+      <div className="mt-3">
+        <ActionHint label="Upload flow" tone="info">
+          Choose a file, wait while duration is read, then keep this page open until the upload
+          finishes.
+        </ActionHint>
+      </div>
       {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
       {scheduleDate ? <input type="hidden" name="date" value={scheduleDate} /> : null}
       <div
@@ -50,15 +56,15 @@ export async function MediaUploadForm({
             className="border border-line px-3 py-2 text-sm font-normal text-ink"
           />
         </Field>
-        <Field label="Use as">
+        <Field label="Category" hint="You can change this later from the Library row.">
           <select
             name="asset_type"
             className="border border-line px-3 py-2 text-sm font-normal text-ink"
           >
-            <option value="video">Video</option>
+            <option value="video">Program video</option>
             <option value="ad">Ad</option>
             <option value="promo">Promo</option>
-            <option value="fallback">Fallback</option>
+            <option value="fallback">Fallback loop candidate</option>
             <option value="image">Image</option>
             {includeAudio ? <option value="music">Music</option> : null}
           </select>

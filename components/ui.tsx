@@ -25,6 +25,42 @@ export function MetricTile({
   )
 }
 
+export function ClearStateBadge({
+  tone = "neutral",
+  children
+}: {
+  tone?: Tone
+  children: ReactNode
+}) {
+  return (
+    <span
+      className={clsx(
+        "inline-flex min-h-7 items-center rounded-md border px-2.5 text-xs font-bold",
+        stateBadgeTone(tone)
+      )}
+    >
+      {children}
+    </span>
+  )
+}
+
+export function ActionHint({
+  label,
+  children,
+  tone = "info"
+}: {
+  label: string
+  children: ReactNode
+  tone?: Tone
+}) {
+  return (
+    <div className={clsx("rounded-md border px-3 py-2 text-sm", noticeTone(tone))}>
+      <p className="text-[0.68rem] font-bold uppercase">{label}</p>
+      <div className="mt-1 leading-5">{children}</div>
+    </div>
+  )
+}
+
 export function Notice({
   tone = "info",
   title,
@@ -218,5 +254,20 @@ function noticeTone(tone: Tone) {
       return "border-danger-line bg-danger-soft text-danger-strong"
     default:
       return "border-info-line bg-info-soft text-info-strong"
+  }
+}
+
+function stateBadgeTone(tone: Tone) {
+  switch (tone) {
+    case "ok":
+      return "border-success-line bg-success-soft text-success-strong"
+    case "warn":
+      return "border-warn-line bg-warn-soft text-warn-strong"
+    case "danger":
+      return "border-danger-line bg-danger-soft text-danger-strong"
+    case "info":
+      return "border-info-line bg-info-soft text-info-strong"
+    default:
+      return "border-line bg-panel-soft text-ink"
   }
 }

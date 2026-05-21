@@ -28,17 +28,17 @@ type NavGroup = {
 
 export const navGroups: NavGroup[] = [
   {
-    label: "Core",
+    label: "Operate",
     items: [
-      { label: "Home", href: "/admin", icon: LayoutDashboard, match: "exact" },
-      { label: "Library", href: "/admin/assets", icon: Video },
       { label: "Schedule", href: "/admin/calendar", icon: CalendarDays },
+      { label: "Library", href: "/admin/assets", icon: Video },
       { label: "Output", href: "/admin/output", icon: MonitorPlay }
     ]
   },
   {
-    label: "Advanced",
+    label: "Manage",
     items: [
+      { label: "Home", href: "/admin", icon: LayoutDashboard, match: "exact" },
       { label: "Vimeo", href: "/admin/vimeo", icon: MonitorPlay },
       { label: "Graphics", href: "/admin/slides", icon: Clapperboard },
       { label: "Music", href: "/admin/music", icon: Music },

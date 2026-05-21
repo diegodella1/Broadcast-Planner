@@ -8,6 +8,7 @@ import { MediaUploadForm } from "@/components/media-upload-form"
 import { StatusPill } from "@/components/status-pill"
 import {
   ButtonLink,
+  ClearStateBadge,
   EmptyState,
   Field,
   FilterLink,
@@ -732,13 +733,21 @@ function LibraryItemRow({
         <div className="min-w-0">
           <p className="font-semibold">{item.title}</p>
           <p className="text-sm text-muted">{libraryItemMeta(item)}</p>
-          <p className="mt-1 text-xs font-semibold uppercase text-muted">
-            {item.kind === "asset" ? lifecycleState(item.asset).replaceAll("_", " ") : "slide"}
-            {item.kind === "asset" ? ` · ${item.asset.assetType}` : ""}
+          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-muted">
+            {item.kind === "asset" ? (
+              <>
+                <ClearStateBadge tone="neutral">
+                  {assetTypeLabel(item.asset.assetType)}
+                </ClearStateBadge>
+                <ClearStateBadge tone={item.asset.status === "ready" ? "ok" : "warn"}>
+                  {item.asset.status === "ready" ? "Can schedule" : `Status ${item.asset.status}`}
+                </ClearStateBadge>
+              </>
+            ) : (
+              <ClearStateBadge tone="info">Slide</ClearStateBadge>
+            )}
             {isFallbackLoop ? (
-              <span className="ml-2 rounded border border-success/30 bg-success/10 px-1.5 py-0.5 text-success">
-                Silent fallback loop
-              </span>
+              <ClearStateBadge tone="ok">Fallback loop active</ClearStateBadge>
             ) : null}
           </p>
         </div>
@@ -763,7 +772,7 @@ function LibraryItemRow({
       <div className="mt-4 flex flex-wrap gap-2">
         {!libraryItemNeedsAttention(item) && libraryItemCanSchedule(item) ? (
           <a className="btn-primary" href={scheduleLibraryItemHref(today, item, params)}>
-            Schedule
+            Schedule this
           </a>
         ) : libraryItemCanSchedule(item) ? (
           <span className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-sm font-semibold text-warn-strong">
@@ -861,7 +870,7 @@ function AssetEditForm({
         name="title"
         required
         defaultValue={asset.title}
-        placeholder="Title"
+        placeholder="Asset name"
         className="border border-line px-3 py-2 text-sm"
       />
       <input
@@ -901,10 +910,10 @@ function AssetEditForm({
         aria-label="Library category"
       >
         <option value="image">Image</option>
-        <option value="video">Video</option>
+        <option value="video">Program video</option>
         <option value="ad">Ad</option>
         <option value="promo">Promo</option>
-        <option value="fallback">Fallback</option>
+        <option value="fallback">Fallback candidate</option>
         <option value="overlay">Overlay</option>
         <option value="music">Music</option>
       </select>
@@ -1191,6 +1200,16 @@ function getMetadataText(asset: MediaAsset, key: string) {
 
 function fallbackLoopEnabled(asset: MediaAsset) {
   return asset.metadata?.fallback_loop === true
+}
+
+function assetTypeLabel(value: MediaAsset["assetType"]) {
+  if (value === "video") return "Program"
+  if (value === "fallback") return "Fallback"
+  if (value === "music") return "Music"
+  if (value === "ad") return "Ad"
+  if (value === "promo") return "Promo"
+  if (value === "overlay") return "Overlay"
+  return "Image"
 }
 
 function canUseAsFallbackLoop(asset: MediaAsset) {
