@@ -427,13 +427,7 @@ function PlannerStat({
   )
 }
 
-function BlockEditorModal({
-  children,
-  onClose
-}: {
-  children: ReactNode
-  onClose: () => void
-}) {
+function BlockEditorModal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 z-[100] grid place-items-center bg-black/60 p-3 backdrop-blur-sm sm:p-6"
