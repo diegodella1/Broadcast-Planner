@@ -91,9 +91,7 @@ describe("ScheduleWorkspace", () => {
         .getAllByLabelText("Block duration")
         .some((input) => (input as HTMLInputElement).value === "02:00:00")
     ).toBe(true)
-    expect(
-      screen.getByRole("button", { name: /Add clock 00:00:00 SF-02:00:00 SF/i })
-    ).toBeEnabled()
+    expect(screen.getByRole("button", { name: /Add clock 00:00:00 SF-02:00:00 SF/i })).toBeEnabled()
   })
 
   it("keeps rundown controls available for existing blocks", () => {
