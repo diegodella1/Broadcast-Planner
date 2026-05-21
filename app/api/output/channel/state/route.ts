@@ -311,8 +311,7 @@ function fallbackState(reason: string, base?: OutputBase) {
 }
 
 function videoPresentation(asset: MediaAsset) {
-  const presentation =
-    asset.metadata?.presentation === "vertical_blur" ? "vertical_blur" : "fit"
+  const presentation = asset.metadata?.presentation === "vertical_blur" ? "vertical_blur" : "fit"
   const background =
     presentation === "vertical_blur" || asset.metadata?.background === "blur" ? "blur" : "black"
   return { presentation, background }
