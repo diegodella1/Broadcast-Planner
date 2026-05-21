@@ -264,7 +264,13 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
       data-drift-warning={driftWarning ? "true" : "false"}
     >
       <div className="absolute inset-0 grid place-items-center bg-black">
-        <div className="relative aspect-video h-auto max-h-full w-full max-w-full overflow-hidden bg-black">
+        <div
+          className="relative overflow-hidden bg-black"
+          style={{
+            width: "min(100vw, calc(100vh * 16 / 9))",
+            height: "min(100vh, calc(100vw * 9 / 16))"
+          }}
+        >
           <video ref={videoRef} className={videoClassName(state)} />
         </div>
       </div>
