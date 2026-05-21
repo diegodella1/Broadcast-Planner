@@ -810,14 +810,17 @@ function BlockDrawer({
         <input type="hidden" name="duration_seconds" value={durationSeconds} />
 
         <div className="rounded-md border border-line bg-panel-soft px-3 py-2">
-          <p className="text-[10px] font-bold uppercase text-muted">When</p>
+          <p className="text-[10px] font-bold uppercase text-muted">Clock time</p>
           <p className="mt-1 text-sm font-semibold tabular-nums">
             {formatPlayoutTimeLabel(startSeconds, true)} to{" "}
             {formatPlayoutTimeLabel(endSeconds, true)}
           </p>
+          <p className="mt-0.5 text-xs text-muted">
+            These are on-air clock times, not video timecode.
+          </p>
           {initialDurationSeconds ? (
             <p className="mt-0.5 text-xs text-muted">
-              Range selected from timeline: {formatTimecode(initialDurationSeconds)}
+              Selected clock range length: {formatTimecode(initialDurationSeconds)}
             </p>
           ) : null}
         </div>
@@ -908,7 +911,7 @@ function BlockDrawer({
 
         <div className="grid grid-cols-2 gap-3">
           <label className="grid gap-1 text-xs font-semibold text-muted">
-            Starts at
+            Clock start
             <input
               name="start_time"
               required
@@ -918,7 +921,7 @@ function BlockDrawer({
             />
           </label>
           <label className="grid gap-1 text-xs font-semibold text-muted">
-            Duration
+            Block duration
             <input
               required
               value={duration}
@@ -949,7 +952,8 @@ function BlockDrawer({
 
         {selected?.durationSeconds ? (
           <p className="rounded-md border border-success-line bg-success-soft px-3 py-2 text-xs font-semibold text-success-strong">
-            This block uses the media duration: {formatTimecode(selected.durationSeconds)}.
+            Media duration detected: {formatTimecode(selected.durationSeconds)}. The clock end is
+            calculated from clock start plus block duration.
           </p>
         ) : null}
 
@@ -1088,7 +1092,7 @@ function BlockDrawer({
 
         <button className="btn-primary justify-center" disabled={!canSave}>
           {mode === "add"
-            ? `Add ${formatPlayoutTimeLabel(startSeconds, true)}-${formatPlayoutTimeLabel(endSeconds, true)}`
+            ? `Add clock ${formatPlayoutTimeLabel(startSeconds, true)}-${formatPlayoutTimeLabel(endSeconds, true)}`
             : "Save block"}
         </button>
       </form>
@@ -1684,9 +1688,9 @@ function CalendarScheduleView({
       <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_170px]">
         <div className="min-w-0 overflow-hidden rounded-md border border-line bg-surface">
           <div className="grid grid-cols-[96px_minmax(0,1fr)_96px_92px] border-b border-line bg-panel-soft px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-muted">
-            <span>Time</span>
+            <span>Clock</span>
             <span>Rundown</span>
-            <span>Duration</span>
+            <span>Block len</span>
             <span>Status</span>
           </div>
           <div className="divide-y divide-line">

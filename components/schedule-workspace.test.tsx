@@ -44,7 +44,7 @@ describe("ScheduleWorkspace", () => {
 
     expect(
       screen
-        .getAllByLabelText("Starts at")
+        .getAllByLabelText("Clock start")
         .some((input) => (input as HTMLInputElement).value === "06:00:00")
     ).toBe(true)
   })
@@ -70,12 +70,12 @@ describe("ScheduleWorkspace", () => {
 
     expect(
       screen
-        .getAllByLabelText("Starts at")
+        .getAllByLabelText("Clock start")
         .some((input) => (input as HTMLInputElement).value === "06:00:00")
     ).toBe(true)
     expect(
       screen
-        .getAllByLabelText("Duration")
+        .getAllByLabelText("Block duration")
         .some((input) => (input as HTMLInputElement).value === "01:00:00")
     ).toBe(true)
   })
@@ -88,10 +88,12 @@ describe("ScheduleWorkspace", () => {
 
     expect(
       screen
-        .getAllByLabelText("Duration")
+        .getAllByLabelText("Block duration")
         .some((input) => (input as HTMLInputElement).value === "02:00:00")
     ).toBe(true)
-    expect(screen.getByRole("button", { name: /Add 00:00:00 SF-02:00:00 SF/i })).toBeEnabled()
+    expect(
+      screen.getByRole("button", { name: /Add clock 00:00:00 SF-02:00:00 SF/i })
+    ).toBeEnabled()
   })
 
   it("keeps rundown controls available for existing blocks", () => {
