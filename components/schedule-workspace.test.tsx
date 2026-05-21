@@ -6,16 +6,21 @@ import { ScheduleWorkspace } from "./schedule-workspace"
 import type { MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from "@/lib/types"
 
 describe("ScheduleWorkspace", () => {
-  it("opens in full-day calendar mode for an empty schedule", () => {
+  it("opens in rundown lens mode for an empty schedule", () => {
     renderWorkspace({ blocks: [] })
 
-    expect(screen.getByRole("heading", { name: "Timeline" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Rundown" })).toBeInTheDocument()
+    expect(screen.getByText("Broadcast rundown")).toBeInTheDocument()
     expect(
-      screen.getByText("Click a time or fallback gap to add content · America/Los_Angeles")
+      screen.getByText(
+        "Pick an open slot, then choose content. Short ads and promos stay readable even when they only run for seconds."
+      )
     ).toBeInTheDocument()
-    expect(screen.getByText("Empty day. Click any time slot to add a block.")).toBeInTheDocument()
-    expect(screen.getByText("00:00")).toBeInTheDocument()
-    expect(screen.getByText("23:00")).toBeInTheDocument()
+    expect(
+      screen.getByText("Empty day. Click any time slot on the mini map to add a block.")
+    ).toBeInTheDocument()
+    expect(screen.getByText("00")).toBeInTheDocument()
+    expect(screen.getByText("23")).toBeInTheDocument()
     expect(screen.getAllByRole("button", { name: /Fallback gap/i }).length).toBeGreaterThan(0)
     expect(screen.getByRole("heading", { name: "Add content to the day" })).toBeInTheDocument()
   })
@@ -101,12 +106,12 @@ describe("ScheduleWorkspace", () => {
     renderWorkspace({ blocks: [block], createdBlockId: block.id })
 
     expect(screen.getByText("Block Added")).toBeInTheDocument()
-    expect(screen.getAllByText("01:00 SF → 01:15 SF").length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/01:00 SF → 01:15 SF/).length).toBeGreaterThan(0)
     expect(screen.getAllByText("15 min").length).toBeGreaterThan(0)
     expect(screen.getByText("New")).toBeInTheDocument()
     expect(
-      screen.getByRole("button", { name: "New block: A, 01:00 SF → 01:15 SF" })
-    ).toBeInTheDocument()
+      screen.getAllByRole("button", { name: "New block: A, 01:00 SF → 01:15 SF" }).length
+    ).toBeGreaterThan(0)
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
   })
 

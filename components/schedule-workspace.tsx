@@ -83,13 +83,23 @@ type InitialContentFilters = {
 const DEFAULT_MANUAL_DURATION = 30
 const DAY_SECONDS = 86400
 const CALENDAR_SNAP_SECONDS = 300
-const ZOOM_HEIGHTS = {
-  overview: 54,
-  work: 90,
-  detail: 180
-} as const
-type TimelineZoom = keyof typeof ZOOM_HEIGHTS
+type TimelineZoom = "overview" | "work" | "detail"
 type CalendarSelection = { startSeconds: number; durationSeconds: number } | null
+type ScheduleGap = ReturnType<typeof findSameDayGaps>[number]
+type RundownItem =
+  | {
+      kind: "block"
+      block: ProgramBlock
+      startSeconds: number
+      endSeconds: number
+      durationSeconds: number
+    }
+  | {
+      kind: "gap"
+      startSeconds: number
+      endSeconds: number
+      durationSeconds: number
+    }
 
 export function ScheduleWorkspace({
   date,
@@ -244,7 +254,7 @@ export function ScheduleWorkspace({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div>
             <p className="eyebrow">Day Planner</p>
-            <h2 className="mt-1 text-xl font-semibold">Timeline</h2>
+            <h2 className="mt-1 text-xl font-semibold">Rundown</h2>
             <p className="mt-1 text-sm text-muted">
               {formatScheduleDate(date, schedule.day?.timezone)} ·{" "}
               {schedule.day?.timezone ?? "Schedule timezone"}
@@ -1374,37 +1384,97 @@ function CalendarScheduleView({
   const [zoom, setZoom] = useState<TimelineZoom>("work")
   const [dragStartSeconds, setDragStartSeconds] = useState<number | null>(null)
   const [dragCurrentSeconds, setDragCurrentSeconds] = useState<number | null>(null)
-  const hourHeight = ZOOM_HEIGHTS[zoom]
-  const canvasHeight = hourHeight * 24
-  const hours = Array.from({ length: 24 }, (_, hour) => hour)
-  const scrollerRef = useRef<HTMLDivElement>(null)
+  const [viewportStartSeconds, setViewportStartSeconds] = useState(0)
+  const [viewportDurationSeconds, setViewportDurationSeconds] = useState(6 * 3600)
   const hasAutoScrolledRef = useRef(false)
   const suppressClickRef = useRef(false)
   const pointerSelectionRef = useRef(false)
   const timezone = schedule.day?.timezone ?? "America/Los_Angeles"
   const liveState = useScheduleLiveState(date, timezone, blocks)
-  const liveTop = liveState.nowSeconds !== null ? (liveState.nowSeconds / 3600) * hourHeight : null
   const gaps = schedule.day ? findSameDayGaps(blocks, schedule.day.id) : []
   const issueMap = new Map(
     issues.filter((issue) => issue.blockId).map((issue) => [issue.blockId, issue])
+  )
+  const hasReadyFallback = schedule.mediaAssets.some(
+    (asset) => asset.assetType === "fallback" && asset.status === "ready"
   )
   const selection =
     dragStartSeconds !== null && dragCurrentSeconds !== null
       ? normalizeCalendarSelection(dragStartSeconds, dragCurrentSeconds)
       : null
+  const viewportEndSeconds = Math.min(DAY_SECONDS, viewportStartSeconds + viewportDurationSeconds)
+  const timelineItems = buildRundownItems(blocks, gaps)
+  const visibleItems = timelineItems.filter(
+    (item) => item.endSeconds > viewportStartSeconds && item.startSeconds < viewportEndSeconds
+  )
+  const activeItem = liveState.activeBlock
+    ? timelineItems.find(
+        (item) => item.kind === "block" && item.block.id === liveState.activeBlock?.id
+      )
+    : liveState.nowSeconds !== null
+      ? timelineItems.find(
+          (item) =>
+            item.kind === "gap" &&
+            item.startSeconds <= liveState.nowSeconds! &&
+            item.endSeconds > liveState.nowSeconds!
+        )
+      : null
+  const nextGap = gaps.find(
+    (gap) => gap.durationSeconds > 0 && gap.startTimeSeconds >= (liveState.nowSeconds ?? 0)
+  )
 
   useEffect(() => {
     hasAutoScrolledRef.current = false
   }, [date])
 
   useEffect(() => {
-    if (!liveState.isToday || liveTop === null || hasAutoScrolledRef.current) return
-    const scroller = scrollerRef.current
-    if (!scroller) return
-    const target = Math.max(0, liveTop - scroller.clientHeight * 0.35)
-    scroller.scrollTo({ top: target, behavior: "smooth" })
+    if (!liveState.isToday || liveState.nowSeconds === null || hasAutoScrolledRef.current) return
+    showNow()
     hasAutoScrolledRef.current = true
-  }, [liveState.isToday, liveTop])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveState.isToday, liveState.nowSeconds])
+
+  function setViewport(startSeconds: number, durationSeconds = viewportDurationSeconds) {
+    const safeDuration = Math.max(15 * 60, Math.min(DAY_SECONDS, durationSeconds))
+    setViewportDurationSeconds(safeDuration)
+    setViewportStartSeconds(
+      Math.max(0, Math.min(DAY_SECONDS - safeDuration, Math.floor(startSeconds)))
+    )
+  }
+
+  function showNow() {
+    const nowSeconds = liveState.nowSeconds ?? 0
+    setZoom("work")
+    setViewport(Math.max(0, nowSeconds - 5 * 60), 30 * 60)
+  }
+
+  function showNextGap() {
+    const gap = nextGap ?? gaps[0]
+    if (!gap) return
+    setZoom("detail")
+    setViewport(Math.max(0, gap.startTimeSeconds - 5 * 60), Math.max(15 * 60, gap.durationSeconds + 10 * 60))
+  }
+
+  function showFullDay() {
+    setZoom("overview")
+    setViewport(0, DAY_SECONDS)
+  }
+
+  function zoomBy(direction: -1 | 1) {
+    const durations = [15 * 60, 30 * 60, 60 * 60, 2 * 3600, 6 * 3600, 12 * 3600, DAY_SECONDS]
+    const currentIndex = durations.reduce(
+      (closest, duration, index) =>
+        Math.abs(duration - viewportDurationSeconds) <
+        Math.abs(durations[closest]! - viewportDurationSeconds)
+          ? index
+          : closest,
+      0
+    )
+    const nextDuration = durations[Math.max(0, Math.min(durations.length - 1, currentIndex + direction))]!
+    const center = viewportStartSeconds + viewportDurationSeconds / 2
+    setViewport(center - nextDuration / 2, nextDuration)
+    setZoom(nextDuration === DAY_SECONDS ? "overview" : nextDuration <= 3600 ? "detail" : "work")
+  }
 
   function addAtPointer(event: MouseEvent<HTMLDivElement>) {
     if (suppressClickRef.current) {
@@ -1492,37 +1562,97 @@ function CalendarScheduleView({
 
   return (
     <div className="bg-panel">
+      <div className="border-b border-line bg-black px-4 py-4 text-white">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.42fr)]">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/45">
+              Broadcast rundown
+            </p>
+            <h3 className="mt-2 truncate text-2xl font-semibold tracking-normal">
+              {liveState.activeBlock?.title ??
+                (activeItem?.kind === "gap" ? "Fallback / open time" : "No block on air")}
+            </h3>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-white/65">
+              <span className="rounded border border-white/15 px-2 py-1 tabular-nums">
+                {formatScheduleDate(date, schedule.day?.timezone)}
+              </span>
+              <span className="rounded border border-white/15 px-2 py-1 tabular-nums">
+                View {formatCalendarRange(viewportStartSeconds, viewportDurationSeconds)}
+              </span>
+              <span
+                className={[
+                  "rounded border px-2 py-1",
+                  hasReadyFallback
+                    ? "border-emerald-400/40 text-emerald-300"
+                    : "border-amber-400/45 text-amber-200"
+                ].join(" ")}
+              >
+                Fallback {hasReadyFallback ? "ready" : "missing"}
+              </span>
+            </div>
+          </div>
+          <div className="grid gap-2 text-sm">
+            <div className="rounded-md border border-white/10 bg-white/[0.06] px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
+                Now
+              </p>
+              <p className="mt-1 truncate font-semibold">
+                {liveState.isToday && liveState.nowSeconds !== null
+                  ? `${formatPlayoutTimeLabel(liveState.nowSeconds, true)} · ${
+                      liveState.activeBlock?.title ?? "fallback / gap"
+                    }`
+                  : "Planning view"}
+              </p>
+            </div>
+            <div className="rounded-md border border-white/10 bg-white/[0.06] px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
+                Next
+              </p>
+              <p className="mt-1 truncate font-semibold">
+                {liveState.nextBlock
+                  ? `${formatPlayoutTimeLabel(liveState.nextBlock.startTimeSeconds, true)} · ${liveState.nextBlock.title}`
+                  : "No next block"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
         <div>
           <p className="text-sm font-semibold">
-            {formatScheduleDate(date, schedule.day?.timezone)}
+            Lente operativa
           </p>
           <p className="mt-1 text-xs text-muted">
-            Click a time or fallback gap to add content ·{" "}
-            {schedule.day?.timezone ?? "schedule timezone"}
+            Pick an open slot, then choose content. Short ads and promos stay readable even when
+            they only run for seconds.
           </p>
           {!blocks.length ? (
             <p className="mt-1 text-xs font-semibold text-accent-positive">
-              Empty day. Click any time slot to add a block.
+              Empty day. Click any time slot on the mini map to add a block.
             </p>
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <LiveStatusBadge state={liveState} />
+          <button type="button" className="btn-secondary min-h-8 px-2" onClick={showNow} disabled={!liveState.isToday}>
+            Now
+          </button>
+          <button type="button" className="btn-secondary min-h-8 px-2" onClick={showNextGap} disabled={!gaps.length}>
+            Next gap
+          </button>
+          <button type="button" className="btn-secondary min-h-8 px-2" onClick={showFullDay}>
+            Full day
+          </button>
           <div className="flex rounded-md border border-line bg-surface p-0.5" aria-label="Zoom">
-            {(["overview", "work", "detail"] as TimelineZoom[]).map((item) => (
-              <button
-                key={item}
-                type="button"
-                className={[
-                  "min-h-7 rounded px-2 text-xs font-semibold capitalize",
-                  zoom === item ? "bg-ink text-surface" : "text-muted hover:bg-panel-soft"
-                ].join(" ")}
-                onClick={() => setZoom(item)}
-              >
-                {item}
-              </button>
-            ))}
+            <button type="button" className="min-h-7 rounded px-2 text-xs font-semibold text-muted hover:bg-panel-soft" onClick={() => zoomBy(-1)}>
+              -
+            </button>
+            <span className="grid min-h-7 min-w-16 place-items-center rounded bg-ink px-2 text-xs font-semibold capitalize text-surface">
+              {zoom}
+            </span>
+            <button type="button" className="min-h-7 rounded px-2 text-xs font-semibold text-muted hover:bg-panel-soft" onClick={() => zoomBy(1)}>
+              +
+            </button>
           </div>
           <button type="button" className="btn-secondary min-h-8 px-2" onClick={() => onAdd()}>
             <Plus size={14} aria-hidden="true" />
@@ -1531,10 +1661,99 @@ function CalendarScheduleView({
         </div>
       </div>
       <NowLineDock state={liveState} />
-      <div ref={scrollerRef} className="max-h-[720px] overflow-y-auto p-4">
+      <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_170px]">
+        <div className="min-w-0 overflow-hidden rounded-md border border-line bg-surface">
+          <div className="grid grid-cols-[96px_minmax(0,1fr)_96px_92px] border-b border-line bg-panel-soft px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-muted">
+            <span>Time</span>
+            <span>Rundown</span>
+            <span>Duration</span>
+            <span>Status</span>
+          </div>
+          <div className="divide-y divide-line">
+            {visibleItems.length ? (
+              visibleItems.map((item) =>
+                item.kind === "gap" ? (
+                  <button
+                    key={`gap-${item.startSeconds}-${item.durationSeconds}`}
+                    type="button"
+                    data-calendar-gap
+                    onClick={() => onAdd(item.startSeconds, item.durationSeconds)}
+                    className="grid w-full grid-cols-[96px_minmax(0,1fr)_96px_92px] items-center gap-3 px-3 py-3 text-left text-sm hover:bg-warn-soft"
+                  >
+                    <span className="font-semibold tabular-nums text-warn-strong">
+                      {formatPlayoutTimeLabel(item.startSeconds)}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold text-ink">
+                        {hasReadyFallback ? "Fallback loop" : "Open gap"}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted">
+                        {formatCalendarRange(item.startSeconds, item.durationSeconds)}
+                      </span>
+                    </span>
+                    <span className="tabular-nums text-muted">{formatDurationLabel(item.durationSeconds)}</span>
+                    <span className={hasReadyFallback ? "text-success" : "text-warn-strong"}>
+                      {hasReadyFallback ? "Covered" : "Risk"}
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    key={item.block.id}
+                    id={`block-${item.block.id}`}
+                    type="button"
+                    data-calendar-block
+                    onClick={() => onSelect(item.block.id)}
+                    aria-label={`${createdBlockId === item.block.id ? "New block: " : "Edit "}${item.block.title}, ${formatBlockRange(item.block)}`}
+                    className={[
+                      "grid w-full grid-cols-[96px_minmax(0,1fr)_96px_92px] items-center gap-3 px-3 py-3 text-left text-sm hover:bg-panel-soft",
+                      selectedBlockId === item.block.id ? "bg-surface-selected-positive" : "",
+                      createdBlockId === item.block.id ? "schedule-new-block bg-surface-selected-positive" : "",
+                      liveState.activeBlock?.id === item.block.id ? "bg-surface-selected-positive text-accent-live" : ""
+                    ].join(" ")}
+                  >
+                    <span className="font-semibold tabular-nums">
+                      {formatPlayoutTimeLabel(item.block.startTimeSeconds)}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate font-semibold text-ink">{item.block.title}</span>
+                        <span className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted">
+                          {typeLabel(item.block.blockType)}
+                        </span>
+                        {createdBlockId === item.block.id ? (
+                          <span className="shrink-0 rounded border border-accent-positive/30 px-1.5 py-0.5 text-[10px] font-bold uppercase text-accent-positive">
+                            New
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted">
+                        {formatBlockRange(item.block)} · {blockAssetLabel(schedule, item.block)}
+                      </span>
+                    </span>
+                    <span className="tabular-nums text-muted">
+                      {formatDurationLabel(item.block.durationSeconds)}
+                    </span>
+                    <span className={issueMap.get(item.block.id)?.severity === "critical" ? "text-danger" : issueMap.get(item.block.id)?.severity === "warning" ? "text-warn" : "text-muted"}>
+                      {liveState.activeBlock?.id === item.block.id
+                        ? "On air"
+                        : issueMap.get(item.block.id)?.severity ?? item.block.status}
+                    </span>
+                  </button>
+                )
+              )
+            ) : (
+              <button
+                type="button"
+                onClick={() => onAdd(viewportStartSeconds, Math.min(DEFAULT_MANUAL_DURATION, viewportDurationSeconds))}
+                className="w-full px-4 py-10 text-center text-sm font-semibold text-muted hover:bg-panel-soft"
+              >
+                No blocks in this lens. Add content here.
+              </button>
+            )}
+          </div>
+        </div>
         <div
-          className="relative ml-14 border-l border-line"
-          style={{ minHeight: `${canvasHeight}px` }}
+          className="relative h-[520px] rounded-md border border-line bg-panel-soft"
           aria-label="Calendar schedule"
           data-testid="calendar-schedule-canvas"
           role="button"
@@ -1555,143 +1774,60 @@ function CalendarScheduleView({
             if (event.key === "Enter" || event.key === " ") onAdd()
           }}
         >
-          {hours.map((hour) => {
-            const top = hour * hourHeight
-            return (
-              <div key={hour}>
-                <div className="absolute left-0 right-0 border-t border-line" style={{ top }}>
-                  <span className="absolute -left-2 top-2 -translate-x-full pr-3 text-xs font-semibold tabular-nums text-muted">
-                    {String(hour).padStart(2, "0")}:00
-                  </span>
-                </div>
-                <div
-                  className="absolute left-0 right-0 border-t border-dashed border-line/60"
-                  style={{ top: top + hourHeight / 2 }}
-                >
-                  <span className="absolute -left-2 top-1 -translate-x-full pr-3 text-[10px] font-semibold tabular-nums text-muted/70">
-                    {String(hour).padStart(2, "0")}:30
-                  </span>
-                </div>
-              </div>
-            )
-          })}
-          {liveTop !== null ? (
+          {Array.from({ length: 24 }, (_, hour) => (
             <div
-              className="pointer-events-none absolute -left-14 right-2 z-40 border-t-2 border-accent-live"
-              style={{ top: liveTop }}
-              role="separator"
-              aria-label={`Live position ${formatPlayoutTimeLabel(liveState.nowSeconds ?? 0, true)}`}
+              key={hour}
+              className="absolute left-0 right-0 border-t border-line/70"
+              style={{ top: `${(hour / 24) * 100}%` }}
             >
-              <span className="absolute -top-3 left-0 inline-flex min-w-12 justify-center rounded bg-accent-live px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
-                Now
-              </span>
-              <span className="absolute -top-3 left-16 inline-flex max-w-[calc(100%-4rem)] items-center gap-1 rounded bg-accent-live px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
-                {formatPlayoutTimeLabel(liveState.nowSeconds ?? 0, true)} ·{" "}
-                <span className="truncate">
-                  {liveState.activeBlock?.title ?? "No active block"}
-                </span>
+              <span className="absolute left-2 top-0 text-[9px] font-semibold tabular-nums text-muted">
+                {String(hour).padStart(2, "0")}
               </span>
             </div>
-          ) : null}
-          <div className="absolute inset-y-0 left-4 right-0">
-            {gaps
-              .filter((gap) => gap.durationSeconds >= CALENDAR_SNAP_SECONDS)
-              .map((gap) => {
-                const top = (gap.startTimeSeconds / 3600) * hourHeight
-                const height = Math.max(34, (gap.durationSeconds / 3600) * hourHeight)
-                return (
-                  <button
-                    key={`${gap.startTimeSeconds}-${gap.durationSeconds}`}
-                    type="button"
-                    data-calendar-gap
-                    onClick={() => onAdd(gap.startTimeSeconds, gap.durationSeconds)}
-                    className="absolute left-0 right-2 rounded-md border border-dashed border-warn-line bg-warn-soft/50 px-3 py-2 text-left text-xs text-warn-strong hover:bg-warn-soft"
-                    style={{ top, height }}
-                  >
-                    <span className="block font-semibold">Fallback gap</span>
-                    <span className="block truncate tabular-nums">
-                      {formatCalendarRange(gap.startTimeSeconds, gap.durationSeconds)} ·{" "}
-                      {formatTimecode(gap.durationSeconds)}
-                    </span>
-                  </button>
-                )
-              })}
-          </div>
-          <div className="absolute inset-y-0 left-4 right-0">
-            {selection ? (
-              <CalendarSelectionOverlay selection={selection} hourHeight={hourHeight} />
-            ) : null}
-            {blocks.map((block) => {
-              const top = (block.startTimeSeconds / 3600) * hourHeight
-              const height = Math.max(42, (block.durationSeconds / 3600) * hourHeight)
-              const selected = selectedBlockId === block.id
-              const created = createdBlockId === block.id
-              const onAir = liveState.activeBlock?.id === block.id
-              const issue = issueMap.get(block.id)
-              return (
-                <button
-                  key={block.id}
-                  id={`block-${block.id}`}
-                  type="button"
-                  data-calendar-block
-                  onClick={() => onSelect(block.id)}
-                  aria-label={`${created ? "New block: " : "Edit "}${block.title}, ${formatBlockRange(block)}`}
-                  className={[
-                    "absolute left-0 right-2 overflow-hidden rounded-md border px-3 py-2 text-left text-sm shadow-sm focus-visible:z-30",
-                    onAir
-                      ? "z-30 border-accent-live bg-surface-selected-positive text-accent-live ring-2 ring-accent-live/60"
-                      : created
-                        ? "schedule-new-block border-accent-positive bg-surface-selected-positive text-accent-positive ring-2 ring-accent-positive/50"
-                        : selected
-                          ? "border-accent-positive bg-surface-selected-positive text-accent-positive"
-                          : issue?.severity === "critical"
-                            ? "border-danger-line bg-danger-soft text-danger-strong hover:bg-danger-soft"
-                            : issue?.severity === "warning"
-                              ? "border-warn-line bg-warn-soft text-warn-strong hover:bg-warn-soft"
-                              : "border-line bg-surface text-ink hover:bg-panel-soft",
-                    !onAir && (created || selected)
-                      ? "z-20"
-                      : !onAir && issue?.severity === "critical"
-                        ? "z-10"
-                        : "",
-                    height < 58 ? "py-1.5" : ""
-                  ].join(" ")}
-                  style={{ top, height }}
-                >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="font-bold tabular-nums">{formatBlockRange(block)}</span>
-                    <span className="flex shrink-0 items-center gap-1">
-                      {onAir ? (
-                        <span className="rounded border border-current/30 px-1.5 py-0.5 text-[10px] font-bold uppercase">
-                          On Air
-                        </span>
-                      ) : null}
-                      {created ? (
-                        <span className="rounded border border-current/30 px-1.5 py-0.5 text-[10px] font-bold uppercase">
-                          New
-                        </span>
-                      ) : null}
-                      {issue ? (
-                        <span className="rounded border border-current/25 px-1.5 py-0.5 text-[10px] font-bold uppercase">
-                          {issue.severity}
-                        </span>
-                      ) : null}
-                    </span>
-                  </span>
-                  <span className="mt-0.5 block truncate font-semibold text-ink">
-                    {block.title}
-                  </span>
-                  <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs opacity-80">
-                    <span className="shrink-0 rounded border border-current/20 px-1.5 py-0.5 font-semibold tabular-nums">
-                      {formatDurationLabel(block.durationSeconds)}
-                    </span>
-                    <span className="truncate">{blockAssetLabel(schedule, block)}</span>
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+          ))}
+          <div
+            className="absolute left-8 right-2 rounded border border-accent-positive bg-surface-selected-positive/50"
+            style={{
+              top: `${(viewportStartSeconds / DAY_SECONDS) * 100}%`,
+              height: `${Math.max((viewportDurationSeconds / DAY_SECONDS) * 100, 2)}%`
+            }}
+          />
+          {selection ? <CalendarSelectionOverlay selection={selection} /> : null}
+          {gaps.map((gap) => (
+            <button
+              key={`map-gap-${gap.startTimeSeconds}-${gap.durationSeconds}`}
+              type="button"
+              data-calendar-gap
+              onClick={() => onAdd(gap.startTimeSeconds, gap.durationSeconds)}
+              className="absolute left-8 right-2 rounded-sm border border-dashed border-warn-line bg-warn-soft"
+              style={{
+                top: `${(gap.startTimeSeconds / DAY_SECONDS) * 100}%`,
+                height: `${Math.max((gap.durationSeconds / DAY_SECONDS) * 100, 1.3)}%`
+              }}
+              aria-label={`Fallback gap ${formatCalendarRange(gap.startTimeSeconds, gap.durationSeconds)}`}
+            />
+          ))}
+          {blocks.map((block) => (
+            <button
+              key={`map-${block.id}`}
+              type="button"
+              data-calendar-block
+              onClick={() => onSelect(block.id)}
+              className={[
+                "absolute left-8 right-2 rounded-sm border",
+                liveState.activeBlock?.id === block.id
+                  ? "border-accent-live bg-accent-live"
+                  : selectedBlockId === block.id || createdBlockId === block.id
+                    ? "border-accent-positive bg-accent-positive"
+                    : "border-line bg-ink/80"
+              ].join(" ")}
+              style={{
+                top: `${(block.startTimeSeconds / DAY_SECONDS) * 100}%`,
+                height: `${Math.max((block.durationSeconds / DAY_SECONDS) * 100, 1.3)}%`
+              }}
+              aria-label={`${createdBlockId === block.id ? "New block: " : "Edit "}${block.title}, ${formatBlockRange(block)}`}
+            />
+          ))}
         </div>
       </div>
     </div>
@@ -1744,21 +1880,19 @@ function NowLineDock({ state }: { state: ReturnType<typeof getScheduleLiveState>
 }
 
 function CalendarSelectionOverlay({
-  selection,
-  hourHeight
+  selection
 }: {
   selection: NonNullable<CalendarSelection>
-  hourHeight: number
 }) {
-  const top = (selection.startSeconds / 3600) * hourHeight
-  const height = Math.max(42, (selection.durationSeconds / 3600) * hourHeight)
   return (
     <div
-      className="pointer-events-none absolute left-0 right-2 z-50 rounded-md border border-accent-positive bg-surface-selected-positive/90 px-3 py-2 text-xs text-accent-positive shadow-lg"
-      style={{ top, height }}
+      className="pointer-events-none absolute left-8 right-2 z-50 rounded-sm border border-accent-positive bg-surface-selected-positive/90 px-2 py-1 text-[10px] font-semibold text-accent-positive shadow-lg"
+      style={{
+        top: `${(selection.startSeconds / DAY_SECONDS) * 100}%`,
+        height: `${Math.max((selection.durationSeconds / DAY_SECONDS) * 100, 1.3)}%`
+      }}
     >
-      <span className="block font-bold">New block range</span>
-      <span className="block tabular-nums">
+      <span className="block truncate tabular-nums">
         {formatCalendarRange(selection.startSeconds, selection.durationSeconds)} ·{" "}
         {formatTimecode(selection.durationSeconds)}
       </span>
@@ -1834,6 +1968,24 @@ function normalizeCalendarSelection(startSeconds: number, endSeconds: number) {
     startSeconds: start,
     durationSeconds: Math.max(CALENDAR_SNAP_SECONDS, end - start)
   }
+}
+
+function buildRundownItems(blocks: ProgramBlock[], gaps: ScheduleGap[]): RundownItem[] {
+  return [
+    ...blocks.map((block) => ({
+      kind: "block" as const,
+      block,
+      startSeconds: block.startTimeSeconds,
+      endSeconds: Math.min(DAY_SECONDS, block.startTimeSeconds + block.durationSeconds),
+      durationSeconds: block.durationSeconds
+    })),
+    ...gaps.map((gap) => ({
+      kind: "gap" as const,
+      startSeconds: gap.startTimeSeconds,
+      endSeconds: Math.min(DAY_SECONDS, gap.startTimeSeconds + gap.durationSeconds),
+      durationSeconds: gap.durationSeconds
+    }))
+  ].sort((a, b) => a.startSeconds - b.startSeconds || b.durationSeconds - a.durationSeconds)
 }
 
 function formatBlockRange(block: ProgramBlock) {
