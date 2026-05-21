@@ -22,7 +22,7 @@ describe("ScheduleWorkspace", () => {
     expect(screen.getByText("00")).toBeInTheDocument()
     expect(screen.getByText("23")).toBeInTheDocument()
     expect(screen.getAllByRole("button", { name: /Fallback gap/i }).length).toBeGreaterThan(0)
-    expect(screen.getByRole("heading", { name: "Add content to the day" })).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "Add content to the day" })).toBeNull()
   })
 
   it("prefills add block start time from clicked calendar slot", () => {
@@ -83,6 +83,7 @@ describe("ScheduleWorkspace", () => {
   it("offers human duration presets for short ads and long shows", () => {
     renderWorkspace({ blocks: [] })
 
+    fireEvent.click(screen.getAllByRole("button", { name: "Add Block" })[0]!)
     fireEvent.click(screen.getByRole("button", { name: "2h" }))
 
     expect(
@@ -118,7 +119,7 @@ describe("ScheduleWorkspace", () => {
   it("opens add drawer when the page action targets #add-block", () => {
     renderWorkspace({ blocks: [block] })
 
-    expect(screen.getByText("Select a block")).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "Add content to the day" })).toBeNull()
 
     window.location.hash = "#add-block"
     fireEvent(window, new HashChangeEvent("hashchange"))

@@ -31,7 +31,7 @@ import {
   X
 } from "lucide-react"
 import Link from "next/link"
-import type { MouseEvent, PointerEvent } from "react"
+import type { MouseEvent, PointerEvent, ReactNode } from "react"
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 
 import { PlayoutTime } from "@/components/playout-time"
@@ -147,9 +147,7 @@ export function ScheduleWorkspace({
   const [selectedBlockId, setSelectedBlockId] = useState(
     createdBlock?.id ?? activeBlocks[0]?.id ?? ""
   )
-  const [drawerOpen, setDrawerOpen] = useState(
-    Boolean(initialOption) || (!createdBlock && activeBlocks.length === 0)
-  )
+  const [drawerOpen, setDrawerOpen] = useState(Boolean(initialOption))
   const [message, setMessage] = useState<string | null>(initialMessage ?? null)
   const [pendingStartTime, setPendingStartTime] = useState<string | null>(null)
   const [pendingDurationSeconds, setPendingDurationSeconds] = useState<number | null>(null)
@@ -245,11 +243,31 @@ export function ScheduleWorkspace({
     )
   }
 
+  const editor = drawerOpen ? (
+    <BlockEditorModal onClose={() => setDrawerOpen(false)}>
+      <BlockDrawer
+        key={`${drawerMode}-${selectedBlock?.id ?? "new"}-${initialContentValue ?? ""}-${pendingStartTime ?? ""}-${pendingDurationSeconds ?? ""}`}
+        mode={drawerMode}
+        date={date}
+        schedule={schedule}
+        blocks={activeBlocks}
+        block={drawerMode === "edit" ? selectedBlock : null}
+        options={options}
+        createAction={createAction}
+        updateAction={updateAction}
+        resizeAction={resizeAction}
+        archiveAction={archiveAction}
+        initialContentValue={drawerMode === "add" ? initialContentValue : undefined}
+        initialFilters={drawerMode === "add" ? initialFilters : undefined}
+        initialStartTime={drawerMode === "add" ? pendingStartTime : null}
+        initialDurationSeconds={drawerMode === "add" ? pendingDurationSeconds : null}
+        onClose={() => setDrawerOpen(false)}
+      />
+    </BlockEditorModal>
+  ) : null
+
   return (
-    <section
-      id="add-block"
-      className="mb-5 grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_430px]"
-    >
+    <section id="add-block" className="mb-5 grid min-w-0 grid-cols-1 gap-5">
       <div className="surface-panel min-w-0 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div>
@@ -289,53 +307,21 @@ export function ScheduleWorkspace({
         <BulkCardLoopPanel schedule={schedule} action={bulkCreateAction} />
       </div>
 
-      <aside className="min-w-0">
-        {drawerOpen ? (
-          <BlockDrawer
-            key={`${drawerMode}-${selectedBlock?.id ?? "new"}-${initialContentValue ?? ""}-${pendingStartTime ?? ""}-${pendingDurationSeconds ?? ""}`}
-            mode={drawerMode}
-            date={date}
-            schedule={schedule}
-            blocks={activeBlocks}
-            block={drawerMode === "edit" ? selectedBlock : null}
-            options={options}
-            createAction={createAction}
-            updateAction={updateAction}
-            resizeAction={resizeAction}
-            archiveAction={archiveAction}
-            initialContentValue={drawerMode === "add" ? initialContentValue : undefined}
-            initialFilters={drawerMode === "add" ? initialFilters : undefined}
-            initialStartTime={drawerMode === "add" ? pendingStartTime : null}
-            initialDurationSeconds={drawerMode === "add" ? pendingDurationSeconds : null}
-            onClose={() => setDrawerOpen(false)}
-          />
-        ) : (
-          <section className="surface-panel p-4">
-            <p className="eyebrow">Editor</p>
-            <h2 className="mt-1 text-lg font-semibold">Select a block</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Pick a block on the timeline, or add content into the empty time you want to fill.
-            </p>
-            <button type="button" className="btn-primary mt-4" onClick={() => openAdd()}>
-              Add Block
-            </button>
-          </section>
-        )}
-        <RundownControls
-          date={date}
-          schedule={schedule}
-          blocks={orderedBlocks}
-          selectedBlockId={drawerOpen && drawerMode === "edit" ? selectedBlockId : ""}
-          disabled={isPending}
-          sensors={sensors}
-          displayOrderedIds={displayOrderedIds}
-          onDragEnd={onDragEnd}
-          onSelect={openEdit}
-          onMoveByButton={moveByButton}
-          onDuplicate={(blockId) => run(() => duplicateAction({ blockId }))}
-          onArchive={(blockId) => run(() => archiveAction({ blockId }))}
-        />
-      </aside>
+      <RundownControls
+        date={date}
+        schedule={schedule}
+        blocks={orderedBlocks}
+        selectedBlockId={drawerOpen && drawerMode === "edit" ? selectedBlockId : ""}
+        disabled={isPending}
+        sensors={sensors}
+        displayOrderedIds={displayOrderedIds}
+        onDragEnd={onDragEnd}
+        onSelect={openEdit}
+        onMoveByButton={moveByButton}
+        onDuplicate={(blockId) => run(() => duplicateAction({ blockId }))}
+        onArchive={(blockId) => run(() => archiveAction({ blockId }))}
+      />
+      {editor}
     </section>
   )
 }
@@ -437,6 +423,28 @@ function PlannerStat({
     <div className="rounded-md border border-line bg-surface px-3 py-2">
       <p className="text-[10px] font-bold uppercase text-muted">{label}</p>
       <p className={`mt-1 truncate text-sm font-semibold tabular-nums ${toneClass}`}>{value}</p>
+    </div>
+  )
+}
+
+function BlockEditorModal({
+  children,
+  onClose
+}: {
+  children: ReactNode
+  onClose: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[100] grid place-items-center bg-black/60 p-3 backdrop-blur-sm sm:p-6"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <div className="w-full max-w-xl" role="dialog" aria-modal="true">
+        {children}
+      </div>
     </div>
   )
 }
@@ -775,7 +783,7 @@ function BlockDrawer({
   }
 
   return (
-    <section className="surface-panel sticky top-32 overflow-hidden">
+    <section className="surface-panel max-h-[calc(100vh-2rem)] overflow-y-auto">
       <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
         <div>
           <p className="eyebrow">{mode === "add" ? "Add Block" : "Edit Block"}</p>
