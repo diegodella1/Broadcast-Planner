@@ -263,7 +263,11 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
       data-drift-seconds={driftSeconds.toFixed(2)}
       data-drift-warning={driftWarning ? "true" : "false"}
     >
-      <video ref={videoRef} className={videoClassName(state)} />
+      <div className="absolute inset-0 grid place-items-center bg-black">
+        <div className="relative aspect-video h-auto max-h-full w-full max-w-full overflow-hidden bg-black">
+          <video ref={videoRef} className={videoClassName(state)} />
+        </div>
+      </div>
       <audio ref={musicRef} />
       <VisualState state={state} mediaState={mediaState} />
       {!armed ? (
@@ -404,7 +408,7 @@ async function playVideo(video: HTMLVideoElement) {
 function videoClassName(state: OutputState | null) {
   const visible = state && isVideoState(state)
   return [
-    "absolute inset-0 h-full w-full bg-black object-contain",
+    "absolute inset-0 h-full w-full bg-black object-contain object-center",
     visible ? "opacity-100" : "opacity-0"
   ].join(" ")
 }
