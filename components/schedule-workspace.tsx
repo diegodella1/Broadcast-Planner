@@ -31,7 +31,7 @@ import {
   X
 } from "lucide-react"
 import Link from "next/link"
-import type { MouseEvent } from "react"
+import type { MouseEvent, PointerEvent } from "react"
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 
 import { PlayoutTime } from "@/components/playout-time"
@@ -83,6 +83,13 @@ type InitialContentFilters = {
 const DEFAULT_MANUAL_DURATION = 30
 const DAY_SECONDS = 86400
 const CALENDAR_SNAP_SECONDS = 300
+const ZOOM_HEIGHTS = {
+  overview: 54,
+  work: 90,
+  detail: 180
+} as const
+type TimelineZoom = keyof typeof ZOOM_HEIGHTS
+type CalendarSelection = { startSeconds: number; durationSeconds: number } | null
 
 export function ScheduleWorkspace({
   date,
@@ -667,7 +674,7 @@ function BlockDrawer({
     block?.startTime ?? initialStartTime ?? nextSuggestedStart(blocks)
   )
   const [duration, setDuration] = useState(
-    String(
+    formatDurationInput(
       block?.durationSeconds ??
         initialDurationSeconds ??
         initialOption?.durationSeconds ??
@@ -707,10 +714,11 @@ function BlockDrawer({
   const hiddenAssetId = selected?.assetId ?? (mode === "edit" ? (block?.assetId ?? "") : "")
   const hiddenSlideId = selected?.slideId ?? (mode === "edit" ? (block?.slideId ?? "") : "")
   const hasReutersStream = Boolean(reutersStreamUrl.trim())
-  const durationSeconds = Math.max(1, Number(duration || DEFAULT_MANUAL_DURATION))
+  const durationSeconds = parseHumanDuration(duration)
   const startSeconds = parseTimeInput(startTime)
   const endSeconds = Math.min(DAY_SECONDS, startSeconds + durationSeconds)
   const exceedsDay = startSeconds + durationSeconds > DAY_SECONDS
+  const adTooLong = hiddenBlockType === "ad" && durationSeconds > 300
   const conflict =
     selected && schedule.day && !exceedsDay
       ? findScheduleConflicts(blocks, {
@@ -723,7 +731,7 @@ function BlockDrawer({
   const conflictMessage = conflict ? scheduleConflictMessage(conflict) : ""
   const insertPreview =
     schedule.day && status !== "archived" && !exceedsDay
-      ? previewInsertShift({
+      ? safePreviewInsertShift({
           blocks,
           candidate: {
             id: block?.id ?? "new",
@@ -737,6 +745,7 @@ function BlockDrawer({
   const canSave =
     Boolean(selected || mode === "edit" || hasReutersStream) &&
     !exceedsDay &&
+    !adTooLong &&
     (!conflict?.hasConflict || conflictResolution !== "strict")
 
   function chooseKind(value: BlockType) {
@@ -751,7 +760,7 @@ function BlockDrawer({
     setContentValue(value)
     if (next) {
       setTitle((current) => (mode === "add" || !current ? next.title : current))
-      setDuration(String(next.durationSeconds ?? DEFAULT_MANUAL_DURATION))
+      setDuration(formatDurationInput(next.durationSeconds ?? DEFAULT_MANUAL_DURATION))
     }
   }
 
@@ -786,7 +795,22 @@ function BlockDrawer({
         <input type="hidden" name="fallback_asset_id" value={block?.fallbackAssetId ?? ""} />
         <input type="hidden" name="notes" value={block?.notes ?? ""} />
         <input type="hidden" name="conflict_resolution" value={conflictResolution} />
+        <input type="hidden" name="duration_seconds" value={durationSeconds} />
 
+        <div className="rounded-md border border-line bg-panel-soft px-3 py-2">
+          <p className="text-[10px] font-bold uppercase text-muted">When</p>
+          <p className="mt-1 text-sm font-semibold tabular-nums">
+            {formatPlayoutTimeLabel(startSeconds, true)} to{" "}
+            {formatPlayoutTimeLabel(endSeconds, true)}
+          </p>
+          {initialDurationSeconds ? (
+            <p className="mt-0.5 text-xs text-muted">
+              Range selected from timeline: {formatTimecode(initialDurationSeconds)}
+            </p>
+          ) : null}
+        </div>
+
+        <p className="text-[10px] font-bold uppercase text-muted">What plays</p>
         <div className="grid grid-cols-3 gap-2">
           {(["video", "slide", "image", "ad", "promo", "fallback"] as BlockType[]).map((item) => (
             <button
@@ -882,24 +906,27 @@ function BlockDrawer({
             />
           </label>
           <label className="grid gap-1 text-xs font-semibold text-muted">
-            Duration in seconds
+            Duration
             <input
-              name="duration_seconds"
               required
-              type="number"
-              min="1"
               value={duration}
               onChange={(event) => setDuration(event.target.value)}
+              placeholder="30s, 57s, 1m, 2h, 01:30:00"
               className="border border-line px-3 py-2 text-sm font-normal text-ink"
             />
           </label>
         </div>
-        <div className="rounded-md border border-line bg-panel-soft px-3 py-2 text-xs font-semibold text-muted">
-          <span className="uppercase">End time</span>
-          <span className="mt-1 block text-sm tabular-nums text-ink">
-            {formatPlayoutTimeLabel(endSeconds, true)}
-            {startSeconds + durationSeconds > DAY_SECONDS ? " (clamped to end of day)" : ""}
-          </span>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {[30, 57, 60, 300, 1800, 7200].map((seconds) => (
+            <button
+              key={seconds}
+              type="button"
+              className="btn-secondary min-h-8 px-2 text-xs"
+              onClick={() => setDuration(formatDurationInput(seconds))}
+            >
+              {compactDurationLabel(seconds)}
+            </button>
+          ))}
         </div>
 
         {exceedsDay ? (
@@ -911,6 +938,12 @@ function BlockDrawer({
         {selected?.durationSeconds ? (
           <p className="rounded-md border border-success-line bg-success-soft px-3 py-2 text-xs font-semibold text-success-strong">
             This block uses the media duration: {formatTimecode(selected.durationSeconds)}.
+          </p>
+        ) : null}
+
+        {adTooLong ? (
+          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm font-semibold text-danger-strong">
+            Ads can be at most 5 minutes. Shorten this block or use Promo/Video.
           </p>
         ) : null}
 
@@ -979,18 +1012,11 @@ function BlockDrawer({
           </a>
         ) : null}
 
-        {insertPreview?.blocksToShift.length ? (
-          <div className="rounded-md border border-info-line bg-info-soft px-3 py-2 text-sm text-info-strong">
-            <p className="font-semibold">
-              This will make room by moving {insertPreview.blocksToShift.length} following block
-              {insertPreview.blocksToShift.length === 1 ? "" : "s"}.
-            </p>
-            <p className="mt-1 text-xs text-muted">
-              Next affected: {insertPreview.blocksToShift[0]?.title} to{" "}
-              {formatPlayoutTimeLabel(insertPreview.blocksToShift[0]?.startTimeSeconds ?? 0, true)}
-            </p>
-          </div>
-        ) : null}
+        <ScheduleImpactPreview
+          conflict={conflict}
+          insertPreview={insertPreview}
+          exceedsDay={exceedsDay}
+        />
 
         {conflict?.hasConflict ? (
           <div className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-sm text-warn-strong">
@@ -1096,6 +1122,71 @@ function BlockDrawer({
       ) : null}
     </section>
   )
+}
+
+function ScheduleImpactPreview({
+  conflict,
+  insertPreview,
+  exceedsDay
+}: {
+  conflict: ReturnType<typeof findScheduleConflicts> | null
+  insertPreview: ReturnType<typeof previewInsertShift> | null
+  exceedsDay: boolean
+}) {
+  if (exceedsDay) {
+    return (
+      <div className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger-strong">
+        <p className="font-semibold">Does not fit today</p>
+        <p className="mt-1 text-xs opacity-85">Start earlier or shorten the duration.</p>
+      </div>
+    )
+  }
+
+  if (conflict?.hasConflict) {
+    const shifted = insertPreview?.blocksToShift ?? []
+    return (
+      <div className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-sm text-warn-strong">
+        <p className="text-[10px] font-bold uppercase">Impact</p>
+        <p className="mt-1 font-semibold">Overlaps {conflict.conflicts.length} block(s)</p>
+        {shifted.length ? (
+          <p className="mt-1 text-xs opacity-85">
+            Make room will move {shifted.length} block{shifted.length === 1 ? "" : "s"}. Last
+            affected starts at{" "}
+            {formatPlayoutTimeLabel(shifted[shifted.length - 1]?.startTimeSeconds ?? 0, true)}.
+          </p>
+        ) : (
+          <p className="mt-1 text-xs opacity-85">Choose how to handle the overlap below.</p>
+        )}
+      </div>
+    )
+  }
+
+  if (insertPreview?.blocksToShift.length) {
+    return (
+      <div className="rounded-md border border-info-line bg-info-soft px-3 py-2 text-sm text-info-strong">
+        <p className="text-[10px] font-bold uppercase">Impact</p>
+        <p className="mt-1 font-semibold">
+          Make room will move {insertPreview.blocksToShift.length} following block
+          {insertPreview.blocksToShift.length === 1 ? "" : "s"}.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-md border border-success-line bg-success-soft px-3 py-2 text-sm text-success-strong">
+      <p className="text-[10px] font-bold uppercase">Impact</p>
+      <p className="mt-1 font-semibold">Fits in the selected time.</p>
+    </div>
+  )
+}
+
+function safePreviewInsertShift(input: Parameters<typeof previewInsertShift>[0]) {
+  try {
+    return previewInsertShift(input)
+  } catch {
+    return null
+  }
 }
 
 function RundownControls({
@@ -1280,11 +1371,16 @@ function CalendarScheduleView({
   onSelect: (blockId: string) => void
   onAdd: (startSeconds?: number, durationSeconds?: number) => void
 }) {
-  const hourHeight = 80
+  const [zoom, setZoom] = useState<TimelineZoom>("work")
+  const [dragStartSeconds, setDragStartSeconds] = useState<number | null>(null)
+  const [dragCurrentSeconds, setDragCurrentSeconds] = useState<number | null>(null)
+  const hourHeight = ZOOM_HEIGHTS[zoom]
   const canvasHeight = hourHeight * 24
   const hours = Array.from({ length: 24 }, (_, hour) => hour)
   const scrollerRef = useRef<HTMLDivElement>(null)
   const hasAutoScrolledRef = useRef(false)
+  const suppressClickRef = useRef(false)
+  const pointerSelectionRef = useRef(false)
   const timezone = schedule.day?.timezone ?? "America/Los_Angeles"
   const liveState = useScheduleLiveState(date, timezone, blocks)
   const liveTop = liveState.nowSeconds !== null ? (liveState.nowSeconds / 3600) * hourHeight : null
@@ -1292,6 +1388,10 @@ function CalendarScheduleView({
   const issueMap = new Map(
     issues.filter((issue) => issue.blockId).map((issue) => [issue.blockId, issue])
   )
+  const selection =
+    dragStartSeconds !== null && dragCurrentSeconds !== null
+      ? normalizeCalendarSelection(dragStartSeconds, dragCurrentSeconds)
+      : null
 
   useEffect(() => {
     hasAutoScrolledRef.current = false
@@ -1307,11 +1407,87 @@ function CalendarScheduleView({
   }, [liveState.isToday, liveTop])
 
   function addAtPointer(event: MouseEvent<HTMLDivElement>) {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
+    }
     if ((event.target as HTMLElement).closest("[data-calendar-block]")) return
     if ((event.target as HTMLElement).closest("[data-calendar-gap]")) return
     const rect = event.currentTarget.getBoundingClientRect()
     const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height)
     onAdd(snapCalendarSeconds((y / rect.height) * DAY_SECONDS))
+  }
+
+  function secondsFromClientY(element: HTMLDivElement, clientY: number) {
+    if (!Number.isFinite(clientY)) return 0
+    const rect = element.getBoundingClientRect()
+    const y = Math.min(Math.max(clientY - rect.top, 0), rect.height)
+    return snapCalendarSeconds((y / rect.height) * DAY_SECONDS)
+  }
+
+  function secondsFromPointer(event: PointerEvent<HTMLDivElement>) {
+    return secondsFromClientY(event.currentTarget, event.clientY)
+  }
+
+  function secondsFromMouse(event: MouseEvent<HTMLDivElement>) {
+    return secondsFromClientY(event.currentTarget, event.clientY)
+  }
+
+  function startMouseSelection(event: MouseEvent<HTMLDivElement>) {
+    if (pointerSelectionRef.current) return
+    if ((event.target as HTMLElement).closest("[data-calendar-block]")) return
+    if ((event.target as HTMLElement).closest("[data-calendar-gap]")) return
+    const seconds = secondsFromMouse(event)
+    setDragStartSeconds(seconds)
+    setDragCurrentSeconds(Math.min(DAY_SECONDS, seconds + CALENDAR_SNAP_SECONDS))
+  }
+
+  function updateMouseSelection(event: MouseEvent<HTMLDivElement>) {
+    if (pointerSelectionRef.current) return
+    if (dragStartSeconds === null) return
+    setDragCurrentSeconds(secondsFromMouse(event))
+  }
+
+  function finishMouseSelection() {
+    if (pointerSelectionRef.current) return
+    if (dragStartSeconds === null || dragCurrentSeconds === null) return
+    const next = normalizeCalendarSelection(dragStartSeconds, dragCurrentSeconds)
+    setDragStartSeconds(null)
+    setDragCurrentSeconds(null)
+    if (next.durationSeconds > CALENDAR_SNAP_SECONDS) {
+      suppressClickRef.current = true
+      onAdd(next.startSeconds, next.durationSeconds)
+    }
+  }
+
+  function startSelection(event: PointerEvent<HTMLDivElement>) {
+    if ((event.target as HTMLElement).closest("[data-calendar-block]")) return
+    if ((event.target as HTMLElement).closest("[data-calendar-gap]")) return
+    pointerSelectionRef.current = true
+    const seconds = secondsFromPointer(event)
+    setDragStartSeconds(seconds)
+    setDragCurrentSeconds(Math.min(DAY_SECONDS, seconds + CALENDAR_SNAP_SECONDS))
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function updateSelection(event: PointerEvent<HTMLDivElement>) {
+    if (dragStartSeconds === null) return
+    setDragCurrentSeconds(secondsFromPointer(event))
+  }
+
+  function finishSelection(event: PointerEvent<HTMLDivElement>) {
+    if (dragStartSeconds === null || dragCurrentSeconds === null) return
+    const next = normalizeCalendarSelection(dragStartSeconds, dragCurrentSeconds)
+    setDragStartSeconds(null)
+    setDragCurrentSeconds(null)
+    event.currentTarget.releasePointerCapture(event.pointerId)
+    window.setTimeout(() => {
+      pointerSelectionRef.current = false
+    }, 0)
+    if (next.durationSeconds > CALENDAR_SNAP_SECONDS) {
+      suppressClickRef.current = true
+      onAdd(next.startSeconds, next.durationSeconds)
+    }
   }
 
   return (
@@ -1333,6 +1509,21 @@ function CalendarScheduleView({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <LiveStatusBadge state={liveState} />
+          <div className="flex rounded-md border border-line bg-surface p-0.5" aria-label="Zoom">
+            {(["overview", "work", "detail"] as TimelineZoom[]).map((item) => (
+              <button
+                key={item}
+                type="button"
+                className={[
+                  "min-h-7 rounded px-2 text-xs font-semibold capitalize",
+                  zoom === item ? "bg-ink text-surface" : "text-muted hover:bg-panel-soft"
+                ].join(" ")}
+                onClick={() => setZoom(item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
           <button type="button" className="btn-secondary min-h-8 px-2" onClick={() => onAdd()}>
             <Plus size={14} aria-hidden="true" />
             Add Block
@@ -1349,6 +1540,17 @@ function CalendarScheduleView({
           role="button"
           tabIndex={0}
           onClick={addAtPointer}
+          onPointerDown={startSelection}
+          onPointerMove={updateSelection}
+          onPointerUp={finishSelection}
+          onPointerCancel={() => {
+            setDragStartSeconds(null)
+            setDragCurrentSeconds(null)
+            pointerSelectionRef.current = false
+          }}
+          onMouseDown={startMouseSelection}
+          onMouseMove={updateMouseSelection}
+          onMouseUp={finishMouseSelection}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") onAdd()
           }}
@@ -1417,6 +1619,9 @@ function CalendarScheduleView({
               })}
           </div>
           <div className="absolute inset-y-0 left-4 right-0">
+            {selection ? (
+              <CalendarSelectionOverlay selection={selection} hourHeight={hourHeight} />
+            ) : null}
             {blocks.map((block) => {
               const top = (block.startTimeSeconds / 3600) * hourHeight
               const height = Math.max(42, (block.durationSeconds / 3600) * hourHeight)
@@ -1538,6 +1743,29 @@ function NowLineDock({ state }: { state: ReturnType<typeof getScheduleLiveState>
   )
 }
 
+function CalendarSelectionOverlay({
+  selection,
+  hourHeight
+}: {
+  selection: NonNullable<CalendarSelection>
+  hourHeight: number
+}) {
+  const top = (selection.startSeconds / 3600) * hourHeight
+  const height = Math.max(42, (selection.durationSeconds / 3600) * hourHeight)
+  return (
+    <div
+      className="pointer-events-none absolute left-0 right-2 z-50 rounded-md border border-accent-positive bg-surface-selected-positive/90 px-3 py-2 text-xs text-accent-positive shadow-lg"
+      style={{ top, height }}
+    >
+      <span className="block font-bold">New block range</span>
+      <span className="block tabular-nums">
+        {formatCalendarRange(selection.startSeconds, selection.durationSeconds)} ·{" "}
+        {formatTimecode(selection.durationSeconds)}
+      </span>
+    </div>
+  )
+}
+
 function useScheduleLiveState(date: string, timezone: string, blocks: ProgramBlock[]) {
   const [now, setNow] = useState<Date | null>(null)
 
@@ -1599,6 +1827,15 @@ function snapCalendarSeconds(seconds: number) {
   )
 }
 
+function normalizeCalendarSelection(startSeconds: number, endSeconds: number) {
+  const start = Math.max(0, Math.min(startSeconds, endSeconds))
+  const end = Math.min(DAY_SECONDS, Math.max(startSeconds, endSeconds))
+  return {
+    startSeconds: start,
+    durationSeconds: Math.max(CALENDAR_SNAP_SECONDS, end - start)
+  }
+}
+
 function formatBlockRange(block: ProgramBlock) {
   return formatCalendarRange(block.startTimeSeconds, block.durationSeconds)
 }
@@ -1616,6 +1853,19 @@ function formatDurationLabel(seconds: number) {
   const hours = Math.floor(minutes / 60)
   const remainingMinutes = minutes % 60
   return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`
+}
+
+function compactDurationLabel(seconds: number) {
+  if (seconds < 60) return `${seconds}s`
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.round((seconds % 3600) / 60)
+  return minutes ? `${hours}h${minutes}m` : `${hours}h`
+}
+
+function formatDurationInput(seconds: number) {
+  if (seconds < 60) return `${seconds}s`
+  return formatTimecode(seconds)
 }
 
 function buildContentOptions(schedule: ScheduleBundle): ContentOption[] {
@@ -1733,6 +1983,34 @@ function parseTimeInput(value: string) {
   const total = Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds)
   if (!Number.isFinite(total)) return 0
   return Math.max(0, Math.min(total, 86399))
+}
+
+function parseHumanDuration(value: string) {
+  const text = value.trim().toLowerCase()
+  if (!text) return DEFAULT_MANUAL_DURATION
+  if (/^\d+:\d{1,2}(:\d{1,2})?$/.test(text)) {
+    const parts = text.split(":").map((part) => Number(part))
+    const [hours = 0, minutes = 0, seconds = 0] =
+      parts.length === 2 ? [0, parts[0], parts[1]] : parts
+    const total = hours * 3600 + minutes * 60 + seconds
+    return Math.max(1, Math.floor(Number.isFinite(total) ? total : DEFAULT_MANUAL_DURATION))
+  }
+  const matches = [
+    ...text.matchAll(/(\d+(?:\.\d+)?)\s*(h|hr|hrs|hour|hours|m|min|mins|s|sec|secs)?/g)
+  ]
+  if (matches.length) {
+    const total = matches.reduce((sum, match) => {
+      const amount = Number(match[1])
+      const unit = match[2] ?? "s"
+      if (!Number.isFinite(amount)) return sum
+      if (unit.startsWith("h")) return sum + amount * 3600
+      if (unit.startsWith("m")) return sum + amount * 60
+      return sum + amount
+    }, 0)
+    if (total > 0) return Math.max(1, Math.floor(total))
+  }
+  const numeric = Number(text)
+  return Math.max(1, Math.floor(Number.isFinite(numeric) ? numeric : DEFAULT_MANUAL_DURATION))
 }
 
 function typeLabel(type: BlockType) {

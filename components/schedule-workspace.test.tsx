@@ -44,6 +44,50 @@ describe("ScheduleWorkspace", () => {
     ).toBe(true)
   })
 
+  it("prefills start and duration from a dragged timeline range", () => {
+    renderWorkspace({ blocks: [] })
+    const canvas = screen.getByTestId("calendar-schedule-canvas")
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 400,
+      height: 2160,
+      top: 0,
+      right: 400,
+      bottom: 2160,
+      left: 0,
+      toJSON: () => ({})
+    })
+
+    fireEvent.mouseDown(canvas, { clientY: 540 })
+    fireEvent.mouseMove(canvas, { clientY: 630 })
+    fireEvent.mouseUp(canvas, { clientY: 630 })
+
+    expect(
+      screen
+        .getAllByLabelText("Starts at")
+        .some((input) => (input as HTMLInputElement).value === "06:00:00")
+    ).toBe(true)
+    expect(
+      screen
+        .getAllByLabelText("Duration")
+        .some((input) => (input as HTMLInputElement).value === "01:00:00")
+    ).toBe(true)
+  })
+
+  it("offers human duration presets for short ads and long shows", () => {
+    renderWorkspace({ blocks: [] })
+
+    fireEvent.click(screen.getByRole("button", { name: "2h" }))
+
+    expect(
+      screen
+        .getAllByLabelText("Duration")
+        .some((input) => (input as HTMLInputElement).value === "02:00:00")
+    ).toBe(true)
+    expect(screen.getByRole("button", { name: /Add 00:00:00 SF-02:00:00 SF/i })).toBeEnabled()
+  })
+
   it("keeps rundown controls available for existing blocks", () => {
     renderWorkspace({ blocks: [block] })
 
