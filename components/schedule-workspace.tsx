@@ -1452,7 +1452,10 @@ function CalendarScheduleView({
     const gap = nextGap ?? gaps[0]
     if (!gap) return
     setZoom("detail")
-    setViewport(Math.max(0, gap.startTimeSeconds - 5 * 60), Math.max(15 * 60, gap.durationSeconds + 10 * 60))
+    setViewport(
+      Math.max(0, gap.startTimeSeconds - 5 * 60),
+      Math.max(15 * 60, gap.durationSeconds + 10 * 60)
+    )
   }
 
   function showFullDay() {
@@ -1470,7 +1473,8 @@ function CalendarScheduleView({
           : closest,
       0
     )
-    const nextDuration = durations[Math.max(0, Math.min(durations.length - 1, currentIndex + direction))]!
+    const nextDuration =
+      durations[Math.max(0, Math.min(durations.length - 1, currentIndex + direction))]!
     const center = viewportStartSeconds + viewportDurationSeconds / 2
     setViewport(center - nextDuration / 2, nextDuration)
     setZoom(nextDuration === DAY_SECONDS ? "overview" : nextDuration <= 3600 ? "detail" : "work")
@@ -1593,9 +1597,7 @@ function CalendarScheduleView({
           </div>
           <div className="grid gap-2 text-sm">
             <div className="rounded-md border border-white/10 bg-white/[0.06] px-3 py-2">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
-                Now
-              </p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">Now</p>
               <p className="mt-1 truncate font-semibold">
                 {liveState.isToday && liveState.nowSeconds !== null
                   ? `${formatPlayoutTimeLabel(liveState.nowSeconds, true)} · ${
@@ -1619,9 +1621,7 @@ function CalendarScheduleView({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
         <div>
-          <p className="text-sm font-semibold">
-            Lente operativa
-          </p>
+          <p className="text-sm font-semibold">Lente operativa</p>
           <p className="mt-1 text-xs text-muted">
             Pick an open slot, then choose content. Short ads and promos stay readable even when
             they only run for seconds.
@@ -1634,23 +1634,41 @@ function CalendarScheduleView({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <LiveStatusBadge state={liveState} />
-          <button type="button" className="btn-secondary min-h-8 px-2" onClick={showNow} disabled={!liveState.isToday}>
+          <button
+            type="button"
+            className="btn-secondary min-h-8 px-2"
+            onClick={showNow}
+            disabled={!liveState.isToday}
+          >
             Now
           </button>
-          <button type="button" className="btn-secondary min-h-8 px-2" onClick={showNextGap} disabled={!gaps.length}>
+          <button
+            type="button"
+            className="btn-secondary min-h-8 px-2"
+            onClick={showNextGap}
+            disabled={!gaps.length}
+          >
             Next gap
           </button>
           <button type="button" className="btn-secondary min-h-8 px-2" onClick={showFullDay}>
             Full day
           </button>
           <div className="flex rounded-md border border-line bg-surface p-0.5" aria-label="Zoom">
-            <button type="button" className="min-h-7 rounded px-2 text-xs font-semibold text-muted hover:bg-panel-soft" onClick={() => zoomBy(-1)}>
+            <button
+              type="button"
+              className="min-h-7 rounded px-2 text-xs font-semibold text-muted hover:bg-panel-soft"
+              onClick={() => zoomBy(-1)}
+            >
               -
             </button>
             <span className="grid min-h-7 min-w-16 place-items-center rounded bg-ink px-2 text-xs font-semibold capitalize text-surface">
               {zoom}
             </span>
-            <button type="button" className="min-h-7 rounded px-2 text-xs font-semibold text-muted hover:bg-panel-soft" onClick={() => zoomBy(1)}>
+            <button
+              type="button"
+              className="min-h-7 rounded px-2 text-xs font-semibold text-muted hover:bg-panel-soft"
+              onClick={() => zoomBy(1)}
+            >
               +
             </button>
           </div>
@@ -1691,7 +1709,9 @@ function CalendarScheduleView({
                         {formatCalendarRange(item.startSeconds, item.durationSeconds)}
                       </span>
                     </span>
-                    <span className="tabular-nums text-muted">{formatDurationLabel(item.durationSeconds)}</span>
+                    <span className="tabular-nums text-muted">
+                      {formatDurationLabel(item.durationSeconds)}
+                    </span>
                     <span className={hasReadyFallback ? "text-success" : "text-warn-strong"}>
                       {hasReadyFallback ? "Covered" : "Risk"}
                     </span>
@@ -1707,8 +1727,12 @@ function CalendarScheduleView({
                     className={[
                       "grid w-full grid-cols-[96px_minmax(0,1fr)_96px_92px] items-center gap-3 px-3 py-3 text-left text-sm hover:bg-panel-soft",
                       selectedBlockId === item.block.id ? "bg-surface-selected-positive" : "",
-                      createdBlockId === item.block.id ? "schedule-new-block bg-surface-selected-positive" : "",
-                      liveState.activeBlock?.id === item.block.id ? "bg-surface-selected-positive text-accent-live" : ""
+                      createdBlockId === item.block.id
+                        ? "schedule-new-block bg-surface-selected-positive"
+                        : "",
+                      liveState.activeBlock?.id === item.block.id
+                        ? "bg-surface-selected-positive text-accent-live"
+                        : ""
                     ].join(" ")}
                   >
                     <span className="font-semibold tabular-nums">
@@ -1733,10 +1757,18 @@ function CalendarScheduleView({
                     <span className="tabular-nums text-muted">
                       {formatDurationLabel(item.block.durationSeconds)}
                     </span>
-                    <span className={issueMap.get(item.block.id)?.severity === "critical" ? "text-danger" : issueMap.get(item.block.id)?.severity === "warning" ? "text-warn" : "text-muted"}>
+                    <span
+                      className={
+                        issueMap.get(item.block.id)?.severity === "critical"
+                          ? "text-danger"
+                          : issueMap.get(item.block.id)?.severity === "warning"
+                            ? "text-warn"
+                            : "text-muted"
+                      }
+                    >
                       {liveState.activeBlock?.id === item.block.id
                         ? "On air"
-                        : issueMap.get(item.block.id)?.severity ?? item.block.status}
+                        : (issueMap.get(item.block.id)?.severity ?? item.block.status)}
                     </span>
                   </button>
                 )
@@ -1744,7 +1776,12 @@ function CalendarScheduleView({
             ) : (
               <button
                 type="button"
-                onClick={() => onAdd(viewportStartSeconds, Math.min(DEFAULT_MANUAL_DURATION, viewportDurationSeconds))}
+                onClick={() =>
+                  onAdd(
+                    viewportStartSeconds,
+                    Math.min(DEFAULT_MANUAL_DURATION, viewportDurationSeconds)
+                  )
+                }
                 className="w-full px-4 py-10 text-center text-sm font-semibold text-muted hover:bg-panel-soft"
               >
                 No blocks in this lens. Add content here.
@@ -1879,11 +1916,7 @@ function NowLineDock({ state }: { state: ReturnType<typeof getScheduleLiveState>
   )
 }
 
-function CalendarSelectionOverlay({
-  selection
-}: {
-  selection: NonNullable<CalendarSelection>
-}) {
+function CalendarSelectionOverlay({ selection }: { selection: NonNullable<CalendarSelection> }) {
   return (
     <div
       className="pointer-events-none absolute left-8 right-2 z-50 rounded-sm border border-accent-positive bg-surface-selected-positive/90 px-2 py-1 text-[10px] font-semibold text-accent-positive shadow-lg"
