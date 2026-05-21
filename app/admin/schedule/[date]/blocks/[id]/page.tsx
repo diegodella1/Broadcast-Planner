@@ -183,7 +183,7 @@ export default async function BlockPage({
 
           <dl className="mt-6 grid gap-4 sm:grid-cols-3">
             <Info
-              label="Start"
+              label="Clock start"
               value={<PlayoutTime airDate={date} seconds={block.startTimeSeconds} />}
             />
             <Info label="Duration" value={<Timecode seconds={block.durationSeconds} />} />
@@ -215,7 +215,8 @@ export default async function BlockPage({
               name="start_time"
               required
               defaultValue={block.startTime}
-              title="San Francisco time"
+              title="Clock start in 24-hour format"
+              placeholder="13:30:00"
               className="border border-line px-3 py-2 text-sm"
             />
             <input

@@ -44,7 +44,7 @@ describe("ScheduleWorkspace", () => {
 
     expect(
       screen
-        .getAllByLabelText("Clock start")
+        .getAllByLabelText("Clock start (24 h)")
         .some((input) => (input as HTMLInputElement).value === "06:00:00")
     ).toBe(true)
   })
@@ -70,7 +70,7 @@ describe("ScheduleWorkspace", () => {
 
     expect(
       screen
-        .getAllByLabelText("Clock start")
+        .getAllByLabelText("Clock start (24 h)")
         .some((input) => (input as HTMLInputElement).value === "06:00:00")
     ).toBe(true)
     expect(

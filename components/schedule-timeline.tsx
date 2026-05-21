@@ -448,7 +448,8 @@ function SelectionCreatePanel({
           required
           value={formatTimecode(startTimeSeconds)}
           onChange={(event) => setStartTimeSeconds(parseTimeInput(event.target.value))}
-          title="San Francisco time"
+          title="Clock start in 24-hour format"
+          placeholder="13:30:00"
           className="border border-line px-3 py-2 text-sm"
         />
         <input

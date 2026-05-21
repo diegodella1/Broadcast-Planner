@@ -256,11 +256,12 @@ export default async function CalendarPage({
             className="mt-4 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)_160px_150px]"
           >
             <input type="hidden" name="date" value={params.setup} />
-            <Field label="Start">
+            <Field label="Clock start (24 h)">
               <input
                 name="start_time"
                 defaultValue="00:00:00"
                 required
+                placeholder="13:30:00"
                 className="border border-line px-3 py-2 text-sm font-normal text-ink"
               />
             </Field>

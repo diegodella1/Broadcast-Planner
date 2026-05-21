@@ -515,7 +515,7 @@ function BulkCardLoopPanel({
       <form action={action} className="grid gap-4 px-4 pb-4">
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
           <label className="grid gap-1 text-xs font-semibold text-muted">
-            Start
+            Clock start (24 h)
             <input
               name="start_time"
               required
@@ -524,7 +524,7 @@ function BulkCardLoopPanel({
             />
           </label>
           <label className="grid gap-1 text-xs font-semibold text-muted">
-            End
+            Clock end (24 h)
             <input
               name="end_time"
               required
@@ -810,13 +810,13 @@ function BlockDrawer({
         <input type="hidden" name="duration_seconds" value={durationSeconds} />
 
         <div className="rounded-md border border-line bg-panel-soft px-3 py-2">
-          <p className="text-[10px] font-bold uppercase text-muted">Clock time</p>
+          <p className="text-[10px] font-bold uppercase text-muted">Clock time · 24 h</p>
           <p className="mt-1 text-sm font-semibold tabular-nums">
             {formatPlayoutTimeLabel(startSeconds, true)} to{" "}
             {formatPlayoutTimeLabel(endSeconds, true)}
           </p>
           <p className="mt-0.5 text-xs text-muted">
-            These are on-air clock times, not video timecode.
+            These are real clock times in 24-hour format, not video timecode.
           </p>
           {initialDurationSeconds ? (
             <p className="mt-0.5 text-xs text-muted">
@@ -910,16 +910,24 @@ function BlockDrawer({
         </label>
 
         <div className="grid grid-cols-2 gap-3">
-          <label className="grid gap-1 text-xs font-semibold text-muted">
-            Clock start
+          <div className="grid gap-1">
+            <label className="text-xs font-semibold text-muted" htmlFor="block-clock-start">
+              Clock start (24 h)
+            </label>
             <input
+              id="block-clock-start"
               name="start_time"
               required
               value={startTime}
               onChange={(event) => setStartTime(event.target.value)}
+              placeholder="13:30:00"
+              aria-describedby="block-clock-start-help"
               className="border border-line px-3 py-2 text-sm font-normal text-ink"
             />
-          </label>
+            <p id="block-clock-start-help" className="text-[11px] font-normal text-muted">
+              Use 24 h clock time: 09:00 = 9 AM, 13:00 = 1 PM.
+            </p>
+          </div>
           <label className="grid gap-1 text-xs font-semibold text-muted">
             Block duration
             <input

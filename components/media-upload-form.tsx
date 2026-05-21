@@ -80,11 +80,12 @@ export async function MediaUploadForm({
           </select>
         </Field>
         {scheduleDate ? (
-          <Field label="Start time">
+          <Field label="Clock start (24 h)">
             <input
               name="start_time"
               required
               defaultValue="00:00:00"
+              placeholder="13:30:00"
               className="border border-line px-3 py-2 text-sm font-normal text-ink"
             />
           </Field>

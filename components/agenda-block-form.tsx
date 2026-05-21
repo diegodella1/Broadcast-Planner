@@ -227,16 +227,24 @@ export function AgendaBlockForm({
             Showing {filteredOptions.length} of {options.length} ready items
           </p>
         </div>
-        <label className="grid gap-1 text-xs font-semibold text-muted">
-          3. Start
+        <div className="grid gap-1">
+          <label className="text-xs font-semibold text-muted" htmlFor="agenda-clock-start">
+            3. Clock start (24 h)
+          </label>
           <input
+            id="agenda-clock-start"
             name="start_time"
             required
             value={startTime}
             onChange={(event) => setStartTime(event.target.value)}
+            placeholder="13:30:00"
+            aria-describedby="agenda-clock-start-help"
             className="border border-line px-3 py-2 text-sm font-normal text-ink"
           />
-        </label>
+          <p id="agenda-clock-start-help" className="text-[11px] font-normal text-muted">
+            Real on-air clock time, not video timecode.
+          </p>
+        </div>
         <label className="grid min-w-0 gap-1 text-xs font-semibold text-muted">
           Content
           <select

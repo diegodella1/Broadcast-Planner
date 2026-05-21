@@ -241,11 +241,12 @@ export default async function ScheduleDatePage({
             action={setupDayFromTemplate}
             className="mt-4 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)_150px]"
           >
-            <Field label="Start">
+            <Field label="Clock start (24 h)">
               <input
                 name="start_time"
                 defaultValue="00:00:00"
                 required
+                placeholder="13:30:00"
                 className="border border-line px-3 py-2 text-sm font-normal text-ink"
               />
             </Field>
@@ -366,7 +367,8 @@ export default async function ScheduleDatePage({
             name="start_time"
             required
             defaultValue="00:00:00"
-            title="San Francisco time"
+            title="Clock start in 24-hour format"
+            placeholder="13:30:00"
             className="border border-line px-3 py-2 text-sm"
           />
           <input
