@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { BrowserOutputRenderer } from "./browser-output-renderer"
@@ -30,6 +30,7 @@ describe("BrowserOutputRenderer", () => {
   })
 
   afterEach(() => {
+    cleanup()
     vi.useRealTimers()
     vi.restoreAllMocks()
   })
@@ -83,6 +84,27 @@ describe("BrowserOutputRenderer", () => {
     const video = document.querySelector("video")!
     await waitFor(() => expect(video.muted).toBe(true))
     expect(video.loop).toBe(true)
+  })
+
+  it("renders a blurred background layer for vertical videos", async () => {
+    global.fetch = vi.fn(async () =>
+      jsonResponse({
+        ...videoState("vertical", "Vertical clip"),
+        presentation: "vertical_blur",
+        background: "blur"
+      })
+    )
+
+    render(<BrowserOutputRenderer token="token" />)
+
+    await screen.findByText("Browser output ready")
+
+    const videos = document.querySelectorAll("video")
+    expect(videos).toHaveLength(2)
+    expect(videos[0]).toHaveClass("object-contain")
+    expect(videos[1]).toHaveAttribute("aria-hidden", "true")
+    expect(videos[1]).toHaveClass("object-cover")
+    expect(videos[1]).toHaveAttribute("src", "https://example.com/vertical.mp4")
   })
 })
 

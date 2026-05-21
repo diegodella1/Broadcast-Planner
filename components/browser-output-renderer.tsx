@@ -38,6 +38,8 @@ type OutputState =
       muted?: boolean
       loop?: boolean
       reason?: string
+      presentation?: "fit" | "vertical_blur"
+      background?: "black" | "blur"
       backgroundMusic: BackgroundMusic
     }
   | {
@@ -272,6 +274,20 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
           }}
         >
           <video ref={videoRef} className={videoClassName(state)} />
+          {shouldRenderBlurBackground(state) ? (
+            <>
+              <video
+                aria-hidden="true"
+                autoPlay
+                className="absolute inset-0 z-0 h-full w-full scale-110 bg-black object-cover object-center blur-2xl brightness-75"
+                loop
+                muted
+                playsInline
+                src={videoSource(state)}
+              />
+              <div className="pointer-events-none absolute inset-0 z-[1] bg-black/30" />
+            </>
+          ) : null}
         </div>
       </div>
       <audio ref={musicRef} />
@@ -414,7 +430,13 @@ async function playVideo(video: HTMLVideoElement) {
 function videoClassName(state: OutputState | null) {
   const visible = state && isVideoState(state)
   return [
-    "absolute inset-0 h-full w-full bg-black object-contain object-center",
+    "absolute inset-0 z-10 h-full w-full bg-transparent object-contain object-center",
     visible ? "opacity-100" : "opacity-0"
   ].join(" ")
+}
+
+function shouldRenderBlurBackground(
+  state: OutputState | null
+): state is Extract<OutputState, { kind: "vimeo" | "hls" | "mp4" }> {
+  return Boolean(state && isVideoState(state) && state.background === "blur" && videoSource(state))
 }

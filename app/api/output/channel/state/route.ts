@@ -146,6 +146,7 @@ export async function GET(request: Request) {
             hlsUrl: playback.hlsUrl,
             startOffsetSeconds,
             durationSeconds: playback.durationSeconds || active.asset.durationSeconds,
+            ...videoPresentation(active.asset),
             backgroundMusic: null
           },
           { headers: { "Cache-Control": "no-store" } }
@@ -163,6 +164,7 @@ export async function GET(request: Request) {
             hlsUrl: withMediaAccessToken(active.asset.url, mediaAccessToken),
             startOffsetSeconds,
             durationSeconds: active.asset.durationSeconds,
+            ...videoPresentation(active.asset),
             backgroundMusic: null
           },
           { headers: { "Cache-Control": "no-store" } }
@@ -180,6 +182,7 @@ export async function GET(request: Request) {
             url: withMediaAccessToken(active.asset.url, mediaAccessToken),
             startOffsetSeconds,
             durationSeconds: active.asset.durationSeconds ?? active.block.durationSeconds,
+            ...videoPresentation(active.asset),
             backgroundMusic: null
           },
           { headers: { "Cache-Control": "no-store" } }
@@ -250,6 +253,7 @@ async function fallbackVideoState(
     durationSeconds: asset.durationSeconds ?? null,
     muted: true,
     loop: true,
+    ...videoPresentation(asset),
     backgroundMusic: null
   }
   if (asset.sourceType === "remote_mp4" && asset.url) {
@@ -304,6 +308,14 @@ function fallbackState(reason: string, base?: OutputBase) {
     generatedAt: base?.generatedAt ?? new Date().toISOString(),
     backgroundMusic: null
   }
+}
+
+function videoPresentation(asset: MediaAsset) {
+  const presentation =
+    asset.metadata?.presentation === "vertical_blur" ? "vertical_blur" : "fit"
+  const background =
+    presentation === "vertical_blur" || asset.metadata?.background === "blur" ? "blur" : "black"
+  return { presentation, background }
 }
 
 function metadataText(metadata: Record<string, unknown> | null | undefined, key: string) {
