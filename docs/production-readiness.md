@@ -18,7 +18,8 @@ release and go-live checklist for the Roxom TV browser-output workflow.
   broadcast look.
 - Guest lineup plates are operator-configurable in `/admin/guests`; existing Supabase backends need
   `supabase/migrations/20260522120000_guest_lineup.sql` or
-  `public/manual/guest-lineup-migration.sql` applied before use.
+  `public/manual/guest-lineup-migration.sql` plus
+  `supabase/migrations/20260522172000_slide_asset_metadata.sql` applied before use.
 - API rate limiting now uses the atomic Supabase function in
   `supabase/migrations/20260522153000_atomic_rate_limits.sql`; existing backends should apply the
   matching standalone file at `public/manual/atomic-rate-limits-migration.sql`.

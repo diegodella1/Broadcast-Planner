@@ -124,14 +124,15 @@ async function checkSupabase(): Promise<OperatorHealthCheck> {
 async function checkSchema(): Promise<OperatorHealthCheck> {
   try {
     const supabase = createServiceClient()
-    const [mediaAssets, guests] = await Promise.all([
+    const [mediaAssets, slideAssets, guests] = await Promise.all([
       supabase
         .from("media_assets")
         .select("id,playback_readiness_status,playback_checked_at,playback_error")
         .limit(1),
+      supabase.from("slide_assets").select("id,template_id,metadata").limit(1),
       supabase.from("guests").select("id,photo_asset_id,video_asset_id,updated_at").limit(1)
     ])
-    const error = mediaAssets.error ?? guests.error
+    const error = mediaAssets.error ?? slideAssets.error ?? guests.error
     if (error) throw error
     return pass("schema", "Schema", "Required app columns present")
   } catch (error) {

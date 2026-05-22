@@ -188,7 +188,9 @@ Standalone guest lineup migration for existing backends:
 
 ```txt
 supabase/migrations/20260522120000_guest_lineup.sql
+supabase/migrations/20260522172000_slide_asset_metadata.sql
 public/manual/guest-lineup-migration.sql
+public/manual/slide-asset-metadata-migration.sql
 ```
 
 Standalone rate-limit hardening migration for existing backends:

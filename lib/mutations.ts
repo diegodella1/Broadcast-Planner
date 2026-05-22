@@ -1117,6 +1117,27 @@ export async function createSlideAsset(input: {
   revalidatePath("/admin/slides")
 }
 
+export async function archiveSlideAsset(slideId: string) {
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "slide_asset.archived",
+      entityType: "slide_assets",
+      entityId: slideId,
+      next: { status: "archived" }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("slide_assets")
+        .update({ status: "archived", updated_at: new Date().toISOString() })
+        .eq("id", slideId)
+      if (error) throw error
+    }
+  )
+  revalidatePath("/admin/slides")
+  revalidatePath("/admin/calendar")
+}
+
 export async function createGuest(input: {
   name: string
   role?: string
