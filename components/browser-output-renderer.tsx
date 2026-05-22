@@ -353,8 +353,7 @@ function VisualState({ state, mediaState }: { state: OutputState | null; mediaSt
   }
   if (state.kind === "image")
     return <img src={state.imageUrl} alt="" className="h-full w-full object-cover" />
-  if (mediaState === "syncing")
-    return <EmergencySlate title="Syncing output" detail={state.title} />
+  if (mediaState === "syncing") return null
   if (mediaState === "errored") return <EmergencySlate title="Media error" detail={state.title} />
   return null
 }

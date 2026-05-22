@@ -145,7 +145,7 @@ export default async function SlidesPage() {
       <section className="surface-panel mb-5 p-4">
         <FormHeader
           title="System slides"
-          detail="One-click dynamic slide presets for markets, prices, FX, financial boards, news and calendar."
+          detail="One-click dynamic slide presets for markets, prices, FX, financial boards, weather and calendar."
         />
         <form action={addAllSystemSlides} className="mt-4">
           <button className="btn-primary">Create all system slides</button>

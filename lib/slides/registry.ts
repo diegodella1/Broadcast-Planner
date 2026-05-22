@@ -6,13 +6,11 @@ export type SlideTemplateId =
   | "fx"
   | "gold"
   | "metals"
-  | "news"
   | "oil"
   | "sata"
-  | "show"
   | "silver"
   | "strc"
-  | "video"
+  | "weather"
 
 export type SlideTemplateEntry = {
   readonly id: SlideTemplateId
@@ -65,12 +63,6 @@ export const SLIDE_TEMPLATES: ReadonlyArray<SlideTemplateEntry> = [
     dataEndpoint: "/api/slide-data/metals"
   },
   {
-    id: "news",
-    label: "News",
-    description: "Full-screen headline with Ken Burns image effect",
-    dataEndpoint: "/api/slide-data/news"
-  },
-  {
     id: "oil",
     label: "Oil",
     description: "WTI and Brent crude oil prices in sats and USD",
@@ -81,12 +73,6 @@ export const SLIDE_TEMPLATES: ReadonlyArray<SlideTemplateEntry> = [
     label: "SATA",
     description: "SATA ETF dashboard with ATM and stats grid",
     dataEndpoint: "/api/slide-data/strc"
-  },
-  {
-    id: "show",
-    label: "Show",
-    description: "Upcoming show card with host, schedule and background image",
-    dataEndpoint: null
   },
   {
     id: "silver",
@@ -101,9 +87,9 @@ export const SLIDE_TEMPLATES: ReadonlyArray<SlideTemplateEntry> = [
     dataEndpoint: "/api/slide-data/strc"
   },
   {
-    id: "video",
-    label: "Video",
-    description: "Full-screen video player with optional loop count",
-    dataEndpoint: null
+    id: "weather",
+    label: "Weather",
+    description: "Current conditions and forecast from OpenWeather",
+    dataEndpoint: "/api/slide-data/weather"
   }
 ] as const

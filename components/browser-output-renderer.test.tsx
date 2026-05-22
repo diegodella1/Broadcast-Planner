@@ -106,6 +106,23 @@ describe("BrowserOutputRenderer", () => {
     expect(videos[1]).toHaveClass("object-cover")
     expect(videos[1]).toHaveAttribute("src", "https://example.com/vertical.mp4")
   })
+
+  it("does not show a technical syncing slate during video source changes", async () => {
+    const states = [videoState("a", "First"), videoState("b", "Second")]
+    global.fetch = vi.fn(async () => jsonResponse(states.shift() ?? videoState("b", "Second")))
+
+    render(<BrowserOutputRenderer token="token" />)
+
+    await screen.findByText("Browser output ready")
+    expect(screen.queryByText("Syncing output")).not.toBeInTheDocument()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+
+    await waitFor(() => expect(vi.mocked(global.fetch).mock.calls.length).toBeGreaterThanOrEqual(2))
+    expect(screen.queryByText("Syncing output")).not.toBeInTheDocument()
+  })
 })
 
 function jsonResponse(payload: unknown) {

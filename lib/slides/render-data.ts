@@ -3,11 +3,9 @@ import type {
   CalendarEvent,
   DebtData,
   MarketsSatsData,
-  NewsSlideData,
   SataData,
-  ShowSlideData,
   StrcData,
-  VideoSlideData
+  WeatherSlideData
 } from "./types"
 
 type Json = Record<string, unknown>
@@ -47,9 +45,7 @@ function adaptSlideData(templateId: SlideTemplateId, raw: unknown): unknown {
   if (templateId === "strc") return { data: pickNested(raw, "strc") ?? mockStrcData() }
   if (templateId === "sata") return { data: pickNested(raw, "sata") ?? mockSataData() }
   if (templateId === "debt") return { data: isObject(raw) ? raw : mockDebtData() }
-  if (templateId === "news") return { data: isObject(raw) ? raw : mockNewsData() }
-  if (templateId === "show") return { data: mockShowData() }
-  if (templateId === "video") return { data: mockVideoData() }
+  if (templateId === "weather") return { data: isObject(raw) ? raw : unavailableWeatherData() }
   return { data: isObject(raw) ? raw : mockMarketsData() }
 }
 
@@ -98,7 +94,29 @@ function mockDebtData(): DebtData {
     perSecond: 70000,
     annualFederalSpending: 6800000000000,
     annualBudgetDeficit: 1900000000000,
-    btcPriceUsd: 103500
+    btcPriceUsd: 103500,
+    debtAsOf: new Date().toISOString(),
+    debtSource: "mock",
+    btcPriceSource: "mock",
+    btcPriceUpdatedAt: new Date().toISOString(),
+    population: 341784857,
+    populationAsOf: "2025",
+    populationSource: "Census QuickFacts fallback",
+    taxReturns: 163146000,
+    taxReturnsAsOf: "2023",
+    taxReturnsSource: "IRS SOI fallback",
+    gdpUsd: 29_184_900_000_000,
+    gdpAsOf: "2025-Q1",
+    gdpSource: "FRED fallback",
+    debtGdpNowPct: 119.8,
+    debtGdpHistory: [
+      { year: "1960", pct: 53.6 },
+      { year: "1980", pct: 31.2 },
+      { year: "2000", pct: 55.9 }
+    ],
+    debtGdpSource: "FRED fallback",
+    stale: true,
+    warnings: ["mock debt data"]
   }
 }
 
@@ -172,29 +190,21 @@ function mockSataData(): SataData {
   }
 }
 
-function mockNewsData(): NewsSlideData {
+function unavailableWeatherData(): WeatherSlideData {
   return {
-    imageUrl:
-      "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1920&auto=format&fit=crop",
-    headline: "Market update",
-    description: "Fallback headline while live feeds warm up.",
-    source: "RTV",
-    durationSeconds: 30
+    available: false,
+    locationName: "Weather",
+    temperatureC: null,
+    feelsLikeC: null,
+    humidityPct: null,
+    windKph: null,
+    condition: "Unavailable",
+    description: "Weather data unavailable",
+    iconCode: null,
+    forecast: [],
+    updatedAt: new Date().toISOString(),
+    reason: "weather endpoint unavailable"
   }
-}
-
-function mockShowData(): ShowSlideData {
-  return {
-    name: "Roxom Report",
-    description: "Live market programming",
-    hostName: "RTV",
-    showDays: "Weekdays",
-    scheduleTimes: [{ timezone: "SF", time: "07:40" }]
-  }
-}
-
-function mockVideoData(): VideoSlideData {
-  return { videoUrl: "", loopCount: null }
 }
 
 function mockEvents(): CalendarEvent[] {

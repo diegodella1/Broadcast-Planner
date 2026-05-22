@@ -10,9 +10,13 @@ export type DebtSlideProps = {
   data: DebtData
 }
 
-const US_POPULATION = 336_000_000
-const US_TAXPAYERS = 134_000_000
-const US_GDP = 28.3
+const FALLBACK_POPULATION = 341_784_857
+const FALLBACK_TAX_RETURNS = 163_146_000
+const FALLBACK_DEBT_GDP_HISTORY = [
+  { year: "1960", pct: 53.6 },
+  { year: "1980", pct: 31.2 },
+  { year: "2000", pct: 55.9 }
+]
 
 const headerFont = { fontSize: "clamp(27px, 2vw, 39px)", lineHeight: "1", fontWeight: 900 }
 const valueFont = { fontSize: "clamp(32px, 3vw, 56px)", lineHeight: "1", fontWeight: 900 }
@@ -21,7 +25,15 @@ const contentPadding = "px-6 py-10"
 const headerBg = "bg-red-500/80"
 const contentBg = "bg-zinc-900/80"
 
-function LiveCounter({ base, perSecond }: { base: number; perSecond: number }) {
+function LiveCounter({
+  base,
+  perSecond,
+  btcPrice
+}: {
+  base: number
+  perSecond: number
+  btcPrice: number
+}) {
   const [current, setCurrent] = useState(base)
 
   useEffect(() => {
@@ -33,18 +45,25 @@ function LiveCounter({ base, perSecond }: { base: number; perSecond: number }) {
 
   return (
     <div className="text-white tabular-nums text-center whitespace-nowrap" style={valueFont}>
-      {formatBTCMain(current / 95000)}
+      {formatBTCMain(current / btcPrice)}
     </div>
   )
 }
 
 export function DebtSlide({ data }: DebtSlideProps) {
   const btcPrice = data.btcPriceUsd > 0 ? data.btcPriceUsd : 95000
-  const debtPerCitizenBTC = data.liveEstimateNow / US_POPULATION / btcPrice
-  const debtPerTaxpayerBTC = data.liveEstimateNow / US_TAXPAYERS / btcPrice
+  const population = data.population && data.population > 0 ? data.population : FALLBACK_POPULATION
+  const taxReturns = data.taxReturns && data.taxReturns > 0 ? data.taxReturns : FALLBACK_TAX_RETURNS
+  const debtPerCitizenBTC = data.liveEstimateNow / population / btcPrice
+  const debtPerTaxReturnBTC = data.liveEstimateNow / taxReturns / btcPrice
   const annualFederalSpendingBTC = data.annualFederalSpending / btcPrice
   const annualBudgetDeficitBTC = data.annualBudgetDeficit / btcPrice
-  const debtToGDPRatio = (data.liveEstimateNow / (US_GDP * 1_000_000_000_000)) * 100
+  const debtGdpHistory = data.debtGdpHistory?.length
+    ? data.debtGdpHistory
+    : FALLBACK_DEBT_GDP_HISTORY
+  const debtGdpNow =
+    data.debtGdpNowPct ??
+    (data.gdpUsd && data.gdpUsd > 0 ? (data.liveEstimateNow / data.gdpUsd) * 100 : null)
 
   return (
     <motion.div
@@ -73,27 +92,20 @@ export function DebtSlide({ data }: DebtSlideProps) {
             <div className="flex flex-col shadow-xl">
               <div className={`${headerBg} flex items-center justify-center ${headerPadding} h-32`}>
                 <h2 className="text-white text-center tracking-wider uppercase" style={headerFont}>
-                  US NATIONAL DEBT (BTC Needed at Current Price)
+                  US NATIONAL DEBT (Estimated BTC Needed at Current Price)
                 </h2>
               </div>
               <div
-                className={`flex items-center justify-center flex-1 ${contentBg} ${contentPadding}`}
+                className={`flex flex-col items-center justify-center flex-1 ${contentBg} ${contentPadding}`}
               >
-                <LiveCounter base={data.liveEstimateNow} perSecond={data.perSecond} />
-              </div>
-            </div>
-
-            <div className="flex flex-col shadow-xl">
-              <div className={`${headerBg} flex items-center justify-center ${headerPadding} h-32`}>
-                <h3 className="text-white text-center tracking-wider uppercase" style={headerFont}>
-                  DEBT PER CITIZEN
-                </h3>
-              </div>
-              <div
-                className={`flex items-center justify-center flex-1 ${contentBg} ${contentPadding}`}
-              >
-                <div className="text-white tabular-nums text-center" style={valueFont}>
-                  {formatBTC(debtPerCitizenBTC)}
+                <LiveCounter
+                  key={`${data.liveEstimateNow}-${btcPrice}`}
+                  base={data.liveEstimateNow}
+                  perSecond={data.perSecond}
+                  btcPrice={btcPrice}
+                />
+                <div className="mt-2 text-center text-xs font-semibold uppercase tracking-wider text-white/55">
+                  Latest Treasury data {formatDateLabel(data.debtAsOf)}
                 </div>
               </div>
             </div>
@@ -101,14 +113,36 @@ export function DebtSlide({ data }: DebtSlideProps) {
             <div className="flex flex-col shadow-xl">
               <div className={`${headerBg} flex items-center justify-center ${headerPadding} h-32`}>
                 <h3 className="text-white text-center tracking-wider uppercase" style={headerFont}>
-                  DEBT PER TAXPAYER
+                  DEBT PER PERSON
                 </h3>
               </div>
               <div
-                className={`flex items-center justify-center flex-1 ${contentBg} ${contentPadding}`}
+                className={`flex flex-col items-center justify-center flex-1 ${contentBg} ${contentPadding}`}
               >
                 <div className="text-white tabular-nums text-center" style={valueFont}>
-                  {formatBTC(debtPerTaxpayerBTC)}
+                  {formatBTC(debtPerCitizenBTC)}
+                </div>
+                <div className="mt-2 text-center text-xs font-semibold uppercase tracking-wider text-white/55">
+                  Population {formatCompactNumber(population)} · {data.populationAsOf ?? "fallback"}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col shadow-xl">
+              <div className={`${headerBg} flex items-center justify-center ${headerPadding} h-32`}>
+                <h3 className="text-white text-center tracking-wider uppercase" style={headerFont}>
+                  DEBT PER TAX RETURN
+                </h3>
+              </div>
+              <div
+                className={`flex flex-col items-center justify-center flex-1 ${contentBg} ${contentPadding}`}
+              >
+                <div className="text-white tabular-nums text-center" style={valueFont}>
+                  {formatBTC(debtPerTaxReturnBTC)}
+                </div>
+                <div className="mt-2 text-center text-xs font-semibold uppercase tracking-wider text-white/55">
+                  IRS returns {formatCompactNumber(taxReturns)} ·{" "}
+                  {data.taxReturnsAsOf ?? "fallback"}
                 </div>
               </div>
             </div>
@@ -161,10 +195,8 @@ export function DebtSlide({ data }: DebtSlideProps) {
             <div className={`flex items-center justify-between px-12 py-6 flex-1 ${contentBg}`}>
               {(
                 [
-                  ["1960", "52.19%"],
-                  ["1980", "34.71%"],
-                  ["2000", "55.42%"],
-                  ["NOW", `${debtToGDPRatio.toFixed(2)}%`]
+                  ...debtGdpHistory.map((item) => [item.year, `${item.pct.toFixed(2)}%`]),
+                  ["NOW", debtGdpNow !== null ? `${debtGdpNow.toFixed(2)}%` : "N/A"]
                 ] as [string, string][]
               ).map(([label, value]) => (
                 <div key={label} className="flex items-center gap-4">
@@ -176,8 +208,38 @@ export function DebtSlide({ data }: DebtSlideProps) {
               ))}
             </div>
           </div>
+
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-white/50">
+            <span>Estimated live from latest Treasury data</span>
+            <span>
+              BTC {formatUsd(btcPrice)} · {data.btcPriceSource ?? "fallback"}
+              {data.stale ? " · stale" : ""}
+            </span>
+          </div>
         </div>
       </div>
     </motion.div>
   )
+}
+
+function formatDateLabel(value: string | undefined) {
+  if (!value) return "unavailable"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toISOString().slice(0, 10)
+}
+
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1
+  }).format(value)
+}
+
+function formatUsd(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0
+  }).format(value)
 }

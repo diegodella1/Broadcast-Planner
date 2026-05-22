@@ -6,7 +6,7 @@
 
 import type { DebtData } from "@/lib/slides/types"
 
-import { getBtcPriceUsd } from "./btc-cache"
+import { getBtcPriceData } from "./btc-cache"
 
 const FISCAL_PROXY_BASE_URL =
   process.env.FISCAL_PROXY_BASE_URL ?? "https://rtv-proxy.vercel.app/api/fiscal"
@@ -18,6 +18,35 @@ const MTS_CACHE_DURATION_MS = 24 * 60 * 60 * 1000
 
 const TREASURY_DEBT_TIMEOUT_MS = 7_000
 const TREASURY_MTS_TIMEOUT_MS = 5_000
+const OFFICIAL_CONTEXT_TIMEOUT_MS = 5_000
+
+const CENSUS_POPULATION_FALLBACK = {
+  population: 341_784_857,
+  asOf: "2025",
+  source: "U.S. Census QuickFacts estimate fallback"
+}
+
+const IRS_TAX_RETURNS_FALLBACK = {
+  taxReturns: 163_146_000,
+  asOf: "Tax Year 2023",
+  source: "IRS SOI Publication 1304 fallback"
+}
+
+const GDP_FALLBACK = {
+  gdpUsd: 29_184_900_000_000,
+  asOf: "2025-Q1",
+  source: "FRED GDP fallback"
+}
+
+const DEBT_GDP_FALLBACK = {
+  nowPct: 119.8,
+  history: [
+    { year: "1960", pct: 53.6 },
+    { year: "1980", pct: 31.2 },
+    { year: "2000", pct: 55.9 }
+  ],
+  source: "FRED GFDEGDQ188S fallback"
+}
 
 const RETRYABLE_HTTP_STATUS = new Set([
   408, 425, 429, 500, 502, 503, 504, 520, 522, 523, 524, 525, 526, 530
@@ -52,9 +81,28 @@ type MtsTable1ApiResponse = {
 
 type DebtCacheEntry = { data: DebtData; timestamp: number }
 type MtsCacheEntry = { annualSpending: number; annualDeficit: number; timestamp: number }
+type OfficialContextCacheEntry = { data: OfficialDebtContext; timestamp: number }
+
+type OfficialDebtContext = {
+  population: number
+  populationAsOf: string
+  populationSource: string
+  taxReturns: number
+  taxReturnsAsOf: string
+  taxReturnsSource: string
+  gdpUsd: number
+  gdpAsOf: string
+  gdpSource: string
+  debtGdpNowPct: number
+  debtGdpHistory: Array<{ year: string; pct: number }>
+  debtGdpSource: string
+  stale: boolean
+  warnings: string[]
+}
 
 let debtCache: DebtCacheEntry | null = null
 let mtsCache: MtsCacheEntry | null = null
+let officialContextCache: OfficialContextCacheEntry | null = null
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -231,6 +279,146 @@ async function getFederalSpendingAndDeficit(): Promise<{
   }
 }
 
+async function getOfficialDebtContext(): Promise<OfficialDebtContext> {
+  const now = Date.now()
+  if (officialContextCache && now - officialContextCache.timestamp < MTS_CACHE_DURATION_MS) {
+    return officialContextCache.data
+  }
+
+  const warnings: string[] = []
+  const [population, gdp, debtGdp] = await Promise.all([
+    fetchCensusPopulation().catch((error) => {
+      console.error("[lib/slides/data/debt.ts:fetchCensusPopulation]", error)
+      warnings.push("Census population unavailable; using documented fallback")
+      return { ...CENSUS_POPULATION_FALLBACK, stale: true }
+    }),
+    fetchFredGdp().catch((error) => {
+      console.error("[lib/slides/data/debt.ts:fetchFredGdp]", error)
+      warnings.push("FRED GDP unavailable; using documented fallback")
+      return { ...GDP_FALLBACK, stale: true }
+    }),
+    fetchFredDebtGdp().catch((error) => {
+      console.error("[lib/slides/data/debt.ts:fetchFredDebtGdp]", error)
+      warnings.push("FRED debt/GDP unavailable; using documented fallback")
+      return { ...DEBT_GDP_FALLBACK, stale: true }
+    })
+  ])
+
+  const data: OfficialDebtContext = {
+    population: population.population,
+    populationAsOf: population.asOf,
+    populationSource: population.source,
+    taxReturns: IRS_TAX_RETURNS_FALLBACK.taxReturns,
+    taxReturnsAsOf: IRS_TAX_RETURNS_FALLBACK.asOf,
+    taxReturnsSource: IRS_TAX_RETURNS_FALLBACK.source,
+    gdpUsd: gdp.gdpUsd,
+    gdpAsOf: gdp.asOf,
+    gdpSource: gdp.source,
+    debtGdpNowPct: debtGdp.nowPct,
+    debtGdpHistory: debtGdp.history,
+    debtGdpSource: debtGdp.source,
+    stale: Boolean(population.stale || gdp.stale || debtGdp.stale),
+    warnings
+  }
+  officialContextCache = { data, timestamp: now }
+  return data
+}
+
+async function fetchCensusPopulation(): Promise<{
+  population: number
+  asOf: string
+  source: string
+  stale?: boolean
+}> {
+  const response = await fetch(
+    "https://api.census.gov/data/2023/pep/population?get=POP_2023,NAME&for=us:*",
+    {
+      cache: "no-store",
+      signal: AbortSignal.timeout(OFFICIAL_CONTEXT_TIMEOUT_MS)
+    }
+  )
+  if (!response.ok) throw new Error(`Census API error: ${response.status}`)
+  const rows = (await response.json()) as unknown
+  if (!Array.isArray(rows) || !Array.isArray(rows[1])) throw new Error("Invalid Census payload")
+  const value = Number(rows[1][0])
+  if (!Number.isFinite(value) || value <= 0) throw new Error("Invalid Census population")
+  return {
+    population: value,
+    asOf: "2023",
+    source: "U.S. Census Population Estimates API"
+  }
+}
+
+async function fetchFredGdp(): Promise<{
+  gdpUsd: number
+  asOf: string
+  source: string
+  stale?: boolean
+}> {
+  const observations = await fetchFredCsv("GDP")
+  const latest = latestObservation(observations)
+  if (!latest) throw new Error("No FRED GDP observations")
+  return {
+    gdpUsd: latest.value * 1_000_000_000,
+    asOf: latest.date,
+    source: "FRED GDP"
+  }
+}
+
+async function fetchFredDebtGdp(): Promise<{
+  nowPct: number
+  history: Array<{ year: string; pct: number }>
+  source: string
+  stale?: boolean
+}> {
+  const observations = await fetchFredCsv("GFDEGDQ188S")
+  const latest = latestObservation(observations)
+  if (!latest) throw new Error("No FRED debt/GDP observations")
+  const history = ["1960", "1980", "2000"].map((year) => ({
+    year,
+    pct:
+      annualObservation(observations, year) ??
+      DEBT_GDP_FALLBACK.history.find((item) => item.year === year)!.pct
+  }))
+  return {
+    nowPct: latest.value,
+    history,
+    source: "FRED GFDEGDQ188S"
+  }
+}
+
+async function fetchFredCsv(seriesId: string): Promise<Array<{ date: string; value: number }>> {
+  const response = await fetch(
+    `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${encodeURIComponent(seriesId)}`,
+    {
+      cache: "no-store",
+      signal: AbortSignal.timeout(OFFICIAL_CONTEXT_TIMEOUT_MS)
+    }
+  )
+  if (!response.ok) throw new Error(`FRED ${seriesId} error: ${response.status}`)
+  const csv = await response.text()
+  return csv
+    .trim()
+    .split(/\r?\n/)
+    .slice(1)
+    .map((line) => {
+      const [date, rawValue] = line.split(",")
+      const value = Number(rawValue)
+      return { date: date ?? "", value }
+    })
+    .filter((item) => item.date && Number.isFinite(item.value))
+}
+
+function latestObservation(observations: Array<{ date: string; value: number }>) {
+  return observations.at(-1) ?? null
+}
+
+function annualObservation(observations: Array<{ date: string; value: number }>, year: string) {
+  const matching = observations.filter((item) => item.date.startsWith(year))
+  if (!matching.length) return null
+  return matching[matching.length - 1]!.value
+}
+
 export async function getDebtSlideData(): Promise<DebtData> {
   const now = Date.now()
   if (debtCache && now - debtCache.timestamp < DEBT_CACHE_DURATION_MS) {
@@ -258,9 +446,10 @@ export async function getDebtSlideData(): Promise<DebtData> {
             lastDelta: 0
           }
 
-    const [btcPriceUsd, { annualSpending, annualDeficit }] = await Promise.all([
-      getBtcPriceUsd(),
-      getFederalSpendingAndDeficit()
+    const [btcPrice, { annualSpending, annualDeficit }, officialContext] = await Promise.all([
+      getBtcPriceData(),
+      getFederalSpendingAndDeficit(),
+      getOfficialDebtContext()
     ])
 
     const result: DebtData = {
@@ -268,7 +457,25 @@ export async function getDebtSlideData(): Promise<DebtData> {
       perSecond: calculation.perSecond,
       annualFederalSpending: annualSpending,
       annualBudgetDeficit: annualDeficit,
-      btcPriceUsd
+      btcPriceUsd: btcPrice.price,
+      debtAsOf: calculation.latestDateUTC,
+      debtSource: "U.S. Treasury FiscalData Debt to the Penny",
+      btcPriceSource: btcPrice.source,
+      btcPriceUpdatedAt: btcPrice.updatedAt,
+      population: officialContext.population,
+      populationAsOf: officialContext.populationAsOf,
+      populationSource: officialContext.populationSource,
+      taxReturns: officialContext.taxReturns,
+      taxReturnsAsOf: officialContext.taxReturnsAsOf,
+      taxReturnsSource: officialContext.taxReturnsSource,
+      gdpUsd: officialContext.gdpUsd,
+      gdpAsOf: officialContext.gdpAsOf,
+      gdpSource: officialContext.gdpSource,
+      debtGdpNowPct: officialContext.debtGdpNowPct,
+      debtGdpHistory: officialContext.debtGdpHistory,
+      debtGdpSource: officialContext.debtGdpSource,
+      stale: Boolean(btcPrice.stale || officialContext.stale),
+      warnings: officialContext.warnings
     }
     debtCache = { data: result, timestamp: now }
     return result
@@ -280,7 +487,25 @@ export async function getDebtSlideData(): Promise<DebtData> {
       perSecond: 0,
       annualFederalSpending: 0,
       annualBudgetDeficit: 0,
-      btcPriceUsd: 0
+      btcPriceUsd: 0,
+      debtAsOf: new Date().toISOString(),
+      debtSource: "unavailable",
+      btcPriceSource: "unavailable",
+      btcPriceUpdatedAt: new Date().toISOString(),
+      population: CENSUS_POPULATION_FALLBACK.population,
+      populationAsOf: CENSUS_POPULATION_FALLBACK.asOf,
+      populationSource: CENSUS_POPULATION_FALLBACK.source,
+      taxReturns: IRS_TAX_RETURNS_FALLBACK.taxReturns,
+      taxReturnsAsOf: IRS_TAX_RETURNS_FALLBACK.asOf,
+      taxReturnsSource: IRS_TAX_RETURNS_FALLBACK.source,
+      gdpUsd: GDP_FALLBACK.gdpUsd,
+      gdpAsOf: GDP_FALLBACK.asOf,
+      gdpSource: GDP_FALLBACK.source,
+      debtGdpNowPct: DEBT_GDP_FALLBACK.nowPct,
+      debtGdpHistory: DEBT_GDP_FALLBACK.history,
+      debtGdpSource: DEBT_GDP_FALLBACK.source,
+      stale: true,
+      warnings: ["Treasury debt unavailable; using empty debt payload"]
     }
   }
 }
@@ -289,4 +514,5 @@ export async function getDebtSlideData(): Promise<DebtData> {
 export function __resetDebtCachesForTests() {
   debtCache = null
   mtsCache = null
+  officialContextCache = null
 }

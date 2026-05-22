@@ -75,6 +75,24 @@ export type DebtData = {
   annualFederalSpending: number
   annualBudgetDeficit: number
   btcPriceUsd: number
+  debtAsOf?: string
+  debtSource?: string
+  btcPriceSource?: string
+  btcPriceUpdatedAt?: string
+  population?: number
+  populationAsOf?: string
+  populationSource?: string
+  taxReturns?: number
+  taxReturnsAsOf?: string
+  taxReturnsSource?: string
+  gdpUsd?: number
+  gdpAsOf?: string
+  gdpSource?: string
+  debtGdpNowPct?: number
+  debtGdpHistory?: Array<{ year: string; pct: number }>
+  debtGdpSource?: string
+  stale?: boolean
+  warnings?: string[]
 }
 
 export type StrcData = {
@@ -146,24 +164,24 @@ export type SataData = {
   lastUpdate: string
 }
 
-export type NewsSlideData = {
-  imageUrl: string
-  headline: string
-  description?: string | null
-  source?: string | null
-  durationSeconds: number
+export type WeatherForecastPoint = {
+  label: string
+  temperatureC: number | null
+  condition: string
+  precipitationProbability: number | null
 }
 
-export type ShowSlideData = {
-  name: string
-  description?: string | null
-  imageUrl?: string | null
-  hostName?: string | null
-  showDays?: string | null
-  scheduleTimes: ScheduleTime[]
-}
-
-export type VideoSlideData = {
-  videoUrl: string
-  loopCount: number | null
+export type WeatherSlideData = {
+  available: boolean
+  locationName: string
+  temperatureC: number | null
+  feelsLikeC: number | null
+  humidityPct: number | null
+  windKph: number | null
+  condition: string
+  description: string
+  iconCode: string | null
+  forecast: WeatherForecastPoint[]
+  updatedAt: string
+  reason?: string
 }

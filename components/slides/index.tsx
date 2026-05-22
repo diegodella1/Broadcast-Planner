@@ -7,13 +7,11 @@ import { EventSlideModern, type EventSlideModernProps } from "./EventSlideModern
 import { FxSlide, type FxSlideProps } from "./FxSlide"
 import { GoldSlide, type GoldSlideProps } from "./GoldSlide"
 import { MetalsSlide, type MetalsSlideProps } from "./MetalsSlide"
-import { NewsSlide, type NewsSlideProps } from "./NewsSlide"
 import { OilSlide, type OilSlideProps } from "./OilSlide"
 import { SataSlide, type SataSlideProps } from "./SataSlide"
-import { ShowSlide, type ShowSlideProps } from "./ShowSlide"
 import { SilverSlide, type SilverSlideProps } from "./SilverSlide"
 import { StrcSlide, type StrcSlideProps } from "./StrcSlide"
-import { VideoSlide, type VideoSlideProps } from "./VideoSlide"
+import { WeatherSlide, type WeatherSlideProps } from "./WeatherSlide"
 
 import type { SlideTemplateId } from "@/lib/slides/registry"
 
@@ -38,19 +36,15 @@ export function SlideTemplateRenderer({ templateId, data }: SlideTemplateRendere
       return <GoldSlide {...(data as GoldSlideProps)} />
     case "metals":
       return <MetalsSlide {...(data as MetalsSlideProps)} />
-    case "news":
-      return <NewsSlide {...(data as NewsSlideProps)} />
     case "oil":
       return <OilSlide {...(data as OilSlideProps)} />
     case "sata":
       return <SataSlide {...(data as SataSlideProps)} />
-    case "show":
-      return <ShowSlide {...(data as ShowSlideProps)} />
     case "silver":
       return <SilverSlide {...(data as SilverSlideProps)} />
     case "strc":
       return <StrcSlide {...(data as StrcSlideProps)} />
-    case "video":
-      return <VideoSlide {...(data as VideoSlideProps)} />
+    case "weather":
+      return <WeatherSlide {...(data as WeatherSlideProps)} />
   }
 }
