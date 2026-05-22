@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { act, render, screen } from "@testing-library/react"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { FxSlide, type FxSlideProps } from "./FxSlide"
 
@@ -35,6 +35,11 @@ const baseData: MarketsSatsData = {
 }
 
 describe("FxSlide", () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
   it("renders without crashing with valid data", () => {
     const props: FxSlideProps = { data: baseData }
     const { container } = render(<FxSlide {...props} />)
@@ -59,5 +64,22 @@ describe("FxSlide", () => {
     }
     render(<FxSlide data={dataWithZero} />)
     expect(screen.getByText("DATA UNAVAILABLE")).toBeInTheDocument()
+  })
+
+  it("refreshes only after the visible polling interval", async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(baseData), { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<FxSlide data={baseData} />)
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    await act(async () => {
+      vi.advanceTimersByTime(30_000)
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

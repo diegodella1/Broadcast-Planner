@@ -26,7 +26,7 @@ export default async function OutputSlidePage({
     return <EmergencyOutputStub reason="Slide unavailable" />
   }
 
-  const data = await getSlideRenderData(templateId)
+  const data = await getSlideRenderData(templateId, slide)
   return (
     <main className="h-screen w-screen overflow-hidden bg-black text-white">
       <SlideTemplateRenderer templateId={templateId} data={data} />

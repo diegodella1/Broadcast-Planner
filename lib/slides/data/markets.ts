@@ -1,6 +1,6 @@
 /**
  * Markets data fetcher: BTC + metals (XAU, XAG) + oil (WTI, Brent) via Pyth Network,
- * FX (EUR/JPY/GBP) via exchangerate.host, copper (ICOP ETF) via rtv-api market-indices.
+ * FX (EUR/JPY/GBP) via configured provider or no-key fallback, copper (ICOP ETF) via rtv-api market-indices.
  *
  * Source for the slide-port: backgroundclima/app/api/markets/sats/route.ts.
  * Pyth requires no API key; FX may use FX_API_URL/FX_API_KEY; copper relies on
@@ -20,8 +20,9 @@ const PYTH_FEED_IDS = {
   brent: "0xc96458d393fe9deb7a7d63a0ac41e2898a67a7750dbd166673279e06c868df0a"
 } as const
 
-const MARKETS_CACHE_DURATION_MS = 5 * 60 * 1000
-const FX_CACHE_DURATION_MS = 30 * 60 * 1000
+const MARKETS_CACHE_DURATION_MS = 30 * 1000
+const FX_CACHE_DURATION_MS = 30 * 1000
+const FX_FALLBACK_URL = "https://open.er-api.com/v6/latest/USD"
 
 type PythPriceData = {
   price: string
@@ -170,22 +171,17 @@ async function fetchFx(): Promise<FxRaw> {
   }
   const apiUrl = process.env.FX_API_URL
   const apiKey = process.env.FX_API_KEY
-  if (!apiUrl) {
-    console.warn(
-      "[lib/slides/data/markets.ts:fetchFx] FX_API_URL not set; returning empty FX rates"
-    )
-    return fallback
-  }
-
   const now = Date.now()
   if (fxCache && now - fxCache.timestamp < FX_CACHE_DURATION_MS) {
     return fxCache.data
   }
 
   try {
-    const url = apiKey
-      ? `${apiUrl.replace("/latest", "/live")}?access_key=${apiKey}&source=USD`
-      : `${apiUrl}?base=USD`
+    const url = apiUrl
+      ? apiKey
+        ? `${apiUrl.replace("/latest", "/live")}?access_key=${apiKey}&source=USD`
+        : `${apiUrl}?base=USD`
+      : FX_FALLBACK_URL
     const response = await fetch(url, {
       cache: "no-store",
       signal: AbortSignal.timeout(15_000),
@@ -194,10 +190,13 @@ async function fetchFx(): Promise<FxRaw> {
     if (!response.ok) throw new Error(`FX API error: ${response.status}`)
     const json = (await response.json()) as {
       success?: boolean
+      result?: string
       quotes?: Record<string, number | string>
       rates?: Record<string, number | string>
     }
-    if (json.success === false) throw new Error("FX provider returned success=false")
+    if (json.success === false || json.result === "error") {
+      throw new Error("FX provider returned an error")
+    }
 
     let eurRate = 0
     let jpyRate = 0

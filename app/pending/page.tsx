@@ -67,14 +67,20 @@ const liveNow: Item[] = [
     detail:
       "Cloudflare Workers config and deploy scripts are present with dashboard vars preserved; smoke it before making it primary.",
     status: "Done"
+  },
+  {
+    title: "Guest lineup plates",
+    detail:
+      "Operators can create guests with URL or uploaded photo/video media, then build individualized Guest Lineup plates with selected guests.",
+    status: "Done"
   }
 ]
 
 const nextWork: Item[] = [
   {
-    title: "Real plate inputs",
+    title: "Remaining real plate inputs",
     detail:
-      "Connect remaining plates/cards to real feeds or editable operator inputs instead of placeholder/static data.",
+      "Connect remaining non-guest plates/cards to real feeds or editable operator inputs instead of placeholder/static data.",
     status: "Next"
   },
   {
@@ -122,7 +128,7 @@ const later: Item[] = [
 const risks = [
   "Browser audio needs one operator click after load or reload.",
   "Reuters URLs can expire and must be refreshed before or during air.",
-  "Remaining placeholder plate data must be replaced before final programming handoff.",
+  "Remaining non-guest placeholder plate data must be replaced before final programming handoff.",
   "The current output is operational; final plate design still needs a broadcast-quality remodel.",
   "Cloudflare Workers/OpenNext should be smoke-tested before becoming the primary production path.",
   "Fallback assets must stay ready for unattended operation."
@@ -142,7 +148,8 @@ export default function PendingPage() {
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
             Current shipping status for RTV Planner. The core product is live; the remaining work is
-            real plate inputs, output design polish, smoke visibility and broadcast automation.
+            remaining real plate inputs, output design polish, smoke visibility and broadcast
+            automation.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link className="btn-secondary" href="/manual">
@@ -159,7 +166,7 @@ export default function PendingPage() {
 
         <section className="grid gap-3 border-b border-white/10 py-6 md:grid-cols-3">
           <Metric label="Current state" value="Production live" />
-          <Metric label="Main gate" value="Real plates" />
+          <Metric label="Main gate" value="Plate polish" />
           <Metric label="Next value" value="Broadcast polish" />
         </section>
 

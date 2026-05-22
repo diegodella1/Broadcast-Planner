@@ -1,5 +1,6 @@
 export type ProgramStatus = "draft" | "ready" | "active" | "archived"
 export type AssetStatus = "draft" | "syncing" | "ready" | "failed" | "archived"
+export type GuestStatus = "draft" | "ready" | "archived"
 export type AssetLifecycleState =
   | "synced"
   | "reviewed"
@@ -86,7 +87,28 @@ export type SlideAsset = {
   defaultDurationSeconds?: number | null
   status: "draft" | "ready" | "archived"
   /** Server-prefetched data bag. slideData is populated at render time for template slides. */
-  metadata?: { slideData?: unknown } | null
+  metadata?: Record<string, unknown> | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type Guest = {
+  id: string
+  name: string
+  role?: string | null
+  company?: string | null
+  host?: string | null
+  program?: string | null
+  category: string
+  appearanceAt?: string | null
+  photoUrl?: string | null
+  photoAssetId?: string | null
+  videoUrl?: string | null
+  videoAssetId?: string | null
+  color: string
+  sortOrder: number
+  status: GuestStatus
+  metadata?: Record<string, unknown> | null
   createdAt: string
   updatedAt: string
 }

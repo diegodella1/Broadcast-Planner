@@ -15,6 +15,7 @@ const shipped = [
   "Browser output for OBS/vMix capture",
   "Browser output confirmed in web player, vMix and OBS",
   "Public media proxy for uploaded ads/promos stored in local Supabase Storage",
+  "Guest records and individualized Guest Lineup plates with URL or uploaded photo/video media",
   "Time-accurate video reload resume",
   "Audit identity for critical operations",
   "Supabase readiness schema and fresh-project bootstrap SQL",
@@ -38,7 +39,7 @@ const verification = [
 
 const nextSteps = [
   "Provision day-to-day named operators and keep bootstrap token as emergency-only access.",
-  "Replace remaining placeholder/static plate data with real feeds or editable operator inputs.",
+  "Replace remaining non-guest placeholder/static plate data with real feeds or editable operator inputs.",
   "Remodel the visual design of cards, plates and output surfaces for final broadcast identity.",
   "Add output drift monitoring and incident prompts for silence, black output and stalled video.",
   "Finish i18n and validation copy cleanup.",
@@ -57,7 +58,17 @@ const operationSteps = [
     ]
   },
   {
-    name: "2. Build the day",
+    name: "2. Prepare guest plates",
+    route: "/admin/guests",
+    actions: [
+      "Create guest records with name, role, company, host, program, category and appearance time.",
+      "Use either URL fields or uploaded files for guest photos and short muted videos.",
+      "Create one Guest Lineup plate per editorial group, for example guests 1-4, guests 5-7 or a single featured guest.",
+      "Preview each guest plate before scheduling it."
+    ]
+  },
+  {
+    name: "3. Build the day",
     route: "/admin/calendar",
     actions: [
       "Create or open the programming day.",
@@ -67,7 +78,7 @@ const operationSteps = [
     ]
   },
   {
-    name: "3. Review the schedule",
+    name: "4. Review the schedule",
     route: "/admin/schedule/<date>",
     actions: [
       "Fix gaps.",
@@ -78,7 +89,7 @@ const operationSteps = [
     ]
   },
   {
-    name: "4. Complete the runbook",
+    name: "5. Complete the runbook",
     route: "/admin/runbook/<date>",
     actions: [
       "Complete preflight before going live.",
@@ -88,7 +99,7 @@ const operationSteps = [
     ]
   },
   {
-    name: "5. Go live",
+    name: "6. Go live",
     route: "/admin/output",
     actions: [
       "Activate the correct day.",
@@ -99,7 +110,7 @@ const operationSteps = [
     ]
   },
   {
-    name: "6. Operate during live",
+    name: "7. Operate during live",
     route: "/admin/output",
     actions: [
       "Monitor current block, next block, fallback reason and playback errors.",
@@ -108,7 +119,7 @@ const operationSteps = [
     ]
   },
   {
-    name: "7. Stop broadcast",
+    name: "8. Stop broadcast",
     route: "/admin/output",
     actions: [
       "Use Stop broadcast.",
@@ -178,7 +189,8 @@ export default function NotionStatusPage() {
             <Callout>
               Status: <strong>production live.</strong> Ready for controlled broadcast operation
               with an operator present. Browser output has been confirmed in web player, vMix and
-              OBS; the main remaining product gate is real plate inputs and final broadcast design.
+              OBS; guest lineup plates are now operator-configurable, and the main remaining product
+              gate is non-guest real plate inputs plus final broadcast design.
             </Callout>
 
             <h2 className={h2Class}>Current status</h2>
@@ -253,9 +265,14 @@ export default function NotionStatusPage() {
                 making it primary.
               </li>
               <li>
-                Some on-air plates are operational but not final: remaining placeholder/static data
-                must be connected to real inputs, and the visual design needs a broadcast-quality
-                remodel.
+                Guest lineup plates are now operator-configurable. Remaining non-guest
+                placeholder/static plate data must still be connected to real inputs, and the visual
+                design needs a broadcast-quality remodel.
+              </li>
+              <li>
+                Existing Supabase backends need the standalone guest migration at{" "}
+                <code className={codeClass}>public/manual/guest-lineup-migration.sql</code> or the
+                normal repo migration in <code className={codeClass}>supabase/migrations</code>.
               </li>
               <li>
                 If output reloads mid-show, the video seeks to the current schedule offset before

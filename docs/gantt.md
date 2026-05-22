@@ -17,13 +17,14 @@ Current roadmap only. The product is in controlled production: useful now, still
 | Supabase migration kit       | Live   | Fresh-project SQL creates schema, RLS policies, buckets and operational tables.              |
 | Security baseline            | Live   | Named operators, sessions, roles, CSRF, output token flow, rate limiting and audit logging.  |
 | Schedule UX feedback         | Live   | Newly-created blocks are announced, highlighted and shown with clear start/end time ranges.  |
+| Guest lineup plates          | Live   | Operators can create guests with URL/uploaded media and build individualized guest plates.   |
 | OpenNext/Cloudflare path     | Ready  | Worker deploy scripts and config exist; use as alternate deploy path after smoke validation. |
 
 ## Next
 
 | Work                          | Priority | Why                                                                                           |
 | ----------------------------- | -------- | --------------------------------------------------------------------------------------------- |
-| Real plate inputs             | P0       | Replace remaining placeholder/static plate data with real feeds or editable operator inputs.  |
+| Remaining real plate inputs   | P0       | Replace remaining non-guest placeholder/static plate data with real feeds or editable inputs. |
 | Remodel on-air plate design   | P0       | Make cards, slides and output surfaces look broadcast-ready, not just technically functional. |
 | Improve output alerting       | P1       | Turn drift, stalled, waiting, silence and media errors into operator-facing alerts.           |
 | Named operator rollout        | P1       | Move day-to-day work off bootstrap access and improve audit identity.                         |

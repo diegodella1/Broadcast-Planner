@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { formatSats } from "@/lib/slides/fmt"
 import type { MarketsSatsData } from "@/lib/slides/types"
+import { useSlidePollingData } from "./use-slide-polling-data"
 
 export type FxSlideProps = {
   data: MarketsSatsData
@@ -92,7 +93,8 @@ function FlagIcon({ country }: { country: FlagCountry }) {
 }
 
 export function FxSlide({ data }: FxSlideProps) {
-  const { fx } = data
+  const liveData = useSlidePollingData(data, "/api/slide-data/markets")
+  const { fx } = liveData
   const currencies: Array<{ code: FlagCountry; name: string; satsPerUnit: number }> = [
     { code: "EUR", name: "Euro", satsPerUnit: fx.EUR.satsPerUnit },
     { code: "JPY", name: "Japanese Yen", satsPerUnit: fx.JPY.satsPerUnit },

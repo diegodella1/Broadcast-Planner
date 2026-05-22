@@ -12,6 +12,7 @@ import Link from "next/link"
 
 const workflowSteps = [
   "Add or sync videos, graphics, slides, audio, Vimeo shows and live endpoints.",
+  "Create guest records and individualized guest lineup plates when the programming needs guest cards.",
   "Create the broadcast day in Calendar.",
   "Build the rundown in Schedule and assign ready media, slides or live streams.",
   "Assign fallback media at day or block level.",
@@ -27,8 +28,14 @@ const sections = [
   {
     title: "Content",
     icon: Library,
-    body: "Centralize uploaded media, remote URLs, music beds, fallbacks, Vimeo episodes and reusable graphics before anything reaches air. Uploaded ads/promos play through the public app media proxy even when Supabase storage is local.",
+    body: "Centralize uploaded media, remote URLs, music beds, fallbacks, Vimeo episodes, guest lineups and reusable graphics before anything reaches air. Uploaded ads/promos and guest media play through the public app media proxy even when Supabase storage is local.",
     href: "/admin/assets"
+  },
+  {
+    title: "Guests",
+    icon: Clapperboard,
+    body: "Create guest records with URL or uploaded photo/video media, then build one Guest Lineup plate per show segment or guest group.",
+    href: "/admin/guests"
   },
   {
     title: "Schedule",
@@ -66,7 +73,8 @@ const limits = [
   "Production app is live and usable with an operator present.",
   "Browser output has been confirmed through web player, vMix and OBS.",
   "Uploaded ads/promos use the public app proxy; older 127.0.0.1 asset URLs were backfilled.",
-  "Some on-air plates still need real data inputs or editable operator inputs.",
+  "Guest lineup plates now use operator-configured guests, uploaded/remote photos and short muted videos.",
+  "Some non-guest on-air plates still need real data inputs or editable operator inputs.",
   "The final broadcast plate design still needs a visual remodel.",
   "OpenNext/Cloudflare Workers is configured as an alternate deploy path but still needs a real Workers smoke before becoming primary.",
   "Browser audio requires one operator click after load or reload.",
@@ -82,7 +90,9 @@ const recentUpdates = [
   "Gaps show their full time range so operators can fill the right window faster.",
   "Local Supabase media uploads now play publicly through /api/media/assets/:assetId.",
   "Deploy/read-only smoke scripts now persist the latest smoke result for health checks.",
+  "Guest lineup plates can now be individualized per slide from /admin/guests.",
   "Supabase bootstrap SQL is available for setting up a fresh backend.",
+  "A standalone guest lineup SQL migration is available at /manual/guest-lineup-migration.sql.",
   "OpenNext/Cloudflare Workers deploy scripts are configured for alternate production validation."
 ]
 

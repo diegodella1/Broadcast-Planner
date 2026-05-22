@@ -8,6 +8,7 @@ import { shouldFailClosedForMissingOutputToken } from "./output-auth"
 const serviceRoleApiRoutes = [
   "app/api/assets/upload/route.ts",
   "app/api/assets/upload-schedule/route.ts",
+  "app/api/guests/upload/route.ts",
   "app/api/settings/route.ts",
   "app/api/vimeo/import/route.ts",
   "app/api/vimeo/sync/route.ts"

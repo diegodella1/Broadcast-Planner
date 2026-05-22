@@ -69,6 +69,49 @@ export type MarketsSatsData = {
   stale?: boolean
 }
 
+export type MarketOpenPhase = "pre-market" | "open" | "after-hours" | "closed"
+export type MarketDataMode = "demo" | "live" | "unavailable"
+
+export type MarketIndexPoint = {
+  timestamp: string
+  price: number
+}
+
+export type MarketIndex = {
+  id: string
+  label: string
+  symbol: string
+  proxySymbol: string
+  price: number | null
+  change: number | null
+  changePercent: number | null
+  source: string
+  points: MarketIndexPoint[]
+  unavailable?: boolean
+}
+
+export type MarketOpenData = {
+  mode: MarketDataMode
+  phase: MarketOpenPhase
+  marketName: string
+  regionLabel: string
+  previewLabel: string
+  nextBellAt: string
+  nextBellLabel: "Opening bell" | "Closing bell"
+  marketTimezone: string
+  updatedAt: string
+  cacheSeconds: number
+  stale?: boolean
+  source: string
+  instruments: MarketIndex[]
+}
+
+export type UsMarketPhase = MarketOpenPhase
+export type UsMarketDataMode = MarketDataMode
+export type UsMarketIndexPoint = MarketIndexPoint
+export type UsMarketIndex = MarketIndex
+export type UsMarketOpenData = MarketOpenData
+
 export type DebtData = {
   liveEstimateNow: number
   perSecond: number
@@ -184,4 +227,32 @@ export type WeatherSlideData = {
   forecast: WeatherForecastPoint[]
   updatedAt: string
   reason?: string
+}
+
+export type GuestLineupGuest = {
+  id: string
+  name: string
+  role: string | null
+  company: string | null
+  host: string | null
+  program: string | null
+  category: string
+  appearanceAt: string | null
+  photoUrl: string | null
+  photoAssetId?: string | null
+  videoUrl: string | null
+  videoAssetId?: string | null
+  color: string
+  sortOrder: number
+}
+
+export type GuestLineupData = {
+  mode: "live" | "demo" | "unavailable"
+  guests: GuestLineupGuest[]
+  updatedAt: string
+  rotationSeconds: number
+  cacheSeconds: number
+  endpoint?: string
+  stale?: boolean
+  source: string
 }

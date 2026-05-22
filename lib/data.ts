@@ -4,6 +4,7 @@ import { createServiceClient } from "./supabase/server"
 import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "./time"
 
 import type {
+  Guest,
   MediaAsset,
   ProgramBlock,
   ProgramDay,
@@ -329,6 +330,26 @@ export async function getSlides(): Promise<SlideAsset[]> {
   }
 }
 
+export async function getGuests(input: { readyOnly?: boolean } = {}): Promise<Guest[]> {
+  try {
+    const supabase = createServiceClient()
+    let query = supabase
+      .from("guests")
+      .select(
+        "*,photo_asset:media_assets!guests_photo_asset_id_fkey(url),video_asset:media_assets!guests_video_asset_id_fkey(url)"
+      )
+    if (input.readyOnly) query = query.eq("status", "ready")
+    const { data, error } = await query
+      .order("appearance_at", { ascending: true, nullsFirst: false })
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true })
+    if (error) throw error
+    return (data ?? []).map(mapGuest)
+  } catch (error) {
+    return handleDataFailure(error, [])
+  }
+}
+
 export async function getDays(): Promise<ProgramDay[]> {
   try {
     const supabase = createServiceClient()
@@ -500,9 +521,44 @@ function mapSlide(row: Row): SlideAsset {
     templateId: nullableText(row.template_id),
     defaultDurationSeconds: nullableNumber(row.default_duration_seconds),
     status: text(row.status) as SlideAsset["status"],
+    metadata:
+      typeof row.metadata === "object" && row.metadata !== null
+        ? (row.metadata as Record<string, unknown>)
+        : null,
     createdAt: text(row.created_at),
     updatedAt: text(row.updated_at)
   }
+}
+
+function mapGuest(row: Row): Guest {
+  return {
+    id: text(row.id),
+    name: text(row.name),
+    role: nullableText(row.role),
+    company: nullableText(row.company),
+    host: nullableText(row.host),
+    program: nullableText(row.program),
+    category: nullableText(row.category) ?? "markets",
+    appearanceAt: nullableText(row.appearance_at),
+    photoUrl: relatedAssetUrl(row.photo_asset) ?? nullableText(row.photo_url),
+    photoAssetId: nullableText(row.photo_asset_id),
+    videoUrl: relatedAssetUrl(row.video_asset) ?? nullableText(row.video_url),
+    videoAssetId: nullableText(row.video_asset_id),
+    color: nullableText(row.color) ?? "#f7931a",
+    sortOrder: number(row.sort_order),
+    status: text(row.status) as Guest["status"],
+    metadata:
+      typeof row.metadata === "object" && row.metadata !== null
+        ? (row.metadata as Record<string, unknown>)
+        : null,
+    createdAt: text(row.created_at),
+    updatedAt: text(row.updated_at)
+  }
+}
+
+function relatedAssetUrl(value: unknown) {
+  const row = Array.isArray(value) ? value[0] : value
+  return typeof row === "object" && row !== null ? nullableText((row as Row).url) : null
 }
 
 function text(value: unknown): string {

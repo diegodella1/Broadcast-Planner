@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   MonitorPlay,
   Music,
+  Users,
   Video
 } from "lucide-react"
 import Link from "next/link"
@@ -41,6 +42,7 @@ export const navGroups: NavGroup[] = [
       { label: "Home", href: "/admin", icon: LayoutDashboard, match: "exact" },
       { label: "Vimeo", href: "/admin/vimeo", icon: MonitorPlay },
       { label: "Graphics", href: "/admin/slides", icon: Clapperboard },
+      { label: "Guests", href: "/admin/guests", icon: Users },
       { label: "Music", href: "/admin/music", icon: Music },
       { label: "Health", href: "/admin/health", icon: HeartPulse }
     ]

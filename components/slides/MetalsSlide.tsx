@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { formatSats, formatChange24h } from "@/lib/slides/fmt"
 import type { MarketsSatsData } from "@/lib/slides/types"
+import { useSlidePollingData } from "./use-slide-polling-data"
 
 export type MetalsSlideProps = {
   data: MarketsSatsData
@@ -103,9 +104,10 @@ function CommodityCard({
 }
 
 export function MetalsSlide({ data }: MetalsSlideProps) {
-  const { gold, silver } = data.metals
-  const wti = data.oil.wti
-  const copper = data.copper
+  const liveData = useSlidePollingData(data, "/api/slide-data/metals")
+  const { gold, silver } = liveData.metals
+  const wti = liveData.oil.wti
+  const copper = liveData.copper
 
   return (
     <motion.div

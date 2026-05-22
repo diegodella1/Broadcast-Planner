@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { formatSats, formatChange24h } from "@/lib/slides/fmt"
 import type { MarketsSatsData } from "@/lib/slides/types"
+import { useSlidePollingData } from "./use-slide-polling-data"
 
 export type OilSlideProps = {
   data: MarketsSatsData
@@ -87,8 +88,9 @@ function OilCard({ label, usd, sats, change24hPct }: CommodityRow) {
 }
 
 export function OilSlide({ data }: OilSlideProps) {
-  const wti = data.oil.wti
-  const brent = data.oil.brent
+  const liveData = useSlidePollingData(data, "/api/slide-data/markets")
+  const wti = liveData.oil.wti
+  const brent = liveData.oil.brent
 
   return (
     <motion.div

@@ -14,7 +14,13 @@ import { parseReutersStreamInput, maskStreamUrl } from "./reuters-stream"
 import { createServiceClient } from "./supabase/server"
 import { formatTimecode, parseTimecode, PLAYOUT_TIMEZONE } from "./time"
 
-import type { BlockCategory, ProgramBlock, ProgramStatus, RunbookSection } from "./types"
+import type {
+  BlockCategory,
+  GuestStatus,
+  ProgramBlock,
+  ProgramStatus,
+  RunbookSection
+} from "./types"
 
 type ConflictResolutionMode = "none" | "insert_shift" | "archive_conflicts" | "strict"
 
@@ -1084,6 +1090,7 @@ export async function createSlideAsset(input: {
   templateId?: string | undefined
   defaultDurationSeconds?: number | undefined
   status?: string | undefined
+  metadata?: Record<string, unknown> | undefined
 }) {
   const supabase = createServiceClient()
   await auditedMutation(
@@ -1101,12 +1108,259 @@ export async function createSlideAsset(input: {
         html_content: input.htmlContent || null,
         template_id: input.templateId || null,
         default_duration_seconds: input.defaultDurationSeconds || null,
+        metadata: input.metadata ?? {},
         status: input.status || "ready"
       })
       if (error) throw error
     }
   )
   revalidatePath("/admin/slides")
+}
+
+export async function createGuest(input: {
+  name: string
+  role?: string
+  company?: string
+  host?: string
+  program?: string
+  category?: string
+  appearanceAt?: string
+  photoUrl?: string
+  photoAssetId?: string
+  videoUrl?: string
+  videoAssetId?: string
+  color?: string
+  sortOrder?: number
+  status?: GuestStatus
+}) {
+  const supabase = createServiceClient()
+  const status = normalizeGuestStatus(input.status)
+  await auditedMutation(
+    {
+      action: "guest.created",
+      entityType: "guests",
+      next: { name: input.name, status }
+    },
+    async () => {
+      const { error } = await supabase.from("guests").insert({
+        name: input.name,
+        role: input.role || null,
+        company: input.company || null,
+        host: input.host || null,
+        program: input.program || null,
+        category: input.category || "markets",
+        appearance_at: input.appearanceAt || null,
+        photo_url: input.photoUrl || null,
+        photo_asset_id: input.photoAssetId || null,
+        video_url: input.videoUrl || null,
+        video_asset_id: input.videoAssetId || null,
+        color: input.color || "#f7931a",
+        sort_order: input.sortOrder ?? 0,
+        status
+      })
+      if (error) throw error
+    }
+  )
+  revalidatePath("/admin/guests")
+  revalidatePath("/admin/slides")
+}
+
+export async function updateGuest(input: {
+  id: string
+  name: string
+  role?: string
+  company?: string
+  host?: string
+  program?: string
+  category?: string
+  appearanceAt?: string
+  photoUrl?: string
+  photoAssetId?: string
+  videoUrl?: string
+  videoAssetId?: string
+  color?: string
+  sortOrder?: number
+  status?: GuestStatus
+}) {
+  const supabase = createServiceClient()
+  const status = normalizeGuestStatus(input.status)
+  await auditedMutation(
+    {
+      action: "guest.updated",
+      entityType: "guests",
+      entityId: input.id,
+      next: { name: input.name, status }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("guests")
+        .update({
+          name: input.name,
+          role: input.role || null,
+          company: input.company || null,
+          host: input.host || null,
+          program: input.program || null,
+          category: input.category || "markets",
+          appearance_at: input.appearanceAt || null,
+          photo_url: input.photoUrl || null,
+          photo_asset_id: input.photoAssetId || null,
+          video_url: input.videoUrl || null,
+          video_asset_id: input.videoAssetId || null,
+          color: input.color || "#f7931a",
+          sort_order: input.sortOrder ?? 0,
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", input.id)
+      if (error) throw error
+    }
+  )
+  revalidatePath("/admin/guests")
+  revalidatePath("/admin/slides")
+}
+
+export async function archiveGuest(id: string) {
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "guest.archived",
+      entityType: "guests",
+      entityId: id,
+      next: { status: "archived" }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("guests")
+        .update({ status: "archived", updated_at: new Date().toISOString() })
+        .eq("id", id)
+      if (error) throw error
+    }
+  )
+  revalidatePath("/admin/guests")
+  revalidatePath("/admin/slides")
+}
+
+export async function attachGuestMediaAsset(input: {
+  guestId: string
+  kind: "photo" | "video"
+  assetId: string
+  url: string
+}) {
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "guest.media_attached",
+      entityType: "guests",
+      entityId: input.guestId,
+      next: { kind: input.kind, asset_id: input.assetId }
+    },
+    async () => {
+      const update =
+        input.kind === "photo"
+          ? {
+              photo_asset_id: input.assetId,
+              photo_url: input.url,
+              updated_at: new Date().toISOString()
+            }
+          : {
+              video_asset_id: input.assetId,
+              video_url: input.url,
+              updated_at: new Date().toISOString()
+            }
+      const { error } = await supabase.from("guests").update(update).eq("id", input.guestId)
+      if (error) throw error
+    }
+  )
+  revalidatePath("/admin/guests")
+  revalidatePath("/admin/slides")
+}
+
+function normalizeGuestStatus(status?: GuestStatus) {
+  if (status === "draft" || status === "archived") return status
+  return "ready"
+}
+
+export async function createGuestPlate(input: {
+  title: string
+  guestIds: string[]
+  defaultDurationSeconds?: number
+  status?: string
+}) {
+  const guestIds = normalizeGuestIds(input.guestIds)
+  if (!guestIds.length) throw new Error("Selecciona al menos un invitado")
+  await createSlideAsset({
+    title: input.title,
+    slideType: "template",
+    templateId: "guest-lineup",
+    content: "Guest Lineup plate with custom guest selection.",
+    defaultDurationSeconds: input.defaultDurationSeconds ?? 30,
+    status: input.status || "ready",
+    metadata: { guestIds }
+  })
+  revalidatePath("/admin/guests")
+}
+
+export async function updateGuestPlate(input: {
+  slideId: string
+  title: string
+  guestIds: string[]
+  defaultDurationSeconds?: number
+  status?: string
+}) {
+  const guestIds = normalizeGuestIds(input.guestIds)
+  if (!guestIds.length) throw new Error("Selecciona al menos un invitado")
+  const status = input.status === "draft" || input.status === "archived" ? input.status : "ready"
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "guest_plate.updated",
+      entityType: "slide_assets",
+      entityId: input.slideId,
+      next: { title: input.title, status, guests: guestIds.length }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("slide_assets")
+        .update({
+          title: input.title,
+          default_duration_seconds: input.defaultDurationSeconds ?? 30,
+          status,
+          metadata: { guestIds },
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", input.slideId)
+        .eq("template_id", "guest-lineup")
+      if (error) throw error
+    }
+  )
+  revalidatePath("/admin/guests")
+  revalidatePath("/admin/slides")
+}
+
+export async function archiveGuestPlate(slideId: string) {
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "guest_plate.archived",
+      entityType: "slide_assets",
+      entityId: slideId,
+      next: { status: "archived" }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("slide_assets")
+        .update({ status: "archived", updated_at: new Date().toISOString() })
+        .eq("id", slideId)
+        .eq("template_id", "guest-lineup")
+      if (error) throw error
+    }
+  )
+  revalidatePath("/admin/guests")
+  revalidatePath("/admin/slides")
+}
+
+function normalizeGuestIds(values: string[]) {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))]
 }
 
 export async function createScheduledLayer(input: {

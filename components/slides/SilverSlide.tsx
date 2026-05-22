@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { formatSats, formatChange24h } from "@/lib/slides/fmt"
 import type { MarketsSatsData } from "@/lib/slides/types"
+import { useSlidePollingData } from "./use-slide-polling-data"
 
 export type SilverSlideProps = {
   data: MarketsSatsData
@@ -19,7 +20,8 @@ const valueFont = { fontSize: "clamp(36px, 4vw, 64px)", lineHeight: "1", fontWei
 const changeFont = { fontSize: "clamp(24px, 2.5vw, 40px)", lineHeight: "1", fontWeight: 900 }
 
 export function SilverSlide({ data }: SilverSlideProps) {
-  const silver = data.metals.silver
+  const liveData = useSlidePollingData(data, "/api/slide-data/metals")
+  const silver = liveData.metals.silver
   const hasData = silver.usd > 0
 
   return (

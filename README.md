@@ -13,6 +13,7 @@ What is already working:
 - daily schedule builder with timed blocks
 - timeline-first schedule UI with visible newly-added block confirmation, time ranges and gap filling
 - media library for uploads, remote URLs, Vimeo, slides, music and fallbacks
+- guest library with per-plate lineups, uploaded/remote guest photos and short muted guest videos
 - Supabase database/storage backend, including local-storage media proxy for public playback
 - browser playout for OBS/vMix capture
 - Vimeo, HLS, MP4, images, slides and Reuters stream snapshots
@@ -26,7 +27,7 @@ What is already working:
 - named operators, sessions, role guards, CSRF protection and audit logging
 - fresh Supabase bootstrap SQL for moving to a new backend
 
-Main product gate now pending: wire the on-air plates/slides to real production inputs where mock/static content remains, then remodel the visual design of the output plates so the channel looks intentionally produced rather than just operationally correct.
+Main product gate now pending: finish the remaining real-data plate inputs, then remodel the visual design of the output plates so the channel looks intentionally produced rather than just operationally correct.
 
 Deployment note: the active production path is still local standalone Next.js behind a Cloudflare tunnel. OpenNext/Cloudflare Workers support is configured and deployable, but should be treated as an alternate path until a real Workers deploy is smoke-tested.
 
@@ -53,6 +54,7 @@ The value is not just playing media. The value is reducing live mistakes: wrong 
 - `/admin/runbook/[date]` - preflight/live/incident/shutdown checklist
 - `/admin/assets` - media library
 - `/admin/vimeo` - Vimeo sync/import
+- `/admin/guests` - guest records and individualized guest lineup plates
 - `/admin/slides` - slide library
 - `/admin/music` - background music assets
 - `/admin/output` - live output control and overrides
@@ -69,13 +71,14 @@ The value is not just playing media. The value is reducing live mistakes: wrong 
 ## Production Workflow
 
 1. Add content in `/admin/assets`, `/admin/vimeo`, `/admin/music` or `/admin/slides`.
-2. Build the day in `/admin/calendar` -> `/admin/schedule/[date]`.
-3. Resolve schedule health issues and assign fallback assets.
-4. Complete the runbook in `/admin/runbook/[date]`.
-5. Set the day `active`.
-6. Open `/admin/output`, launch Live Browser Output, click `Start Output`, then capture that browser window in OBS/vMix.
-7. During live, watch active block, next block, fallback reason, playback state and runbook notes.
-8. Stop broadcast and complete shutdown checks.
+2. Build guest records and guest lineup plates in `/admin/guests` when the show needs guest cards.
+3. Build the day in `/admin/calendar` -> `/admin/schedule/[date]`.
+4. Resolve schedule health issues and assign fallback assets.
+5. Complete the runbook in `/admin/runbook/[date]`.
+6. Set the day `active`.
+7. Open `/admin/output`, launch Live Browser Output, click `Start Output`, then capture that browser window in OBS/vMix.
+8. During live, watch active block, next block, fallback reason, playback state and runbook notes.
+9. Stop broadcast and complete shutdown checks.
 
 If the output page reloads mid-show, it asks the server for the active block and resumes video at the current scheduled offset. Browser audio still requires one operator click after load or reload.
 
@@ -178,6 +181,13 @@ Fresh Supabase bootstrap SQL for migration/offline setup:
 public/manual/supabase-bootstrap.sql
 ```
 
+Standalone guest lineup migration for existing backends:
+
+```txt
+supabase/migrations/20260522120000_guest_lineup.sql
+public/manual/guest-lineup-migration.sql
+```
+
 Seed data:
 
 ```txt
@@ -217,7 +227,7 @@ Before live use:
 
 Near-term priorities:
 
-- replace remaining placeholder/static plate data with real feeds or operator-configurable inputs
+- replace remaining non-guest placeholder/static plate data with real feeds or operator-configurable inputs
 - remodel the visual design of on-air plates, cards and output surfaces
 - improve operator alerts for drift, stalled playback, silence and media errors
 - expand schedule copy/recurring-day tools after the live workflow is stable

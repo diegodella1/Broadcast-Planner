@@ -13,8 +13,12 @@ release and go-live checklist for the Roxom TV browser-output workflow.
 - Playout: `/output/live` captured by OBS or vMix.
 - Operational model: named operators for normal use, bootstrap token for emergency access.
 - Capture status: browser output has been confirmed through web player, vMix and OBS.
-- Main product gate: replace remaining placeholder/static plate inputs with real data feeds or
-  operator-configurable inputs, then remodel the on-air plate design for a stronger broadcast look.
+- Main product gate: replace remaining non-guest placeholder/static plate inputs with real data
+  feeds or operator-configurable inputs, then remodel the on-air plate design for a stronger
+  broadcast look.
+- Guest lineup plates are operator-configurable in `/admin/guests`; existing Supabase backends need
+  `supabase/migrations/20260522120000_guest_lineup.sql` or
+  `public/manual/guest-lineup-migration.sql` applied before use.
 - Alternate deploy path: OpenNext/Cloudflare Workers is configured and deployable, but the current
   production host remains local standalone Next.js behind Cloudflare Tunnel until a Workers deploy
   is smoke-tested.
