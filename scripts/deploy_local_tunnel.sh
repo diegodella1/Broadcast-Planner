@@ -14,7 +14,6 @@ cp -R public .next/standalone/public
 sudo systemctl restart rtvplanner.service
 sleep 3
 
-curl -fsS http://127.0.0.1:3450/api/health >/dev/null
 curl -fsS http://127.0.0.1:3450/manual >/dev/null
 if [[ -n "${OUTPUT_CAPTURE_TOKEN:-}" ]]; then
   curl -fsS "http://127.0.0.1:3450/output/live?token=${OUTPUT_CAPTURE_TOKEN}" >/dev/null
@@ -37,4 +36,5 @@ for css_href in "${css_hrefs[@]}"; do
 done
 
 node scripts/record_smoke_status.mjs ok local-deploy >/dev/null
+curl -fsS http://127.0.0.1:3450/api/health >/dev/null
 echo "rtvplanner production deploy ok"
