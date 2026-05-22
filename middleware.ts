@@ -116,17 +116,29 @@ function isSecureCookie() {
 function contentSecurityPolicy() {
   const appOrigin = originFromEnv(process.env.NEXT_PUBLIC_APP_BASE_URL)
   const frameAncestors = ["'self'", appOrigin].filter(Boolean).join(" ")
+  const production = process.env.NODE_ENV === "production"
+  const imgSrc = ["'self'", "data:", "blob:", "https:"]
+  const mediaSrc = ["'self'", "blob:", "https:"]
+  const connectSrc = ["'self'", "https:", "wss:"]
+  const scriptSrc = ["'self'", "'unsafe-inline'", "https://static.cloudflareinsights.com"]
+  if (!production) {
+    imgSrc.push("http:")
+    mediaSrc.push("http:")
+    connectSrc.push("http:", "ws:")
+    scriptSrc.push("'unsafe-eval'")
+  }
   return [
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
     "form-action 'self'",
     `frame-ancestors ${frameAncestors}`,
-    "img-src 'self' data: blob: https: http:",
-    "media-src 'self' blob: https: http:",
-    "connect-src 'self' https: http: wss:",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com",
-    "style-src 'self' 'unsafe-inline'"
+    `img-src ${imgSrc.join(" ")}`,
+    `media-src ${mediaSrc.join(" ")}`,
+    `connect-src ${connectSrc.join(" ")}`,
+    `script-src ${scriptSrc.join(" ")}`,
+    "style-src 'self' 'unsafe-inline'",
+    ...(production ? ["upgrade-insecure-requests"] : [])
   ].join("; ")
 }
 

@@ -38,8 +38,8 @@ describe("AgendaBlockForm", () => {
     const user = userEvent.setup()
     render(<AgendaBlockForm schedule={schedule({ withConflict: true })} action={vi.fn()} />)
 
-    await user.clear(screen.getByLabelText("3. Start"))
-    await user.type(screen.getByLabelText("3. Start"), "00:10:00")
+    await user.clear(screen.getByLabelText("3. Clock start (24 h)"))
+    await user.type(screen.getByLabelText("3. Clock start (24 h)"), "00:10:00")
 
     expect(screen.getByRole("button", { name: "Save to schedule" })).toBeDisabled()
     expect(screen.getByText("That time is already occupied")).toBeInTheDocument()

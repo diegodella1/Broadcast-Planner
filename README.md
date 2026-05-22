@@ -25,6 +25,7 @@ What is already working:
 - admin health, schedule health and Go Live Drill
 - persisted smoke status from deploy/read-only smoke scripts
 - named operators, sessions, role guards, CSRF protection and audit logging
+- protected active-block/health operational endpoints, atomic API rate limiting and alert cooldowns
 - fresh Supabase bootstrap SQL for moving to a new backend
 
 Main product gate now pending: finish the remaining real-data plate inputs, then remodel the visual design of the output plates so the channel looks intentionally produced rather than just operationally correct.
@@ -118,6 +119,8 @@ SUPABASE_SERVICE_ROLE_KEY=
 APP_ENCRYPTION_KEY=
 ADMIN_BOOTSTRAP_TOKEN=
 OUTPUT_CAPTURE_TOKEN=
+ALERT_WEBHOOK_URL=
+ALERT_WEBHOOK_COOLDOWN_MS=600000
 NEXT_PUBLIC_APP_BASE_URL=
 APP_BASE_URL=
 VIMEO_ACCESS_TOKEN=
@@ -188,6 +191,13 @@ supabase/migrations/20260522120000_guest_lineup.sql
 public/manual/guest-lineup-migration.sql
 ```
 
+Standalone rate-limit hardening migration for existing backends:
+
+```txt
+supabase/migrations/20260522153000_atomic_rate_limits.sql
+public/manual/atomic-rate-limits-migration.sql
+```
+
 Seed data:
 
 ```txt
@@ -215,6 +225,7 @@ to the public app proxy URL.
 Before live use:
 
 - `/api/health` has no failing checks.
+- the latest Supabase migrations are applied, including guest lineup and atomic rate limits.
 - `/admin/health` Go Live Drill passes.
 - current day exists and is `active`.
 - active block has ready media or a ready fallback.
@@ -230,6 +241,7 @@ Near-term priorities:
 - replace remaining non-guest placeholder/static plate data with real feeds or operator-configurable inputs
 - remodel the visual design of on-air plates, cards and output surfaces
 - improve operator alerts for drift, stalled playback, silence and media errors
+- replace public health detail with admin-only diagnostics in any external status dashboard
 - expand schedule copy/recurring-day tools after the live workflow is stable
 
 See:

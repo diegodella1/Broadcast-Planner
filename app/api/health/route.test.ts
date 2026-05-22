@@ -59,6 +59,7 @@ describe("GET /api/health", () => {
     expect(response.status).toBe(503)
     expect(payload.ok).toBe(false)
     expect(payload.checks.storage.status).toBe("fail")
+    expect(payload.checks.storage.message).toBe("Check failed")
   })
 
   it("fails when demo data is enabled for a production-like origin", async () => {
@@ -70,7 +71,7 @@ describe("GET /api/health", () => {
 
     expect(response.status).toBe(503)
     expect(payload.ok).toBe(false)
-    expect(payload.checks.env.message).toBe("ALLOW_DEMO_DATA cannot be enabled in production")
+    expect(payload.checks.env.message).toBe("Check failed")
   })
 
   it("reports degraded schema when Vimeo readiness columns are missing", async () => {
@@ -91,7 +92,7 @@ describe("GET /api/health", () => {
     expect(payload.ok).toBe(true)
     expect(payload.status).toBe("degraded")
     expect(payload.checks.schema.status).toBe("degraded")
-    expect(payload.checks.schema.message).toContain("playback_readiness_status")
+    expect(payload.checks.schema.message).toBe("Check degraded")
   })
 })
 

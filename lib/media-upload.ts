@@ -119,12 +119,13 @@ export function resolveUploadedMedia(
 
 export async function uploadMediaFile(file: FileLike, fields: UploadedMediaFields) {
   const resolved = resolveUploadedMedia(file, fields)
+  const bytes = await file.arrayBuffer()
+  assertFileSignature(file, new Uint8Array(bytes.slice(0, 32)))
   const supabase = createServiceClient()
   await ensureSmallMediaBucket(supabase)
 
   const extension = extensionFor(file)
   const storagePath = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}${extension}`
-  const bytes = await file.arrayBuffer()
   const { error: uploadError } = await supabase.storage
     .from(SMALL_MEDIA_BUCKET)
     .upload(storagePath, bytes, { contentType: file.type, upsert: false })
@@ -168,6 +169,21 @@ export function uploadedMediaFieldsFromForm(form: FormData): UploadedMediaFields
     detectedDurationSeconds: form.get("detected_duration_seconds") as string | null,
     detectedWidth: form.get("detected_width") as string | null,
     detectedHeight: form.get("detected_height") as string | null
+  }
+}
+
+export function assertFileSignature(file: Pick<FileLike, "name" | "type">, bytes: Uint8Array) {
+  const valid =
+    (file.type === "video/mp4" && hasMp4Signature(bytes)) ||
+    (file.type === "video/webm" && startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3])) ||
+    (file.type === "image/png" &&
+      startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) ||
+    (file.type === "image/jpeg" && startsWith(bytes, [0xff, 0xd8, 0xff])) ||
+    (file.type === "image/webp" && hasWebpSignature(bytes)) ||
+    (file.type === "image/gif" && hasAsciiSignature(bytes, "GIF8")) ||
+    ((file.type === "audio/mpeg" || file.type === "audio/mp3") && hasMp3Signature(bytes))
+  if (!valid) {
+    throw new Error("File content does not match its MIME type")
   }
 }
 
@@ -243,4 +259,29 @@ function extensionFor(file: Pick<FileLike, "name" | "type">) {
   if (file.type === "image/jpeg") return ".jpg"
   if (file.type === "audio/mpeg" || file.type === "audio/mp3") return ".mp3"
   return ".mp4"
+}
+
+function startsWith(bytes: Uint8Array, signature: number[]) {
+  return signature.every((value, index) => bytes[index] === value)
+}
+
+function hasAsciiSignature(bytes: Uint8Array, signature: string, offset = 0) {
+  return signature.split("").every((char, index) => bytes[offset + index] === char.charCodeAt(0))
+}
+
+function hasMp4Signature(bytes: Uint8Array) {
+  return bytes.length >= 12 && hasAsciiSignature(bytes, "ftyp", 4)
+}
+
+function hasWebpSignature(bytes: Uint8Array) {
+  return (
+    bytes.length >= 12 && hasAsciiSignature(bytes, "RIFF", 0) && hasAsciiSignature(bytes, "WEBP", 8)
+  )
+}
+
+function hasMp3Signature(bytes: Uint8Array) {
+  return (
+    hasAsciiSignature(bytes, "ID3") ||
+    (bytes.length >= 2 && bytes[0] === 0xff && ((bytes[1] ?? 0) & 0xe0) === 0xe0)
+  )
 }

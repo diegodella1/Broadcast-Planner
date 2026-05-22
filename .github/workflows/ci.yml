@@ -34,4 +34,4 @@ jobs:
       - name: Build
         run: npm run build
       - name: Dependency audit
-        run: npm audit --audit-level=moderate || true
+        run: npm audit --omit=dev --audit-level=high

@@ -60,6 +60,7 @@ Run this before trusting a machine for broadcast:
 
 1. Open `/admin/health`.
 2. Confirm environment, Supabase, storage, Vimeo, output token, and static assets are OK.
+   Public `/api/health` only shows pass/degraded/fail summaries; admin health shows the full detail.
 3. Open `/admin/output`.
 4. Launch Live Browser Output.
 5. Click `Start Output`.

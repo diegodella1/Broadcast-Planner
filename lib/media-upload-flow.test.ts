@@ -41,7 +41,9 @@ describe("uploadMediaFile", () => {
         name: "ad spot.mp4",
         type: "video/mp4",
         size: 1024,
-        arrayBuffer: async () => new ArrayBuffer(8)
+        arrayBuffer: async () =>
+          new Uint8Array([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d])
+            .buffer
       },
       {
         title: "Ad spot",

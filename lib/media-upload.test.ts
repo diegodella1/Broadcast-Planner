@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { publicMediaAssetUrl } from "./media-asset-url"
-import { resolveUploadedMedia } from "./media-upload"
+import { assertFileSignature, resolveUploadedMedia } from "./media-upload"
 
 const baseFile = {
   name: "clip.mp4",
@@ -69,6 +69,24 @@ describe("resolveUploadedMedia", () => {
         detectedDurationSeconds: "301"
       })
     ).toThrow("Uploaded videos cannot be longer than 5 minutes")
+  })
+})
+
+describe("assertFileSignature", () => {
+  it("accepts an MP4 file signature", () => {
+    const bytes = new Uint8Array([
+      0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d
+    ])
+
+    expect(() => assertFileSignature(baseFile, bytes)).not.toThrow()
+  })
+
+  it("rejects files whose bytes do not match their declared MIME type", () => {
+    const bytes = new Uint8Array([0x47, 0x49, 0x46, 0x38])
+
+    expect(() => assertFileSignature(baseFile, bytes)).toThrow(
+      "File content does not match its MIME type"
+    )
   })
 })
 

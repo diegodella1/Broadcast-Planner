@@ -39,6 +39,22 @@ export type OperatorHealthReport = {
   checks: Record<OperatorHealthCheck["id"], OperatorHealthCheck>
 }
 
+export function sanitizeOperatorHealthReport(report: OperatorHealthReport): OperatorHealthReport {
+  const checks = Object.fromEntries(
+    Object.entries(report.checks).map(([id, check]) => [
+      id,
+      {
+        id: check.id,
+        label: check.label,
+        ok: check.ok,
+        status: check.status,
+        message: publicHealthMessage(check.status)
+      }
+    ])
+  ) as OperatorHealthReport["checks"]
+  return { ...report, checks }
+}
+
 export async function collectOperatorHealth(): Promise<OperatorHealthReport> {
   const [supabase, schema, storage, vimeo, reuters, output, migrations, smoke] = await Promise.all([
     checkSupabase(),
@@ -108,10 +124,14 @@ async function checkSupabase(): Promise<OperatorHealthCheck> {
 async function checkSchema(): Promise<OperatorHealthCheck> {
   try {
     const supabase = createServiceClient()
-    const { error } = await supabase
-      .from("media_assets")
-      .select("id,playback_readiness_status,playback_checked_at,playback_error")
-      .limit(1)
+    const [mediaAssets, guests] = await Promise.all([
+      supabase
+        .from("media_assets")
+        .select("id,playback_readiness_status,playback_checked_at,playback_error")
+        .limit(1),
+      supabase.from("guests").select("id,photo_asset_id,video_asset_id,updated_at").limit(1)
+    ])
+    const error = mediaAssets.error ?? guests.error
     if (error) throw error
     return pass("schema", "Schema", "Required app columns present")
   } catch (error) {
@@ -201,12 +221,13 @@ async function checkOutput(): Promise<OperatorHealthCheck> {
 async function checkMigrations(): Promise<OperatorHealthCheck> {
   try {
     const supabase = createServiceClient()
-    const [operators, preferences, overrides] = await Promise.all([
+    const [operators, preferences, overrides, guests] = await Promise.all([
       supabase.from("admin_operators").select("id").limit(1),
       supabase.from("operator_preferences").select("operator_id,key,value").limit(1),
-      supabase.from("output_overrides").select("id,program_day_id,enabled").limit(1)
+      supabase.from("output_overrides").select("id,program_day_id,enabled").limit(1),
+      supabase.from("guests").select("id,status,sort_order").limit(1)
     ])
-    const error = operators.error ?? preferences.error ?? overrides.error
+    const error = operators.error ?? preferences.error ?? overrides.error ?? guests.error
     if (error) throw error
     return pass("migrations", "Migrations", "Ops readiness tables are available")
   } catch (error) {
@@ -270,4 +291,10 @@ function errorMessage(error: unknown) {
     return String((error as { message: unknown }).message)
   }
   return String(error)
+}
+
+function publicHealthMessage(status: OperatorHealthStatus) {
+  if (status === "ok") return "Check passed"
+  if (status === "degraded") return "Check degraded"
+  return "Check failed"
 }

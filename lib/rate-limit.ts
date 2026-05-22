@@ -32,6 +32,45 @@ export async function checkRateLimit(input: {
   const now = new Date()
   const bucketKey = `${input.scope}:${identity}:${Math.floor(now.getTime() / (windowSeconds * 1000))}`
   const resetAt = new Date(Math.ceil(now.getTime() / (windowSeconds * 1000)) * windowSeconds * 1000)
+  const rpcResult = await atomicRateLimitHit(bucketKey, resetAt)
+  if (rpcResult) {
+    return {
+      allowed: rpcResult.hits <= limit,
+      retryAfterSeconds: Math.max(
+        1,
+        Math.ceil((rpcResult.resetAt.getTime() - now.getTime()) / 1000)
+      )
+    }
+  }
+  return legacyRateLimitHit(bucketKey, resetAt, now, limit)
+}
+
+async function atomicRateLimitHit(
+  bucketKey: string,
+  resetAt: Date
+): Promise<{ hits: number; resetAt: Date } | null> {
+  const supabase = createServiceClient()
+  if (typeof supabase.rpc !== "function") return null
+  const { data, error } = await supabase.rpc("increment_rate_limit", {
+    p_bucket_key: bucketKey,
+    p_reset_at: resetAt.toISOString()
+  })
+  if (!error) {
+    const row = Array.isArray(data) ? data[0] : data
+    if (!row) return { hits: 1, resetAt }
+    return {
+      hits: Number(row.hits ?? 1),
+      resetAt: new Date(String(row.reset_at ?? resetAt.toISOString()))
+    }
+  }
+  if (!isMissingRateLimitFunction(error)) {
+    fallbackForRateLimitBackendError(error)
+    return null
+  }
+  return null
+}
+
+async function legacyRateLimitHit(bucketKey: string, resetAt: Date, now: Date, limit: number) {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from("api_rate_limits")
@@ -53,6 +92,13 @@ export async function checkRateLimit(input: {
     allowed: nextHits <= limit,
     retryAfterSeconds: Math.max(1, Math.ceil((resetAt.getTime() - now.getTime()) / 1000))
   }
+}
+
+function isMissingRateLimitFunction(error: unknown) {
+  if (typeof error !== "object" || error === null) return false
+  const code = "code" in error ? String((error as { code?: unknown }).code) : ""
+  const message = "message" in error ? String((error as { message?: unknown }).message) : ""
+  return code === "42883" || message.includes("increment_rate_limit")
 }
 
 function fallbackForRateLimitBackendError(error: unknown): RateLimitResult {

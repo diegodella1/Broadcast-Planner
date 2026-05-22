@@ -4,21 +4,21 @@ Current roadmap only. The product is in controlled production: useful now, still
 
 ## Live Now
 
-| Work                         | Status | What It Delivers                                                                             |
-| ---------------------------- | ------ | -------------------------------------------------------------------------------------------- |
-| Browser playout for OBS/vMix | Live   | Fullscreen output plays Vimeo, MP4/HLS, images, slides, audio-backed blocks and fallbacks.   |
-| Daily schedule workflow      | Live   | Operators can create a day, add timed blocks, assign assets and activate the broadcast day.  |
-| Runbook and health checks    | Live   | Preflight, live notes, incident handling, shutdown, Admin Health and Go Live Drill.          |
-| Reload time sync             | Live   | Reload mid-show resumes near the current scheduled video offset.                             |
-| OBS/vMix capture validation  | Live   | Browser output was confirmed through web player, vMix and OBS.                               |
-| Public upload playback       | Live   | Uploaded ads/promos stored in local Supabase play through the public app media proxy.        |
-| Media URL backfill           | Live   | Existing local media URLs were rewritten to app proxy URLs.                                  |
-| Persisted smoke status       | Live   | Deploy/read-only smoke scripts write the latest smoke result for `/api/health`.              |
-| Supabase migration kit       | Live   | Fresh-project SQL creates schema, RLS policies, buckets and operational tables.              |
-| Security baseline            | Live   | Named operators, sessions, roles, CSRF, output token flow, rate limiting and audit logging.  |
-| Schedule UX feedback         | Live   | Newly-created blocks are announced, highlighted and shown with clear start/end time ranges.  |
-| Guest lineup plates          | Live   | Operators can create guests with URL/uploaded media and build individualized guest plates.   |
-| OpenNext/Cloudflare path     | Ready  | Worker deploy scripts and config exist; use as alternate deploy path after smoke validation. |
+| Work                         | Status | What It Delivers                                                                                        |
+| ---------------------------- | ------ | ------------------------------------------------------------------------------------------------------- |
+| Browser playout for OBS/vMix | Live   | Fullscreen output plays Vimeo, MP4/HLS, images, slides, audio-backed blocks and fallbacks.              |
+| Daily schedule workflow      | Live   | Operators can create a day, add timed blocks, assign assets and activate the broadcast day.             |
+| Runbook and health checks    | Live   | Preflight, live notes, incident handling, shutdown, Admin Health and Go Live Drill.                     |
+| Reload time sync             | Live   | Reload mid-show resumes near the current scheduled video offset.                                        |
+| OBS/vMix capture validation  | Live   | Browser output was confirmed through web player, vMix and OBS.                                          |
+| Public upload playback       | Live   | Uploaded ads/promos stored in local Supabase play through the public app media proxy.                   |
+| Media URL backfill           | Live   | Existing local media URLs were rewritten to app proxy URLs.                                             |
+| Persisted smoke status       | Live   | Deploy/read-only smoke scripts write the latest smoke result for `/api/health`.                         |
+| Supabase migration kit       | Live   | Fresh-project SQL creates schema, RLS policies, buckets and operational tables.                         |
+| Security baseline            | Live   | Named operators, sessions, roles, CSRF, output auth, sanitized health, rate limiting and audit logging. |
+| Schedule UX feedback         | Live   | Newly-created blocks are announced, highlighted and shown with clear start/end time ranges.             |
+| Guest lineup plates          | Live   | Operators can create guests with URL/uploaded media and build individualized guest plates.              |
+| OpenNext/Cloudflare path     | Ready  | Worker deploy scripts and config exist; use as alternate deploy path after smoke validation.            |
 
 ## Next
 
@@ -27,6 +27,7 @@ Current roadmap only. The product is in controlled production: useful now, still
 | Remaining real plate inputs   | P0       | Replace remaining non-guest placeholder/static plate data with real feeds or editable inputs. |
 | Remodel on-air plate design   | P0       | Make cards, slides and output surfaces look broadcast-ready, not just technically functional. |
 | Improve output alerting       | P1       | Turn drift, stalled, waiting, silence and media errors into operator-facing alerts.           |
+| Dependency audit cleanup      | P1       | Resolve current moderate upstream advisories without unsafe downgrades or forced fixes.       |
 | Named operator rollout        | P1       | Move day-to-day work off bootstrap access and improve audit identity.                         |
 | Cloudflare Workers smoke      | P1       | Prove the OpenNext deploy path in Workers before treating it as production-primary.           |
 | Asset preview/review polish   | P2       | Faster QA before scheduling media into a live day.                                            |

@@ -19,6 +19,11 @@ release and go-live checklist for the Roxom TV browser-output workflow.
 - Guest lineup plates are operator-configurable in `/admin/guests`; existing Supabase backends need
   `supabase/migrations/20260522120000_guest_lineup.sql` or
   `public/manual/guest-lineup-migration.sql` applied before use.
+- API rate limiting now uses the atomic Supabase function in
+  `supabase/migrations/20260522153000_atomic_rate_limits.sql`; existing backends should apply the
+  matching standalone file at `public/manual/atomic-rate-limits-migration.sql`.
+- Public `/api/health` responses are sanitized. Full diagnostic messages are available to logged-in
+  admins through the admin health surface.
 - Alternate deploy path: OpenNext/Cloudflare Workers is configured and deployable, but the current
   production host remains local standalone Next.js behind Cloudflare Tunnel until a Workers deploy
   is smoke-tested.
@@ -34,6 +39,7 @@ rtk npm run format:check
 rtk npm run i18n:check
 rtk npm run security:service-role
 rtk npm run security:audit-trail
+rtk npm audit --omit=dev --audit-level=high
 rtk npm test -- --coverage --run
 rtk npm run build
 rtk npm run smoke:http
@@ -129,10 +135,16 @@ active production deploy path on this host until a real Workers deploy passes sm
 - CSRF: cross-site mutating requests are blocked by middleware; API forms use double-submit CSRF.
 - XSS: arbitrary slide HTML is not inserted into the renderer; slide body text is rendered as text.
 - Headers: CSP, `frame-ancestors`, `nosniff`, referrer policy, and permissions policy are present.
-- Secrets: health checks and errors never include secret values.
+- Secrets: health checks and errors never include secret values; public health hides diagnostic messages.
 - Service role: every mutating API route that uses privileged Supabase access calls `requireAdmin`.
 - Output: protected output routes require `OUTPUT_CAPTURE_TOKEN` in production and use an `HttpOnly` output cookie for normal admin launches.
+- Active block: `/api/active-block` requires either admin access or output-token access.
+- Rate limiting: API rate limits are incremented through the atomic `increment_rate_limit` database function.
+- Alerts: health failure webhooks are deduplicated by failed check signature and cooldown.
 - Output session: `/api/output/session` must redirect to the public app origin from `APP_BASE_URL`/`NEXT_PUBLIC_APP_BASE_URL`, never `0.0.0.0`, `localhost`, or `:3450`.
-- Dependencies: run `rtk npm audit --audit-level=high` and triage high/critical findings.
+- Dependencies: CI blocks high/critical production dependency advisories. Also run
+  `rtk npm audit --omit=dev --audit-level=moderate` manually during release hardening; the current
+  remaining moderate is the Next-bundled `postcss` advisory, and `npm audit fix --force` must not
+  be used because it proposes a breaking downgrade.
 
 MVP may ship only with no open P0 findings and explicit owner/date for any P1 follow-up.
