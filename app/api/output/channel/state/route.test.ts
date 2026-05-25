@@ -75,6 +75,64 @@ describe("GET /api/output/channel/state background music", () => {
     })
   })
 
+  it("returns the previously recorded bug for eligible video blocks", async () => {
+    vi.mocked(getLiveSchedule).mockResolvedValue(
+      bundleWith({
+        blockType: "video",
+        assetId: "video-1",
+        metadata: {
+          previously_recorded_enabled: true,
+          previously_recorded_position: "bottom_left"
+        }
+      })
+    )
+
+    const payload = await outputState()
+
+    expect(payload.kind).toBe("mp4")
+    expect(payload.recordedBug).toEqual({
+      label: "PREVIOUSLY RECORDED",
+      position: "bottom_left"
+    })
+  })
+
+  it("does not return the previously recorded bug for Reuters streams", async () => {
+    vi.mocked(getLiveSchedule).mockResolvedValue(
+      bundleWith({
+        blockType: "video",
+        metadata: {
+          previously_recorded_enabled: true,
+          previously_recorded_position: "bottom_left",
+          reuters_stream_url: "https://example.com/reuters.m3u8"
+        }
+      })
+    )
+
+    const payload = await outputState()
+
+    expect(payload.kind).toBe("hls")
+    expect(payload.sourceType).toBe("reuters")
+    expect(payload.recordedBug).toBeUndefined()
+  })
+
+  it("does not return the previously recorded bug for non-program block types", async () => {
+    vi.mocked(getLiveSchedule).mockResolvedValue(
+      bundleWith({
+        blockType: "ad",
+        assetId: "video-1",
+        metadata: {
+          previously_recorded_enabled: true,
+          previously_recorded_position: "bottom_left"
+        }
+      })
+    )
+
+    const payload = await outputState()
+
+    expect(payload.kind).toBe("mp4")
+    expect(payload.recordedBug).toBeUndefined()
+  })
+
   it("enables music for visual fallback slates", async () => {
     vi.mocked(getLiveSchedule).mockResolvedValue(bundleWith({ blocks: [] }))
 
@@ -137,6 +195,7 @@ function bundleWith(input: {
   blocks?: ProgramBlock[]
   includeMusic?: boolean
   extraMediaAssets?: MediaAsset[]
+  metadata?: Record<string, unknown> | null
 }): ScheduleBundle {
   const blocks =
     input.blocks ??
@@ -155,7 +214,7 @@ function bundleWith(input: {
             durationSeconds: 60,
             status: "ready" as const,
             hideOverlays: false,
-            metadata: null,
+            metadata: input.metadata ?? null,
             createdAt: "2026-05-25T00:00:00.000Z",
             updatedAt: "2026-05-25T00:00:00.000Z"
           }

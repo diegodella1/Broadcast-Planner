@@ -40,3 +40,31 @@ insert into scheduled_layers (id, program_block_id, title, layer_type, slide_id,
 values
   ('00000000-0000-0000-0000-000000000501', '00000000-0000-0000-0000-000000000401', 'Title slide', 'slide', '00000000-0000-0000-0000-000000000201', 120, 30, 10, 'lower_third', true)
 on conflict (id) do nothing;
+
+insert into events (id, title, description, start_date, start_time, end_time, is_active, order_index, color, location)
+values
+  (
+    '00000000-0000-0000-0000-000000000601',
+    'Market Open Briefing',
+    'Daily market open agenda for the Roxom TV desk.',
+    current_date + 1,
+    '09:30:00',
+    '10:00:00',
+    true,
+    1,
+    '#1ae784',
+    'New York'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000602',
+    'Macro Calendar Watch',
+    'Upcoming macro events and release windows.',
+    current_date + 2,
+    '14:00:00',
+    '14:30:00',
+    true,
+    2,
+    '#60a5fa',
+    'Global'
+  )
+on conflict (id) do nothing;

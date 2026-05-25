@@ -73,7 +73,9 @@ export default async function ScheduleDatePage({
         conflictResolution: formConflictResolution(formData),
         reutersStreamUrl: String(formData.get("reuters_stream_url") || ""),
         reutersStreamLabel: String(formData.get("reuters_stream_label") || ""),
-        reutersStreamExpiresAt: String(formData.get("reuters_stream_expires_at") || "")
+        reutersStreamExpiresAt: String(formData.get("reuters_stream_expires_at") || ""),
+        previouslyRecordedEnabled: formData.get("previously_recorded_enabled") === "on",
+        previouslyRecordedPosition: String(formData.get("previously_recorded_position") || "")
       })
     } catch (error) {
       redirect(scheduleErrorHref(date, error, "add-block"))
@@ -102,7 +104,9 @@ export default async function ScheduleDatePage({
         conflictResolution: formConflictResolution(formData),
         reutersStreamUrl: String(formData.get("reuters_stream_url") || ""),
         reutersStreamLabel: String(formData.get("reuters_stream_label") || ""),
-        reutersStreamExpiresAt: String(formData.get("reuters_stream_expires_at") || "")
+        reutersStreamExpiresAt: String(formData.get("reuters_stream_expires_at") || ""),
+        previouslyRecordedEnabled: formData.get("previously_recorded_enabled") === "on",
+        previouslyRecordedPosition: String(formData.get("previously_recorded_position") || "")
       })
     } catch (error) {
       redirect(scheduleErrorHref(date, error, blockId ? `block-${blockId}` : "add-block"))

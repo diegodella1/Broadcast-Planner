@@ -5,6 +5,7 @@ import { getLiveSchedule, getPlaybackScheduleForBlock } from "@/lib/data"
 import { getLatestMusicPreference } from "@/lib/operator-preferences"
 import { getActiveOutputOverride } from "@/lib/output-overrides"
 import { isOutputRequestAllowed, outputAccessDeniedReason } from "@/lib/output-auth"
+import { recordedBugFromBlock } from "@/lib/recorded-bug"
 import { findActiveLayers, findActiveSchedule } from "@/lib/scheduler"
 import { getVimeoToken } from "@/lib/settings"
 import { PLAYOUT_TIMEZONE, secondsSinceMidnightInTimezone } from "@/lib/time"
@@ -147,6 +148,7 @@ export async function GET(request: Request) {
             startOffsetSeconds,
             durationSeconds: playback.durationSeconds || active.asset.durationSeconds,
             ...videoPresentation(active.asset),
+            ...recordedBugPresentation(active.block),
             backgroundMusic: suppressBackgroundMusic(music)
           },
           { headers: { "Cache-Control": "no-store" } }
@@ -165,6 +167,7 @@ export async function GET(request: Request) {
             startOffsetSeconds,
             durationSeconds: active.asset.durationSeconds,
             ...videoPresentation(active.asset),
+            ...recordedBugPresentation(active.block),
             backgroundMusic: suppressBackgroundMusic(music)
           },
           { headers: { "Cache-Control": "no-store" } }
@@ -183,6 +186,7 @@ export async function GET(request: Request) {
             startOffsetSeconds,
             durationSeconds: active.asset.durationSeconds ?? active.block.durationSeconds,
             ...videoPresentation(active.asset),
+            ...recordedBugPresentation(active.block),
             backgroundMusic: suppressBackgroundMusic(music)
           },
           { headers: { "Cache-Control": "no-store" } }
@@ -326,6 +330,11 @@ function videoPresentation(asset: MediaAsset) {
   const background =
     presentation === "vertical_blur" || asset.metadata?.background === "blur" ? "blur" : "black"
   return { presentation, background }
+}
+
+function recordedBugPresentation(block: Parameters<typeof recordedBugFromBlock>[0]) {
+  const recordedBug = recordedBugFromBlock(block)
+  return recordedBug ? { recordedBug } : {}
 }
 
 function metadataText(metadata: Record<string, unknown> | null | undefined, key: string) {

@@ -58,6 +58,8 @@ export default async function BlockPage({
       hideOverlays: formData.get("hide_overlays") === "on",
       fallbackAssetId: String(formData.get("fallback_asset_id") || ""),
       notes: String(formData.get("notes") || ""),
+      previouslyRecordedEnabled: formData.get("previously_recorded_enabled") === "on",
+      previouslyRecordedPosition: String(formData.get("previously_recorded_position") || ""),
       conflictResolution:
         formData.get("conflict_resolution") === "archive_conflicts" ? "archive_conflicts" : "none"
     })
@@ -281,6 +283,28 @@ export default async function BlockPage({
               <input name="hide_overlays" type="checkbox" defaultChecked={block.hideOverlays} />
               Hide overlays during this block
             </label>
+            {block.blockType === "video" && !block.metadata?.reuters_stream_url ? (
+              <div className="grid gap-3 rounded-md border border-line bg-surface p-3 lg:col-span-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+                  <input
+                    name="previously_recorded_enabled"
+                    type="checkbox"
+                    defaultChecked={block.metadata?.previously_recorded_enabled === true}
+                  />
+                  Previously Recorded bug
+                </label>
+                <select
+                  name="previously_recorded_position"
+                  defaultValue={recordedBugPosition(block.metadata)}
+                  className="border border-line px-3 py-2 text-sm"
+                >
+                  <option value="top_right">Top right</option>
+                  <option value="top_left">Top left</option>
+                  <option value="bottom_right">Bottom right</option>
+                  <option value="bottom_left">Bottom left</option>
+                </select>
+              </div>
+            ) : null}
             <textarea
               name="notes"
               defaultValue={block.notes ?? ""}
@@ -655,4 +679,14 @@ function assetOptionLabel(asset: MediaAsset) {
   return `${showName}${asset.title} · ${asset.sourceType} · ${asset.status}${
     asset.durationSeconds ? ` · ${formatTimecode(asset.durationSeconds)}` : ""
   }`
+}
+
+function recordedBugPosition(metadata: Record<string, unknown> | null | undefined) {
+  const value = metadata?.previously_recorded_position
+  return value === "top_left" ||
+    value === "top_right" ||
+    value === "bottom_left" ||
+    value === "bottom_right"
+    ? value
+    : "top_right"
 }

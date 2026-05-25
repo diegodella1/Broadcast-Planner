@@ -22,6 +22,11 @@ type BackgroundMusic = {
   tracks: Array<{ id: string; title: string; url: string }>
 } | null
 
+type RecordedBug = {
+  label: "PREVIOUSLY RECORDED"
+  position: "top_left" | "top_right" | "bottom_left" | "bottom_right"
+}
+
 type OutputState =
   | {
       kind: "vimeo" | "hls" | "mp4"
@@ -40,6 +45,7 @@ type OutputState =
       reason?: string
       presentation?: "fit" | "vertical_blur"
       background?: "black" | "blur"
+      recordedBug?: RecordedBug
       backgroundMusic: BackgroundMusic
     }
   | {
@@ -291,6 +297,7 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
       </div>
       <audio ref={musicRef} />
       <VisualState state={state} mediaState={mediaState} />
+      <RecordedBugOverlay state={state} />
       {!armed ? (
         <button
           type="button"
@@ -329,6 +336,31 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
       ) : null}
     </main>
   )
+}
+
+function RecordedBugOverlay({ state }: { state: OutputState | null }) {
+  if (!state || !isVideoState(state) || !state.recordedBug) return null
+  return (
+    <div
+      className={recordedBugClassName(state.recordedBug.position)}
+      data-testid="recorded-bug"
+      data-position={state.recordedBug.position}
+    >
+      {state.recordedBug.label}
+    </div>
+  )
+}
+
+function recordedBugClassName(position: RecordedBug["position"]) {
+  const base =
+    "pointer-events-none absolute z-20 rounded-sm border border-white/25 bg-black/75 px-4 py-2 text-sm font-extrabold uppercase tracking-[0.18em] text-white shadow-[0_2px_14px_rgba(0,0,0,0.45)]"
+  const positions: Record<RecordedBug["position"], string> = {
+    top_left: "left-[4%] top-[5%]",
+    top_right: "right-[4%] top-[5%]",
+    bottom_left: "bottom-[5%] left-[4%]",
+    bottom_right: "bottom-[5%] right-[4%]"
+  }
+  return `${base} ${positions[position]}`
 }
 
 function VisualState({ state, mediaState }: { state: OutputState | null; mediaState: MediaState }) {

@@ -108,6 +108,21 @@ describe("BrowserOutputRenderer", () => {
     expect(videos[1]).toHaveAttribute("src", "https://example.com/vertical.mp4")
   })
 
+  it("renders the previously recorded bug at the requested position", async () => {
+    global.fetch = vi.fn(async () =>
+      jsonResponse({
+        ...videoState("recorded", "Recorded program"),
+        recordedBug: { label: "PREVIOUSLY RECORDED", position: "bottom_right" }
+      })
+    )
+
+    render(<BrowserOutputRenderer token="token" />)
+
+    const bug = await screen.findByTestId("recorded-bug")
+    expect(bug).toHaveTextContent("PREVIOUSLY RECORDED")
+    expect(bug).toHaveAttribute("data-position", "bottom_right")
+  })
+
   it("does not show a technical syncing slate during video source changes", async () => {
     const states = [videoState("a", "First"), videoState("b", "Second")]
     global.fetch = vi.fn(async () => jsonResponse(states.shift() ?? videoState("b", "Second")))

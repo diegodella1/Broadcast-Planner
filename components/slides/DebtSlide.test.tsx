@@ -14,12 +14,6 @@ vi.mock("framer-motion", () => ({
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>
 }))
 
-vi.mock("next/image", () => ({
-  default: ({ alt, ...rest }: { alt: string; [key: string]: unknown }) => (
-    <img alt={alt} {...(rest as React.ImgHTMLAttributes<HTMLImageElement>)} />
-  )
-}))
-
 const baseData: DebtData = {
   liveEstimateNow: 34_000_000_000_000,
   perSecond: 50_000,
@@ -53,6 +47,7 @@ describe("DebtSlide", () => {
     const props: DebtSlideProps = { data: baseData }
     const { container } = render(<DebtSlide {...props} />)
     expect(container).toBeInTheDocument()
+    expect(container.innerHTML).not.toContain("Vector.png")
   })
 
   it("renders the DEBT PER PERSON header", () => {

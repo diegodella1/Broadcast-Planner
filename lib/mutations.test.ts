@@ -916,6 +916,63 @@ describe("updateProgramBlock", () => {
     )
   })
 
+  it("stores previously recorded bug metadata for video blocks", async () => {
+    await updateProgramBlock({
+      ...baseInput,
+      previouslyRecordedEnabled: true,
+      previouslyRecordedPosition: "bottom_right"
+    })
+
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          previously_recorded_enabled: true,
+          previously_recorded_position: "bottom_right"
+        })
+      })
+    )
+  })
+
+  it("removes previously recorded bug metadata from non-video blocks", async () => {
+    getScheduleForDateMock.mockResolvedValue({
+      ...mockSchedule,
+      blocks: [
+        {
+          id: "block-1",
+          programDayId: "day-1",
+          title: "Original",
+          blockType: "video",
+          category: "mercados",
+          startTime: "10:00:00",
+          startTimeSeconds: 36000,
+          durationSeconds: 1800,
+          status: "ready",
+          hideOverlays: false,
+          metadata: {
+            previously_recorded_enabled: true,
+            previously_recorded_position: "top_left",
+            keep: "value"
+          },
+          createdAt: "",
+          updatedAt: ""
+        }
+      ]
+    })
+
+    await updateProgramBlock({
+      ...baseInput,
+      blockType: "promo",
+      previouslyRecordedEnabled: true,
+      previouslyRecordedPosition: "bottom_right"
+    })
+
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { keep: "value" }
+      })
+    )
+  })
+
   it("error path: throws for invalid block type", async () => {
     await expect(
       updateProgramBlock({ ...baseInput, blockType: "unknown" as "video" })

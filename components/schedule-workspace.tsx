@@ -702,6 +702,12 @@ function BlockDrawer({
   const [reutersStreamExpiresAt, setReutersStreamExpiresAt] = useState(
     metadataTextFromBlock(block, "reuters_stream_expires_at")
   )
+  const [previouslyRecordedEnabled, setPreviouslyRecordedEnabled] = useState(
+    block?.metadata?.previously_recorded_enabled === true
+  )
+  const [previouslyRecordedPosition, setPreviouslyRecordedPosition] = useState(
+    recordedBugPosition(block?.metadata)
+  )
   const [status, setStatus] = useState<ProgramStatus>(block?.status ?? "ready")
   const [conflictResolution, setConflictResolution] = useState<
     "insert_shift" | "archive_conflicts" | "strict"
@@ -726,6 +732,7 @@ function BlockDrawer({
   const hiddenAssetId = selected?.assetId ?? (mode === "edit" ? (block?.assetId ?? "") : "")
   const hiddenSlideId = selected?.slideId ?? (mode === "edit" ? (block?.slideId ?? "") : "")
   const hasReutersStream = Boolean(reutersStreamUrl.trim())
+  const canConfigureRecordedBug = hiddenBlockType === "video" && !hasReutersStream
   const durationSeconds = parseHumanDuration(duration)
   const startSeconds = parseTimeInput(startTime)
   const endSeconds = Math.min(DAY_SECONDS, startSeconds + durationSeconds)
@@ -808,6 +815,16 @@ function BlockDrawer({
         <input type="hidden" name="notes" value={block?.notes ?? ""} />
         <input type="hidden" name="conflict_resolution" value={conflictResolution} />
         <input type="hidden" name="duration_seconds" value={durationSeconds} />
+        <input
+          type="hidden"
+          name="previously_recorded_enabled"
+          value={canConfigureRecordedBug && previouslyRecordedEnabled ? "on" : ""}
+        />
+        <input
+          type="hidden"
+          name="previously_recorded_position"
+          value={previouslyRecordedPosition}
+        />
 
         <div className="rounded-md border border-line bg-panel-soft px-3 py-2">
           <p className="text-[10px] font-bold uppercase text-muted">Clock time · 24 h</p>
@@ -1008,6 +1025,34 @@ function BlockDrawer({
                 />
               </label>
             </div>
+          </div>
+        ) : null}
+
+        {canConfigureRecordedBug ? (
+          <div className="grid gap-3 rounded-md border border-line bg-panel-soft p-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <input
+                type="checkbox"
+                checked={previouslyRecordedEnabled}
+                onChange={(event) => setPreviouslyRecordedEnabled(event.target.checked)}
+              />
+              Previously Recorded bug
+            </label>
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+              Screen position
+              <select
+                value={previouslyRecordedPosition}
+                onChange={(event) =>
+                  setPreviouslyRecordedPosition(recordedBugPositionValue(event.target.value))
+                }
+                className="border border-line px-3 py-2 text-sm font-normal text-ink"
+              >
+                <option value="top_right">Top right</option>
+                <option value="top_left">Top left</option>
+                <option value="bottom_right">Bottom right</option>
+                <option value="bottom_left">Bottom left</option>
+              </select>
+            </label>
           </div>
         ) : null}
 
@@ -2156,6 +2201,19 @@ function metadataText(asset: MediaAsset, key: string) {
 function metadataTextFromBlock(block: ProgramBlock | null, key: string) {
   const value = block?.metadata?.[key]
   return typeof value === "string" ? value : ""
+}
+
+function recordedBugPosition(metadata: Record<string, unknown> | null | undefined) {
+  return recordedBugPositionValue(metadata?.previously_recorded_position)
+}
+
+function recordedBugPositionValue(value: unknown) {
+  return value === "top_left" ||
+    value === "top_right" ||
+    value === "bottom_left" ||
+    value === "bottom_right"
+    ? value
+    : "top_right"
 }
 
 function normalizeBlockType(assetType: MediaAsset["assetType"]): BlockType {

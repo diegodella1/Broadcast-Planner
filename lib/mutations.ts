@@ -11,6 +11,7 @@ import {
   type ScheduleMutationMode
 } from "./schedule-planner"
 import { parseReutersStreamInput, maskStreamUrl } from "./reuters-stream"
+import { recordedBugMetadata, type RecordedBugPosition } from "./recorded-bug"
 import { createServiceClient } from "./supabase/server"
 import { formatTimecode, parseTimecode, PLAYOUT_TIMEZONE } from "./time"
 
@@ -61,6 +62,8 @@ export async function createProgramBlock(input: {
   reutersStreamUrl?: string
   reutersStreamLabel?: string
   reutersStreamExpiresAt?: string
+  previouslyRecordedEnabled?: boolean
+  previouslyRecordedPosition?: RecordedBugPosition | string
 }) {
   const dayId = await ensureProgramDay(input.date)
   const startTimeSeconds = parseTimecode(input.startTime)
@@ -73,6 +76,13 @@ export async function createProgramBlock(input: {
     ...(input.reutersStreamLabel ? { label: input.reutersStreamLabel } : {}),
     ...(input.reutersStreamExpiresAt ? { expiresAt: input.reutersStreamExpiresAt } : {})
   })
+  const metadata = reutersStream
+    ? reutersBlockMetadata(reutersStream)
+    : recordedBugMetadata({
+        blockType: input.blockType as ProgramBlock["blockType"],
+        enabled: input.previouslyRecordedEnabled,
+        position: input.previouslyRecordedPosition
+      })
   const minimumDuration = contentDuration ? contentDuration + preRollSeconds + postRollSeconds : 1
   const durationSeconds = Math.max(1, Number(input.durationSeconds || 0), minimumDuration)
   if (input.blockType === "ad" && durationSeconds > 300) {
@@ -138,7 +148,7 @@ export async function createProgramBlock(input: {
           duration_seconds: durationSeconds,
           status: "ready",
           hide_overlays: input.hideOverlays,
-          metadata: reutersStream ? reutersBlockMetadata(reutersStream) : {}
+          metadata
         })
         .select("id,start_time_seconds")
         .single()
@@ -369,6 +379,8 @@ export async function updateProgramBlock(input: {
   reutersStreamUrl?: string
   reutersStreamLabel?: string
   reutersStreamExpiresAt?: string
+  previouslyRecordedEnabled?: boolean
+  previouslyRecordedPosition?: RecordedBugPosition | string
 }) {
   if (!["video", "image", "slide", "ad", "promo", "fallback"].includes(input.blockType)) {
     throw new Error("Tipo de bloque invalido")
@@ -385,6 +397,14 @@ export async function updateProgramBlock(input: {
     ...(input.reutersStreamLabel ? { label: input.reutersStreamLabel } : {}),
     ...(input.reutersStreamExpiresAt ? { expiresAt: input.reutersStreamExpiresAt } : {})
   })
+  const metadata = reutersStream
+    ? reutersBlockMetadata(reutersStream)
+    : recordedBugMetadata({
+        metadata: block.metadata,
+        blockType: input.blockType as ProgramBlock["blockType"],
+        enabled: input.previouslyRecordedEnabled,
+        position: input.previouslyRecordedPosition
+      })
   const contentDuration = getKnownContentDuration(schedule, input.assetId, input.slideId)
   const durationSeconds = Math.max(1, Number(input.durationSeconds || 0), contentDuration || 1)
   if (input.blockType === "ad" && durationSeconds > 300) {
@@ -449,7 +469,7 @@ export async function updateProgramBlock(input: {
           hide_overlays: input.hideOverlays,
           fallback_asset_id: input.fallbackAssetId || null,
           notes: input.notes || null,
-          metadata: reutersStream ? reutersBlockMetadata(reutersStream) : (block.metadata ?? {}),
+          metadata,
           updated_at: new Date().toISOString()
         })
         .eq("id", input.blockId)

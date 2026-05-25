@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Image from "next/image"
 import { motion } from "framer-motion"
 import { formatBTC, formatBTCMain } from "@/lib/slides/fmt"
 import type { DebtData } from "@/lib/slides/types"
@@ -74,16 +73,21 @@ export function DebtSlide({ data }: DebtSlideProps) {
       className="h-full w-full bg-black"
     >
       <div className="w-full h-full flex flex-col gap-6 p-8 justify-center bg-transparent relative">
-        <div className="absolute inset-0 z-0 flex items-center justify-center opacity-100 pointer-events-none brightness-150">
-          <div className="relative w-full h-full flex items-center justify-center">
-            <Image
-              src="/Vector.png"
-              alt="US Map Background"
-              fill
-              className="object-contain p-10"
-              style={{ filter: "drop-shadow(0 0 3px white)" }}
-              priority
-            />
+        <div
+          className="absolute inset-0 z-0 overflow-hidden opacity-80 pointer-events-none"
+          aria-hidden="true"
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(239,68,68,0.24),transparent_34%),linear-gradient(135deg,#080808_0%,#151515_48%,#050505_100%)]" />
+          <div className="absolute left-1/2 top-1/2 h-[72%] w-[86%] -translate-x-1/2 -translate-y-1/2 rounded-[45%_55%_48%_52%] border-[18px] border-white/18 bg-white/[0.03] shadow-[0_0_80px_rgba(255,255,255,0.18)]" />
+          <div className="absolute left-[16%] top-[35%] h-[22%] w-[26%] rotate-[-12deg] rounded-[50%] border-[10px] border-white/16" />
+          <div className="absolute right-[16%] top-[36%] h-[24%] w-[24%] rotate-[16deg] rounded-[50%] border-[10px] border-white/16" />
+          <div className="absolute left-[42%] top-[24%] h-[56%] w-[16%] rotate-[4deg] rounded-full border-[10px] border-white/14" />
+          <div className="absolute inset-x-0 top-1/2 h-px bg-white/20" />
+          <div className="absolute inset-y-0 left-1/2 w-px bg-white/14" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-[18rem] font-black leading-none tracking-[0.16em] text-white/[0.055]">
+              USA
+            </span>
           </div>
         </div>
 

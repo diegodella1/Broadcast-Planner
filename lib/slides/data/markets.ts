@@ -256,6 +256,53 @@ async function fetchCopperFromRtvApi(): Promise<CommodityRaw> {
   }
 }
 
+async function fetchMetalsFromRtvApi(): Promise<{
+  gold: CommodityRaw
+  silver: CommodityRaw
+}> {
+  const fallback = {
+    gold: { usd: 0, change24hPct: null },
+    silver: { usd: 0, change24hPct: null }
+  }
+  try {
+    const rtvApiUrl = (process.env.RTV_API_URL ?? "https://api.roxom.tv").replace(/\/$/, "")
+    const rtvApiKey = process.env.RTV_API_KEY ?? process.env.NEXT_PUBLIC_RTV_API_KEY ?? ""
+    const headers: Record<string, string> = { Accept: "application/json" }
+    if (rtvApiKey) headers["x-api-key"] = rtvApiKey
+
+    const response = await fetch(`${rtvApiUrl}/api/metals`, {
+      headers,
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000)
+    })
+    if (!response.ok) {
+      console.warn(`[lib/slides/data/markets.ts:fetchMetalsFromRtvApi] HTTP ${response.status}`)
+      return fallback
+    }
+    const envelope = (await response.json()) as {
+      success?: boolean
+      data?: Array<{ symbol: string; price?: number; changePercent?: number }>
+    }
+    const items = envelope.success && Array.isArray(envelope.data) ? envelope.data : []
+    const bySymbol = new Map(items.map((item) => [item.symbol, item]))
+    const gold = bySymbol.get("XAU")
+    const silver = bySymbol.get("XAG")
+    return {
+      gold:
+        typeof gold?.price === "number"
+          ? { usd: gold.price, change24hPct: gold.changePercent ?? null }
+          : fallback.gold,
+      silver:
+        typeof silver?.price === "number"
+          ? { usd: silver.price, change24hPct: silver.changePercent ?? null }
+          : fallback.silver
+    }
+  } catch (error) {
+    console.error("[lib/slides/data/markets.ts:fetchMetalsFromRtvApi]", error)
+    return fallback
+  }
+}
+
 export async function getMarketsSatsData(): Promise<MarketsSatsData> {
   const now = Date.now()
   if (
@@ -272,10 +319,11 @@ export async function getMarketsSatsData(): Promise<MarketsSatsData> {
     return emptyMarketsSats()
   }
 
-  const [pythRes, fxRes, copperRes] = await Promise.allSettled([
+  const [pythRes, fxRes, copperRes, rtvMetalsRes] = await Promise.allSettled([
     fetchPyth(),
     fetchFx(),
-    fetchCopperFromRtvApi()
+    fetchCopperFromRtvApi(),
+    fetchMetalsFromRtvApi()
   ])
 
   const pyth =
@@ -293,20 +341,29 @@ export async function getMarketsSatsData(): Promise<MarketsSatsData> {
       : { EUR: { usdPerUnit: 0 }, JPY: { usdPerUnit: 0 }, GBP: { usdPerUnit: 0 } }
   const copper: CommodityRaw =
     copperRes.status === "fulfilled" ? copperRes.value : { usd: 0, change24hPct: null }
+  const rtvMetals =
+    rtvMetalsRes.status === "fulfilled"
+      ? rtvMetalsRes.value
+      : {
+          gold: { usd: 0, change24hPct: null },
+          silver: { usd: 0, change24hPct: null }
+        }
+  const gold = rtvMetals.gold.usd > 0 ? rtvMetals.gold : pyth.gold
+  const silver = rtvMetals.silver.usd > 0 ? rtvMetals.silver : pyth.silver
 
   const result: MarketsSatsData = {
     btcUsd,
     timestamp: new Date().toISOString(),
     metals: {
       gold: {
-        usd: pyth.gold.usd,
-        sats: pyth.gold.usd > 0 ? usdToSats(pyth.gold.usd, btcUsd) : 0,
-        change24hPct: pyth.gold.change24hPct
+        usd: gold.usd,
+        sats: gold.usd > 0 ? usdToSats(gold.usd, btcUsd) : 0,
+        change24hPct: gold.change24hPct
       },
       silver: {
-        usd: pyth.silver.usd,
-        sats: pyth.silver.usd > 0 ? usdToSats(pyth.silver.usd, btcUsd) : 0,
-        change24hPct: pyth.silver.change24hPct
+        usd: silver.usd,
+        sats: silver.usd > 0 ? usdToSats(silver.usd, btcUsd) : 0,
+        change24hPct: silver.change24hPct
       }
     },
     oil: {

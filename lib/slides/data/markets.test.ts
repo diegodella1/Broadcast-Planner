@@ -38,6 +38,16 @@ const pythPayload = {
   ]
 }
 
+const rtvMetalsPayload = {
+  success: true,
+  data: [
+    { symbol: "XAU", name: "Gold spot", price: 2450, changePercent: 1.25 },
+    { symbol: "XAG", name: "Silver spot", price: 31, changePercent: -0.5 },
+    { symbol: "PLAT", name: "Platinum", price: 1200, changePercent: 0.3 },
+    { symbol: "PALL", name: "Palladium", price: 980, changePercent: 0.1 }
+  ]
+}
+
 describe("getMarketsSatsData", () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -63,6 +73,7 @@ describe("getMarketsSatsData", () => {
           jsonResponse({ result: "success", rates: { EUR: 0.92, JPY: 156, GBP: 0.79 } })
         )
         .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
+        .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
     )
 
     const data = await getMarketsSatsData()
@@ -80,12 +91,36 @@ describe("getMarketsSatsData", () => {
         jsonResponse({ result: "success", rates: { EUR: 0.92, JPY: 156, GBP: 0.79 } })
       )
       .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
+      .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
     vi.stubGlobal("fetch", fetchMock)
 
     await getMarketsSatsData()
     vi.setSystemTime(new Date("2026-05-22T12:00:20Z"))
     await getMarketsSatsData()
 
-    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  it("prefers Roxom metals API for gold and silver", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse(pythPayload))
+        .mockResolvedValueOnce(
+          jsonResponse({ result: "success", rates: { EUR: 0.92, JPY: 156, GBP: 0.79 } })
+        )
+        .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
+        .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
+    )
+
+    const data = await getMarketsSatsData()
+
+    expect(data.metals.gold.usd).toBe(2450)
+    expect(data.metals.gold.sats).toBe(2_450_000)
+    expect(data.metals.gold.change24hPct).toBe(1.25)
+    expect(data.metals.silver.usd).toBe(31)
+    expect(data.metals.silver.sats).toBe(31_000)
+    expect(data.metals.silver.change24hPct).toBe(-0.5)
   })
 })

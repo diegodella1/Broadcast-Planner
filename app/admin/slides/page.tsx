@@ -7,6 +7,7 @@ import { getSlides } from "@/lib/data"
 import { archiveSlideAsset, createSlideAsset } from "@/lib/mutations"
 import { slidePreviewHref } from "@/lib/slide-preview"
 import { SLIDE_TEMPLATES, type SlideTemplateEntry } from "@/lib/slides/registry"
+import { createServiceClient } from "@/lib/supabase/server"
 import type { SlideAsset } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -69,6 +70,7 @@ export default async function SlidesPage() {
   const customSlides = activeSlides.filter(
     (slide) => !slide.templateId && !isLegacySlide(slide, currentTemplateIds)
   )
+  const scheduledSlideIds = await getScheduledSlideIds()
 
   async function addSlide(formData: FormData) {
     "use server"
@@ -290,7 +292,12 @@ export default async function SlidesPage() {
           />
         </div>
         {customSlides.map((slide) => (
-          <SlideRow key={slide.id} slide={slide} archiveSlide={archiveSlide} />
+          <SlideRow
+            key={slide.id}
+            slide={slide}
+            archiveSlide={archiveSlide}
+            scheduled={scheduledSlideIds.has(slide.id)}
+          />
         ))}
         {archivedSlides.map((slide) => (
           <SlideRow key={slide.id} slide={slide} archiveSlide={archiveSlide} muted />
@@ -376,11 +383,13 @@ function SystemTemplateCard({
 function SlideRow({
   slide,
   archiveSlide,
-  muted = false
+  muted = false,
+  scheduled = false
 }: {
   slide: SlideAsset
   archiveSlide: (formData: FormData) => Promise<void>
   muted?: boolean
+  scheduled?: boolean
 }) {
   return (
     <div className="grid gap-3 border-b border-line p-4 last:border-b-0 md:grid-cols-[1fr_120px_120px_180px] md:items-center">
@@ -392,6 +401,11 @@ function SlideRow({
           {slide.defaultDurationSeconds ? `${slide.defaultDurationSeconds}s` : "No duration"}
         </p>
         {slide.content && <p className="mt-1 line-clamp-1 text-sm text-muted">{slide.content}</p>}
+        {scheduled && !slide.templateId ? (
+          <p className="mt-2 rounded-md border border-warn-line bg-warn-soft px-2 py-1 text-xs font-semibold text-warn-strong">
+            Static custom slide is scheduled. Replace with a current template before archiving.
+          </p>
+        ) : null}
       </div>
       <span className="text-sm text-muted">
         {slide.imageUrl ? "Image" : slide.htmlContent ? "HTML" : "Text"}
@@ -451,4 +465,22 @@ function isLegacySlide(slide: SlideAsset, currentTemplateIds: Set<string>) {
   }
   const normalizedTitle = slide.title.toLowerCase()
   return ["news", "show", "video"].some((word) => normalizedTitle.includes(word))
+}
+
+async function getScheduledSlideIds() {
+  try {
+    const supabase = createServiceClient()
+    const [{ data: blocks }, { data: layers }] = await Promise.all([
+      supabase.from("program_blocks").select("slide_id,status").neq("status", "archived"),
+      supabase.from("scheduled_layers").select("slide_id,enabled").eq("enabled", true)
+    ])
+    return new Set(
+      [...(blocks ?? []), ...(layers ?? [])]
+        .map((row) => row.slide_id)
+        .filter((id): id is string => Boolean(id))
+    )
+  } catch (error) {
+    console.error("[app/admin/slides/page.tsx:getScheduledSlideIds]", error)
+    return new Set<string>()
+  }
 }
