@@ -26,10 +26,10 @@
     "cf:dev": "opennextjs-cloudflare build && wrangler dev",
     "cf:deploy": "opennextjs-cloudflare build && wrangler deploy --keep-vars",
     "cf:preview": "opennextjs-cloudflare build && wrangler versions upload",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy -- --keep-vars",
-    "deploy:dev": "opennextjs-cloudflare build && opennextjs-cloudflare deploy -- --keep-vars",
-    "deploy:prod": "opennextjs-cloudflare build && opennextjs-cloudflare deploy -- --keep-vars",
-    "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload -- --keep-vars",
+    "deploy": "opennextjs-cloudflare build && wrangler deploy --keep-vars",
+    "deploy:dev": "opennextjs-cloudflare build && wrangler deploy --keep-vars --env dev",
+    "deploy:prod": "opennextjs-cloudflare build && wrangler deploy --keep-vars --env prod",
+    "upload": "opennextjs-cloudflare build && wrangler deploy --keep-vars",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview"
   },
   "lint-staged": {
