@@ -67,7 +67,7 @@ export async function GET(request: Request) {
           durationSeconds: null,
           sourceType: "reuters",
           streamProtocol: override.streamProtocol,
-          backgroundMusic: null
+          backgroundMusic: suppressBackgroundMusic(music)
         },
         { headers: { "Cache-Control": "no-store" } }
       )
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
 
     if (!bundle.day || !active.block) {
       return NextResponse.json(
-        await fallbackStateForBundle(bundle, "no-active-block", base, mediaAccessToken),
+        await fallbackStateForBundle(bundle, "no-active-block", base, mediaAccessToken, music),
         {
           headers: { "Cache-Control": "no-store" }
         }
@@ -97,7 +97,7 @@ export async function GET(request: Request) {
           durationSeconds: active.block.durationSeconds,
           sourceType: "reuters",
           streamProtocol: metadataText(active.block.metadata, "reuters_stream_protocol") || "hls",
-          backgroundMusic: null
+          backgroundMusic: suppressBackgroundMusic(music)
         },
         { headers: { "Cache-Control": "no-store" } }
       )
@@ -147,7 +147,7 @@ export async function GET(request: Request) {
             startOffsetSeconds,
             durationSeconds: playback.durationSeconds || active.asset.durationSeconds,
             ...videoPresentation(active.asset),
-            backgroundMusic: null
+            backgroundMusic: suppressBackgroundMusic(music)
           },
           { headers: { "Cache-Control": "no-store" } }
         )
@@ -165,7 +165,7 @@ export async function GET(request: Request) {
             startOffsetSeconds,
             durationSeconds: active.asset.durationSeconds,
             ...videoPresentation(active.asset),
-            backgroundMusic: null
+            backgroundMusic: suppressBackgroundMusic(music)
           },
           { headers: { "Cache-Control": "no-store" } }
         )
@@ -183,7 +183,7 @@ export async function GET(request: Request) {
             startOffsetSeconds,
             durationSeconds: active.asset.durationSeconds ?? active.block.durationSeconds,
             ...videoPresentation(active.asset),
-            backgroundMusic: null
+            backgroundMusic: suppressBackgroundMusic(music)
           },
           { headers: { "Cache-Control": "no-store" } }
         )
@@ -212,7 +212,13 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json(
-      await fallbackStateForBundle(bundle, "unsupported-active-content", base, mediaAccessToken),
+      await fallbackStateForBundle(
+        bundle,
+        "unsupported-active-content",
+        base,
+        mediaAccessToken,
+        music
+      ),
       {
         headers: { "Cache-Control": "no-store" }
       }
@@ -227,13 +233,14 @@ async function fallbackStateForBundle(
   bundle: ScheduleBundle,
   reason: string,
   base: OutputBase,
-  mediaAccessToken = ""
+  mediaAccessToken = "",
+  backgroundMusic: Awaited<ReturnType<typeof backgroundMusicForActive>> = null
 ) {
   const fallbackAsset = findFallbackLoopAsset(bundle)
-  if (!fallbackAsset) return fallbackState(reason, base)
+  if (!fallbackAsset) return fallbackState(reason, base, backgroundMusic)
   return (
     (await fallbackVideoState(fallbackAsset, reason, base, mediaAccessToken)) ??
-    fallbackState(reason, base)
+    fallbackState(reason, base, backgroundMusic)
   )
 }
 
@@ -298,7 +305,11 @@ function loopOffset(serverSeconds: number, durationSeconds?: number | null) {
   return Math.max(0, Math.floor(serverSeconds % durationSeconds))
 }
 
-function fallbackState(reason: string, base?: OutputBase) {
+function fallbackState(
+  reason: string,
+  base?: OutputBase,
+  backgroundMusic: Awaited<ReturnType<typeof backgroundMusicForActive>> = null
+) {
   return {
     kind: "fallback",
     signature: `fallback:${reason}`,
@@ -306,7 +317,7 @@ function fallbackState(reason: string, base?: OutputBase) {
     title: "RTV fallback",
     serverSeconds: base?.serverSeconds ?? secondsSinceMidnightInTimezone(),
     generatedAt: base?.generatedAt ?? new Date().toISOString(),
-    backgroundMusic: null
+    backgroundMusic
   }
 }
 
@@ -327,12 +338,13 @@ async function backgroundMusicForActive(
   active: ReturnType<typeof findActiveSchedule>,
   mediaAccessToken = ""
 ) {
-  const eligible =
+  const shouldPlay =
     active.block?.blockType === "image" ||
     active.block?.blockType === "slide" ||
+    active.block?.blockType === "fallback" ||
+    !active.block ||
     Boolean(active.slide) ||
     active.asset?.mediaKind === "image"
-  if (!eligible) return null
   const preference = await getLatestMusicPreference()
   if (!preference.enabled) return null
   const tracks = bundle.mediaAssets
@@ -344,11 +356,17 @@ async function backgroundMusicForActive(
     }))
   if (!tracks.length) return null
   return {
-    enabled: true,
+    enabled: shouldPlay,
     volume: preference.volume,
     fade: preference.fade,
     tracks
   }
+}
+
+function suppressBackgroundMusic(
+  music: Awaited<ReturnType<typeof backgroundMusicForActive>>
+): Awaited<ReturnType<typeof backgroundMusicForActive>> {
+  return music ? { ...music, enabled: false } : null
 }
 
 function withMediaAccessToken(value: string, token: string) {

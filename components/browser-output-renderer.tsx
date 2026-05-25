@@ -18,7 +18,7 @@ type MediaState =
 type BackgroundMusic = {
   enabled: boolean
   volume: number
-  fade: boolean
+  fade: "none" | "short"
   tracks: Array<{ id: string; title: string; url: string }>
 } | null
 
@@ -224,7 +224,6 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
     if (!music) return
     if (!state?.backgroundMusic?.tracks.length) {
       music.pause()
-      music.removeAttribute("src")
       return
     }
     const track = state.backgroundMusic.tracks[0]

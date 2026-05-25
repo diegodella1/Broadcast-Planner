@@ -10,7 +10,7 @@ const shipped = [
   "Schedule add-block confirmation with highlighted placement and readable time ranges",
   "Runbook for preflight, live operation, incident notes and shutdown",
   "Output overrides for urgent live cuts",
-  "Music preferences for image and slide blocks",
+  "Music preferences for slides, images and visual fallbacks",
   "Dynamic Reuters HLS/RTMP stream snapshots",
   "Browser output for OBS/vMix capture",
   "Browser output confirmed in web player, vMix and OBS",

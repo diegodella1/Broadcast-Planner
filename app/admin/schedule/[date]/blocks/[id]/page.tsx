@@ -309,8 +309,8 @@ export default async function BlockPage({
               <div>
                 <p className="text-sm font-semibold">Music behavior</p>
                 <p className="mt-1 text-sm text-muted">
-                  Ready music tracks play during image and slide blocks. Video, ad and promo media
-                  suppress the playlist.
+                  Ready music tracks flow across slide, image and visual fallback blocks. Video, ad,
+                  promo and live media pause the playlist.
                 </p>
               </div>
               <Link href="/admin/music" className="btn-secondary">

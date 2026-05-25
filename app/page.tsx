@@ -40,7 +40,7 @@ export default function HomePage() {
     {
       label: "Music",
       href: "/admin/music",
-      detail: "Background playlist tracks used by image and slide blocks.",
+      detail: "Background playlist tracks for slides, images and visual fallbacks.",
       icon: Music
     },
     {

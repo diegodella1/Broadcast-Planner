@@ -43,7 +43,7 @@ export default async function MusicPage({
   return (
     <AdminShell
       title="Music"
-      description="Background playlist tracks used by image, slide and graphic blocks when no primary video audio should lead."
+      description="Background playlist tracks that flow across slide, image and visual fallback blocks."
     >
       {params.uploaded ? (
         <Notice tone="ok">Track uploaded and added to the background playlist.</Notice>
@@ -105,7 +105,7 @@ export default async function MusicPage({
         <section className="surface-panel p-4">
           <FormHeader
             title="Playback rule"
-            detail="The current output plays ready music assets during image and slide blocks only."
+            detail="Music plays during slide, image and visual fallback blocks. Video, ad, promo and live blocks pause it; visual blocks resume it."
           />
           <div className="mt-4 grid gap-2 text-sm">
             <p className="rounded-md bg-panel-soft px-3 py-2 text-muted">

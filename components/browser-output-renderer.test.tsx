@@ -24,6 +24,7 @@ describe("BrowserOutputRenderer", () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.resetAllMocks()
+    play.mockResolvedValue(undefined)
     vi.spyOn(window.HTMLMediaElement.prototype, "play").mockImplementation(play)
     vi.spyOn(window.HTMLMediaElement.prototype, "pause").mockImplementation(pause)
     vi.spyOn(window.HTMLMediaElement.prototype, "load").mockImplementation(load)
@@ -123,6 +124,43 @@ describe("BrowserOutputRenderer", () => {
     await waitFor(() => expect(vi.mocked(global.fetch).mock.calls.length).toBeGreaterThanOrEqual(2))
     expect(screen.queryByText("Syncing output")).not.toBeInTheDocument()
   })
+
+  it("pauses and resumes background music without resetting the track", async () => {
+    const music = backgroundMusic(true)
+    const states = [
+      slideState("a", "First slide", music),
+      { ...videoState("b", "Video"), backgroundMusic: backgroundMusic(false) },
+      slideState("c", "Second slide", music)
+    ]
+    global.fetch = vi.fn(async () =>
+      jsonResponse(states.shift() ?? slideState("c", "Second slide", music))
+    )
+
+    render(<BrowserOutputRenderer token="token" />)
+
+    await screen.findByText("Browser output ready")
+    fireEvent.click(screen.getByRole("button", { name: /Start Output/i }))
+
+    const audio = document.querySelector("audio")!
+    await waitFor(() => expect(audio.src).toBe("https://example.com/music.mp3"))
+    audio.currentTime = 17
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    await waitFor(() => expect(vi.mocked(global.fetch).mock.calls.length).toBeGreaterThanOrEqual(2))
+    expect(pause.mock.contexts).toContain(audio)
+    expect(audio.src).toBe("https://example.com/music.mp3")
+    expect(audio.currentTime).toBe(17)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    await waitFor(() => expect(vi.mocked(global.fetch).mock.calls.length).toBeGreaterThanOrEqual(3))
+    expect(audio.src).toBe("https://example.com/music.mp3")
+    expect(audio.currentTime).toBe(17)
+    expect(play.mock.contexts).toContain(audio)
+  }, 10000)
 })
 
 function jsonResponse(payload: unknown) {
@@ -145,6 +183,35 @@ function videoState(id: string, title: string) {
     serverSeconds: 0,
     generatedAt: new Date().toISOString(),
     backgroundMusic: null
+  }
+}
+
+function slideState(
+  id: string,
+  title: string,
+  music: NonNullable<ReturnType<typeof backgroundMusic>>
+) {
+  return {
+    kind: "slide",
+    signature: `slide:${id}`,
+    blockId: `block-${id}`,
+    title,
+    slideId: `slide-${id}`,
+    content: "Slide content",
+    startOffsetSeconds: 0,
+    durationSeconds: 60,
+    serverSeconds: 0,
+    generatedAt: new Date().toISOString(),
+    backgroundMusic: music
+  }
+}
+
+function backgroundMusic(enabled: boolean) {
+  return {
+    enabled,
+    volume: 50,
+    fade: "short" as const,
+    tracks: [{ id: "music-1", title: "Music", url: "https://example.com/music.mp3" }]
   }
 }
 
