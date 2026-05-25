@@ -175,6 +175,7 @@ import {
   updateProgramDayStatus,
   updateProgramBlock,
   createBulkCardLoop,
+  saveGlobalFallbackCarouselFromSlides,
   createLongTestSchedule,
   reorderProgramBlocks,
   resizeProgramBlock,
@@ -1215,6 +1216,46 @@ describe("createBulkCardLoop", () => {
     buildBulkCardLoopMock.mockReturnValue([])
 
     await expect(createBulkCardLoop(baseInput)).rejects.toThrow("ninguna card completa")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// saveGlobalFallbackCarouselFromSlides
+// ---------------------------------------------------------------------------
+describe("saveGlobalFallbackCarouselFromSlides", () => {
+  beforeEach(async () => {
+    await resetMocks()
+  })
+
+  it("stores ordered fallback carousel cards in integration settings", async () => {
+    await saveGlobalFallbackCarouselFromSlides({
+      cards: [
+        { slideId: "slide-1", durationSeconds: 12 },
+        { slideId: "slide-2", durationSeconds: 18 }
+      ]
+    })
+
+    expect(supabaseMock.from).toHaveBeenCalledWith("integration_settings")
+    expect(supabaseMock.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "fallback_carousel",
+        public_config: {
+          enabled: true,
+          cards: [
+            { slideId: "slide-1", durationSeconds: 12 },
+            { slideId: "slide-2", durationSeconds: 18 }
+          ]
+        },
+        status: "connected"
+      }),
+      { onConflict: "provider" }
+    )
+  })
+
+  it("rejects empty fallback carousel cards", async () => {
+    await expect(saveGlobalFallbackCarouselFromSlides({ cards: [] })).rejects.toThrow(
+      "Selecciona al menos una card"
+    )
   })
 })
 

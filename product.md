@@ -54,11 +54,16 @@ This product should feel like a broadcast operations console: dense, calm, expli
 - Output preview route by block.
 - Fallback rendering.
 - Basic vertical-video presentation with blurred background.
-- Supabase schema for assets, slides, program days, blocks, scheduled layers, integration settings, and audit log.
+- Supabase schema for assets, slides, program days, blocks, scheduled layers, calendar events,
+  integration settings, and audit log.
 
-### Important Gap
+### Current Implementation Notes
 
-The admin schedule page links to `/admin/schedule/[date]/blocks/[blockId]`, but that route is not present in the scanned app files. The product plan should treat block detail editing as the most urgent missing surface because scheduled layers, preview, override, and correction workflows need a focused block editor.
+The focused block editor exists at `/admin/schedule/[date]/blocks/[id]` and is the primary surface
+for detailed timing/content/fallback/layer work. Inline schedule editing also supports normal
+program-only `PREVIOUSLY RECORDED` bug configuration with four-corner placement. Real-data plate
+coverage now includes Roxom metals data with fallback, Open-Meteo weather fallback, Supabase events
+for calendar plates, guest lineup inputs and a CSS-safe debt plate background.
 
 ## Product Thesis
 

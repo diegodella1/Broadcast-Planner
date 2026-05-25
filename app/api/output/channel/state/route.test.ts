@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { GET } from "./route"
 
 import { getLiveSchedule } from "@/lib/data"
+import { getGlobalFallbackCarousel } from "@/lib/fallback-carousel"
 import { getLatestMusicPreference } from "@/lib/operator-preferences"
 import type { MediaAsset, ProgramBlock, ScheduleBundle } from "@/lib/types"
 
@@ -14,6 +15,14 @@ vi.mock("@/lib/data", () => ({
 vi.mock("@/lib/operator-preferences", () => ({
   getLatestMusicPreference: vi.fn()
 }))
+
+vi.mock("@/lib/fallback-carousel", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/fallback-carousel")>()
+  return {
+    ...actual,
+    getGlobalFallbackCarousel: vi.fn(async () => null)
+  }
+})
 
 vi.mock("@/lib/output-auth", () => ({
   isOutputRequestAllowed: vi.fn(async () => true),
@@ -39,6 +48,7 @@ vi.mock("@/lib/vimeo", () => ({
 describe("GET /api/output/channel/state background music", () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.mocked(getGlobalFallbackCarousel).mockResolvedValue(null)
     vi.mocked(getLatestMusicPreference).mockResolvedValue({
       enabled: true,
       volume: 42,
@@ -139,6 +149,21 @@ describe("GET /api/output/channel/state background music", () => {
     const payload = await outputState()
 
     expect(payload.kind).toBe("fallback")
+    expect(payload.backgroundMusic).toMatchObject({ enabled: true })
+  })
+
+  it("plays a fallback carousel slide with music when no fallback loop video exists", async () => {
+    vi.mocked(getGlobalFallbackCarousel).mockResolvedValue({
+      enabled: true,
+      cards: [{ slideId: "slide-1", durationSeconds: 30 }],
+      updatedAt: "2026-05-25T00:00:00.000Z"
+    })
+    vi.mocked(getLiveSchedule).mockResolvedValue(bundleWith({ blocks: [] }))
+
+    const payload = await outputState()
+
+    expect(payload.kind).toBe("slide")
+    expect(payload.signature).toContain("fallback-carousel:slide-1")
     expect(payload.backgroundMusic).toMatchObject({ enabled: true })
   })
 

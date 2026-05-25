@@ -24,6 +24,9 @@ Use the configured admin token or named operator handle/token.
    - Create or open the day.
    - Add blocks in `/admin/schedule/[date]`.
    - Assign ready media, slides, overlays, and fallback assets.
+   - For normal video programs that need disclosure, enable `Previously Recorded bug` and choose
+     one of the four screen corners. This does not apply to ads, promos, slides, images, fallback,
+     Reuters, or manual overrides.
 
 3. **Check readiness**
    - Fix schedule health errors.
@@ -48,7 +51,7 @@ Use the configured admin token or named operator handle/token.
 
 ## Output Behavior
 
-`/output/live` renders the active schedule for browser capture. It supports Vimeo, direct HLS, MP4, images, slides, and fallback states.
+`/output/live` renders the active schedule for browser capture. It supports Vimeo, direct HLS, MP4, images, slides, fallback states, background music for visual blocks, and the optional `PREVIOUSLY RECORDED` bug for normal video programs.
 
 After reload, output resolves the active block again and seeks video to the correct scheduled offset. Browser audio still requires one operator click because autoplay with sound is blocked by browser policy.
 
@@ -74,6 +77,9 @@ Run this before trusting a machine for broadcast:
 - Do not schedule draft/failed media.
 - Every active day should have a fallback asset.
 - Reuters URLs are dynamic. Refresh the block or live override if the endpoint expires.
+- Metals plates use Roxom metals data when available and fallback market data when unavailable.
+- Weather plates use OpenWeather when configured and Open-Meteo when no key is present.
+- Calendar/event plates use the Supabase `events` table.
 - Secrets belong in `.env` or encrypted settings, not docs or chat.
 
 ## Useful Pages

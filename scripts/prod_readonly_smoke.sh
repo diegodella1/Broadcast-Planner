@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-trap 'node scripts/record_smoke_status.mjs fail production-readonly >/dev/null || true' ERR
 
 base_url="${RTV_PROD_BASE_URL:-${RTV_BASE_URL:-}}"
 if [[ -z "$base_url" ]]; then
@@ -22,18 +21,19 @@ else
 fi
 
 tmp_dir="$(mktemp -d)"
-trap 'rm -rf "$tmp_dir"' EXIT
+cleanup() {
+  status=$?
+  rm -rf "$tmp_dir"
+  if [[ "$status" -ne 0 ]]; then
+    node scripts/record_smoke_status.mjs fail production-readonly >/dev/null || true
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
 
 echo "health"
-curl -fsS "$base_url/api/health" >"$tmp_dir/health.json"
-node -e '
-const fs = require("fs");
-const payload = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-if (!payload.ok) {
-  console.error(JSON.stringify(payload, null, 2));
-  process.exit(1);
-}
-' "$tmp_dir/health.json"
+curl -sS "$base_url/api/health" >"$tmp_dir/health.json"
+node scripts/assert_health_no_non_smoke_fail.mjs "$tmp_dir/health.json"
 
 echo "admin auth redirect"
 admin_status="$(curl -sS -o /dev/null -w "%{http_code}" "$base_url/admin/calendar")"

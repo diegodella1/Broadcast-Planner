@@ -12,7 +12,11 @@ const shipped = [
   "Output overrides for urgent live cuts",
   "Music preferences for slides, images and visual fallbacks",
   "Dynamic Reuters HLS/RTMP stream snapshots",
+  "Roxom metals API integration with Pyth fallback for gold and silver plates",
+  "Open-Meteo weather fallback when OpenWeather is not configured",
+  "Supabase events table for calendar/event plates",
   "Browser output for OBS/vMix capture",
+  "Previously Recorded bug for normal video programs with four-corner placement",
   "Browser output confirmed in web player, vMix and OBS",
   "Public media proxy for uploaded ads/promos stored in local Supabase Storage",
   "Guest records and individualized Guest Lineup plates with URL or uploaded photo/video media",
@@ -30,7 +34,7 @@ const verification = [
   "i18n check passed",
   "security service-role guard passed",
   "audit trail guard passed",
-  "Vitest passed: 254 tests",
+  "Vitest passed: 341 tests",
   "Next production build passed",
   "local production deploy passed",
   "local read-only smoke passed",
@@ -39,7 +43,6 @@ const verification = [
 
 const nextSteps = [
   "Provision day-to-day named operators and keep bootstrap token as emergency-only access.",
-  "Replace remaining non-guest placeholder/static plate data with real feeds or editable operator inputs.",
   "Remodel the visual design of cards, plates and output surfaces for final broadcast identity.",
   "Add output drift monitoring and incident prompts for silence, black output and stalled video.",
   "Finish i18n and validation copy cleanup.",
@@ -189,8 +192,9 @@ export default function NotionStatusPage() {
             <Callout>
               Status: <strong>production live.</strong> Ready for controlled broadcast operation
               with an operator present. Browser output has been confirmed in web player, vMix and
-              OBS; guest lineup plates are now operator-configurable, and the main remaining product
-              gate is non-guest real plate inputs plus final broadcast design.
+              OBS; guest lineup plates, metals, weather and calendar/event plates now use real data
+              paths or operator-managed inputs. The main remaining product gate is final broadcast
+              plate design plus stronger output alerts.
             </Callout>
 
             <h2 className={h2Class}>Current status</h2>
@@ -248,6 +252,22 @@ export default function NotionStatusPage() {
                 must be refreshed.
               </li>
               <li>
+                Metals plates read Roxom metals data for gold and silver and fall back to Pyth when
+                needed. Weather uses OpenWeather when configured and Open-Meteo otherwise.
+              </li>
+              <li>
+                Calendar/event plates read the Supabase events table from{" "}
+                <code className={codeClass}>
+                  supabase/migrations/20260525181000_events_calendar.sql
+                </code>
+                .
+              </li>
+              <li>
+                The Previously Recorded bug is block metadata on normal video programs only. It does
+                not render on ads, promos, slides, images, fallback, Reuters streams or manual
+                overrides.
+              </li>
+              <li>
                 Smoke scripts require environment variables to be loaded, including
                 OUTPUT_CAPTURE_TOKEN.
               </li>
@@ -265,9 +285,8 @@ export default function NotionStatusPage() {
                 making it primary.
               </li>
               <li>
-                Guest lineup plates are now operator-configurable. Remaining non-guest
-                placeholder/static plate data must still be connected to real inputs, and the visual
-                design needs a broadcast-quality remodel.
+                Guest lineup plates are operator-configurable, and key non-guest plates now have
+                real data/fallback paths. The visual design still needs a broadcast-quality remodel.
               </li>
               <li>
                 Existing Supabase backends need the standalone guest migration at{" "}

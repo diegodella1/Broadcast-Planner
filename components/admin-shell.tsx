@@ -6,6 +6,7 @@ import { redirect } from "next/navigation"
 import { AdminNav } from "@/components/admin-nav"
 import { requireAdmin, revokeCurrentOperatorSession, safeAdminReturnTo } from "@/lib/auth"
 import { getLiveSchedule } from "@/lib/data"
+import { getGlobalFallbackCarousel } from "@/lib/fallback-carousel"
 import { collectOperatorHealth } from "@/lib/health-checks"
 import { findActiveSchedule } from "@/lib/scheduler"
 import {
@@ -106,7 +107,11 @@ export async function AdminShell({
 
 async function loadBroadcastStatus() {
   try {
-    const [bundle, health] = await Promise.all([getLiveSchedule(), collectOperatorHealth()])
+    const [bundle, health, fallbackCarousel] = await Promise.all([
+      getLiveSchedule(),
+      collectOperatorHealth(),
+      getGlobalFallbackCarousel()
+    ])
     const timezone = bundle.day?.timezone ?? PLAYOUT_TIMEZONE
     const nowSeconds = secondsSinceMidnightInTimezone(new Date(), timezone)
     const active = findActiveSchedule(bundle, nowSeconds)
@@ -130,7 +135,7 @@ async function loadBroadcastStatus() {
       activeTitle: active.block?.title ?? null,
       nextTitle: next?.title ?? null,
       nextSeconds: next?.startTimeSeconds ?? null,
-      fallbackTitle: fallback?.title ?? null
+      fallbackTitle: fallback?.title ?? (fallbackCarousel?.enabled ? "Slide carousel" : null)
     }
   } catch {
     return {

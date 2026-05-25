@@ -17,9 +17,13 @@ What is already working:
 - Supabase database/storage backend, including local-storage media proxy for public playback
 - browser playout for OBS/vMix capture
 - Vimeo, HLS, MP4, images, slides and Reuters stream snapshots
+- real-data slide feeds for metals, weather, market/open boards, debt, guests and calendar events,
+  with graceful fallbacks when providers are unavailable
 - reload recovery that resumes video near the current scheduled offset
 - validated web player capture in browser, vMix and OBS
 - uploaded ads/promos served through `/api/media/assets/:assetId` so local Supabase storage stays playable from OBS/vMix and remote browsers
+- per-program `PREVIOUSLY RECORDED` on-screen bug with four-corner placement, limited to normal
+  video program blocks
 - output control, monitor state and live overrides
 - runbook for preflight, live notes, incident handling and shutdown
 - admin health, schedule health and Go Live Drill
@@ -28,7 +32,7 @@ What is already working:
 - protected active-block/health operational endpoints, atomic API rate limiting and alert cooldowns
 - fresh Supabase bootstrap SQL for moving to a new backend
 
-Main product gate now pending: finish the remaining real-data plate inputs, then remodel the visual design of the output plates so the channel looks intentionally produced rather than just operationally correct.
+Main product gate now pending: remodel the visual design of the output plates so the channel looks intentionally produced rather than just operationally correct, then tighten operator alerts for drift, stalls, silence and media errors.
 
 Deployment note: the active production path is still local standalone Next.js behind a Cloudflare tunnel. OpenNext/Cloudflare Workers support is configured and deployable, but should be treated as an alternate path until a real Workers deploy is smoke-tested.
 
@@ -74,12 +78,14 @@ The value is not just playing media. The value is reducing live mistakes: wrong 
 1. Add content in `/admin/assets`, `/admin/vimeo`, `/admin/music` or `/admin/slides`.
 2. Build guest records and guest lineup plates in `/admin/guests` when the show needs guest cards.
 3. Build the day in `/admin/calendar` -> `/admin/schedule/[date]`.
-4. Resolve schedule health issues and assign fallback assets.
-5. Complete the runbook in `/admin/runbook/[date]`.
-6. Set the day `active`.
-7. Open `/admin/output`, launch Live Browser Output, click `Start Output`, then capture that browser window in OBS/vMix.
-8. During live, watch active block, next block, fallback reason, playback state and runbook notes.
-9. Stop broadcast and complete shutdown checks.
+4. For normal video programs that are not live/Reuters/ads/promos, enable the optional
+   `PREVIOUSLY RECORDED` bug from the block editor when editorial needs that disclosure.
+5. Resolve schedule health issues and assign fallback assets.
+6. Complete the runbook in `/admin/runbook/[date]`.
+7. Set the day `active`.
+8. Open `/admin/output`, launch Live Browser Output, click `Start Output`, then capture that browser window in OBS/vMix.
+9. During live, watch active block, next block, fallback reason, playback state and runbook notes.
+10. Stop broadcast and complete shutdown checks.
 
 If the output page reloads mid-show, it asks the server for the active block and resumes video at the current scheduled offset. Browser audio still requires one operator click after load or reload.
 
@@ -124,6 +130,13 @@ ALERT_WEBHOOK_COOLDOWN_MS=600000
 NEXT_PUBLIC_APP_BASE_URL=
 APP_BASE_URL=
 VIMEO_ACCESS_TOKEN=
+```
+
+Optional external data inputs:
+
+```bash
+OPENWEATHER_API_KEY= # optional; weather falls back to Open-Meteo when unset
+ROXOM_METALS_API_URL=https://api.roxom.tv/api/metals # optional override
 ```
 
 Production currently uses local Supabase for database/storage. Keep `NEXT_PUBLIC_SUPABASE_URL`
@@ -200,6 +213,13 @@ supabase/migrations/20260522153000_atomic_rate_limits.sql
 public/manual/atomic-rate-limits-migration.sql
 ```
 
+Events/calendar slide migration:
+
+```txt
+supabase/migrations/20260525181000_events_calendar.sql
+public/manual/supabase-bootstrap.sql
+```
+
 Seed data:
 
 ```txt
@@ -240,7 +260,6 @@ Before live use:
 
 Near-term priorities:
 
-- replace remaining non-guest placeholder/static plate data with real feeds or operator-configurable inputs
 - remodel the visual design of on-air plates, cards and output surfaces
 - improve operator alerts for drift, stalled playback, silence and media errors
 - replace public health detail with admin-only diagnostics in any external status dashboard

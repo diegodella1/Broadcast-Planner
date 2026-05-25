@@ -51,7 +51,7 @@ type OutputState =
   | {
       kind: "slide"
       signature: string
-      blockId: string
+      blockId: string | null
       title: string
       slideId: string
       templateId?: string | null

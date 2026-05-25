@@ -18,13 +18,14 @@ Current roadmap only. The product is in controlled production: useful now, still
 | Security baseline            | Live   | Named operators, sessions, roles, CSRF, output auth, sanitized health, rate limiting and audit logging. |
 | Schedule UX feedback         | Live   | Newly-created blocks are announced, highlighted and shown with clear start/end time ranges.             |
 | Guest lineup plates          | Live   | Operators can create guests with URL/uploaded media and build individualized guest plates.              |
+| Real-data plate inputs       | Live   | Metals, weather, debt and calendar/event plates now use real data paths or resilient fallbacks.         |
+| Previously Recorded bug      | Live   | Normal video programs can show a four-corner broadcast disclosure bug.                                  |
 | OpenNext/Cloudflare path     | Ready  | Worker deploy scripts and config exist; use as alternate deploy path after smoke validation.            |
 
 ## Next
 
 | Work                          | Priority | Why                                                                                           |
 | ----------------------------- | -------- | --------------------------------------------------------------------------------------------- |
-| Remaining real plate inputs   | P0       | Replace remaining non-guest placeholder/static plate data with real feeds or editable inputs. |
 | Remodel on-air plate design   | P0       | Make cards, slides and output surfaces look broadcast-ready, not just technically functional. |
 | Improve output alerting       | P1       | Turn drift, stalled, waiting, silence and media errors into operator-facing alerts.           |
 | Dependency audit cleanup      | P1       | Resolve current moderate upstream advisories without unsafe downgrades or forced fixes.       |

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { appUrl } from "@/lib/app-url"
 import { getLiveSchedule, getPlaybackScheduleForBlock } from "@/lib/data"
+import { getGlobalFallbackCarousel, selectFallbackCarouselSlide } from "@/lib/fallback-carousel"
 import { getLatestMusicPreference } from "@/lib/operator-preferences"
 import { getActiveOutputOverride } from "@/lib/output-overrides"
 import { isOutputRequestAllowed, outputAccessDeniedReason } from "@/lib/output-auth"
@@ -241,11 +242,52 @@ async function fallbackStateForBundle(
   backgroundMusic: Awaited<ReturnType<typeof backgroundMusicForActive>> = null
 ) {
   const fallbackAsset = findFallbackLoopAsset(bundle)
-  if (!fallbackAsset) return fallbackState(reason, base, backgroundMusic)
+  if (!fallbackAsset) {
+    return (
+      (await fallbackCarouselState(bundle, reason, base, mediaAccessToken, backgroundMusic)) ??
+      fallbackState(reason, base, backgroundMusic)
+    )
+  }
   return (
     (await fallbackVideoState(fallbackAsset, reason, base, mediaAccessToken)) ??
+    (await fallbackCarouselState(bundle, reason, base, mediaAccessToken, backgroundMusic)) ??
     fallbackState(reason, base, backgroundMusic)
   )
+}
+
+async function fallbackCarouselState(
+  bundle: ScheduleBundle,
+  reason: string,
+  base: OutputBase,
+  mediaAccessToken = "",
+  backgroundMusic: Awaited<ReturnType<typeof backgroundMusicForActive>> = null
+) {
+  const selection = selectFallbackCarouselSlide(
+    await getGlobalFallbackCarousel(),
+    bundle,
+    base.serverSeconds
+  )
+  if (!selection) return null
+  const renderUrl = appUrl(`/output/slide/${selection.slide.id}`)
+  if (mediaAccessToken) renderUrl.searchParams.set("token", mediaAccessToken)
+  return {
+    ...base,
+    kind: "slide",
+    signature: `fallback-carousel:${selection.slide.id}:${selection.index}:${selection.slide.updatedAt}:${selection.carouselUpdatedAt}`,
+    reason,
+    blockId: null,
+    title: selection.slide.title,
+    slideId: selection.slide.id,
+    templateId: selection.slide.templateId,
+    ...(selection.slide.templateId ? { renderUrl: renderUrl.toString() } : {}),
+    ...(selection.slide.imageUrl ? { imageUrl: selection.slide.imageUrl } : {}),
+    ...(selection.slide.content || selection.slide.htmlContent
+      ? { content: selection.slide.content ?? selection.slide.htmlContent ?? "" }
+      : {}),
+    startOffsetSeconds: selection.elapsedSeconds,
+    durationSeconds: selection.card.durationSeconds,
+    backgroundMusic: enableBackgroundMusic(backgroundMusic)
+  }
 }
 
 async function fallbackVideoState(
@@ -376,6 +418,12 @@ function suppressBackgroundMusic(
   music: Awaited<ReturnType<typeof backgroundMusicForActive>>
 ): Awaited<ReturnType<typeof backgroundMusicForActive>> {
   return music ? { ...music, enabled: false } : null
+}
+
+function enableBackgroundMusic(
+  music: Awaited<ReturnType<typeof backgroundMusicForActive>>
+): Awaited<ReturnType<typeof backgroundMusicForActive>> {
+  return music ? { ...music, enabled: true } : null
 }
 
 function withMediaAccessToken(value: string, token: string) {

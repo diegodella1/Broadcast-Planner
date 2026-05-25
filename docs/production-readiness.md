@@ -13,9 +13,14 @@ release and go-live checklist for the Roxom TV browser-output workflow.
 - Playout: `/output/live` captured by OBS or vMix.
 - Operational model: named operators for normal use, bootstrap token for emergency access.
 - Capture status: browser output has been confirmed through web player, vMix and OBS.
-- Main product gate: replace remaining non-guest placeholder/static plate inputs with real data
-  feeds or operator-configurable inputs, then remodel the on-air plate design for a stronger
-  broadcast look.
+- Main product gate: remodel the on-air plate design for a stronger broadcast look, then tighten
+  output alerts for drift, stalls, silence and media errors.
+- Real-data plate inputs: metals use Roxom API data with fallback, weather falls back to Open-Meteo
+  when OpenWeather is not configured, calendar/event plates use the Supabase events table, and the
+  debt plate no longer depends on a missing background asset.
+- Normal video programs can opt into a `PREVIOUSLY RECORDED` output bug with four-corner placement.
+  The bug is intentionally excluded from ads, promos, slides, images, fallback, Reuters streams and
+  manual overrides.
 - Guest lineup plates are operator-configurable in `/admin/guests`; existing Supabase backends need
   `supabase/migrations/20260522120000_guest_lineup.sql` or
   `public/manual/guest-lineup-migration.sql` plus
@@ -113,8 +118,8 @@ What to say in a demo:
 
 Current demo caveat:
 
-- Some plates still need real production inputs and a visual remodel before they should represent
-  the final channel identity.
+- The output is operationally correct, but the plate visual system still needs a broadcast-quality
+  remodel before it should represent the final channel identity.
 
 `cf:build` and `cf:*` commands remain available for Cloudflare Worker/OpenNext deploys. Those
 deploys must keep Cloudflare dashboard vars/secrets configured for Supabase, `APP_ENCRYPTION_KEY`,

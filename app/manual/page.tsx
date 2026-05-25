@@ -15,6 +15,7 @@ const workflowSteps = [
   "Create guest records and individualized guest lineup plates when the programming needs guest cards.",
   "Create the broadcast day in Calendar.",
   "Build the rundown in Schedule and assign ready media, slides or live streams.",
+  "Enable the optional Previously Recorded bug on normal video programs when needed.",
   "Assign fallback media at day or block level.",
   "Resolve critical health issues before the signal goes live.",
   "Complete runbook preflight checks.",
@@ -40,7 +41,7 @@ const sections = [
   {
     title: "Schedule",
     icon: CalendarDays,
-    body: "Build a broadcast day as a timed rundown. Blocks define what airs, when it starts, how long it runs and what fallback protects it.",
+    body: "Build a broadcast day as a timed rundown. Blocks define what airs, when it starts, how long it runs, whether a normal video program needs a Previously Recorded bug, and what fallback protects it.",
     href: "/admin/calendar"
   },
   {
@@ -74,7 +75,9 @@ const limits = [
   "Browser output has been confirmed through web player, vMix and OBS.",
   "Uploaded ads/promos use the public app proxy; older 127.0.0.1 asset URLs were backfilled.",
   "Guest lineup plates now use operator-configured guests, uploaded/remote photos and short muted videos.",
-  "Some non-guest on-air plates still need real data inputs or editable operator inputs.",
+  "Metals use Roxom API data when available; weather falls back to Open-Meteo when OpenWeather is not configured.",
+  "Calendar/event plates use the Supabase events table from the latest migration/bootstrap SQL.",
+  "Previously Recorded bugs apply only to normal video program blocks, not ads, promos, slides, images, fallbacks, Reuters or manual overrides.",
   "The final broadcast plate design still needs a visual remodel.",
   "OpenNext/Cloudflare Workers is configured as an alternate deploy path but still needs a real Workers smoke before becoming primary.",
   "Browser audio requires one operator click after load or reload.",
@@ -91,6 +94,11 @@ const recentUpdates = [
   "Local Supabase media uploads now play publicly through /api/media/assets/:assetId.",
   "Deploy/read-only smoke scripts now persist the latest smoke result for health checks.",
   "Guest lineup plates can now be individualized per slide from /admin/guests.",
+  "Metals plates now use the Roxom metals API for gold and silver with Pyth fallback.",
+  "Weather plates now have a no-key Open-Meteo fallback.",
+  "Calendar/event plates now use a persisted events table.",
+  "Normal video programs can show a four-corner Previously Recorded bug in browser output.",
+  "The US debt plate no longer depends on a missing background asset.",
   "Supabase bootstrap SQL is available for setting up a fresh backend.",
   "A standalone guest lineup SQL migration is available at /manual/guest-lineup-migration.sql.",
   "OpenNext/Cloudflare Workers deploy scripts are configured for alternate production validation."

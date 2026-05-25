@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache"
 import { auditedMutation } from "./audit"
 import { getScheduleForDate } from "./data"
 import { buildTemplateBlocks, getDayTemplate } from "./day-templates"
+import type { FallbackCarouselCard } from "./fallback-carousel"
 import { buildBulkCardLoop, buildLongTestSchedule } from "./schedule-builder"
 import { analyzeSchedule } from "./schedule-health"
 import {
@@ -1098,6 +1099,46 @@ export async function createBulkCardLoop(input: {
   )
   revalidatePath(`/admin/schedule/${input.date}`)
   revalidatePath("/admin/calendar")
+  revalidatePath("/admin/output")
+}
+
+export async function saveGlobalFallbackCarouselFromSlides(input: {
+  cards: Array<{ slideId: string; durationSeconds: number }>
+}) {
+  const supabase = createServiceClient()
+  const cards = input.cards
+    .map((card) => ({
+      slideId: String(card.slideId || ""),
+      durationSeconds: Math.max(1, Math.round(Number(card.durationSeconds || 30)))
+    }))
+    .filter((card): card is FallbackCarouselCard => Boolean(card.slideId))
+  if (!cards.length) throw new Error("Selecciona al menos una card para fallback")
+
+  await auditedMutation(
+    {
+      action: "fallback_carousel.updated",
+      entityType: "integration_settings",
+      entityId: "fallback_carousel",
+      next: { enabled: true, cards: cards.length }
+    },
+    async () => {
+      const { error } = await supabase.from("integration_settings").upsert(
+        {
+          provider: "fallback_carousel",
+          public_config: {
+            enabled: true,
+            cards
+          },
+          status: "connected",
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: "provider" }
+      )
+      if (error) throw error
+    }
+  )
+  revalidatePath("/admin/schedule")
+  revalidatePath("/admin/assets")
   revalidatePath("/admin/output")
 }
 

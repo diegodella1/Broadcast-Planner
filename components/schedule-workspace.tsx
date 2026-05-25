@@ -510,7 +510,7 @@ function BulkCardLoopPanel({
   }
 
   return (
-    <details className="border-t border-line bg-panel-soft">
+    <details id="bulk-cards" className="border-t border-line bg-panel-soft">
       <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">Bulk Cards</summary>
       <form action={action} className="grid gap-4 px-4 pb-4">
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
@@ -625,6 +625,14 @@ function BulkCardLoopPanel({
           </button>
           <button className="btn-primary" disabled={!readySlides.length}>
             Create loop
+          </button>
+          <button
+            className="btn-secondary"
+            name="save_as_fallback_carousel"
+            value="on"
+            disabled={!readySlides.length}
+          >
+            Save as fallback carousel
           </button>
         </div>
       </form>

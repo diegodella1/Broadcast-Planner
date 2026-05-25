@@ -16,6 +16,7 @@ import {
   Notice
 } from "@/components/ui"
 import { getAssets, getSlides } from "@/lib/data"
+import { getGlobalFallbackCarousel } from "@/lib/fallback-carousel"
 import { createMediaAsset, deleteMediaAsset, updateMediaAsset } from "@/lib/mutations"
 import { slidePreviewHref } from "@/lib/slide-preview"
 import { isoDateInTimezone, PLAYOUT_TIMEZONE } from "@/lib/time"
@@ -50,7 +51,11 @@ export default async function AssetsPage({
   }>
 }) {
   const params = await searchParams
-  const [assets, slides] = await Promise.all([getAssets(), getSlides()])
+  const [assets, slides, fallbackCarousel] = await Promise.all([
+    getAssets(),
+    getSlides(),
+    getGlobalFallbackCarousel()
+  ])
   const libraryItems: LibraryItem[] = [
     ...assets.map((asset) => ({ kind: "asset" as const, id: asset.id, title: asset.title, asset })),
     ...slides.map((slide) => ({ kind: "slide" as const, id: slide.id, title: slide.title, slide }))
@@ -129,6 +134,8 @@ export default async function AssetsPage({
     slides.filter((slide) => slide.status === "ready").length
   const attentionCount = libraryItems.filter(libraryItemNeedsAttention).length
   const fallbackLoopAsset = assets.find(fallbackLoopEnabled) ?? null
+  const fallbackTitle =
+    fallbackLoopAsset?.title ?? (fallbackCarousel?.enabled ? "Slide carousel" : null)
   async function addAsset(formData: FormData) {
     "use server"
     const durationSeconds = Number(formData.get("duration_seconds") || 0) || undefined
@@ -215,7 +222,7 @@ export default async function AssetsPage({
         total={libraryItems.length}
         ready={readyCount}
         attention={attentionCount}
-        fallbackTitle={fallbackLoopAsset?.title ?? null}
+        fallbackTitle={fallbackTitle}
         today={today}
       />
 

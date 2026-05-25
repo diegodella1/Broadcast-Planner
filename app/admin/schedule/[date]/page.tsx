@@ -19,7 +19,8 @@ import {
   reorderProgramBlocks,
   resizeProgramBlock,
   updateProgramBlock,
-  updateProgramDayStatus
+  updateProgramDayStatus,
+  saveGlobalFallbackCarouselFromSlides
 } from "@/lib/mutations"
 import { liveOutputHref } from "@/lib/output-auth"
 import { analyzeSchedule, withScheduleIssueLinks } from "@/lib/schedule-health"
@@ -49,6 +50,7 @@ export default async function ScheduleDatePage({
     month?: string
     year?: string
     created?: string
+    fallback_carousel?: string
   }>
 }) {
   const { date } = await params
@@ -128,14 +130,19 @@ export default async function ScheduleDatePage({
     "use server"
     const slideIds = formData.getAll("slide_ids").map(String)
     const durations = formData.getAll("durations").map(Number)
+    const cards = slideIds.map((slideId, index) => ({
+      slideId,
+      durationSeconds: durations[index] || 30
+    }))
+    if (formData.get("save_as_fallback_carousel") === "on") {
+      await saveGlobalFallbackCarouselFromSlides({ cards })
+      redirect(`/admin/schedule/${date}?fallback_carousel=1#bulk-cards`)
+    }
     await createBulkCardLoop({
       date,
       startTime: String(formData.get("start_time") || "00:00:00"),
       endTime: String(formData.get("end_time") || "00:00:00"),
-      cards: slideIds.map((slideId, index) => ({
-        slideId,
-        durationSeconds: durations[index] || 30
-      })),
+      cards,
       replaceWindow: formData.get("replace_window") === "on"
     })
   }
@@ -290,6 +297,9 @@ export default async function ScheduleDatePage({
       }
     >
       {query.uploaded ? <Notice tone="ok">Media uploaded and scheduled.</Notice> : null}
+      {query.fallback_carousel ? (
+        <Notice tone="ok">Fallback carousel updated from Bulk Cards.</Notice>
+      ) : null}
       <ScheduleControlBar
         date={date}
         timezone={timezone}

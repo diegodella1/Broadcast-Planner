@@ -73,16 +73,22 @@ const liveNow: Item[] = [
     detail:
       "Operators can create guests with URL or uploaded photo/video media, then build individualized Guest Lineup plates with selected guests.",
     status: "Done"
+  },
+  {
+    title: "Real-data plate inputs",
+    detail:
+      "Metals use Roxom API data with fallback, weather uses Open-Meteo without a key, calendar/event plates use Supabase events, and debt no longer depends on a missing background.",
+    status: "Done"
+  },
+  {
+    title: "Previously Recorded bug",
+    detail:
+      "Normal video programs can show a four-corner PREVIOUSLY RECORDED bug; ads, promos, slides, images, fallback, Reuters and manual overrides stay clean.",
+    status: "Done"
   }
 ]
 
 const nextWork: Item[] = [
-  {
-    title: "Remaining real plate inputs",
-    detail:
-      "Connect remaining non-guest plates/cards to real feeds or editable operator inputs instead of placeholder/static data.",
-    status: "Next"
-  },
   {
     title: "On-air plate redesign",
     detail:
@@ -128,7 +134,6 @@ const later: Item[] = [
 const risks = [
   "Browser audio needs one operator click after load or reload.",
   "Reuters URLs can expire and must be refreshed before or during air.",
-  "Remaining non-guest placeholder plate data must be replaced before final programming handoff.",
   "The current output is operational; final plate design still needs a broadcast-quality remodel.",
   "Cloudflare Workers/OpenNext should be smoke-tested before becoming the primary production path.",
   "Fallback assets must stay ready for unattended operation."
@@ -148,8 +153,7 @@ export default function PendingPage() {
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
             Current shipping status for RTV Planner. The core product is live; the remaining work is
-            remaining real plate inputs, output design polish, smoke visibility and broadcast
-            automation.
+            output design polish, stronger alerts, smoke visibility and broadcast automation.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link className="btn-secondary" href="/manual">

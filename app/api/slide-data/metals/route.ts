@@ -8,9 +8,7 @@ export const dynamic = "force-dynamic"
  * Metals slide-data endpoint.
  *
  * The metals (gold, silver, oil, copper) figures live inside the unified
- * markets payload produced by `getMarketsSatsData()` — there is no dedicated
- * metals fetcher in `lib/slides/data/`. `metals-rate-limit.ts` only exposes
- * monthly-quota accounting helpers, not a fetch function.
+ * markets payload produced by `getMarketsSatsData()`.
  */
 export async function GET() {
   try {
