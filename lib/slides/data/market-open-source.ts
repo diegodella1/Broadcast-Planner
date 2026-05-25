@@ -5,11 +5,17 @@ const MAX_POINTS = 48
 
 type MarketItem = Record<string, unknown>
 
+type StooqSymbolConfig = {
+  symbol: string
+  proxy?: boolean
+}
+
 export type MarketInstrumentConfig = {
   id: string
   label: string
   primary: string[]
   proxies: string[]
+  stooq?: StooqSymbolConfig[]
   demo: {
     symbol: string
     proxySymbol: string
@@ -33,39 +39,36 @@ export type MarketOpenConfig = {
 
 export function createMarketOpenDataSource(config: MarketOpenConfig) {
   let marketCache: { data: MarketOpenData; timestamp: number } | null = null
+  let refreshPromise: Promise<MarketOpenData> | null = null
   let pointHistory = new Map<string, MarketIndexPoint[]>()
 
   async function getData(now = new Date()): Promise<MarketOpenData> {
     const timestamp = Date.now()
-    const providerUrl = process.env[`${config.envPrefix}_MARKET_DATA_URL`]
-    if (!providerUrl) return buildDemoData(config, now)
-
     if (marketCache && timestamp - marketCache.timestamp < MARKET_CACHE_DURATION_MS) {
       return {
         ...marketCache.data,
         ...getMarketClock(config, now)
       }
     }
+    if (refreshPromise) {
+      const data = await refreshPromise
+      return {
+        ...data,
+        ...getMarketClock(config, now)
+      }
+    }
+
+    refreshPromise = refreshMarketData(config, now, pointHistory)
+      .then((data) => {
+        marketCache = { data, timestamp }
+        return data
+      })
+      .finally(() => {
+        refreshPromise = null
+      })
 
     try {
-      const items = await fetchProviderMarketItems(config, providerUrl)
-      const updatedAt = now.toISOString()
-      const instruments = config.instruments.map((instrument) =>
-        normalizeInstrument(config, instrument, items, updatedAt, pointHistory)
-      )
-      const data: MarketOpenData = {
-        mode: "live",
-        marketName: config.marketName,
-        regionLabel: config.regionLabel,
-        previewLabel: config.previewLabel,
-        ...getMarketClock(config, now),
-        updatedAt,
-        cacheSeconds: MARKET_CACHE_DURATION_MS / 1000,
-        source: process.env[`${config.envPrefix}_MARKET_DATA_PROVIDER`] || "Configured market API",
-        instruments
-      }
-      marketCache = { data, timestamp }
-      return data
+      return await refreshPromise
     } catch (error) {
       console.error(`[${config.logLabel}]`, error)
       if (marketCache) {
@@ -83,9 +86,9 @@ export function createMarketOpenDataSource(config: MarketOpenConfig) {
         ...getMarketClock(config, now),
         updatedAt: now.toISOString(),
         cacheSeconds: MARKET_CACHE_DURATION_MS / 1000,
-        source: process.env[`${config.envPrefix}_MARKET_DATA_PROVIDER`] || "Configured market API",
+        source: getActiveProviderLabel(config),
         instruments: config.instruments.map((instrument) =>
-          unavailableInstrument(instrument, pointHistory)
+          unavailableInstrument(instrument, pointHistory, getActiveProviderLabel(config))
         )
       }
     }
@@ -97,6 +100,46 @@ export function createMarketOpenDataSource(config: MarketOpenConfig) {
   }
 
   return { getData, reset }
+}
+
+async function refreshMarketData(
+  config: MarketOpenConfig,
+  now: Date,
+  pointHistory: Map<string, MarketIndexPoint[]>
+): Promise<MarketOpenData> {
+  const providerUrl = process.env[`${config.envPrefix}_MARKET_DATA_URL`]
+  const providerLabel = getActiveProviderLabel(config)
+  const items = providerUrl
+    ? await fetchProviderMarketItems(config, providerUrl)
+    : await fetchStooqMarketItems(config)
+  const updatedAt = newestProviderTimestamp(items) ?? now.toISOString()
+  const instruments = config.instruments.map((instrument) =>
+    providerUrl
+      ? normalizeConfiguredInstrument(config, instrument, items, updatedAt, pointHistory)
+      : normalizeStooqInstrument(instrument, items, updatedAt, pointHistory)
+  )
+  if (!providerUrl && instruments.every((instrument) => instrument.unavailable)) {
+    throw new Error(`${config.marketName} Stooq data unavailable`)
+  }
+
+  return {
+    mode: "live",
+    marketName: config.marketName,
+    regionLabel: config.regionLabel,
+    previewLabel: config.previewLabel,
+    ...getMarketClock(config, now),
+    updatedAt,
+    cacheSeconds: MARKET_CACHE_DURATION_MS / 1000,
+    source: providerLabel,
+    instruments
+  }
+}
+
+function getActiveProviderLabel(config: MarketOpenConfig) {
+  if (process.env[`${config.envPrefix}_MARKET_DATA_URL`]) {
+    return process.env[`${config.envPrefix}_MARKET_DATA_PROVIDER`] || "Configured market API"
+  }
+  return "Stooq delayed quotes"
 }
 
 async function fetchProviderMarketItems(
@@ -132,45 +175,88 @@ async function fetchProviderMarketItems(
   return items.filter(isObject)
 }
 
-function buildDemoData(config: MarketOpenConfig, now: Date): MarketOpenData {
-  const updatedAt = now.toISOString()
-  return {
-    mode: "demo",
-    marketName: config.marketName,
-    regionLabel: config.regionLabel,
-    previewLabel: config.previewLabel,
-    ...getMarketClock(config, now),
-    updatedAt,
-    cacheSeconds: 0,
-    source: "Demo board",
-    instruments: config.instruments.map((instrument, index) =>
-      demoInstrument(instrument, updatedAt, index)
+async function fetchStooqMarketItems(config: MarketOpenConfig): Promise<MarketItem[]> {
+  const symbols = [
+    ...new Set(
+      config.instruments
+        .flatMap((instrument) => instrument.stooq ?? [])
+        .map((candidate) => candidate.symbol)
     )
+  ]
+  if (symbols.length === 0) throw new Error(`${config.marketName} has no Stooq symbols`)
+
+  const results = await Promise.allSettled(
+    symbols.map(async (symbol) => {
+      const response = await fetch(
+        `https://stooq.com/q/l/?s=${encodeURIComponent(symbol)}&f=sd2t2ohlcv&h&e=csv`,
+        {
+          headers: { Accept: "text/csv,text/plain,*/*" },
+          cache: "no-store",
+          signal: AbortSignal.timeout(10_000)
+        }
+      )
+      if (!response.ok) throw new Error(`Stooq ${symbol} error: ${response.status}`)
+      return parseStooqQuote(symbol, await response.text())
+    })
+  )
+
+  const items = results.flatMap((result) => {
+    if (result.status === "fulfilled" && result.value) return [result.value]
+    return []
+  })
+  if (items.length === 0) throw new Error(`${config.marketName} Stooq data unavailable`)
+  return items
+}
+
+function parseStooqQuote(symbol: string, csv: string): MarketItem | null {
+  const lines = csv
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const values = splitCsvLine(lines.at(-1) ?? "")
+  if (values.length < 8) return null
+  const [rawSymbol, date, time, openRaw, , , closeRaw, volumeRaw] = values
+  if (!rawSymbol || rawSymbol.toUpperCase() === "N/D") return null
+  const open = parseFiniteNumber(openRaw)
+  const close = parseFiniteNumber(closeRaw)
+  if (open === null || open <= 0 || close === null || close <= 0) return null
+  const change = close - open
+  return {
+    symbol: rawSymbol || symbol,
+    price: close,
+    close,
+    open,
+    change,
+    changePercent: (change / open) * 100,
+    volume: parseFiniteNumber(volumeRaw),
+    updatedAt: parseStooqTimestamp(date ?? "", time ?? "")
   }
 }
 
-function demoInstrument(
-  config: MarketInstrumentConfig,
-  updatedAt: string,
-  index: number
-): MarketIndex {
-  const { demo } = config
-  const points = [
-    { timestamp: updatedAt, price: demo.price - demo.change * 0.7 - index * 0.8 },
-    { timestamp: updatedAt, price: demo.price - demo.change * 0.35 + index * 0.35 },
-    { timestamp: updatedAt, price: demo.price }
-  ]
-  return {
-    id: config.id,
-    label: config.label,
-    symbol: demo.symbol,
-    proxySymbol: demo.proxySymbol,
-    price: demo.price,
-    change: demo.change,
-    changePercent: demo.changePercent,
-    source: "Demo data - not live",
-    points
-  }
+function splitCsvLine(line: string) {
+  return line.split(",").map((value) => value.trim())
+}
+
+function parseFiniteNumber(value: unknown) {
+  if (typeof value !== "string" && typeof value !== "number") return null
+  const parsed = typeof value === "number" ? value : Number.parseFloat(value.replace(/,/g, ""))
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function parseStooqTimestamp(date: string, time: string) {
+  const parsed = new Date(`${date}T${time || "00:00:00"}Z`)
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+}
+
+function newestProviderTimestamp(items: MarketItem[]) {
+  const timestamps = items
+    .map((item) => firstString(item, ["updatedAt"]))
+    .filter((value): value is string => Boolean(value))
+    .map((value) => new Date(value).getTime())
+    .filter(Number.isFinite)
+  if (timestamps.length === 0) return null
+  return new Date(Math.max(...timestamps)).toISOString()
 }
 
 function normalizeInstrument(
@@ -180,13 +266,25 @@ function normalizeInstrument(
   updatedAt: string,
   pointHistory: Map<string, MarketIndexPoint[]>
 ): MarketIndex {
+  return normalizeConfiguredInstrument(config, instrument, items, updatedAt, pointHistory)
+}
+
+function normalizeConfiguredInstrument(
+  config: MarketOpenConfig,
+  instrument: MarketInstrumentConfig,
+  items: MarketItem[],
+  updatedAt: string,
+  pointHistory: Map<string, MarketIndexPoint[]>
+): MarketIndex {
   const primary = findBySymbols(items, instrument.primary)
   const proxy = findBySymbols(items, instrument.proxies)
   const item = primary ?? proxy
-  if (!item) return unavailableInstrument(instrument, pointHistory)
+  if (!item) return unavailableInstrument(instrument, pointHistory, "Configured market API")
 
   const price = firstNumber(item, ["priceUSD", "price", "last", "value", "close"])
-  if (price === null || price <= 0) return unavailableInstrument(instrument, pointHistory)
+  if (price === null || price <= 0) {
+    return unavailableInstrument(instrument, pointHistory, "Configured market API")
+  }
 
   const change = firstNumber(item, ["changeUSD", "change", "changePrice", "priceChange"])
   const changePercent = firstNumber(item, [
@@ -213,9 +311,39 @@ function normalizeInstrument(
   }
 }
 
+function normalizeStooqInstrument(
+  instrument: MarketInstrumentConfig,
+  items: MarketItem[],
+  updatedAt: string,
+  pointHistory: Map<string, MarketIndexPoint[]>
+): MarketIndex {
+  const candidates = instrument.stooq ?? []
+  for (const candidate of candidates) {
+    const item = findBySymbols(items, [candidate.symbol])
+    if (!item) continue
+    const price = firstNumber(item, ["price", "close"])
+    if (price === null || price <= 0) continue
+    const symbol = firstString(item, ["symbol"]) ?? candidate.symbol
+    const points = pushPoint(instrument.id, { timestamp: updatedAt, price }, pointHistory)
+    return {
+      id: instrument.id,
+      label: instrument.label,
+      symbol,
+      proxySymbol: candidate.symbol,
+      price,
+      change: firstNumber(item, ["change"]),
+      changePercent: firstNumber(item, ["changePercent"]),
+      source: candidate.proxy ? "Stooq ETF proxy" : "Stooq delayed quote",
+      points
+    }
+  }
+  return unavailableInstrument(instrument, pointHistory, "Stooq delayed quotes")
+}
+
 function unavailableInstrument(
   config: MarketInstrumentConfig,
-  pointHistory: Map<string, MarketIndexPoint[]>
+  pointHistory: Map<string, MarketIndexPoint[]>,
+  source = "Configured market API"
 ): MarketIndex {
   return {
     id: config.id,
@@ -225,7 +353,7 @@ function unavailableInstrument(
     price: null,
     change: null,
     changePercent: null,
-    source: "Configured market API",
+    source,
     points: pointHistory.get(config.id) ?? [],
     unavailable: true
   }

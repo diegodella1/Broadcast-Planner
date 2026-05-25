@@ -9,6 +9,25 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+function stooqResponse(symbol: string, close = 745.64, open = 746.24) {
+  return new Response(
+    [
+      "Symbol,Date,Time,Open,High,Low,Close,Volume",
+      `${symbol},2026-05-22,22:00:21,${open},748.94,744.48,${close},41762006`
+    ].join("\n"),
+    {
+      status: 200,
+      headers: { "Content-Type": "text/csv" }
+    }
+  )
+}
+
+function invalidStooqResponse(symbol = "SPY.US") {
+  return new Response(
+    `Symbol,Date,Time,Open,High,Low,Close,Volume\n${symbol},N/D,N/D,N/D,N/D,N/D,N/D,N/D`
+  )
+}
+
 const marketPayload = {
   success: true,
   data: [
@@ -35,17 +54,96 @@ describe("getUsMarketOpenData", () => {
     __resetUsMarketOpenCacheForTests()
   })
 
-  it("returns visible demo data and does not fetch without a configured provider", async () => {
-    const fetchMock = vi.fn<typeof fetch>()
+  it("uses Stooq data without a configured provider", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(stooqResponse("SPY.US", 745.64, 746.24))
+      .mockResolvedValueOnce(stooqResponse("QQQ.US", 717.54, 718.07))
+      .mockResolvedValueOnce(stooqResponse("DIA.US", 460.1, 459.2))
+      .mockResolvedValueOnce(stooqResponse("IWM.US", 225.1, 224.8))
     vi.stubGlobal("fetch", fetchMock)
 
     const data = await getUsMarketOpenData(new Date("2026-05-22T13:00:00Z"))
 
-    expect(data.mode).toBe("demo")
-    expect(data.source).toBe("Demo board")
-    expect(data.cacheSeconds).toBe(0)
+    expect(data.mode).toBe("live")
+    expect(data.source).toBe("Stooq delayed quotes")
+    expect(data.cacheSeconds).toBe(30)
     expect(data.instruments).toHaveLength(4)
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(data.instruments[0]).toMatchObject({
+      id: "sp500",
+      symbol: "SPY.US",
+      price: 745.64,
+      source: "Stooq ETF proxy"
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  it("deduplicates concurrent Stooq refreshes and serves cache inside 30 seconds", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(stooqResponse("SPY.US", 745.64, 746.24))
+      .mockResolvedValueOnce(stooqResponse("QQQ.US", 717.54, 718.07))
+      .mockResolvedValueOnce(stooqResponse("DIA.US", 460.1, 459.2))
+      .mockResolvedValueOnce(stooqResponse("IWM.US", 225.1, 224.8))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const [first, second] = await Promise.all([
+      getUsMarketOpenData(new Date("2026-05-22T13:00:00Z")),
+      getUsMarketOpenData(new Date("2026-05-22T13:00:00Z"))
+    ])
+    expect(first.instruments[0]?.price).toBe(745.64)
+    expect(second.instruments[0]?.price).toBe(745.64)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+
+    vi.setSystemTime(new Date("2026-05-22T13:00:20Z"))
+    await getUsMarketOpenData(new Date("2026-05-22T13:00:20Z"))
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  it("marks Stooq N/D symbols unavailable", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          "Symbol,Date,Time,Open,High,Low,Close,Volume\nSPY.US,N/D,N/D,N/D,N/D,N/D,N/D,N/D"
+        )
+      )
+      .mockResolvedValueOnce(stooqResponse("QQQ.US", 717.54, 718.07))
+      .mockResolvedValueOnce(stooqResponse("DIA.US", 460.1, 459.2))
+      .mockResolvedValueOnce(stooqResponse("IWM.US", 225.1, 224.8))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const data = await getUsMarketOpenData(new Date("2026-05-22T13:00:00Z"))
+
+    expect(data.mode).toBe("live")
+    expect(data.instruments[0]).toMatchObject({
+      id: "sp500",
+      unavailable: true,
+      source: "Stooq delayed quotes"
+    })
+  })
+
+  it("keeps stale Stooq cache when a later refresh returns no usable quotes", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(stooqResponse("SPY.US", 745.64, 746.24))
+      .mockResolvedValueOnce(stooqResponse("QQQ.US", 717.54, 718.07))
+      .mockResolvedValueOnce(stooqResponse("DIA.US", 460.1, 459.2))
+      .mockResolvedValueOnce(stooqResponse("IWM.US", 225.1, 224.8))
+      .mockResolvedValueOnce(invalidStooqResponse("SPY.US"))
+      .mockResolvedValueOnce(invalidStooqResponse("QQQ.US"))
+      .mockResolvedValueOnce(invalidStooqResponse("DIA.US"))
+      .mockResolvedValueOnce(invalidStooqResponse("IWM.US"))
+    vi.stubGlobal("fetch", fetchMock)
+
+    await getUsMarketOpenData(new Date("2026-05-22T13:00:00Z"))
+    vi.setSystemTime(new Date("2026-05-22T13:01:00Z"))
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    const stale = await getUsMarketOpenData(new Date("2026-05-22T13:01:00Z"))
+
+    expect(stale.stale).toBe(true)
+    expect(stale.instruments[0]?.price).toBe(745.64)
+    consoleSpy.mockRestore()
   })
 
   it("normalizes US index futures from the configured API", async () => {
@@ -151,6 +249,9 @@ describe("getUsMarketOpenData", () => {
   })
 
   it("calculates market phases in New York time", async () => {
+    process.env.US_MARKET_DATA_URL = "https://markets.example.test/us"
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(marketPayload)))
+
     await expect(getUsMarketOpenData(new Date("2026-05-22T13:00:00Z"))).resolves.toMatchObject({
       phase: "pre-market"
     })

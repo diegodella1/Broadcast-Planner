@@ -15,6 +15,10 @@ const source = createMarketOpenDataSource({
       label: "Nikkei 225",
       primary: ["NKY", "NI225", "NIKKEI", "N225"],
       proxies: ["1321", "EWJ"],
+      stooq: [
+        { symbol: "1321.JP", proxy: true },
+        { symbol: "EWJ.US", proxy: true }
+      ],
       demo: {
         symbol: "N225",
         proxySymbol: "1321",
@@ -28,6 +32,10 @@ const source = createMarketOpenDataSource({
       label: "TOPIX",
       primary: ["TOPIX", "TPX"],
       proxies: ["1306"],
+      stooq: [
+        { symbol: "1306.JP", proxy: true },
+        { symbol: "EWJ.US", proxy: true }
+      ],
       demo: {
         symbol: "TOPIX",
         proxySymbol: "1306",
@@ -41,6 +49,10 @@ const source = createMarketOpenDataSource({
       label: "Growth 250",
       primary: ["MOTHERS", "GROWTH250", "TSEGR"],
       proxies: ["2516"],
+      stooq: [
+        { symbol: "2516.JP", proxy: true },
+        { symbol: "EWJ.US", proxy: true }
+      ],
       demo: {
         symbol: "GROWTH250",
         proxySymbol: "2516",
@@ -54,6 +66,10 @@ const source = createMarketOpenDataSource({
       label: "JPX 400",
       primary: ["JPX400", "JPXNK400"],
       proxies: ["1599"],
+      stooq: [
+        { symbol: "1599.JP", proxy: true },
+        { symbol: "EWJ.US", proxy: true }
+      ],
       demo: {
         symbol: "JPX400",
         proxySymbol: "1599",

@@ -15,6 +15,10 @@ const source = createMarketOpenDataSource({
       label: "FTSE 100",
       primary: ["UKX", "FTSE", "FTSE100"],
       proxies: ["ISF", "VUKE"],
+      stooq: [
+        { symbol: "ISF.UK", proxy: true },
+        { symbol: "VUKE.UK", proxy: true }
+      ],
       demo: { symbol: "UKX", proxySymbol: "ISF", price: 8342.2, change: 28.4, changePercent: 0.34 }
     },
     {
@@ -22,6 +26,7 @@ const source = createMarketOpenDataSource({
       label: "FTSE 250",
       primary: ["MCX", "FTSE250"],
       proxies: ["MIDD"],
+      stooq: [{ symbol: "MIDD.UK", proxy: true }],
       demo: {
         symbol: "MCX",
         proxySymbol: "MIDD",
@@ -35,6 +40,7 @@ const source = createMarketOpenDataSource({
       label: "AIM 100",
       primary: ["AIM100", "AIM1"],
       proxies: ["AIM"],
+      stooq: [{ symbol: "ISF.UK", proxy: true }],
       demo: {
         symbol: "AIM100",
         proxySymbol: "AIM",
@@ -48,6 +54,7 @@ const source = createMarketOpenDataSource({
       label: "GBP/USD",
       primary: ["GBPUSD", "GBP/USD"],
       proxies: ["FXB"],
+      stooq: [{ symbol: "GBPUSD" }, { symbol: "FXB.US", proxy: true }],
       demo: {
         symbol: "GBP/USD",
         proxySymbol: "FXB",

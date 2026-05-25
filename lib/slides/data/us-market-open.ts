@@ -15,6 +15,7 @@ const source = createMarketOpenDataSource({
       label: "S&P 500",
       primary: ["ES", "/ES", "ES1", "SPX"],
       proxies: ["SPY"],
+      stooq: [{ symbol: "SPY.US", proxy: true }],
       demo: { symbol: "ES", proxySymbol: "SPY", price: 6280.25, change: 12.4, changePercent: 0.2 }
     },
     {
@@ -22,6 +23,7 @@ const source = createMarketOpenDataSource({
       label: "Nasdaq 100",
       primary: ["NQ", "/NQ", "NQ1", "NDX", "IXIC"],
       proxies: ["QQQ"],
+      stooq: [{ symbol: "QQQ.US", proxy: true }],
       demo: {
         symbol: "NQ",
         proxySymbol: "QQQ",
@@ -35,6 +37,7 @@ const source = createMarketOpenDataSource({
       label: "Dow",
       primary: ["YM", "/YM", "YM1", "DJI", "DJIA"],
       proxies: ["DIA"],
+      stooq: [{ symbol: "DIA.US", proxy: true }],
       demo: { symbol: "YM", proxySymbol: "DIA", price: 46210, change: 94.1, changePercent: 0.2 }
     },
     {
@@ -42,6 +45,7 @@ const source = createMarketOpenDataSource({
       label: "Russell 2000",
       primary: ["RTY", "/RTY", "RTY1", "RUT"],
       proxies: ["IWM"],
+      stooq: [{ symbol: "IWM.US", proxy: true }],
       demo: {
         symbol: "RTY",
         proxySymbol: "IWM",

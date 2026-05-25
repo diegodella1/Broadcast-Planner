@@ -15,6 +15,7 @@ const source = createMarketOpenDataSource({
       label: "Shanghai Composite",
       primary: ["SHCOMP", "SSE", "000001.SS"],
       proxies: ["ASHR"],
+      stooq: [{ symbol: "ASHR.US", proxy: true }],
       demo: {
         symbol: "SHCOMP",
         proxySymbol: "ASHR",
@@ -28,6 +29,7 @@ const source = createMarketOpenDataSource({
       label: "CSI 300",
       primary: ["CSI300", "000300.SS"],
       proxies: ["ASHR"],
+      stooq: [{ symbol: "ASHR.US", proxy: true }],
       demo: {
         symbol: "CSI300",
         proxySymbol: "ASHR",
@@ -41,6 +43,7 @@ const source = createMarketOpenDataSource({
       label: "Shenzhen Comp",
       primary: ["SZCOMP", "399001.SZ"],
       proxies: ["CNXT"],
+      stooq: [{ symbol: "CNXT.US", proxy: true }],
       demo: {
         symbol: "SZCOMP",
         proxySymbol: "CNXT",
@@ -54,6 +57,10 @@ const source = createMarketOpenDataSource({
       label: "Hang Seng",
       primary: ["HSI", "HSI.HK"],
       proxies: ["EWH"],
+      stooq: [
+        { symbol: "EWH.US", proxy: true },
+        { symbol: "FXI.US", proxy: true }
+      ],
       demo: { symbol: "HSI", proxySymbol: "EWH", price: 18840.7, change: 96.5, changePercent: 0.51 }
     }
   ]

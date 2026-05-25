@@ -15,6 +15,7 @@ const source = createMarketOpenDataSource({
       label: "Tadawul TASI",
       primary: ["TASI", "SASEIDX"],
       proxies: ["KSA"],
+      stooq: [{ symbol: "KSA.US", proxy: true }],
       demo: {
         symbol: "TASI",
         proxySymbol: "KSA",
@@ -28,6 +29,7 @@ const source = createMarketOpenDataSource({
       label: "MT30",
       primary: ["MT30", "SASEMT30"],
       proxies: ["KSA"],
+      stooq: [{ symbol: "KSA.US", proxy: true }],
       demo: {
         symbol: "MT30",
         proxySymbol: "KSA",
@@ -41,6 +43,7 @@ const source = createMarketOpenDataSource({
       label: "Saudi Aramco",
       primary: ["2222", "2222.SR", "ARAMCO"],
       proxies: ["KSA"],
+      stooq: [{ symbol: "2222.SA" }, { symbol: "KSA.US", proxy: true }],
       demo: {
         symbol: "2222.SR",
         proxySymbol: "KSA",
@@ -54,6 +57,7 @@ const source = createMarketOpenDataSource({
       label: "Al Rajhi Bank",
       primary: ["1120", "1120.SR", "ALRAJHI"],
       proxies: ["KSA"],
+      stooq: [{ symbol: "1120.SA" }, { symbol: "KSA.US", proxy: true }],
       demo: { symbol: "1120.SR", proxySymbol: "KSA", price: 87.4, change: 0.5, changePercent: 0.58 }
     }
   ]
