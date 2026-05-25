@@ -4,6 +4,11 @@ const MARKET_CACHE_DURATION_MS = 30_000
 const MAX_POINTS = 48
 
 type MarketItem = Record<string, unknown>
+type MarketProviderResult = {
+  items: MarketItem[]
+  source: string
+  provider: "configured" | "rtv" | "stooq"
+}
 
 type StooqSymbolConfig = {
   symbol: string
@@ -107,19 +112,26 @@ async function refreshMarketData(
   now: Date,
   pointHistory: Map<string, MarketIndexPoint[]>
 ): Promise<MarketOpenData> {
-  const providerUrl = process.env[`${config.envPrefix}_MARKET_DATA_URL`]
-  const providerLabel = getActiveProviderLabel(config)
-  const items = providerUrl
-    ? await fetchProviderMarketItems(config, providerUrl)
-    : await fetchStooqMarketItems(config)
-  const updatedAt = newestProviderTimestamp(items) ?? now.toISOString()
-  const instruments = config.instruments.map((instrument) =>
-    providerUrl
-      ? normalizeConfiguredInstrument(config, instrument, items, updatedAt, pointHistory)
-      : normalizeStooqInstrument(instrument, items, updatedAt, pointHistory)
+  let result = await fetchMarketProviderItems(config)
+  let updatedAt = newestProviderTimestamp(result.items) ?? now.toISOString()
+  let instruments = config.instruments.map((instrument) =>
+    result.provider === "configured" || result.provider === "rtv"
+      ? normalizeConfiguredInstrument(config, instrument, result.items, updatedAt, pointHistory)
+      : normalizeStooqInstrument(instrument, result.items, updatedAt, pointHistory)
   )
-  if (!providerUrl && instruments.every((instrument) => instrument.unavailable)) {
-    throw new Error(`${config.marketName} Stooq data unavailable`)
+  if (result.provider === "rtv" && instruments.every((instrument) => instrument.unavailable)) {
+    result = {
+      items: await fetchStooqMarketItems(config),
+      source: "Stooq delayed quotes",
+      provider: "stooq"
+    }
+    updatedAt = newestProviderTimestamp(result.items) ?? now.toISOString()
+    instruments = config.instruments.map((instrument) =>
+      normalizeStooqInstrument(instrument, result.items, updatedAt, pointHistory)
+    )
+  }
+  if (instruments.every((instrument) => instrument.unavailable)) {
+    throw new Error(`${config.marketName} ${result.source} data unavailable`)
   }
 
   return {
@@ -130,7 +142,7 @@ async function refreshMarketData(
     ...getMarketClock(config, now),
     updatedAt,
     cacheSeconds: MARKET_CACHE_DURATION_MS / 1000,
-    source: providerLabel,
+    source: result.source,
     instruments
   }
 }
@@ -139,7 +151,35 @@ function getActiveProviderLabel(config: MarketOpenConfig) {
   if (process.env[`${config.envPrefix}_MARKET_DATA_URL`]) {
     return process.env[`${config.envPrefix}_MARKET_DATA_PROVIDER`] || "Configured market API"
   }
+  if (config.envPrefix === "US" && getRtvApiKey()) return "RTV API"
   return "Stooq delayed quotes"
+}
+
+async function fetchMarketProviderItems(config: MarketOpenConfig): Promise<MarketProviderResult> {
+  const providerUrl = process.env[`${config.envPrefix}_MARKET_DATA_URL`]
+  if (providerUrl) {
+    return {
+      items: await fetchProviderMarketItems(config, providerUrl),
+      source: process.env[`${config.envPrefix}_MARKET_DATA_PROVIDER`] || "Configured market API",
+      provider: "configured"
+    }
+  }
+
+  if (config.envPrefix === "US" && getRtvApiKey()) {
+    const rtvItems = await fetchRtvUsMarketItems().catch((error) => {
+      console.warn("[lib/slides/data/market-open-source.ts:fetchRtvUsMarketItems]", error)
+      return null
+    })
+    if (rtvItems?.length) {
+      return { items: rtvItems, source: "RTV API", provider: "rtv" }
+    }
+  }
+
+  return {
+    items: await fetchStooqMarketItems(config),
+    source: "Stooq delayed quotes",
+    provider: "stooq"
+  }
 }
 
 async function fetchProviderMarketItems(
@@ -173,6 +213,41 @@ async function fetchProviderMarketItems(
           : []
   if (envelope.success === false) throw new Error(`${config.marketName} market data success=false`)
   return items.filter(isObject)
+}
+
+async function fetchRtvUsMarketItems(): Promise<MarketItem[]> {
+  const rtvApiUrl = (process.env.RTV_API_URL ?? "https://api.roxom.tv").replace(/\/$/, "")
+  const rtvApiKey = getRtvApiKey()
+  const headers: Record<string, string> = { Accept: "application/json" }
+  if (rtvApiKey) headers["x-api-key"] = rtvApiKey
+
+  const response = await fetch(`${rtvApiUrl}/api/market-indices/us`, {
+    headers,
+    cache: "no-store",
+    signal: AbortSignal.timeout(10_000)
+  })
+  if (!response.ok) throw new Error(`RTV API US market data error: ${response.status}`)
+  const envelope = (await response.json()) as {
+    success?: boolean
+    data?: unknown
+    markets?: unknown
+    instruments?: unknown
+  }
+  if (envelope.success === false) throw new Error("RTV API US market data success=false")
+  const items = Array.isArray(envelope.data)
+    ? envelope.data
+    : Array.isArray(envelope.markets)
+      ? envelope.markets
+      : Array.isArray(envelope.instruments)
+        ? envelope.instruments
+        : Array.isArray(envelope)
+          ? envelope
+          : []
+  return items.filter(isObject)
+}
+
+function getRtvApiKey() {
+  return process.env.RTV_API_KEY ?? process.env.NEXT_PUBLIC_RTV_API_KEY ?? ""
 }
 
 async function fetchStooqMarketItems(config: MarketOpenConfig): Promise<MarketItem[]> {

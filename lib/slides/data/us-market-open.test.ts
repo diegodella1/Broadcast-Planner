@@ -46,6 +46,9 @@ describe("getUsMarketOpenData", () => {
     delete process.env.US_MARKET_DATA_URL
     delete process.env.US_MARKET_DATA_KEY
     delete process.env.US_MARKET_DATA_PROVIDER
+    delete process.env.RTV_API_URL
+    delete process.env.RTV_API_KEY
+    delete process.env.NEXT_PUBLIC_RTV_API_KEY
   })
 
   afterEach(() => {
@@ -76,6 +79,51 @@ describe("getUsMarketOpenData", () => {
       source: "Stooq ETF proxy"
     })
     expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  it("uses RTV API for US market data before Stooq", async () => {
+    process.env.RTV_API_KEY = "test-key"
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse(marketPayload))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const data = await getUsMarketOpenData(new Date("2026-05-22T13:00:00Z"))
+
+    expect(data.mode).toBe("live")
+    expect(data.source).toBe("RTV API")
+    expect(data.instruments[0]).toMatchObject({
+      id: "sp500",
+      symbol: "ES",
+      price: 6300.25,
+      source: "US Market configured API"
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("falls back to Stooq when RTV API has no usable US instruments", async () => {
+    process.env.RTV_API_KEY = "test-key"
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: [{ symbol: "ICOP", priceUSD: 42.1, changePercentUSD: 0.5 }]
+        })
+      )
+      .mockResolvedValueOnce(stooqResponse("SPY.US", 745.64, 746.24))
+      .mockResolvedValueOnce(stooqResponse("QQQ.US", 717.54, 718.07))
+      .mockResolvedValueOnce(stooqResponse("DIA.US", 460.1, 459.2))
+      .mockResolvedValueOnce(stooqResponse("IWM.US", 225.1, 224.8))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const data = await getUsMarketOpenData(new Date("2026-05-22T13:00:00Z"))
+
+    expect(data.source).toBe("Stooq delayed quotes")
+    expect(data.instruments[0]).toMatchObject({
+      id: "sp500",
+      symbol: "SPY.US",
+      source: "Stooq ETF proxy"
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(5)
   })
 
   it("deduplicates concurrent Stooq refreshes and serves cache inside 30 seconds", async () => {
