@@ -9,7 +9,7 @@ import { assertRateLimit, rateLimitErrorResponse } from "@/lib/rate-limit"
 export async function POST(request: Request) {
   try {
     await requireAdmin()
-    await assertRateLimit({ scope: "api:assets:upload", request, limit: 20, windowSeconds: 60 })
+    await assertRateLimit({ scope: "api:assets:upload", request, limit: 100, windowSeconds: 60 })
     const form = await request.formData()
     await verifyCsrfTokenValue(form.get(CSRF_FIELD))
     const file = form.get("media_file") ?? form.get("video_file")
@@ -17,7 +17,17 @@ export async function POST(request: Request) {
       throw new Error("Select a media file")
     }
     const returnTo = String(form.get("return_to") || "/admin/assets?uploaded=1")
-    await uploadMediaFile(file, uploadedMediaFieldsFromForm(form))
+    const uploaded = await uploadMediaFile(file, uploadedMediaFieldsFromForm(form))
+
+    if (wantsJson(request)) {
+      return NextResponse.json({
+        ok: true,
+        assetId: uploaded.assetId,
+        url: uploaded.url,
+        title: uploaded.title,
+        durationSeconds: uploaded.durationSeconds
+      })
+    }
 
     return NextResponse.redirect(appUrl(returnTo), 303)
   } catch (error) {
@@ -47,4 +57,8 @@ export async function POST(request: Request) {
 
 function isUnreadableMultipartError(error: unknown) {
   return error instanceof TypeError && error.message.includes("Failed to parse body as FormData")
+}
+
+function wantsJson(request: Request) {
+  return request.headers.get("accept")?.includes("application/json") ?? false
 }

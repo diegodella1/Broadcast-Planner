@@ -7,6 +7,7 @@ import {
   formatUploadLimit
 } from "./media-upload-constants"
 import { publicMediaAssetUrl } from "./media-asset-url"
+import { parseMusicMetadataJson } from "./music-metadata"
 import { createServiceClient } from "./supabase/server"
 
 export {
@@ -28,6 +29,7 @@ export type UploadedMediaFields = {
   detectedDurationSeconds?: string | number | null
   detectedWidth?: string | number | null
   detectedHeight?: string | number | null
+  metadataJson?: string | null
 }
 
 export type FileLike = {
@@ -91,6 +93,7 @@ export function resolveUploadedMedia(
   const width = parseOptionalPositiveNumber(fields.detectedWidth)
   const height = parseOptionalPositiveNumber(fields.detectedHeight)
   const aspectRatio = width && height ? Number((width / height).toFixed(4)) : undefined
+  const musicMetadata = assetType === "music" ? parseMusicMetadataJson(fields.metadataJson) : {}
 
   return {
     title,
@@ -112,7 +115,8 @@ export function resolveUploadedMedia(
       duration_source: durationSource,
       width: width ?? null,
       height: height ?? null,
-      aspect_ratio: aspectRatio ?? null
+      aspect_ratio: aspectRatio ?? null,
+      ...(Object.keys(musicMetadata).length ? { music: musicMetadata } : {})
     }
   } satisfies ResolvedUploadedMedia
 }
@@ -168,7 +172,8 @@ export function uploadedMediaFieldsFromForm(form: FormData): UploadedMediaFields
     durationSeconds: form.get("duration_seconds") as string | null,
     detectedDurationSeconds: form.get("detected_duration_seconds") as string | null,
     detectedWidth: form.get("detected_width") as string | null,
-    detectedHeight: form.get("detected_height") as string | null
+    detectedHeight: form.get("detected_height") as string | null,
+    metadataJson: form.get("metadata_json") as string | null
   }
 }
 

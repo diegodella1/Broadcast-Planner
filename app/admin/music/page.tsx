@@ -1,4 +1,5 @@
 import { AdminShell } from "@/components/admin-shell"
+import { MusicBulkUpload } from "@/components/music-bulk-upload"
 import { EmptyState, FormHeader, MetricTile, Notice } from "@/components/ui"
 import { getAssets } from "@/lib/data"
 import { updateMediaAsset } from "@/lib/mutations"
@@ -65,42 +66,7 @@ export default async function MusicPage({
       </section>
 
       <section className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <form
-          action="/api/assets/upload"
-          method="post"
-          encType="multipart/form-data"
-          className="surface-panel p-4"
-        >
-          <FormHeader
-            title="Upload music track"
-            detail="MP3 files are stored as music assets and join the renderer playlist when marked ready."
-          />
-          <input type="hidden" name="asset_type" value="music" />
-          <input type="hidden" name="return_to" value="/admin/music?uploaded=1" />
-          <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_120px_1fr_120px]">
-            <input
-              name="title"
-              required
-              placeholder="Track title"
-              className="border border-line px-3 py-2 text-sm"
-            />
-            <input
-              name="duration_seconds"
-              type="number"
-              min="1"
-              placeholder="Sec"
-              className="border border-line px-3 py-2 text-sm"
-            />
-            <input
-              name="media_file"
-              required
-              type="file"
-              accept="audio/mpeg,audio/mp3"
-              className="border border-line bg-surface px-3 py-2 text-sm"
-            />
-            <button className="btn-primary">Upload</button>
-          </div>
-        </form>
+        <MusicBulkUpload />
 
         <section className="surface-panel p-4">
           <FormHeader
@@ -125,7 +91,8 @@ export default async function MusicPage({
               <div>
                 <p className="font-semibold">{track.title}</p>
                 <p className="text-sm text-muted">
-                  {track.sourceType} · {track.url ? "source linked" : "missing source"}
+                  {track.sourceType} · {musicCredit(track)} ·{" "}
+                  {track.url ? "source linked" : "missing source"}
                 </p>
               </div>
               <span className="text-sm text-muted">#{playlistOrder(track)}</span>
@@ -233,4 +200,14 @@ function MusicEditForm({
 function playlistOrder(track: MediaAsset) {
   const value = Number(track.metadata?.playlist_order ?? 999)
   return Number.isFinite(value) ? value : 999
+}
+
+function musicCredit(track: MediaAsset) {
+  const music = track.metadata?.music
+  if (!music || typeof music !== "object" || Array.isArray(music)) return "metadata pending"
+  const record = music as Record<string, unknown>
+  const artist =
+    typeof record.artist === "string" && record.artist.trim() ? record.artist.trim() : ""
+  const album = typeof record.album === "string" && record.album.trim() ? record.album.trim() : ""
+  return [artist, album].filter(Boolean).join(" · ") || "metadata pending"
 }

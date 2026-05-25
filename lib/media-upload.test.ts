@@ -60,6 +60,31 @@ describe("resolveUploadedMedia", () => {
     ).toThrow("Browser could not read media duration")
   })
 
+  it("stores sanitized music metadata when uploading tracks", () => {
+    const resolved = resolveUploadedMedia(
+      { ...baseFile, name: "track.mp3", type: "audio/mpeg" },
+      {
+        title: "Track",
+        assetType: "music",
+        orientation: "auto",
+        detectedDurationSeconds: "184",
+        metadataJson: JSON.stringify({
+          music_title: "Tagged title",
+          artist: "Tagged artist",
+          album: "Tagged album",
+          ignored: "not stored"
+        })
+      }
+    )
+
+    expect(resolved.durationSeconds).toBe(184)
+    expect(resolved.metadata.music).toEqual({
+      music_title: "Tagged title",
+      artist: "Tagged artist",
+      album: "Tagged album"
+    })
+  })
+
   it("limits uploaded short videos to 5 minutes", () => {
     expect(() =>
       resolveUploadedMedia(baseFile, {
