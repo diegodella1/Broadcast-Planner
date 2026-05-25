@@ -46,7 +46,7 @@ export function MarketOpenSlide({ data, endpoint }: MarketOpenSlideProps) {
       <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.07),transparent_42%),radial-gradient(circle_at_88%_18%,rgba(255,64,64,0.16),transparent_34%)]" />
       <div className="absolute left-0 top-0 h-full w-[10px] bg-red-500" />
 
-      <div className="relative z-10 flex h-full flex-col px-10 py-8">
+      <div className="relative z-10 flex h-full flex-col px-8 py-6">
         {isDemo && (
           <div className="mb-5 flex items-center justify-center border border-amber-300/45 bg-amber-300/14 px-5 py-3 text-center text-sm font-black uppercase tracking-[0.34em] text-amber-100">
             Demo data - not live
@@ -58,35 +58,35 @@ export function MarketOpenSlide({ data, endpoint }: MarketOpenSlideProps) {
           </div>
         )}
 
-        <header className="flex items-start justify-between gap-8">
+        <header className="flex items-start justify-between gap-6">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-black uppercase tracking-[0.42em] text-white/45">
+            <p className="text-xs font-black uppercase tracking-[0.34em] text-white/45">
               {isDemo ? liveData.previewLabel : liveData.regionLabel}
             </p>
-            <h1 className="mt-3 text-[clamp(42px,5.7vw,96px)] font-black leading-none tracking-normal">
+            <h1 className="mt-2 text-[clamp(34px,5vw,78px)] font-black leading-none tracking-normal">
               {liveData.marketName.toUpperCase()} {phaseSuffixes[liveData.phase]}
             </h1>
           </div>
-          <div className="min-w-[320px] border-l border-white/20 pl-7 text-right">
-            <p className={`text-base font-black uppercase tracking-[0.28em] ${marketTone}`}>
+          <div className="min-w-[280px] border-l border-white/20 pl-6 text-right">
+            <p className={`text-sm font-black uppercase tracking-[0.22em] ${marketTone}`}>
               {liveData.nextBellLabel}
             </p>
-            <div className="mt-2 font-mono text-[clamp(36px,4.2vw,72px)] font-black leading-none tabular-nums">
+            <div className="mt-1 font-mono text-[clamp(32px,3.8vw,62px)] font-black leading-none tabular-nums">
               {formatDuration(remaining)}
             </div>
-            <p className="mt-3 text-sm font-bold uppercase tracking-[0.22em] text-white/45">
+            <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-white/45">
               {liveData.marketTimezone}
             </p>
           </div>
         </header>
 
-        <section className="mt-8 grid flex-1 grid-cols-2 grid-rows-2 gap-5">
+        <section className="mt-5 grid min-h-0 flex-1 grid-cols-2 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-4">
           {liveData.instruments.map((instrument) => (
             <IndexCard key={instrument.id} instrument={instrument} />
           ))}
         </section>
 
-        <footer className="mt-6 flex items-center justify-between gap-6 border-t border-white/10 pt-4 text-xs font-bold uppercase tracking-[0.18em] text-white/45">
+        <footer className="mt-4 flex items-center justify-between gap-6 border-t border-white/10 pt-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">
           <span>Updated {updated} local</span>
           <span className="text-right">{footerStatus(liveData)}</span>
         </footer>
@@ -105,12 +105,12 @@ function IndexCard({ instrument }: { instrument: MarketIndex }) {
   const direction = (instrument.changePercent ?? instrument.change ?? 0) >= 0 ? "up" : "down"
   const directionClass = direction === "up" ? "text-emerald-300" : "text-red-300"
   return (
-    <article className="flex min-h-0 min-w-0 flex-col justify-between border border-white/12 bg-white/[0.055] p-5 shadow-2xl">
+    <article className="flex min-h-0 min-w-0 flex-col justify-between overflow-hidden border border-white/12 bg-white/[0.055] p-4 shadow-2xl">
       <div>
-        <div className="flex items-start justify-between gap-5">
+        <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <h2
-              className="text-[clamp(28px,2.6vw,48px)] font-black leading-[0.95]"
+              className="text-[clamp(24px,2.25vw,40px)] font-black leading-[0.95]"
               style={{
                 display: "-webkit-box",
                 WebkitBoxOrient: "vertical",
@@ -120,12 +120,12 @@ function IndexCard({ instrument }: { instrument: MarketIndex }) {
             >
               {instrument.label}
             </h2>
-            <p className="mt-3 text-sm font-black uppercase tracking-[0.24em] text-white/40">
+            <p className="mt-2 text-xs font-black uppercase tracking-[0.18em] text-white/40">
               {instrument.symbol}
             </p>
           </div>
           <span
-            className={`shrink-0 border px-3 py-1 text-sm font-black uppercase tracking-[0.18em] ${
+            className={`shrink-0 border px-2.5 py-1 text-xs font-black uppercase tracking-[0.14em] ${
               direction === "up"
                 ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-200"
                 : "border-red-300/35 bg-red-300/10 text-red-200"
@@ -135,31 +135,31 @@ function IndexCard({ instrument }: { instrument: MarketIndex }) {
           </span>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-4">
           {instrument.price ? (
-            <p className="font-mono text-[clamp(44px,4.6vw,80px)] font-black leading-none tabular-nums">
+            <p className="font-mono text-[clamp(36px,4vw,66px)] font-black leading-none tabular-nums">
               {formatPrice(instrument.price)}
             </p>
           ) : (
-            <p className="text-[clamp(24px,2.6vw,42px)] font-black uppercase text-white/35">
+            <p className="text-[clamp(22px,2.2vw,36px)] font-black uppercase text-white/35">
               Data unavailable
             </p>
           )}
           <p
-            className={`mt-4 font-mono text-[clamp(24px,2.5vw,42px)] font-black tabular-nums ${directionClass}`}
+            className={`mt-3 font-mono text-[clamp(21px,2.15vw,34px)] font-black tabular-nums ${directionClass}`}
           >
             {formatSigned(instrument.change)} · {formatPercent(instrument.changePercent)}
           </p>
         </div>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-3">
         <Sparkline
           points={instrument.points}
           direction={direction}
           hasValue={Boolean(instrument.price)}
         />
-        <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-white/35">
+        <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
           {instrument.source}
         </p>
       </div>
@@ -184,7 +184,7 @@ function Sparkline({
   return (
     <svg
       viewBox="0 0 240 72"
-      className="h-[72px] w-full overflow-visible"
+      className="h-[54px] w-full overflow-visible"
       role="img"
       aria-label="Recent movement"
     >
