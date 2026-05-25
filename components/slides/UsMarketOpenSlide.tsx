@@ -46,7 +46,7 @@ export function MarketOpenSlide({ data, endpoint }: MarketOpenSlideProps) {
       <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.07),transparent_42%),radial-gradient(circle_at_88%_18%,rgba(255,64,64,0.16),transparent_34%)]" />
       <div className="absolute left-0 top-0 h-full w-[10px] bg-red-500" />
 
-      <div className="relative z-10 flex h-full flex-col px-12 py-10">
+      <div className="relative z-10 flex h-full flex-col px-10 py-8">
         {isDemo && (
           <div className="mb-5 flex items-center justify-center border border-amber-300/45 bg-amber-300/14 px-5 py-3 text-center text-sm font-black uppercase tracking-[0.34em] text-amber-100">
             Demo data - not live
@@ -58,20 +58,20 @@ export function MarketOpenSlide({ data, endpoint }: MarketOpenSlideProps) {
           </div>
         )}
 
-        <header className="flex items-start justify-between gap-10">
-          <div>
+        <header className="flex items-start justify-between gap-8">
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-black uppercase tracking-[0.42em] text-white/45">
               {isDemo ? liveData.previewLabel : liveData.regionLabel}
             </p>
-            <h1 className="mt-3 text-[clamp(48px,6.8vw,118px)] font-black leading-none tracking-normal">
+            <h1 className="mt-3 text-[clamp(42px,5.7vw,96px)] font-black leading-none tracking-normal">
               {liveData.marketName.toUpperCase()} {phaseSuffixes[liveData.phase]}
             </h1>
           </div>
-          <div className="min-w-[360px] border-l border-white/20 pl-8 text-right">
+          <div className="min-w-[320px] border-l border-white/20 pl-7 text-right">
             <p className={`text-base font-black uppercase tracking-[0.28em] ${marketTone}`}>
               {liveData.nextBellLabel}
             </p>
-            <div className="mt-2 font-mono text-[clamp(38px,5vw,86px)] font-black leading-none tabular-nums">
+            <div className="mt-2 font-mono text-[clamp(36px,4.2vw,72px)] font-black leading-none tabular-nums">
               {formatDuration(remaining)}
             </div>
             <p className="mt-3 text-sm font-bold uppercase tracking-[0.22em] text-white/45">
@@ -80,15 +80,15 @@ export function MarketOpenSlide({ data, endpoint }: MarketOpenSlideProps) {
           </div>
         </header>
 
-        <section className="mt-10 grid flex-1 grid-cols-4 gap-5">
+        <section className="mt-8 grid flex-1 grid-cols-2 grid-rows-2 gap-5">
           {liveData.instruments.map((instrument) => (
             <IndexCard key={instrument.id} instrument={instrument} />
           ))}
         </section>
 
-        <footer className="mt-8 flex items-center justify-between border-t border-white/10 pt-5 text-xs font-bold uppercase tracking-[0.22em] text-white/45">
+        <footer className="mt-6 flex items-center justify-between gap-6 border-t border-white/10 pt-4 text-xs font-bold uppercase tracking-[0.18em] text-white/45">
           <span>Updated {updated} local</span>
-          <span>{footerStatus(liveData)}</span>
+          <span className="text-right">{footerStatus(liveData)}</span>
         </footer>
       </div>
     </motion.div>
@@ -105,11 +105,19 @@ function IndexCard({ instrument }: { instrument: MarketIndex }) {
   const direction = (instrument.changePercent ?? instrument.change ?? 0) >= 0 ? "up" : "down"
   const directionClass = direction === "up" ? "text-emerald-300" : "text-red-300"
   return (
-    <article className="flex min-w-0 flex-col justify-between border border-white/12 bg-white/[0.055] p-6 shadow-2xl">
+    <article className="flex min-h-0 min-w-0 flex-col justify-between border border-white/12 bg-white/[0.055] p-5 shadow-2xl">
       <div>
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h2 className="truncate text-[clamp(26px,2.8vw,52px)] font-black leading-none">
+        <div className="flex items-start justify-between gap-5">
+          <div className="min-w-0 flex-1">
+            <h2
+              className="text-[clamp(28px,2.6vw,48px)] font-black leading-[0.95]"
+              style={{
+                display: "-webkit-box",
+                WebkitBoxOrient: "vertical",
+                WebkitLineClamp: 2,
+                overflow: "hidden"
+              }}
+            >
               {instrument.label}
             </h2>
             <p className="mt-3 text-sm font-black uppercase tracking-[0.24em] text-white/40">
@@ -127,9 +135,9 @@ function IndexCard({ instrument }: { instrument: MarketIndex }) {
           </span>
         </div>
 
-        <div className="mt-8">
+        <div className="mt-6">
           {instrument.price ? (
-            <p className="font-mono text-[clamp(42px,5vw,82px)] font-black leading-none tabular-nums">
+            <p className="font-mono text-[clamp(44px,4.6vw,80px)] font-black leading-none tabular-nums">
               {formatPrice(instrument.price)}
             </p>
           ) : (
@@ -138,16 +146,20 @@ function IndexCard({ instrument }: { instrument: MarketIndex }) {
             </p>
           )}
           <p
-            className={`mt-5 font-mono text-[clamp(24px,2.8vw,48px)] font-black tabular-nums ${directionClass}`}
+            className={`mt-4 font-mono text-[clamp(24px,2.5vw,42px)] font-black tabular-nums ${directionClass}`}
           >
             {formatSigned(instrument.change)} · {formatPercent(instrument.changePercent)}
           </p>
         </div>
       </div>
 
-      <div className="mt-8">
-        <Sparkline points={instrument.points} direction={direction} />
-        <p className="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-white/35">
+      <div className="mt-5">
+        <Sparkline
+          points={instrument.points}
+          direction={direction}
+          hasValue={Boolean(instrument.price)}
+        />
+        <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-white/35">
           {instrument.source}
         </p>
       </div>
@@ -157,17 +169,22 @@ function IndexCard({ instrument }: { instrument: MarketIndex }) {
 
 function Sparkline({
   points,
-  direction
+  direction,
+  hasValue
 }: {
   points: MarketIndex["points"]
   direction: "up" | "down"
+  hasValue: boolean
 }) {
-  const path = useMemo(() => sparklinePath(points), [points])
+  const path = useMemo(
+    () => sparklinePath(points, direction, hasValue),
+    [points, direction, hasValue]
+  )
   const stroke = direction === "up" ? "#6ee7b7" : "#fca5a5"
   return (
     <svg
       viewBox="0 0 240 72"
-      className="h-20 w-full overflow-visible"
+      className="h-[72px] w-full overflow-visible"
       role="img"
       aria-label="Recent movement"
     >
@@ -175,14 +192,15 @@ function Sparkline({
       {path ? (
         <path d={path} fill="none" stroke={stroke} strokeWidth="5" strokeLinecap="round" />
       ) : (
-        <path d="M0 42 L240 42" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="5" />
+        <path d="M0 42 L240 42" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="5" />
       )}
     </svg>
   )
 }
 
-function sparklinePath(points: MarketIndex["points"]) {
-  if (points.length < 2) return ""
+function sparklinePath(points: MarketIndex["points"], direction: "up" | "down", hasValue: boolean) {
+  if (!hasValue) return ""
+  if (points.length < 2) return direction === "up" ? "M0 48 L240 30" : "M0 30 L240 48"
   const prices = points.map((point) => point.price)
   const min = Math.min(...prices)
   const max = Math.max(...prices)
