@@ -184,15 +184,34 @@ function Sparkline({
   return (
     <svg
       viewBox="0 0 240 72"
-      className="h-[54px] w-full overflow-visible"
+      className="block h-[54px] w-full min-w-0 overflow-visible"
+      preserveAspectRatio="none"
       role="img"
       aria-label="Recent movement"
     >
-      <path d="M0 58 L240 58" stroke="rgba(255,255,255,0.12)" strokeWidth="2" />
+      <path
+        d="M0 58 L240 58"
+        stroke="rgba(255,255,255,0.12)"
+        strokeWidth="2"
+        vectorEffect="non-scaling-stroke"
+      />
       {path ? (
-        <path d={path} fill="none" stroke={stroke} strokeWidth="5" strokeLinecap="round" />
+        <path
+          d={path}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="5"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
       ) : (
-        <path d="M0 42 L240 42" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="5" />
+        <path
+          d="M0 42 L240 42"
+          fill="none"
+          stroke="rgba(255,255,255,0.18)"
+          strokeWidth="5"
+          vectorEffect="non-scaling-stroke"
+        />
       )}
     </svg>
   )
