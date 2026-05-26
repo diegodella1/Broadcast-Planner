@@ -146,7 +146,11 @@ export default async function ScheduleDatePage({
         }));
 
         if (loopMode === 'fallback' || loopMode === 'both') {
-            await saveGlobalFallbackCarouselFromSlides({ cards });
+            const fallbackResult = await saveGlobalFallbackCarouselFromSlides({ cards });
+
+            if (!fallbackResult.success) {
+                redirect(scheduleErrorHref(date, new Error(fallbackResult.error)));
+            }
         }
 
         if (loopMode === 'scheduled' || loopMode === 'both') {

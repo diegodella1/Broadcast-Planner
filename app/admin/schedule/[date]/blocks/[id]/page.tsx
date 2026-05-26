@@ -76,7 +76,7 @@ export default async function BlockPage({
 
     async function addLayer(formData: FormData) {
         'use server';
-        await createScheduledLayer({
+        const result = await createScheduledLayer({
             date,
             blockId: id,
             title: String(formData.get('title')),
@@ -88,6 +88,10 @@ export default async function BlockPage({
             zIndex: Number(formData.get('z_index') || 10),
             position: String(formData.get('position')),
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function editAssignedAsset(formData: FormData) {
@@ -121,12 +125,16 @@ export default async function BlockPage({
 
     async function toggleLayer(formData: FormData) {
         'use server';
-        await setScheduledLayerEnabled({
+        const result = await setScheduledLayerEnabled({
             date,
             blockId: id,
             layerId: String(formData.get('layer_id')),
             enabled: formData.get('enabled') === 'true',
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function deleteBlock() {

@@ -35,7 +35,7 @@ export default async function OperatorRunbookPage({
         const itemKey = String(formData.get('item_key'));
         const checked = formData.get('checked') === 'true';
         const notes = String(formData.get('notes') || '');
-        await updateRunbookCheck({
+        const result = await updateRunbookCheck({
             date,
             programDayId: currentSchedule.day.id,
             section,
@@ -43,6 +43,10 @@ export default async function OperatorRunbookPage({
             checked,
             notes,
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     const checkedCount = RUNBOOK_TEMPLATE.reduce(

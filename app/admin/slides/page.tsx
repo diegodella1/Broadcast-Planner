@@ -165,7 +165,7 @@ export default async function SlidesPage() {
 
     async function addWeatherPlate(formData: FormData) {
         'use server';
-        await createWeatherPlate({
+        const result = await createWeatherPlate({
             title: String(formData.get('title') || ''),
             locationName: String(formData.get('location_name') || ''),
             lat: Number(formData.get('lat')),
@@ -173,11 +173,15 @@ export default async function SlidesPage() {
             defaultDurationSeconds: Number(formData.get('default_duration_seconds') || 30),
             status: String(formData.get('status') || 'ready'),
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function updateWeatherPlateAction(formData: FormData) {
         'use server';
-        await updateWeatherPlate({
+        const result = await updateWeatherPlate({
             slideId: String(formData.get('slide_id') || ''),
             title: String(formData.get('title') || ''),
             locationName: String(formData.get('location_name') || ''),
@@ -186,6 +190,10 @@ export default async function SlidesPage() {
             defaultDurationSeconds: Number(formData.get('default_duration_seconds') || 30),
             status: String(formData.get('status') || 'ready'),
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function archiveLegacySlides() {

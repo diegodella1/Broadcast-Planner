@@ -567,7 +567,7 @@ describe('operator runbook mutations', () => {
     });
 
     it('upserts a persisted per-day runbook check', async () => {
-        await updateRunbookCheck({
+        const result = await updateRunbookCheck({
             date: '2026-05-08',
             programDayId: 'day-1',
             section: 'preflight',
@@ -576,6 +576,7 @@ describe('operator runbook mutations', () => {
             notes: 'OK',
         });
 
+        expect(result).toEqual({ success: true, data: undefined });
         expect(supabaseMock.from).toHaveBeenCalledWith('operator_runbook_checks');
         expect(supabaseMock.upsert).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -1320,13 +1321,14 @@ describe('saveGlobalFallbackCarouselFromSlides', () => {
     });
 
     it('stores ordered fallback carousel cards in integration settings', async () => {
-        await saveGlobalFallbackCarouselFromSlides({
+        const result = await saveGlobalFallbackCarouselFromSlides({
             cards: [
                 { slideId: 'slide-1', durationSeconds: 12 },
                 { slideId: 'slide-2', durationSeconds: 18 },
             ],
         });
 
+        expect(result).toEqual({ success: true, data: undefined });
         expect(supabaseMock.from).toHaveBeenCalledWith('integration_settings');
         expect(supabaseMock.upsert).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -1345,9 +1347,12 @@ describe('saveGlobalFallbackCarouselFromSlides', () => {
     });
 
     it('rejects empty fallback carousel cards', async () => {
-        await expect(saveGlobalFallbackCarouselFromSlides({ cards: [] })).rejects.toThrow(
-            'Selecciona al menos una card',
-        );
+        const result = await saveGlobalFallbackCarouselFromSlides({ cards: [] });
+
+        expect(result).toEqual({
+            success: false,
+            error: 'Selecciona al menos una card para fallback',
+        });
     });
 });
 
@@ -1400,7 +1405,7 @@ describe('weather plate mutations', () => {
     });
 
     it('creates weather plates with city coordinates in metadata', async () => {
-        await createWeatherPlate({
+        const result = await createWeatherPlate({
             title: 'Miami Weather',
             locationName: 'Miami',
             lat: 25.7617,
@@ -1409,6 +1414,7 @@ describe('weather plate mutations', () => {
             status: 'ready',
         });
 
+        expect(result).toEqual({ success: true, data: undefined });
         expect(supabaseMock.insert).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Miami Weather',
@@ -1425,7 +1431,7 @@ describe('weather plate mutations', () => {
     });
 
     it('updates only weather template plates', async () => {
-        await updateWeatherPlate({
+        const result = await updateWeatherPlate({
             slideId: 'slide-weather-1',
             title: 'Madrid Weather',
             locationName: 'Madrid',
@@ -1435,6 +1441,7 @@ describe('weather plate mutations', () => {
             status: 'draft',
         });
 
+        expect(result).toEqual({ success: true, data: undefined });
         expect(supabaseMock.update).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Madrid Weather',
@@ -1448,6 +1455,29 @@ describe('weather plate mutations', () => {
         );
         expect(supabaseMock.eq).toHaveBeenCalledWith('template_id', 'weather');
     });
+
+    it('rejects weather plates with missing city name', async () => {
+        const result = await createWeatherPlate({
+            title: 'Bad',
+            locationName: '   ',
+            lat: 10,
+            lon: 20,
+        });
+
+        expect(result).toEqual({ success: false, error: 'City name is required' });
+    });
+
+    it('rejects weather plates with invalid latitude', async () => {
+        const result = await updateWeatherPlate({
+            slideId: 'slide-weather-1',
+            title: 'Bad',
+            locationName: 'Atlantis',
+            lat: 999,
+            lon: 0,
+        });
+
+        expect(result).toEqual({ success: false, error: 'Latitude is invalid' });
+    });
 });
 
 // ---------------------------------------------------------------------------
@@ -1459,7 +1489,7 @@ describe('createScheduledLayer', () => {
     });
 
     it('happy path: inserts scheduled_layers with correct payload', async () => {
-        await createScheduledLayer({
+        const result = await createScheduledLayer({
             date: '2026-05-08',
             blockId: 'block-1',
             title: 'Logo',
@@ -1470,6 +1500,7 @@ describe('createScheduledLayer', () => {
             position: 'top_right',
         });
 
+        expect(result).toEqual({ success: true, data: undefined });
         expect(supabaseMock.insert).toHaveBeenCalledWith(
             expect.objectContaining({
                 program_block_id: 'block-1',
@@ -1486,7 +1517,7 @@ describe('createScheduledLayer', () => {
         expect(revalidatePath).toHaveBeenCalledWith('/admin/schedule/2026-05-08');
     });
 
-    it('error path: throws when supabase insert fails', async () => {
+    it('error path: returns err when supabase insert fails', async () => {
         (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
             (resolve: (value: MockResult) => void) =>
                 Promise.resolve({ data: null, error: new Error('Layer insert failed') }).then(
@@ -1494,18 +1525,18 @@ describe('createScheduledLayer', () => {
                 ),
         );
 
-        await expect(
-            createScheduledLayer({
-                date: '2026-05-08',
-                blockId: 'block-1',
-                title: 'Layer',
-                layerType: 'overlay',
-                startTime: '10:00:00',
-                durationSeconds: 60,
-                zIndex: 5,
-                position: 'fullscreen',
-            }),
-        ).rejects.toThrow('Layer insert failed');
+        const result = await createScheduledLayer({
+            date: '2026-05-08',
+            blockId: 'block-1',
+            title: 'Layer',
+            layerType: 'overlay',
+            startTime: '10:00:00',
+            durationSeconds: 60,
+            zIndex: 5,
+            position: 'fullscreen',
+        });
+
+        expect(result).toEqual({ success: false, error: 'Layer insert failed' });
     });
 });
 
@@ -1518,13 +1549,14 @@ describe('setScheduledLayerEnabled', () => {
     });
 
     it('happy path: enables a layer', async () => {
-        await setScheduledLayerEnabled({
+        const result = await setScheduledLayerEnabled({
             date: '2026-05-08',
             blockId: 'block-1',
             layerId: 'layer-1',
             enabled: true,
         });
 
+        expect(result).toEqual({ success: true, data: undefined });
         expect(supabaseMock.update).toHaveBeenCalledWith(
             expect.objectContaining({ enabled: true }),
         );
@@ -1534,19 +1566,20 @@ describe('setScheduledLayerEnabled', () => {
     });
 
     it('happy path: disables a layer', async () => {
-        await setScheduledLayerEnabled({
+        const result = await setScheduledLayerEnabled({
             date: '2026-05-08',
             blockId: 'block-1',
             layerId: 'layer-1',
             enabled: false,
         });
 
+        expect(result).toEqual({ success: true, data: undefined });
         expect(supabaseMock.update).toHaveBeenCalledWith(
             expect.objectContaining({ enabled: false }),
         );
     });
 
-    it('error path: throws when supabase update fails', async () => {
+    it('error path: returns err when supabase update fails', async () => {
         (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
             (resolve: (value: MockResult) => void) =>
                 Promise.resolve({ data: null, error: new Error('Layer update failed') }).then(
@@ -1554,14 +1587,14 @@ describe('setScheduledLayerEnabled', () => {
                 ),
         );
 
-        await expect(
-            setScheduledLayerEnabled({
-                date: '2026-05-08',
-                blockId: 'b',
-                layerId: 'l',
-                enabled: true,
-            }),
-        ).rejects.toThrow('Layer update failed');
+        const result = await setScheduledLayerEnabled({
+            date: '2026-05-08',
+            blockId: 'b',
+            layerId: 'l',
+            enabled: true,
+        });
+
+        expect(result).toEqual({ success: false, error: 'Layer update failed' });
     });
 });
 

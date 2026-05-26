@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 
 const required = [
-    { path: 'lib/mutations.ts', token: 'auditedMutation' },
+    { path: 'lib/mutations/blocks.ts', token: 'auditedMutation' },
+    { path: 'lib/mutations/assets.ts', token: 'auditedMutation' },
+    { path: 'lib/mutations/guests.ts', token: 'auditedMutation' },
+    { path: 'lib/mutations/slides.ts', token: 'auditedMutation' },
     { path: 'lib/settings.ts', token: 'auditedMutation' },
     { path: 'lib/reuters-credentials.ts', token: 'auditedMutation' },
     { path: 'lib/manual-broadcast.ts', token: 'recordAuditEvent' },
