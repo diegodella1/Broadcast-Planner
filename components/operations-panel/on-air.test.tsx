@@ -5,13 +5,13 @@ import { renderWithIntl } from '@/vitest.intl-helper';
 
 import { OperationsPanelOnAir } from './on-air';
 
-import type { UseActiveBlockResult } from '@/app/hooks/useActiveBlock';
+import type { UseActiveBlockResult } from '@/app/hooks/use-active-block';
 
-vi.mock('@/app/hooks/useActiveBlock', () => ({
+vi.mock('@/app/hooks/use-active-block', () => ({
     useActiveBlock: vi.fn(),
 }));
 
-import { useActiveBlock } from '@/app/hooks/useActiveBlock';
+import { useActiveBlock } from '@/app/hooks/use-active-block';
 
 const mockUseActiveBlock = vi.mocked(useActiveBlock);
 
