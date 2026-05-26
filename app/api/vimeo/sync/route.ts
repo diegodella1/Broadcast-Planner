@@ -5,6 +5,7 @@ import { recordAuditEvent } from '@/lib/audit';
 import { requireAdmin } from '@/lib/auth';
 import { verifyCsrfToken } from '@/lib/csrf';
 import { assertRateLimit, rateLimitErrorResponse } from '@/lib/rate-limit';
+import { syncVimeoCatalogSchema } from '@/lib/schemas';
 import { getVimeoSettings, getVimeoToken, recordVimeoSyncStatus } from '@/lib/settings';
 import { syncVimeoCatalog } from '@/lib/vimeo';
 
@@ -14,8 +15,22 @@ export async function POST(request: Request) {
         await assertRateLimit({ scope: 'api:vimeo:sync', request, limit: 10, windowSeconds: 60 });
         await verifyCsrfToken(request);
         const form = await request.formData().catch(() => new FormData());
-        const returnTo = String(form.get('return_to') ?? '');
-        const requestedScope = String(form.get('scope_uri') ?? '');
+        const parsed = syncVimeoCatalogSchema.safeParse({
+            return_to: form.get('return_to'),
+            scope_uri: form.get('scope_uri'),
+        });
+
+        if (!parsed.success) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: parsed.error.flatten().formErrors.join(', ') || 'Invalid input',
+                },
+                { status: 400 },
+            );
+        }
+        const returnTo = parsed.data.return_to;
+        const requestedScope = parsed.data.scope_uri;
         const [token, settings] = await Promise.all([getVimeoToken(), getVimeoSettings()]);
 
         if (!token) {

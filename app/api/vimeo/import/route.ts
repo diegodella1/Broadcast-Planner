@@ -4,6 +4,7 @@ import { appUrl } from '@/lib/app-url';
 import { requireAdmin } from '@/lib/auth';
 import { verifyCsrfToken } from '@/lib/csrf';
 import { assertRateLimit, rateLimitErrorResponse } from '@/lib/rate-limit';
+import { importVimeoVideoSchema } from '@/lib/schemas';
 import { getVimeoToken, markVimeoStatus, recordVimeoSyncStatus } from '@/lib/settings';
 import { createServiceClient } from '@/lib/supabase/server';
 import {
@@ -19,8 +20,22 @@ export async function POST(request: Request) {
         await assertRateLimit({ scope: 'api:vimeo:import', request, limit: 20, windowSeconds: 60 });
         await verifyCsrfToken(request);
         const form = await request.formData();
-        const videoUri = normalizeVimeoUri(String(form.get('video_uri') ?? ''));
-        const returnTo = String(form.get('return_to') ?? '');
+        const parsed = importVimeoVideoSchema.safeParse({
+            video_uri: form.get('video_uri'),
+            return_to: form.get('return_to'),
+        });
+
+        if (!parsed.success) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: parsed.error.flatten().formErrors.join(', ') || 'Invalid input',
+                },
+                { status: 400 },
+            );
+        }
+        const videoUri = normalizeVimeoUri(parsed.data.video_uri);
+        const returnTo = parsed.data.return_to;
         const token = await getVimeoToken();
 
         if (!token) {

@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/auth';
 import { verifyCsrfToken } from '@/lib/csrf';
 import { getMusicPreference, saveMusicPreference } from '@/lib/operator-preferences';
 import { assertRateLimit, rateLimitErrorResponse } from '@/lib/rate-limit';
+import { updateMusicPreferenceSchema } from '@/lib/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,11 +34,20 @@ export async function POST(request: Request) {
             windowSeconds: 60,
         });
         await verifyCsrfToken(request);
-        const input = (await request.json()) as Record<string, unknown>;
+        const rawBody = (await request.json()) as unknown;
+        const parsed = updateMusicPreferenceSchema.safeParse(rawBody);
 
-        return NextResponse.json(await saveMusicPreference(input), {
-            headers: { 'Cache-Control': 'no-store' },
-        });
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: parsed.error.flatten().formErrors.join(', ') || 'Invalid input' },
+                { status: 400 },
+            );
+        }
+
+        return NextResponse.json(
+            await saveMusicPreference(parsed.data as Record<string, unknown>),
+            { headers: { 'Cache-Control': 'no-store' } },
+        );
     } catch (error) {
         if (error instanceof Error && error.message === 'Unauthorized') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
