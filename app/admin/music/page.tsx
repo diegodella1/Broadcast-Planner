@@ -24,7 +24,7 @@ export default async function MusicPage({
     async function editTrack(formData: FormData) {
         'use server';
         const durationSeconds = Number(formData.get('duration_seconds') || 0) || undefined;
-        await updateMediaAsset({
+        const result = await updateMediaAsset({
             id: String(formData.get('id')),
             title: String(formData.get('title')),
             description: String(formData.get('description') || ''),
@@ -39,6 +39,10 @@ export default async function MusicPage({
             playlistOrder: Number(formData.get('playlist_order') || 0) || undefined,
             revalidatePaths: ['/output/live'],
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     return (

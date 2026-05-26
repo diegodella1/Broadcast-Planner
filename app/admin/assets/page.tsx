@@ -200,7 +200,7 @@ export default async function AssetsPage({
     async function addAsset(formData: FormData) {
         'use server';
         const durationSeconds = Number(formData.get('duration_seconds') || 0) || undefined;
-        await createMediaAsset({
+        const result = await createMediaAsset({
             title: String(formData.get('title')),
             sourceType: String(formData.get('source_type')),
             mediaKind: String(formData.get('media_kind')),
@@ -208,11 +208,15 @@ export default async function AssetsPage({
             url: String(formData.get('url') || ''),
             ...(durationSeconds !== undefined ? { durationSeconds } : {}),
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
     async function editAsset(formData: FormData) {
         'use server';
         const durationSeconds = Number(formData.get('duration_seconds') || 0) || undefined;
-        await updateMediaAsset({
+        const result = await updateMediaAsset({
             id: String(formData.get('id')),
             title: String(formData.get('title')),
             description: String(formData.get('description') || ''),
@@ -227,13 +231,21 @@ export default async function AssetsPage({
             orientation: String(formData.get('orientation') || 'auto'),
             fallbackLoop: formData.get('fallback_loop') === 'on',
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
     async function deleteAsset(formData: FormData) {
         'use server';
-        await deleteMediaAsset({
+        const result = await deleteMediaAsset({
             id: String(formData.get('id')),
             force: formData.get('force_delete') === 'on',
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
     async function setFallbackLoop(formData: FormData) {
         'use server';
@@ -243,7 +255,7 @@ export default async function AssetsPage({
         if (!asset) {
             throw new Error('Asset not found');
         }
-        await updateMediaAsset({
+        const result = await updateMediaAsset({
             id: asset.id,
             title: asset.title,
             description: asset.description ?? '',
@@ -258,6 +270,10 @@ export default async function AssetsPage({
             orientation: String(asset.metadata?.orientation || 'auto'),
             fallbackLoop: true,
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
         redirect('/admin/assets?kind=fallback&fallback_loop=1');
     }
 

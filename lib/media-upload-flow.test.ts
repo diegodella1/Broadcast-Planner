@@ -20,7 +20,7 @@ describe('uploadMediaFile', () => {
         vi.clearAllMocks();
         vi.stubEnv('NEXT_PUBLIC_APP_BASE_URL', 'https://rtvtime.diegodella.ar');
         vi.stubEnv('NODE_ENV', 'production');
-        createMediaAssetMock.mockResolvedValue('asset-1');
+        createMediaAssetMock.mockResolvedValue({ success: true, data: 'asset-1' });
         const updateMock = vi.fn().mockReturnValue({
             eq: vi.fn().mockResolvedValue({ error: null }),
         });

@@ -85,7 +85,7 @@ export default async function SlidesPage() {
             Number(formData.get('default_duration_seconds') || 0) || undefined;
         const templateId =
             slideType === 'template' ? String(formData.get('template_id') || '') : undefined;
-        await createSlideAsset({
+        const result = await createSlideAsset({
             title: String(formData.get('title')),
             slideType,
             content: String(formData.get('content') || ''),
@@ -95,6 +95,10 @@ export default async function SlidesPage() {
             ...(templateId !== undefined && templateId !== '' ? { templateId } : {}),
             status: String(formData.get('status') || 'ready'),
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function addSystemSlide(formData: FormData) {
@@ -107,7 +111,7 @@ export default async function SlidesPage() {
         ) {
             return;
         }
-        await createSlideAsset({
+        const result = await createSlideAsset({
             title: String(formData.get('title')),
             slideType: 'template',
             templateId,
@@ -115,6 +119,10 @@ export default async function SlidesPage() {
             defaultDurationSeconds: Number(formData.get('default_duration_seconds') || 30),
             status: 'ready',
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function addAllSystemSlides() {
@@ -131,7 +139,7 @@ export default async function SlidesPage() {
             if (existingTemplateIds.has(preset.templateId)) {
                 continue;
             }
-            await createSlideAsset({
+            const result = await createSlideAsset({
                 title: preset.title,
                 slideType: 'template',
                 templateId: preset.templateId,
@@ -139,12 +147,20 @@ export default async function SlidesPage() {
                 defaultDurationSeconds: 30,
                 status: 'ready',
             });
+
+            if (!result.success) {
+                throw new Error(result.error);
+            }
         }
     }
 
     async function archiveSlide(formData: FormData) {
         'use server';
-        await archiveSlideAsset(String(formData.get('slide_id')));
+        const result = await archiveSlideAsset(String(formData.get('slide_id')));
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function addWeatherPlate(formData: FormData) {
@@ -185,7 +201,11 @@ export default async function SlidesPage() {
             if (!isLegacySlide(slide, currentIds)) {
                 continue;
             }
-            await archiveSlideAsset(slide.id);
+            const result = await archiveSlideAsset(slide.id);
+
+            if (!result.success) {
+                throw new Error(result.error);
+            }
         }
     }
 

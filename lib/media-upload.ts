@@ -152,7 +152,7 @@ export async function uploadMediaFile(file: FileLike, fields: UploadedMediaField
     let assetId = '';
 
     try {
-        assetId = await createMediaAsset({
+        const createResult = await createMediaAsset({
             title: resolved.title,
             sourceType: resolved.sourceType,
             mediaKind: resolved.mediaKind,
@@ -162,6 +162,11 @@ export async function uploadMediaFile(file: FileLike, fields: UploadedMediaField
             durationSeconds: resolved.durationSeconds,
             metadata: resolved.metadata,
         });
+
+        if (!createResult.success) {
+            throw new Error(createResult.error);
+        }
+        assetId = createResult.data;
     } catch (error) {
         await removeUploadedObject(supabase, storagePath);
         throw error;

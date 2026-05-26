@@ -1360,7 +1360,7 @@ describe('createSlideAsset', () => {
     });
 
     it('happy path: inserts slide_assets and revalidates /admin/slides', async () => {
-        await createSlideAsset({
+        const result = await createSlideAsset({
             title: 'Breaking News',
             slideType: 'html',
             htmlContent: '<p>test</p>',
@@ -1368,6 +1368,7 @@ describe('createSlideAsset', () => {
             status: 'ready',
         });
 
+        expect(result).toEqual({ success: true, data: undefined });
         expect(supabaseMock.insert).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Breaking News',
@@ -1379,7 +1380,7 @@ describe('createSlideAsset', () => {
         expect(revalidatePath).toHaveBeenCalledWith('/admin/slides');
     });
 
-    it('error path: throws when supabase insert fails', async () => {
+    it('error path: returns err when supabase insert fails', async () => {
         (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
             (resolve: (value: MockResult) => void) =>
                 Promise.resolve({ data: null, error: new Error('Slide insert failed') }).then(
@@ -1387,9 +1388,9 @@ describe('createSlideAsset', () => {
                 ),
         );
 
-        await expect(createSlideAsset({ title: 'Bad Slide', slideType: 'html' })).rejects.toThrow(
-            'Slide insert failed',
-        );
+        const result = await createSlideAsset({ title: 'Bad Slide', slideType: 'html' });
+
+        expect(result).toEqual({ success: false, error: 'Slide insert failed' });
     });
 });
 
@@ -1575,7 +1576,7 @@ describe('createMediaAsset', () => {
     it('happy path: inserts media_assets and revalidates /admin/assets', async () => {
         supabaseMock.setResult({ data: { id: 'asset-1' }, error: null });
 
-        await createMediaAsset({
+        const result = await createMediaAsset({
             title: 'Roxom Intro',
             sourceType: 'vimeo',
             mediaKind: 'video',
@@ -1584,6 +1585,7 @@ describe('createMediaAsset', () => {
             durationSeconds: 120,
         });
 
+        expect(result).toEqual({ success: true, data: 'asset-1' });
         expect(supabaseMock.insert).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Roxom Intro',
@@ -1597,29 +1599,29 @@ describe('createMediaAsset', () => {
         expect(revalidatePath).toHaveBeenCalledWith('/admin/assets');
     });
 
-    it('validation: throws for ad assets longer than 300s', async () => {
-        await expect(
-            createMediaAsset({
-                title: 'Long Ad',
-                sourceType: 'remote_mp4',
-                mediaKind: 'video',
-                assetType: 'ad',
-                durationSeconds: 400,
-            }),
-        ).rejects.toThrow('300 seconds');
+    it('validation: returns err for ad assets longer than 300s', async () => {
+        const result = await createMediaAsset({
+            title: 'Long Ad',
+            sourceType: 'remote_mp4',
+            mediaKind: 'video',
+            assetType: 'ad',
+            durationSeconds: 400,
+        });
+
+        expect(result).toEqual({ success: false, error: 'Ads cannot be longer than 300 seconds' });
     });
 
-    it('error path: throws when supabase insert fails', async () => {
+    it('error path: returns err when supabase insert fails', async () => {
         supabaseMock.setResult({ data: null, error: new Error('Media insert failed') });
 
-        await expect(
-            createMediaAsset({
-                title: 'Asset',
-                sourceType: 'vimeo',
-                mediaKind: 'video',
-                assetType: 'video',
-            }),
-        ).rejects.toThrow('Media insert failed');
+        const result = await createMediaAsset({
+            title: 'Asset',
+            sourceType: 'vimeo',
+            mediaKind: 'video',
+            assetType: 'video',
+        });
+
+        expect(result).toEqual({ success: false, error: 'Media insert failed' });
     });
 });
 
@@ -1663,8 +1665,9 @@ describe('updateMediaAsset', () => {
                 Promise.resolve({ data: null, error: null }).then(resolve),
         );
 
-        await updateMediaAsset({ ...baseInput, orientation: 'vertical' });
+        const result = await updateMediaAsset({ ...baseInput, orientation: 'vertical' });
 
+        expect(result).toEqual({ success: true, data: undefined });
         expect(supabaseMock.update).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Updated Asset',
@@ -1694,11 +1697,12 @@ describe('updateMediaAsset', () => {
                 Promise.resolve({ data: null, error: null }).then(resolve),
         );
 
-        await updateMediaAsset({
+        const result = await updateMediaAsset({
             ...baseInput,
             revalidatePaths: ['/admin/schedule/2026-05-08', '/admin/calendar'],
         });
 
+        expect(result).toEqual({ success: true, data: undefined });
         expect(revalidatePath).toHaveBeenCalledWith('/admin/schedule/2026-05-08');
         expect(revalidatePath).toHaveBeenCalledWith('/admin/calendar');
     });
@@ -1726,8 +1730,9 @@ describe('updateMediaAsset', () => {
             },
         );
 
-        await updateMediaAsset({ ...baseInput, fallbackLoop: true });
+        const result = await updateMediaAsset({ ...baseInput, fallbackLoop: true });
 
+        expect(result).toEqual({ success: true, data: undefined });
         expect(supabaseMock.update).toHaveBeenCalledWith(
             expect.objectContaining({
                 metadata: expect.objectContaining({
@@ -1740,25 +1745,33 @@ describe('updateMediaAsset', () => {
         expect(revalidatePath).toHaveBeenCalledWith('/admin/output');
     });
 
-    it('error path: throws when id is missing', async () => {
-        await expect(updateMediaAsset({ ...baseInput, id: '' })).rejects.toThrow('Asset missing');
+    it('error path: returns err when id is missing', async () => {
+        const result = await updateMediaAsset({ ...baseInput, id: '' });
+
+        expect(result).toEqual({ success: false, error: 'Asset missing' });
     });
 
-    it('error path: throws for ad > 300s', async () => {
-        await expect(
-            updateMediaAsset({ ...baseInput, assetType: 'ad', durationSeconds: 400 }),
-        ).rejects.toThrow('300 seconds');
+    it('error path: returns err for ad > 300s', async () => {
+        const result = await updateMediaAsset({
+            ...baseInput,
+            assetType: 'ad',
+            durationSeconds: 400,
+        });
+
+        expect(result).toEqual({ success: false, error: 'Ads cannot be longer than 300 seconds' });
     });
 
-    it('error path: throws when fetching current asset fails', async () => {
+    it('error path: returns err when fetching current asset fails', async () => {
         (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() =>
             Promise.resolve({ data: null, error: new Error('Fetch asset failed') }),
         );
 
-        await expect(updateMediaAsset(baseInput)).rejects.toThrow('Fetch asset failed');
+        const result = await updateMediaAsset(baseInput);
+
+        expect(result).toEqual({ success: false, error: 'Fetch asset failed' });
     });
 
-    it('error path: throws when update fails', async () => {
+    it('error path: returns err when update fails', async () => {
         (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() =>
             Promise.resolve({ data: { metadata: {} }, error: null }),
         );
@@ -1769,6 +1782,8 @@ describe('updateMediaAsset', () => {
                 ),
         );
 
-        await expect(updateMediaAsset(baseInput)).rejects.toThrow('Update asset failed');
+        const result = await updateMediaAsset(baseInput);
+
+        expect(result).toEqual({ success: false, error: 'Update asset failed' });
     });
 });

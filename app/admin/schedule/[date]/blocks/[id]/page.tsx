@@ -93,7 +93,7 @@ export default async function BlockPage({
     async function editAssignedAsset(formData: FormData) {
         'use server';
         const durationSeconds = Number(formData.get('duration_seconds') || 0) || undefined;
-        await updateMediaAsset({
+        const result = await updateMediaAsset({
             id: String(formData.get('id')),
             title: String(formData.get('title')),
             description: String(formData.get('description') || ''),
@@ -113,6 +113,10 @@ export default async function BlockPage({
                 '/output/live',
             ],
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function toggleLayer(formData: FormData) {
