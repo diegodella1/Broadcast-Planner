@@ -1,7 +1,7 @@
 import { CalendarDays, CheckCircle2, ListChecks, Repeat, ShieldCheck } from 'lucide-react';
 
-import { FlowCard, FlowGrid, FlowHero, FlowRail } from '@/components/admin-flow';
-import { AdminShell } from '@/components/admin-shell';
+import { FlowCard, FlowGrid, FlowHero, FlowRail } from '@/components/admin/admin-flow';
+import { AdminShell } from '@/components/admin/admin-shell';
 import { ButtonLink } from '@/components/ui';
 import { getDays, getScheduleForDate } from '@/lib/data';
 import { getGlobalFallbackCarousel } from '@/lib/fallback-carousel';

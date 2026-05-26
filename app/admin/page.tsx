@@ -9,10 +9,10 @@ import {
     Plus,
     RadioTower,
 } from 'lucide-react';
-import { AdminShell } from '@/components/admin-shell';
-import { StatusPill } from '@/components/status-pill';
-import { Timecode } from '@/components/timecode';
-import { PlayoutTime } from '@/components/playout-time';
+import { AdminShell } from '@/components/admin/admin-shell';
+import { StatusPill } from '@/components/ui/status-pill';
+import { Timecode } from '@/components/ui/timecode';
+import { PlayoutTime } from '@/components/output/playout-time';
 import { ButtonLink, EmptyState, MetricTile, Notice, PrimaryActionPanel } from '@/components/ui';
 import { getAssets, getDays, getScheduleForDate } from '@/lib/data';
 import { collectOperatorHealth } from '@/lib/health-checks';

@@ -1,7 +1,7 @@
 import { Archive, CheckCircle2, CirclePlus, Eye, Library, Sparkles } from 'lucide-react';
 
-import { AdminShell } from '@/components/admin-shell';
-import { StatusPill } from '@/components/status-pill';
+import { AdminShell } from '@/components/admin/admin-shell';
+import { StatusPill } from '@/components/ui/status-pill';
 import { EmptyState, FormHeader } from '@/components/ui';
 import { getSlides } from '@/lib/data';
 import {

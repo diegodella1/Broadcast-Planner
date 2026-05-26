@@ -1,7 +1,7 @@
-import { CsrfInput } from '@/components/csrf-input';
-import { CsrfRefreshingForm } from '@/components/csrf-refreshing-form';
-import { MediaFilePicker } from '@/components/media-file-picker';
-import { SubmitButton } from '@/components/submit-button';
+import { CsrfInput } from '@/components/forms/csrf-input';
+import { CsrfRefreshingForm } from '@/components/forms/csrf-refreshing-form';
+import { MediaFilePicker } from '@/components/media/media-file-picker';
+import { SubmitButton } from '@/components/forms/submit-button';
 import { ActionHint, Field, FormHeader } from '@/components/ui';
 
 export async function MediaUploadForm({

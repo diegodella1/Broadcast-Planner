@@ -5,9 +5,9 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import { Archive, Copy, GripVertical, Pencil } from 'lucide-react';
 
-import { PlayoutTime } from '@/components/playout-time';
-import { StatusPill } from '@/components/status-pill';
-import { Timecode } from '@/components/timecode';
+import { PlayoutTime } from '@/components/output/playout-time';
+import { StatusPill } from '@/components/ui/status-pill';
+import { Timecode } from '@/components/ui/timecode';
 import type { ProgramBlock, ScheduleBundle } from '@/lib/types';
 
 import { blockAssetLabel } from './helpers';

@@ -3,7 +3,7 @@
 import clsx from 'clsx';
 import { useRouter } from 'next/navigation';
 import { useMemo, useRef, useState, useTransition } from 'react';
-import { PlayoutTime } from '@/components/playout-time';
+import { PlayoutTime } from '@/components/output/playout-time';
 import { formatPlayoutTimeLabel, formatTimecode } from '@/lib/time';
 import { findScheduleConflicts, scheduleConflictMessage } from '@/lib/schedule-conflicts';
 import type { ScheduleIssue } from '@/lib/schedule-health';

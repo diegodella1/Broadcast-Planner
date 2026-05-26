@@ -1,4 +1,4 @@
-import { AdminShell } from '@/components/admin-shell';
+import { AdminShell } from '@/components/admin/admin-shell';
 import { EmptyState, Field, StatusBanner } from '@/components/ui';
 import { getAuditEvents } from '@/lib/data';
 

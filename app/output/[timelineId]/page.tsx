@@ -1,4 +1,4 @@
-import { EmergencyOutputStub, OutputStub } from '@/components/output-stub';
+import { EmergencyOutputStub, OutputStub } from '@/components/output/output-stub';
 import { getLivePlaybackSchedule } from '@/lib/data';
 import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/output-auth';
 import { findActiveSchedule } from '@/lib/scheduler';

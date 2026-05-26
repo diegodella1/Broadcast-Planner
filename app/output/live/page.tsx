@@ -1,5 +1,5 @@
-import { BrowserOutputRenderer } from '@/components/browser-output-renderer';
-import { EmergencyOutputStub } from '@/components/output-stub';
+import { BrowserOutputRenderer } from '@/components/output/browser-output-renderer';
+import { EmergencyOutputStub } from '@/components/output/output-stub';
 import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/output-auth';
 
 export default async function OutputLivePage({

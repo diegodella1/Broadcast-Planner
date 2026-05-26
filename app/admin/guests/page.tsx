@@ -1,8 +1,8 @@
-import { AdminShell } from '@/components/admin-shell';
-import { CsrfInput } from '@/components/csrf-input';
-import { CsrfRefreshingForm } from '@/components/csrf-refreshing-form';
-import { MediaFilePicker } from '@/components/media-file-picker';
-import { StatusPill } from '@/components/status-pill';
+import { AdminShell } from '@/components/admin/admin-shell';
+import { CsrfInput } from '@/components/forms/csrf-input';
+import { CsrfRefreshingForm } from '@/components/forms/csrf-refreshing-form';
+import { MediaFilePicker } from '@/components/media/media-file-picker';
+import { StatusPill } from '@/components/ui/status-pill';
 import { EmptyState, Field, FormHeader } from '@/components/ui';
 import { getGuests, getSlides } from '@/lib/data';
 import {

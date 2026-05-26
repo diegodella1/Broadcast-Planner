@@ -1,5 +1,5 @@
-import { AdminShell } from '@/components/admin-shell';
-import { MusicBulkUpload } from '@/components/music-bulk-upload';
+import { AdminShell } from '@/components/admin/admin-shell';
+import { MusicBulkUpload } from '@/components/media/music-bulk-upload';
 import { EmptyState, FormHeader, MetricTile, Notice } from '@/components/ui';
 import { getAssets } from '@/lib/data';
 import { updateMediaAsset } from '@/lib/mutations';

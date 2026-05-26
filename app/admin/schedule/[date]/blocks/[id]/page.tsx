@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { AdminShell } from '@/components/admin-shell';
-import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
-import { PlayoutTime } from '@/components/playout-time';
-import { StatusPill } from '@/components/status-pill';
-import { Timecode } from '@/components/timecode';
+import { AdminShell } from '@/components/admin/admin-shell';
+import { ConfirmSubmitButton } from '@/components/forms/confirm-submit-button';
+import { PlayoutTime } from '@/components/output/playout-time';
+import { StatusPill } from '@/components/ui/status-pill';
+import { Timecode } from '@/components/ui/timecode';
 import { getScheduleForDate } from '@/lib/data';
 import {
     createScheduledLayer,

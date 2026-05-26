@@ -1,11 +1,11 @@
 import { Film, Link as LinkIcon, UploadCloud } from 'lucide-react';
 import { redirect } from 'next/navigation';
 
-import { AdminShell } from '@/components/admin-shell';
-import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
-import { CsrfInput } from '@/components/csrf-input';
-import { MediaUploadForm } from '@/components/media-upload-form';
-import { StatusPill } from '@/components/status-pill';
+import { AdminShell } from '@/components/admin/admin-shell';
+import { ConfirmSubmitButton } from '@/components/forms/confirm-submit-button';
+import { CsrfInput } from '@/components/forms/csrf-input';
+import { MediaUploadForm } from '@/components/media/media-upload-form';
+import { StatusPill } from '@/components/ui/status-pill';
 import {
     ButtonLink,
     ClearStateBadge,

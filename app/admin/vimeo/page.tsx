@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { AdminShell } from '@/components/admin-shell';
+import { AdminShell } from '@/components/admin/admin-shell';
 import { EmptyState, Field, FilterLink, MetricTile, Notice } from '@/components/ui';
-import { VimeoSyncControl } from '@/components/vimeo-sync-control';
+import { VimeoSyncControl } from '@/components/vimeo/vimeo-sync-control';
 import { recordAuditEvent } from '@/lib/audit';
 import { requireAdmin } from '@/lib/auth';
 import { getCsrfToken } from '@/lib/csrf';

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
-import { AdminShell } from '@/components/admin-shell';
-import { StatusPill } from '@/components/status-pill';
+import { AdminShell } from '@/components/admin/admin-shell';
+import { StatusPill } from '@/components/ui/status-pill';
 import { ButtonLink, EmptyState, Notice } from '@/components/ui';
 import { getRunbookState, getScheduleForDate } from '@/lib/data';
 import { collectOperatorHealth } from '@/lib/health-checks';

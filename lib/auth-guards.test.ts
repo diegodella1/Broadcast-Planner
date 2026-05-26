@@ -27,7 +27,7 @@ describe('service-role API guards', () => {
 
 describe('admin page shell guard', () => {
     it('validates the real operator session before rendering admin shell pages', () => {
-        const source = readFileSync('components/admin-shell.tsx', 'utf8');
+        const source = readFileSync('components/admin/admin-shell.tsx', 'utf8');
 
         expect(source).toContain('requireAdmin');
         expect(source).toContain('revokeCurrentOperatorSession');

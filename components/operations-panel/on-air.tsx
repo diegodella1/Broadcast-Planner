@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { useActiveBlock } from '@/app/hooks/use-active-block';
-import { BlockBadge } from '@/components/block-badge';
+import { BlockBadge } from '@/components/schedule/block-badge';
 import { formatTimecode } from '@/lib/time';
 
 export function OperationsPanelOnAir() {

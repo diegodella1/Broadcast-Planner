@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import clsx from 'clsx';
-import { BlockBadge } from '@/components/block-badge';
-import { PlayoutTime } from '@/components/playout-time';
+import { BlockBadge } from '@/components/schedule/block-badge';
+import { PlayoutTime } from '@/components/output/playout-time';
 import { formatTimecode } from '@/lib/time';
 import { getDurationDisplay } from '@/lib/duration-display';
 import type { BlockCategory, ProgramBlock, ScheduleBundle } from '@/lib/types';

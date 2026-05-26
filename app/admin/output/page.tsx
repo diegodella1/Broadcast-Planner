@@ -1,8 +1,8 @@
 import { getTranslations } from 'next-intl/server';
 
-import { AdminShell } from '@/components/admin-shell';
-import { OutputMonitorPanel } from '@/components/output-monitor-panel';
-import { StopBroadcastButton } from '@/components/stop-broadcast-button';
+import { AdminShell } from '@/components/admin/admin-shell';
+import { OutputMonitorPanel } from '@/components/output/output-monitor-panel';
+import { StopBroadcastButton } from '@/components/output/stop-broadcast-button';
 import { ClearStateBadge, StatusBanner } from '@/components/ui';
 import { recordAuditEvent } from '@/lib/audit';
 import { getLiveSchedule } from '@/lib/data';

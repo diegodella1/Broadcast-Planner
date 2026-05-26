@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { AdminShell } from '@/components/admin-shell';
-import { StatusPill } from '@/components/status-pill';
+import { AdminShell } from '@/components/admin/admin-shell';
+import { StatusPill } from '@/components/ui/status-pill';
 import { ButtonLink, EmptyState, Field, FormHeader, MetricTile } from '@/components/ui';
 import { getDays, getProgrammedSecondsByDate, getScheduleForDate } from '@/lib/data';
 import { DAY_TEMPLATES } from '@/lib/day-templates';

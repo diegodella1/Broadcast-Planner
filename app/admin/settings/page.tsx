@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
-import { AdminShell } from '@/components/admin-shell';
-import { CsrfInput } from '@/components/csrf-input';
+import { AdminShell } from '@/components/admin/admin-shell';
+import { CsrfInput } from '@/components/forms/csrf-input';
 import { FormHeader, MetricTile, Notice } from '@/components/ui';
 import { createOperator, listOperators } from '@/lib/operators';
 import { getVimeoSettings, getVimeoToken } from '@/lib/settings';

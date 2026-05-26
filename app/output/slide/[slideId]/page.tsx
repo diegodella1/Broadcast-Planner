@@ -1,4 +1,4 @@
-import { EmergencyOutputStub } from '@/components/output-stub';
+import { EmergencyOutputStub } from '@/components/output/output-stub';
 import { SlideTemplateRenderer } from '@/components/slides';
 import { getSlides } from '@/lib/data';
 import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/output-auth';

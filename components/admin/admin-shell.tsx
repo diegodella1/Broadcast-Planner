@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { AdminNav } from '@/components/admin-nav';
+import { AdminNav } from '@/components/admin/admin-nav';
 import { requireAdmin, revokeCurrentOperatorSession, safeAdminReturnTo } from '@/lib/auth';
 import { getLiveSchedule } from '@/lib/data';
 import { getGlobalFallbackCarousel } from '@/lib/fallback-carousel';

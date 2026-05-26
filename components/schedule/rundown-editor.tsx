@@ -21,9 +21,9 @@ import { Archive, Copy, GripVertical, Minus, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState, useTransition } from 'react';
 
-import { PlayoutTime } from '@/components/playout-time';
-import { StatusPill } from '@/components/status-pill';
-import { Timecode } from '@/components/timecode';
+import { PlayoutTime } from '@/components/output/playout-time';
+import { StatusPill } from '@/components/ui/status-pill';
+import { Timecode } from '@/components/ui/timecode';
 import { formatTimecode } from '@/lib/time';
 
 import type {

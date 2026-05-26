@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
 
-import { AdminShell } from '@/components/admin-shell';
-import { ScheduleHealthPoller } from '@/components/schedule-health-poller';
+import { AdminShell } from '@/components/admin/admin-shell';
+import { ScheduleHealthPoller } from '@/components/schedule/schedule-health-poller';
 import { ScheduleWorkspace } from '@/components/schedule-workspace';
-import { StatusPill } from '@/components/status-pill';
-import { Timecode } from '@/components/timecode';
+import { StatusPill } from '@/components/ui/status-pill';
+import { Timecode } from '@/components/ui/timecode';
 import { ButtonLink, Field, FormHeader, Notice } from '@/components/ui';
 import { getScheduleForDate } from '@/lib/data';
 import { DAY_TEMPLATES } from '@/lib/day-templates';
