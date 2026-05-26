@@ -47,12 +47,16 @@ export async function POST(request: Request) {
             detectedWidth: form.get('detected_width') as string | null,
             detectedHeight: form.get('detected_height') as string | null,
         });
-        await attachGuestMediaAsset({
+        const attached = await attachGuestMediaAsset({
             guestId,
             kind,
             assetId: uploaded.assetId,
             url: uploaded.url,
         });
+
+        if (!attached.success) {
+            return NextResponse.json({ ok: false, error: attached.error }, { status: 400 });
+        }
 
         const returnTo = returnToRaw || '/admin/guests?uploaded=1';
 

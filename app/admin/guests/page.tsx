@@ -27,35 +27,62 @@ export default async function GuestsPage() {
 
     async function addGuest(formData: FormData) {
         'use server';
-        await createGuest(readGuestForm(formData));
+        const result = await createGuest(readGuestForm(formData));
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function saveGuest(formData: FormData) {
         'use server';
-        await updateGuest({ id: String(formData.get('id')), ...readGuestForm(formData) });
+        const result = await updateGuest({
+            id: String(formData.get('id')),
+            ...readGuestForm(formData),
+        });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function removeGuest(formData: FormData) {
         'use server';
-        await archiveGuest(String(formData.get('id')));
+        const result = await archiveGuest(String(formData.get('id')));
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function addPlate(formData: FormData) {
         'use server';
-        await createGuestPlate(readPlateForm(formData));
+        const result = await createGuestPlate(readPlateForm(formData));
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function savePlate(formData: FormData) {
         'use server';
-        await updateGuestPlate({
+        const result = await updateGuestPlate({
             slideId: String(formData.get('slide_id')),
             ...readPlateForm(formData),
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function removePlate(formData: FormData) {
         'use server';
-        await archiveGuestPlate(String(formData.get('slide_id')));
+        const result = await archiveGuestPlate(String(formData.get('slide_id')));
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     const readyGuests = guests.filter((guest) => guest.status === 'ready');
