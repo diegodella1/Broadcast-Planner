@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { calendarSlide } from '@/lib/slides/palette';
 import type { CalendarEvent } from '@/lib/slides/types';
 
 export type CalendarSlideProps = {
@@ -192,7 +193,7 @@ export function CalendarSlide({ events }: CalendarSlideProps) {
                     <div
                         className="absolute inset-0"
                         style={{
-                            background: `linear-gradient(135deg, ${event.color}40 0%, ${event.color}10 50%, #000 100%)`,
+                            background: `linear-gradient(135deg, ${event.color}40 0%, ${event.color}10 50%, ${calendarSlide.gradientBlack} 100%)`,
                         }}
                     />
                 )}

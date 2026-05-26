@@ -2,6 +2,7 @@
 
 import { useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
+import { eventSlide } from '@/lib/slides/palette';
 import type {
     CalendarEvent,
     ScheduleTime,
@@ -99,8 +100,8 @@ function SingleEventCard({ event }: { event: CalendarEvent }) {
     const todayEvent = isToday(event.start_date);
     const scheduleTimes = parseScheduleTimes(event.schedule_times);
     const titleFont = event.title_font ?? 'inherit';
-    const titleColor = event.title_color ?? '#FFFFFF';
-    const textColor = event.text_color ?? '#E5E7EB';
+    const titleColor = event.title_color ?? eventSlide.titleFallback;
+    const textColor = event.text_color ?? eventSlide.textFallback;
     const showDateBadge = event.show_date_badge ?? true;
     const titleSizeClass = getTitleSizeClass(event.title_size, 'full');
 
@@ -124,7 +125,7 @@ function SingleEventCard({ event }: { event: CalendarEvent }) {
                 <div
                     className="absolute inset-0"
                     style={{
-                        background: `linear-gradient(135deg, ${event.color}40 0%, ${event.color}10 50%, #000 100%)`,
+                        background: `linear-gradient(135deg, ${event.color}40 0%, ${event.color}10 50%, ${eventSlide.gradientBlack} 100%)`,
                     }}
                 />
             )}
@@ -220,8 +221,8 @@ function EventCard({ event, size }: { event: CalendarEvent; size: MultiSize }) {
     const todayEvent = isToday(event.start_date);
     const scheduleTimes = parseScheduleTimes(event.schedule_times);
     const titleFont = event.title_font ?? 'inherit';
-    const titleColor = event.title_color ?? '#FFFFFF';
-    const textColor = event.text_color ?? '#E5E7EB';
+    const titleColor = event.title_color ?? eventSlide.titleFallback;
+    const textColor = event.text_color ?? eventSlide.textFallback;
     const showDateBadge = event.show_date_badge ?? true;
     const titleSizeClass = getTitleSizeClass(event.title_size, size);
     const descSizeClass = DESC_SIZES[size];

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { formatSats } from '@/lib/slides/fmt';
+import { fxSlide } from '@/lib/slides/palette';
 import type { MarketsSatsData } from '@/lib/slides/types';
 import { useSlidePollingData } from './use-slide-polling-data';
 
@@ -28,10 +29,10 @@ function FlagIcon({ country }: { country: FlagCountry }) {
                 className="inline-block mr-2"
                 style={{ verticalAlign: 'middle' }}
             >
-                <rect width="36" height="24" fill="#003399" />
-                <circle cx="18" cy="12" r="8" fill="#FFCC00" />
-                <circle cx="18" cy="12" r="6" fill="#003399" />
-                <circle cx="18" cy="12" r="4" fill="#FFCC00" />
+                <rect width="36" height="24" fill={fxSlide.euBlue} />
+                <circle cx="18" cy="12" r="8" fill={fxSlide.euYellow} />
+                <circle cx="18" cy="12" r="6" fill={fxSlide.euBlue} />
+                <circle cx="18" cy="12" r="4" fill={fxSlide.euYellow} />
             </svg>
         );
     }
@@ -45,8 +46,8 @@ function FlagIcon({ country }: { country: FlagCountry }) {
                 className="inline-block mr-2"
                 style={{ verticalAlign: 'middle' }}
             >
-                <rect width="36" height="24" fill="#FFFFFF" />
-                <circle cx="18" cy="12" r="7" fill="#BC002D" />
+                <rect width="36" height="24" fill={fxSlide.white} />
+                <circle cx="18" cy="12" r="7" fill={fxSlide.jpRed} />
             </svg>
         );
     }
@@ -60,11 +61,11 @@ function FlagIcon({ country }: { country: FlagCountry }) {
                 className="inline-block mr-2"
                 style={{ verticalAlign: 'middle' }}
             >
-                <rect width="36" height="24" fill="#012169" />
-                <path d="M0 0 L36 24 M36 0 L0 24" stroke="#FFFFFF" strokeWidth="2.4" />
-                <path d="M0 12 L36 12 M18 0 L18 24" stroke="#FFFFFF" strokeWidth="4" />
-                <path d="M0 0 L36 24 M36 0 L0 24" stroke="#C8102E" strokeWidth="1.6" />
-                <path d="M0 12 L36 12 M18 0 L18 24" stroke="#C8102E" strokeWidth="2.4" />
+                <rect width="36" height="24" fill={fxSlide.ukBlue} />
+                <path d="M0 0 L36 24 M36 0 L0 24" stroke={fxSlide.white} strokeWidth="2.4" />
+                <path d="M0 12 L36 12 M18 0 L18 24" stroke={fxSlide.white} strokeWidth="4" />
+                <path d="M0 0 L36 24 M36 0 L0 24" stroke={fxSlide.ukRed} strokeWidth="1.6" />
+                <path d="M0 12 L36 12 M18 0 L18 24" stroke={fxSlide.ukRed} strokeWidth="2.4" />
             </svg>
         );
     }
@@ -77,21 +78,21 @@ function FlagIcon({ country }: { country: FlagCountry }) {
             className="inline-block mr-2"
             style={{ verticalAlign: 'middle' }}
         >
-            <rect width="36" height="24" fill="#B22234" />
-            <rect width="36" height="2.67" fill="#FFFFFF" y="2.67" />
-            <rect width="36" height="2.67" fill="#FFFFFF" y="5.34" />
-            <rect width="36" height="2.67" fill="#FFFFFF" y="8.01" />
-            <rect width="36" height="2.67" fill="#FFFFFF" y="10.68" />
-            <rect width="36" height="2.67" fill="#FFFFFF" y="13.35" />
-            <rect width="36" height="2.67" fill="#FFFFFF" y="16.02" />
-            <rect width="36" height="2.67" fill="#FFFFFF" y="18.69" />
-            <rect width="36" height="2.67" fill="#FFFFFF" y="21.36" />
-            <rect width="14.4" height="10.67" fill="#3C3B6E" x="0" y="0" />
-            <circle cx="3.6" cy="2.67" r="0.8" fill="#FFFFFF" />
-            <circle cx="7.2" cy="2.67" r="0.8" fill="#FFFFFF" />
-            <circle cx="10.8" cy="2.67" r="0.8" fill="#FFFFFF" />
-            <circle cx="5.4" cy="4.67" r="0.8" fill="#FFFFFF" />
-            <circle cx="9" cy="4.67" r="0.8" fill="#FFFFFF" />
+            <rect width="36" height="24" fill={fxSlide.usRed} />
+            <rect width="36" height="2.67" fill={fxSlide.white} y="2.67" />
+            <rect width="36" height="2.67" fill={fxSlide.white} y="5.34" />
+            <rect width="36" height="2.67" fill={fxSlide.white} y="8.01" />
+            <rect width="36" height="2.67" fill={fxSlide.white} y="10.68" />
+            <rect width="36" height="2.67" fill={fxSlide.white} y="13.35" />
+            <rect width="36" height="2.67" fill={fxSlide.white} y="16.02" />
+            <rect width="36" height="2.67" fill={fxSlide.white} y="18.69" />
+            <rect width="36" height="2.67" fill={fxSlide.white} y="21.36" />
+            <rect width="14.4" height="10.67" fill={fxSlide.usCanton} x="0" y="0" />
+            <circle cx="3.6" cy="2.67" r="0.8" fill={fxSlide.white} />
+            <circle cx="7.2" cy="2.67" r="0.8" fill={fxSlide.white} />
+            <circle cx="10.8" cy="2.67" r="0.8" fill={fxSlide.white} />
+            <circle cx="5.4" cy="4.67" r="0.8" fill={fxSlide.white} />
+            <circle cx="9" cy="4.67" r="0.8" fill={fxSlide.white} />
         </svg>
     );
 }
@@ -130,7 +131,7 @@ export function FxSlide({ data }: FxSlideProps) {
                             cy="0"
                             r="80"
                             fill="none"
-                            stroke="#4169E1"
+                            stroke={fxSlide.globeStroke}
                             strokeWidth="4"
                             opacity="0.5"
                         />
@@ -140,7 +141,7 @@ export function FxSlide({ data }: FxSlideProps) {
                             rx="80"
                             ry="40"
                             fill="none"
-                            stroke="#4169E1"
+                            stroke={fxSlide.globeStroke}
                             strokeWidth="2"
                             opacity="0.4"
                         />
@@ -150,21 +151,21 @@ export function FxSlide({ data }: FxSlideProps) {
                             rx="80"
                             ry="20"
                             fill="none"
-                            stroke="#4169E1"
+                            stroke={fxSlide.globeStroke}
                             strokeWidth="2"
                             opacity="0.4"
                         />
                         <path
                             d="M 0 -80 Q 40 0 0 80"
                             fill="none"
-                            stroke="#4169E1"
+                            stroke={fxSlide.globeStroke}
                             strokeWidth="2"
                             opacity="0.4"
                         />
                         <path
                             d="M 0 -80 Q -40 0 0 80"
                             fill="none"
-                            stroke="#4169E1"
+                            stroke={fxSlide.globeStroke}
                             strokeWidth="2"
                             opacity="0.4"
                         />
@@ -185,7 +186,7 @@ export function FxSlide({ data }: FxSlideProps) {
                                         cy="0"
                                         r="30"
                                         fill="none"
-                                        stroke="#4169E1"
+                                        stroke={fxSlide.globeStroke}
                                         strokeWidth="3"
                                         opacity="0.6"
                                     />
@@ -193,7 +194,7 @@ export function FxSlide({ data }: FxSlideProps) {
                                         x="0"
                                         y="8"
                                         textAnchor="middle"
-                                        fill="#4169E1"
+                                        fill={fxSlide.globeStroke}
                                         fontSize="24"
                                         fontWeight="bold"
                                         opacity="0.6"
@@ -204,7 +205,7 @@ export function FxSlide({ data }: FxSlideProps) {
                                         x="0"
                                         y="45"
                                         textAnchor="middle"
-                                        fill="#4169E1"
+                                        fill={fxSlide.globeStroke}
                                         fontSize="14"
                                         fontWeight="bold"
                                         opacity="0.5"

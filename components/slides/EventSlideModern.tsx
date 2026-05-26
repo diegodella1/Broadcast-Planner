@@ -3,6 +3,7 @@
 import { useMemo, memo } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import { eventSlideModern } from '@/lib/slides/palette';
 import type { CalendarEvent } from '@/lib/slides/types';
 
 export type EventSlideModernProps = {
@@ -30,7 +31,7 @@ function formatDateRange(startDate: string, endDate: string | null): string {
 
 function ModernEventCard({ event, index }: { event: CalendarEvent; index: number }) {
     const dateRange = formatDateRange(event.start_date, event.end_date);
-    const borderColor = event.color || '#10B981';
+    const borderColor = event.color || eventSlideModern.borderFallback;
 
     return (
         <motion.div
@@ -51,7 +52,7 @@ function ModernEventCard({ event, index }: { event: CalendarEvent; index: number
                 <div
                     className="absolute inset-0"
                     style={{
-                        background: `linear-gradient(135deg, ${event.color}30 0%, #111 100%)`,
+                        background: `linear-gradient(135deg, ${event.color}30 0%, ${eventSlideModern.gradientDark} 100%)`,
                     }}
                 />
             )}
@@ -60,7 +61,7 @@ function ModernEventCard({ event, index }: { event: CalendarEvent; index: number
                 className="absolute inset-0 pointer-events-none"
                 style={{
                     border: `2px solid ${borderColor}`,
-                    boxShadow: `5px 5px 0 0 #0d0d0d, 5px 5px 0 1px ${borderColor}, 10px 10px 0 0 #0d0d0d, 10px 10px 0 1px ${borderColor}`,
+                    boxShadow: `5px 5px 0 0 ${eventSlideModern.shadowOffset}, 5px 5px 0 1px ${borderColor}, 10px 10px 0 0 ${eventSlideModern.shadowOffset}, 10px 10px 0 1px ${borderColor}`,
                 }}
             />
 
@@ -75,7 +76,7 @@ function ModernEventCard({ event, index }: { event: CalendarEvent; index: number
                     className="text-[2.5rem] leading-tight font-bold text-white uppercase tracking-wide mb-4 flex-shrink-0"
                     style={{
                         fontFamily: event.title_font ?? 'inherit',
-                        color: event.title_color ?? '#FFFFFF',
+                        color: event.title_color ?? eventSlideModern.titleFallback,
                         textShadow: '3px 3px 12px rgba(0,0,0,0.9)',
                     }}
                 >
@@ -84,7 +85,7 @@ function ModernEventCard({ event, index }: { event: CalendarEvent; index: number
                 {event.description && (
                     <p
                         className="text-[1.65rem] leading-snug mb-3 flex-1 overflow-hidden"
-                        style={{ color: event.text_color ?? '#D1D5DB' }}
+                        style={{ color: event.text_color ?? eventSlideModern.descFallback }}
                     >
                         {event.description}
                     </p>
@@ -92,7 +93,7 @@ function ModernEventCard({ event, index }: { event: CalendarEvent; index: number
                 {event.location && (
                     <p
                         className="text-[1.6rem] uppercase tracking-wider font-medium flex-shrink-0"
-                        style={{ color: '#A3A3A3' }}
+                        style={{ color: eventSlideModern.locationGray }}
                     >
                         {event.location}
                     </p>
@@ -137,7 +138,7 @@ function EventSlideModernInner({
     }, [selectedEvents]);
 
     const gridBg = {
-        background: '#0d0d0d',
+        background: eventSlideModern.gridBg,
         backgroundImage:
             'linear-gradient(rgba(60,60,60,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(60,60,60,0.15) 1px, transparent 1px)',
         backgroundSize: '32px 32px',
@@ -171,7 +172,7 @@ function EventSlideModernInner({
                     <h1
                         className="text-[4.5rem] leading-none font-bold tracking-tight"
                         style={{
-                            color: '#10B981',
+                            color: eventSlideModern.titleAccent,
                             fontStyle: 'italic',
                             fontFamily: 'system-ui, -apple-system, sans-serif',
                         }}

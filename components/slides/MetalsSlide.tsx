@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { formatSats, formatChange24h } from '@/lib/slides/fmt';
+import { metalsSlide } from '@/lib/slides/palette';
 import type { MarketsSatsData } from '@/lib/slides/types';
 import { useSlidePollingData } from './use-slide-polling-data';
 
@@ -64,7 +65,7 @@ function CommodityCard({
                                 className="inline-flex items-center gap-2 tabular-nums shrink-0"
                                 style={{
                                     ...lineFont,
-                                    color: '#F7931A',
+                                    color: metalsSlide.bitcoinOrange,
                                     fontWeight: 600,
                                     transform: 'translateX(-13px)',
                                 }}
@@ -91,7 +92,7 @@ function CommodityCard({
                                     className="inline-flex items-center gap-2 tabular-nums"
                                     style={{ ...line24hFont, fontWeight: 500 }}
                                 >
-                                    <span style={{ color: '#A5A5A5' }}>24h</span>
+                                    <span style={{ color: metalsSlide.labelGray }}>24h</span>
                                     <span
                                         className={
                                             change24hPct >= 0 ? 'text-green-400' : 'text-red-400'

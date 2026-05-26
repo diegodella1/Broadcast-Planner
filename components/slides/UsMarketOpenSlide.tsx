@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 
+import { usMarketOpenSlide } from '@/lib/slides/palette';
 import type { MarketIndex, MarketOpenData, MarketOpenPhase } from '@/lib/slides/types';
 import { useSlidePollingData } from './use-slide-polling-data';
 
@@ -191,7 +192,8 @@ function Sparkline({
         () => sparklinePath(points, direction, hasValue),
         [points, direction, hasValue],
     );
-    const stroke = direction === 'up' ? '#6ee7b7' : '#fca5a5';
+    const stroke =
+        direction === 'up' ? usMarketOpenSlide.sparklineUp : usMarketOpenSlide.sparklineDown;
 
     return (
         <svg

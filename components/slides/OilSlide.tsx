@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { formatSats, formatChange24h } from '@/lib/slides/fmt';
+import { oilSlide } from '@/lib/slides/palette';
 import type { MarketsSatsData } from '@/lib/slides/types';
 import { useSlidePollingData } from './use-slide-polling-data';
 
@@ -124,7 +125,7 @@ export function OilSlide({ data }: OilSlideProps) {
                         <path
                             d="M 0 -120 L -60 80 L 60 80 Z"
                             fill="none"
-                            stroke="#2C2C2C"
+                            stroke={oilSlide.derrickGray}
                             strokeWidth="5"
                             opacity="0.6"
                         />
@@ -133,7 +134,7 @@ export function OilSlide({ data }: OilSlideProps) {
                             y1="-60"
                             x2="40"
                             y2="-60"
-                            stroke="#2C2C2C"
+                            stroke={oilSlide.derrickGray}
                             strokeWidth="3"
                             opacity="0.5"
                         />
@@ -142,7 +143,7 @@ export function OilSlide({ data }: OilSlideProps) {
                             y1="0"
                             x2="30"
                             y2="0"
-                            stroke="#2C2C2C"
+                            stroke={oilSlide.derrickGray}
                             strokeWidth="3"
                             opacity="0.5"
                         />
@@ -151,7 +152,7 @@ export function OilSlide({ data }: OilSlideProps) {
                             y1="40"
                             x2="20"
                             y2="40"
-                            stroke="#2C2C2C"
+                            stroke={oilSlide.derrickGray}
                             strokeWidth="3"
                             opacity="0.5"
                         />
@@ -160,7 +161,7 @@ export function OilSlide({ data }: OilSlideProps) {
                             y1="-100"
                             x2="-50"
                             y2="70"
-                            stroke="#2C2C2C"
+                            stroke={oilSlide.derrickGray}
                             strokeWidth="2"
                             opacity="0.4"
                         />
@@ -169,7 +170,7 @@ export function OilSlide({ data }: OilSlideProps) {
                             y1="-100"
                             x2="50"
                             y2="70"
-                            stroke="#2C2C2C"
+                            stroke={oilSlide.derrickGray}
                             strokeWidth="2"
                             opacity="0.4"
                         />
@@ -181,7 +182,7 @@ export function OilSlide({ data }: OilSlideProps) {
                                 height="20"
                                 rx="2"
                                 fill="none"
-                                stroke="#2C2C2C"
+                                stroke={oilSlide.derrickGray}
                                 strokeWidth="2"
                                 opacity="0.5"
                             />
@@ -190,7 +191,7 @@ export function OilSlide({ data }: OilSlideProps) {
                                 y1="0"
                                 x2="0"
                                 y2="-40"
-                                stroke="#2C2C2C"
+                                stroke={oilSlide.derrickGray}
                                 strokeWidth="3"
                                 opacity="0.5"
                             />
@@ -199,7 +200,7 @@ export function OilSlide({ data }: OilSlideProps) {
                                 cy="-40"
                                 r="8"
                                 fill="none"
-                                stroke="#2C2C2C"
+                                stroke={oilSlide.derrickGray}
                                 strokeWidth="2"
                                 opacity="0.5"
                             />
@@ -210,7 +211,7 @@ export function OilSlide({ data }: OilSlideProps) {
                                 height="20"
                                 rx="2"
                                 fill="none"
-                                stroke="#2C2C2C"
+                                stroke={oilSlide.derrickGray}
                                 strokeWidth="2"
                                 opacity="0.5"
                             />
@@ -222,7 +223,7 @@ export function OilSlide({ data }: OilSlideProps) {
                                 rx="25"
                                 ry="18"
                                 fill="none"
-                                stroke="#8B4513"
+                                stroke={oilSlide.barrelLight}
                                 strokeWidth="3"
                                 opacity="0.5"
                             />
@@ -232,7 +233,7 @@ export function OilSlide({ data }: OilSlideProps) {
                                 rx="25"
                                 ry="5"
                                 fill="none"
-                                stroke="#654321"
+                                stroke={oilSlide.barrelDark}
                                 strokeWidth="2"
                                 opacity="0.5"
                             />
@@ -242,7 +243,7 @@ export function OilSlide({ data }: OilSlideProps) {
                                 rx="25"
                                 ry="5"
                                 fill="none"
-                                stroke="#654321"
+                                stroke={oilSlide.barrelDark}
                                 strokeWidth="2"
                                 opacity="0.5"
                             />
@@ -251,7 +252,7 @@ export function OilSlide({ data }: OilSlideProps) {
                                 y1="-10"
                                 x2="25"
                                 y2="-10"
-                                stroke="#8B4513"
+                                stroke={oilSlide.barrelLight}
                                 strokeWidth="1.5"
                                 opacity="0.4"
                             />
@@ -260,7 +261,7 @@ export function OilSlide({ data }: OilSlideProps) {
                                 y1="10"
                                 x2="25"
                                 y2="10"
-                                stroke="#8B4513"
+                                stroke={oilSlide.barrelLight}
                                 strokeWidth="1.5"
                                 opacity="0.4"
                             />

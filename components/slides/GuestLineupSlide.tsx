@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 
+import { guestLineupSlide } from '@/lib/slides/palette';
 import type { GuestLineupData, GuestLineupGuest } from '@/lib/slides/types';
 import { useSlidePollingData } from './use-slide-polling-data';
 
@@ -251,5 +252,5 @@ function formatTime(value: string) {
 }
 
 function safeColor(value: string | null | undefined) {
-    return /^#[0-9a-f]{6}$/i.test(value ?? '') ? value! : '#f7931a';
+    return /^#[0-9a-f]{6}$/i.test(value ?? '') ? value! : guestLineupSlide.bitcoinOrangeFallback;
 }
