@@ -116,11 +116,15 @@ export default async function AdminOutputPage() {
         if (dayId) {
             await clearOutputOverride(dayId);
         }
-        await updateProgramDayStatus({
+        const updateResult = await updateProgramDayStatus({
             date: parsed.data.date,
             status: 'ready',
             allowWarnings: true,
         });
+
+        if (!updateResult.success) {
+            throw new Error(updateResult.error);
+        }
         await recordAuditEvent({
             action: 'broadcast.stopped',
             entityType: 'program_days',

@@ -45,7 +45,7 @@ export async function POST(request: Request) {
         } = parsed.data;
 
         const uploaded = await uploadMediaFile(file, uploadedMediaFieldsFromForm(form));
-        const created = await createProgramBlock({
+        const createResult = await createProgramBlock({
             date,
             title: uploaded.title,
             blockType: blockTypeFor(uploaded.assetType, uploaded.mediaKind),
@@ -55,7 +55,12 @@ export async function POST(request: Request) {
             hideOverlays,
         });
 
-        const returnTo = returnToRaw || `/admin/schedule/${date}?uploaded=1&created=${created.id}`;
+        if (!createResult.success) {
+            return NextResponse.json({ ok: false, error: createResult.error }, { status: 400 });
+        }
+
+        const returnTo =
+            returnToRaw || `/admin/schedule/${date}?uploaded=1&created=${createResult.data.id}`;
 
         return NextResponse.redirect(appUrl(returnTo), 303);
     } catch (error) {

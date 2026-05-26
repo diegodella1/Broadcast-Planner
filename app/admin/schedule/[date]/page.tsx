@@ -59,70 +59,69 @@ export default async function ScheduleDatePage({
     const blocks = schedule.blocks.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
     async function addBlock(formData: FormData) {
         'use server';
-        let created: { id: string };
+        const result = await createProgramBlock({
+            date,
+            title: String(formData.get('title')),
+            blockType: String(formData.get('block_type')),
+            assetId: String(formData.get('asset_id') || ''),
+            slideId: String(formData.get('slide_id') || ''),
+            startTime: String(formData.get('start_time')),
+            durationSeconds: Number(formData.get('duration_seconds')),
+            preRollSeconds: Number(formData.get('pre_roll_seconds') || 0),
+            postRollSeconds: Number(formData.get('post_roll_seconds') || 0),
+            hideOverlays: formData.get('hide_overlays') === 'on',
+            conflictResolution: formConflictResolution(formData),
+            reutersStreamUrl: String(formData.get('reuters_stream_url') || ''),
+            reutersStreamLabel: String(formData.get('reuters_stream_label') || ''),
+            reutersStreamExpiresAt: String(formData.get('reuters_stream_expires_at') || ''),
+            previouslyRecordedEnabled: formData.get('previously_recorded_enabled') === 'on',
+            previouslyRecordedPosition: String(formData.get('previously_recorded_position') || ''),
+        });
 
-        try {
-            created = await createProgramBlock({
-                date,
-                title: String(formData.get('title')),
-                blockType: String(formData.get('block_type')),
-                assetId: String(formData.get('asset_id') || ''),
-                slideId: String(formData.get('slide_id') || ''),
-                startTime: String(formData.get('start_time')),
-                durationSeconds: Number(formData.get('duration_seconds')),
-                preRollSeconds: Number(formData.get('pre_roll_seconds') || 0),
-                postRollSeconds: Number(formData.get('post_roll_seconds') || 0),
-                hideOverlays: formData.get('hide_overlays') === 'on',
-                conflictResolution: formConflictResolution(formData),
-                reutersStreamUrl: String(formData.get('reuters_stream_url') || ''),
-                reutersStreamLabel: String(formData.get('reuters_stream_label') || ''),
-                reutersStreamExpiresAt: String(formData.get('reuters_stream_expires_at') || ''),
-                previouslyRecordedEnabled: formData.get('previously_recorded_enabled') === 'on',
-                previouslyRecordedPosition: String(
-                    formData.get('previously_recorded_position') || '',
-                ),
-            });
-        } catch (error) {
-            redirect(scheduleErrorHref(date, error, 'add-block'));
+        if (!result.success) {
+            redirect(scheduleErrorHref(date, new Error(result.error), 'add-block'));
         }
         redirect(
-            `/admin/schedule/${date}?created=${encodeURIComponent(created.id)}#block-${created.id}`,
+            `/admin/schedule/${date}?created=${encodeURIComponent(result.data.id)}#block-${result.data.id}`,
         );
     }
     async function updateBlockInline(formData: FormData) {
         'use server';
         const blockId = String(formData.get('block_id'));
+        const result = await updateProgramBlock({
+            date,
+            blockId,
+            title: String(formData.get('title')),
+            blockType: String(formData.get('block_type')),
+            assetId: String(formData.get('asset_id') || ''),
+            slideId: String(formData.get('slide_id') || ''),
+            startTime: String(formData.get('start_time')),
+            durationSeconds: Number(formData.get('duration_seconds')),
+            status: String(formData.get('status')),
+            hideOverlays: formData.get('hide_overlays') === 'on',
+            fallbackAssetId: String(formData.get('fallback_asset_id') || ''),
+            notes: String(formData.get('notes') || ''),
+            conflictResolution: formConflictResolution(formData),
+            reutersStreamUrl: String(formData.get('reuters_stream_url') || ''),
+            reutersStreamLabel: String(formData.get('reuters_stream_label') || ''),
+            reutersStreamExpiresAt: String(formData.get('reuters_stream_expires_at') || ''),
+            previouslyRecordedEnabled: formData.get('previously_recorded_enabled') === 'on',
+            previouslyRecordedPosition: String(formData.get('previously_recorded_position') || ''),
+        });
 
-        try {
-            await updateProgramBlock({
-                date,
-                blockId,
-                title: String(formData.get('title')),
-                blockType: String(formData.get('block_type')),
-                assetId: String(formData.get('asset_id') || ''),
-                slideId: String(formData.get('slide_id') || ''),
-                startTime: String(formData.get('start_time')),
-                durationSeconds: Number(formData.get('duration_seconds')),
-                status: String(formData.get('status')),
-                hideOverlays: formData.get('hide_overlays') === 'on',
-                fallbackAssetId: String(formData.get('fallback_asset_id') || ''),
-                notes: String(formData.get('notes') || ''),
-                conflictResolution: formConflictResolution(formData),
-                reutersStreamUrl: String(formData.get('reuters_stream_url') || ''),
-                reutersStreamLabel: String(formData.get('reuters_stream_label') || ''),
-                reutersStreamExpiresAt: String(formData.get('reuters_stream_expires_at') || ''),
-                previouslyRecordedEnabled: formData.get('previously_recorded_enabled') === 'on',
-                previouslyRecordedPosition: String(
-                    formData.get('previously_recorded_position') || '',
+        if (!result.success) {
+            redirect(
+                scheduleErrorHref(
+                    date,
+                    new Error(result.error),
+                    blockId ? `block-${blockId}` : 'add-block',
                 ),
-            });
-        } catch (error) {
-            redirect(scheduleErrorHref(date, error, blockId ? `block-${blockId}` : 'add-block'));
+            );
         }
     }
     async function generateLongSchedule(formData: FormData) {
         'use server';
-        await createLongTestSchedule({
+        const result = await createLongTestSchedule({
             date,
             startTime: String(formData.get('start_time') || '00:00:00'),
             totalHours: Number(formData.get('total_hours') || 12),
@@ -131,6 +130,10 @@ export default async function ScheduleDatePage({
             imageBumperSeconds: Number(formData.get('image_bumper_seconds') || 30),
             replaceWindow: formData.get('replace_window') === 'on',
         });
+
+        if (!result.success) {
+            redirect(scheduleErrorHref(date, new Error(result.error)));
+        }
     }
     async function bulkCreateCardLoop(formData: FormData) {
         'use server';
@@ -147,13 +150,17 @@ export default async function ScheduleDatePage({
         }
 
         if (loopMode === 'scheduled' || loopMode === 'both') {
-            await createBulkCardLoop({
+            const result = await createBulkCardLoop({
                 date,
                 startTime: String(formData.get('start_time') || '00:00:00'),
                 endTime: String(formData.get('end_time') || '00:00:00'),
                 cards,
                 replaceWindow: formData.get('replace_window') === 'on',
             });
+
+            if (!result.success) {
+                redirect(scheduleErrorHref(date, new Error(result.error)));
+            }
         }
 
         if (loopMode === 'fallback') {
@@ -162,69 +169,72 @@ export default async function ScheduleDatePage({
     }
     async function setDayStatus(formData: FormData) {
         'use server';
+        const result = await updateProgramDayStatus({
+            date,
+            status: String(formData.get('status')),
+            allowWarnings: formData.get('allow_warnings') === 'on',
+        });
 
-        try {
-            await updateProgramDayStatus({
-                date,
-                status: String(formData.get('status')),
-                allowWarnings: formData.get('allow_warnings') === 'on',
-            });
-        } catch (error) {
-            redirect(scheduleErrorHref(date, error));
+        if (!result.success) {
+            redirect(scheduleErrorHref(date, new Error(result.error)));
         }
     }
     async function reorderRundown(input: { orderedBlockIds: string[] }) {
         'use server';
+        const result = await reorderProgramBlocks({ date, orderedBlockIds: input.orderedBlockIds });
 
-        try {
-            await reorderProgramBlocks({ date, orderedBlockIds: input.orderedBlockIds });
-        } catch (error) {
-            redirect(scheduleErrorHref(date, error));
+        if (!result.success) {
+            redirect(scheduleErrorHref(date, new Error(result.error)));
         }
     }
     async function resizeRundownBlock(input: { blockId: string; durationSeconds: number }) {
         'use server';
+        const result = await resizeProgramBlock({
+            date,
+            blockId: input.blockId,
+            durationSeconds: input.durationSeconds,
+        });
 
-        try {
-            await resizeProgramBlock({
-                date,
-                blockId: input.blockId,
-                durationSeconds: input.durationSeconds,
-            });
-        } catch (error) {
-            redirect(scheduleErrorHref(date, error, `block-${input.blockId}`));
+        if (!result.success) {
+            redirect(scheduleErrorHref(date, new Error(result.error), `block-${input.blockId}`));
         }
     }
     async function duplicateRundownBlock(input: { blockId: string }) {
         'use server';
+        const result = await duplicateProgramBlock({ date, blockId: input.blockId });
 
-        try {
-            await duplicateProgramBlock({ date, blockId: input.blockId });
-        } catch (error) {
-            redirect(scheduleErrorHref(date, error, `block-${input.blockId}`));
+        if (!result.success) {
+            redirect(scheduleErrorHref(date, new Error(result.error), `block-${input.blockId}`));
         }
     }
     async function archiveRundownBlock(input: { blockId: string }) {
         'use server';
+        const result = await archiveProgramBlock({ date, blockId: input.blockId });
 
-        try {
-            await archiveProgramBlock({ date, blockId: input.blockId });
-        } catch (error) {
-            redirect(scheduleErrorHref(date, error, `block-${input.blockId}`));
+        if (!result.success) {
+            redirect(scheduleErrorHref(date, new Error(result.error), `block-${input.blockId}`));
         }
     }
     async function createEmptyDay() {
         'use server';
-        await ensureProgramDay(date);
+        const result = await ensureProgramDay(date);
+
+        if (!result.success) {
+            redirect(scheduleErrorHref(date, new Error(result.error)));
+        }
         redirect(`/admin/schedule/${date}`);
     }
     async function setupDayFromTemplate(formData: FormData) {
         'use server';
-        await createProgramDayFromTemplate({
+        const result = await createProgramDayFromTemplate({
             date,
             templateId: String(formData.get('template_id')),
             startTime: String(formData.get('start_time') || '00:00:00'),
         });
+
+        if (!result.success) {
+            redirect(scheduleErrorHref(date, new Error(result.error)));
+        }
         redirect(`/admin/schedule/${date}`);
     }
     const totalScheduledSeconds = blocks.reduce((total, block) => total + block.durationSeconds, 0);

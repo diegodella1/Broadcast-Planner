@@ -70,16 +70,24 @@ export default async function CalendarPage({
     }).length;
     async function createDay(formData: FormData) {
         'use server';
-        await ensureProgramDay(String(formData.get('date')));
+        const result = await ensureProgramDay(String(formData.get('date')));
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
     async function setupDayFromTemplate(formData: FormData) {
         'use server';
         const date = String(formData.get('date'));
-        await createProgramDayFromTemplate({
+        const result = await createProgramDayFromTemplate({
             date,
             templateId: String(formData.get('template_id')),
             startTime: String(formData.get('start_time') || '00:00:00'),
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
         redirect(`/admin/schedule/${date}?setup=1`);
     }
 

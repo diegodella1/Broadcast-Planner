@@ -202,8 +202,8 @@ describe('goLiveWithVimeo', () => {
         vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: 'asset-1' } as MediaAsset);
         vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ durationSeconds: 600 }));
         vi.mocked(createProgramBlock).mockResolvedValue({
-            id: 'block-created',
-            startTimeSeconds: 0,
+            success: true,
+            data: { id: 'block-created', startTimeSeconds: 0 },
         });
         // fetchInsertedBlockId: program_days query returns null, so programBlockId falls back to ""
         supabaseMock.setResult({ data: null, error: null });
@@ -227,8 +227,8 @@ describe('goLiveWithVimeo', () => {
         vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: 'asset-2' } as MediaAsset);
         vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ durationSeconds: 3600 }));
         vi.mocked(createProgramBlock).mockResolvedValue({
-            id: 'block-created',
-            startTimeSeconds: 0,
+            success: true,
+            data: { id: 'block-created', startTimeSeconds: 0 },
         });
         supabaseMock.setResult({ data: null, error: null });
 
@@ -244,8 +244,8 @@ describe('goLiveWithVimeo', () => {
         vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: 'asset-3' } as MediaAsset);
         vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ durationSeconds: null }));
         vi.mocked(createProgramBlock).mockResolvedValue({
-            id: 'block-created',
-            startTimeSeconds: 0,
+            success: true,
+            data: { id: 'block-created', startTimeSeconds: 0 },
         });
         supabaseMock.setResult({ data: null, error: null });
 
@@ -266,8 +266,8 @@ describe('goLiveWithVimeo', () => {
         vi.mocked(upsertVimeoVideos).mockResolvedValue(undefined);
         vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ id: 'asset-new' }));
         vi.mocked(createProgramBlock).mockResolvedValue({
-            id: 'block-created',
-            startTimeSeconds: 0,
+            success: true,
+            data: { id: 'block-created', startTimeSeconds: 0 },
         });
         supabaseMock.setResult({ data: null, error: null });
 
@@ -285,8 +285,8 @@ describe('goLiveWithVimeo', () => {
         vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: 'asset-1' } as MediaAsset);
         vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset());
         vi.mocked(createProgramBlock).mockResolvedValue({
-            id: 'block-created',
-            startTimeSeconds: 0,
+            success: true,
+            data: { id: 'block-created', startTimeSeconds: 0 },
         });
         supabaseMock.setResult({ data: null, error: null });
 
@@ -317,8 +317,8 @@ describe('scheduleVimeoBlock', () => {
         vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: 'asset-1' } as MediaAsset);
         vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset());
         vi.mocked(createProgramBlock).mockResolvedValue({
-            id: 'block-created',
-            startTimeSeconds: 0,
+            success: true,
+            data: { id: 'block-created', startTimeSeconds: 0 },
         });
         supabaseMock.setResult({ data: null, error: null });
 
@@ -335,8 +335,8 @@ describe('scheduleVimeoBlock', () => {
         vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: 'asset-1' } as MediaAsset);
         vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset());
         vi.mocked(createProgramBlock).mockResolvedValue({
-            id: 'block-created',
-            startTimeSeconds: 0,
+            success: true,
+            data: { id: 'block-created', startTimeSeconds: 0 },
         });
         supabaseMock.setResult({ data: null, error: null });
 
@@ -356,8 +356,8 @@ describe('scheduleVimeoBlock', () => {
         vi.mocked(getMediaAssetByVimeoUri).mockResolvedValue({ id: 'asset-1' } as MediaAsset);
         vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset());
         vi.mocked(createProgramBlock).mockResolvedValue({
-            id: 'block-created',
-            startTimeSeconds: 0,
+            success: true,
+            data: { id: 'block-created', startTimeSeconds: 0 },
         });
         supabaseMock.setResult({ data: null, error: null });
 
@@ -409,8 +409,8 @@ describe('goLiveWithReuters', () => {
     it('creates a ProgramBlock with category=reuters and 1800s default for live channels', async () => {
         vi.mocked(getMediaAssetById).mockResolvedValue(makeReutersAsset());
         vi.mocked(createProgramBlock).mockResolvedValue({
-            id: 'block-created',
-            startTimeSeconds: 0,
+            success: true,
+            data: { id: 'block-created', startTimeSeconds: 0 },
         });
         supabaseMock.setResult({ data: null, error: null });
 
@@ -430,8 +430,8 @@ describe('goLiveWithReuters', () => {
     it('calls revalidatePath for /admin/output and /admin/schedule/<date>', async () => {
         vi.mocked(getMediaAssetById).mockResolvedValue(makeReutersAsset());
         vi.mocked(createProgramBlock).mockResolvedValue({
-            id: 'block-created',
-            startTimeSeconds: 0,
+            success: true,
+            data: { id: 'block-created', startTimeSeconds: 0 },
         });
         supabaseMock.setResult({ data: null, error: null });
 
@@ -463,8 +463,8 @@ describe('scheduleReutersBlock', () => {
     it('normalizes HH:MM startAt to HH:MM:SS in the ProgramBlock', async () => {
         vi.mocked(getMediaAssetById).mockResolvedValue(makeReutersAsset());
         vi.mocked(createProgramBlock).mockResolvedValue({
-            id: 'block-created',
-            startTimeSeconds: 0,
+            success: true,
+            data: { id: 'block-created', startTimeSeconds: 0 },
         });
         supabaseMock.setResult({ data: null, error: null });
 
@@ -482,8 +482,8 @@ describe('scheduleReutersBlock', () => {
     it('uses the supplied airDate', async () => {
         vi.mocked(getMediaAssetById).mockResolvedValue(makeReutersAsset());
         vi.mocked(createProgramBlock).mockResolvedValue({
-            id: 'block-created',
-            startTimeSeconds: 0,
+            success: true,
+            data: { id: 'block-created', startTimeSeconds: 0 },
         });
         supabaseMock.setResult({ data: null, error: null });
 

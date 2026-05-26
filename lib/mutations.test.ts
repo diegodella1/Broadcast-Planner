@@ -244,7 +244,7 @@ describe('ensureProgramDay', () => {
 
         const result = await ensureProgramDay('2026-05-08');
 
-        expect(result).toBe('day-99');
+        expect(result).toEqual({ success: true, data: 'day-99' });
         expect(supabaseMock.from).toHaveBeenCalledWith('program_days');
         expect(supabaseMock.upsert).toHaveBeenCalledWith(
             expect.objectContaining({ air_date: '2026-05-08', status: 'draft' }),
@@ -254,10 +254,12 @@ describe('ensureProgramDay', () => {
         expect(revalidatePath).toHaveBeenCalledWith('/admin/schedule/2026-05-08');
     });
 
-    it('error path: throws when supabase returns an error', async () => {
+    it('error path: returns failure when supabase returns an error', async () => {
         supabaseMock.setResult({ data: null, error: new Error('DB down') });
 
-        await expect(ensureProgramDay('2026-05-08')).rejects.toThrow('DB down');
+        const result = await ensureProgramDay('2026-05-08');
+
+        expect(result).toEqual({ success: false, error: 'DB down' });
     });
 });
 
@@ -303,13 +305,13 @@ describe('createProgramDayFromTemplate', () => {
     });
 
     it('error path: rejects unknown templates', async () => {
-        await expect(
-            createProgramDayFromTemplate({
-                date: '2026-05-08',
-                templateId: 'missing-template',
-                startTime: '09:00:00',
-            }),
-        ).rejects.toThrow('Unknown day template');
+        const result = await createProgramDayFromTemplate({
+            date: '2026-05-08',
+            templateId: 'missing-template',
+            startTime: '09:00:00',
+        });
+
+        expect(result).toEqual({ success: false, error: 'Unknown day template' });
     });
 
     it('error path: rejects days that already have active blocks', async () => {
@@ -318,13 +320,17 @@ describe('createProgramDayFromTemplate', () => {
             blocks: [testBlock({ id: 'block-existing', status: 'ready' })],
         });
 
-        await expect(
-            createProgramDayFromTemplate({
-                date: '2026-05-08',
-                templateId: 'short-test-day',
-                startTime: '09:00:00',
-            }),
-        ).rejects.toThrow('already has blocks');
+        const result = await createProgramDayFromTemplate({
+            date: '2026-05-08',
+            templateId: 'short-test-day',
+            startTime: '09:00:00',
+        });
+
+        expect(result.success).toBe(false);
+
+        if (!result.success) {
+            expect(result.error).toMatch(/already has blocks/);
+        }
     });
 });
 
@@ -399,13 +405,17 @@ describe('fillProgramBlockContent', () => {
             ],
         });
 
-        await expect(
-            fillProgramBlockContent({
-                date: '2026-05-08',
-                blockId: 'block-ad',
-                assetId: 'asset-video',
-            }),
-        ).rejects.toThrow('does not match');
+        const result = await fillProgramBlockContent({
+            date: '2026-05-08',
+            blockId: 'block-ad',
+            assetId: 'asset-video',
+        });
+
+        expect(result.success).toBe(false);
+
+        if (!result.success) {
+            expect(result.error).toMatch(/does not match/);
+        }
     });
 });
 
@@ -500,13 +510,13 @@ describe('rundown editor mutations', () => {
     });
 
     it('rejects moving a missing block', async () => {
-        await expect(
-            moveProgramBlock({
-                date: '2026-05-08',
-                blockId: 'missing',
-                startTimeSeconds: 7200,
-            }),
-        ).rejects.toThrow('Bloque no encontrado');
+        const result = await moveProgramBlock({
+            date: '2026-05-08',
+            blockId: 'missing',
+            startTimeSeconds: 7200,
+        });
+
+        expect(result).toEqual({ success: false, error: 'Bloque no encontrado' });
     });
 
     it('clamps moves to the end of the day', async () => {
@@ -648,7 +658,10 @@ describe('createProgramBlock', () => {
             }),
         );
         expect(supabaseMock.select).toHaveBeenCalledWith('id,start_time_seconds');
-        expect(result).toEqual({ id: 'block-created', startTimeSeconds: 36000 });
+        expect(result).toEqual({
+            success: true,
+            data: { id: 'block-created', startTimeSeconds: 36000 },
+        });
         expect(revalidatePath).toHaveBeenCalledWith('/admin/schedule/2026-05-08');
     });
 
@@ -767,7 +780,7 @@ describe('createProgramBlock', () => {
         );
     });
 
-    it('error path: throws when supabase insert fails', async () => {
+    it('error path: returns failure when supabase insert fails', async () => {
         // ensureProgramDay resolves via .single(); the program_blocks insert is
         // awaited directly on the builder (via .then) — so make single succeed
         // and then always return an error.
@@ -775,31 +788,35 @@ describe('createProgramBlock', () => {
             .mockResolvedValueOnce({ data: { id: 'day-1' }, error: null })
             .mockResolvedValueOnce({ data: null, error: new Error('Insert failed') });
 
-        await expect(
-            createProgramBlock({
-                date: '2026-05-08',
-                title: 'Block',
-                blockType: 'video',
-                startTime: '11:00:00',
-                durationSeconds: 600,
-                hideOverlays: false,
-            }),
-        ).rejects.toThrow('Insert failed');
+        const result = await createProgramBlock({
+            date: '2026-05-08',
+            title: 'Block',
+            blockType: 'video',
+            startTime: '11:00:00',
+            durationSeconds: 600,
+            hideOverlays: false,
+        });
+
+        expect(result).toEqual({ success: false, error: 'Insert failed' });
     });
 
-    it('validation: throws for ad blocks longer than 300s', async () => {
+    it('validation: returns failure for ad blocks longer than 300s', async () => {
         supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
 
-        await expect(
-            createProgramBlock({
-                date: '2026-05-08',
-                title: 'Long Ad',
-                blockType: 'ad',
-                startTime: '12:00:00',
-                durationSeconds: 400,
-                hideOverlays: false,
-            }),
-        ).rejects.toThrow('300 seconds');
+        const result = await createProgramBlock({
+            date: '2026-05-08',
+            title: 'Long Ad',
+            blockType: 'ad',
+            startTime: '12:00:00',
+            durationSeconds: 400,
+            hideOverlays: false,
+        });
+
+        expect(result.success).toBe(false);
+
+        if (!result.success) {
+            expect(result.error).toMatch(/300 seconds/);
+        }
     });
 });
 
@@ -832,26 +849,37 @@ describe('updateProgramDayStatus', () => {
         );
     });
 
-    it('error path: throws for invalid status', async () => {
-        await expect(
-            updateProgramDayStatus({ date: '2026-05-08', status: 'invalid-status' }),
-        ).rejects.toThrow('Estado invalido');
+    it('error path: returns failure for invalid status', async () => {
+        const result = await updateProgramDayStatus({
+            date: '2026-05-08',
+            status: 'invalid-status',
+        });
+
+        expect(result).toEqual({ success: false, error: 'Estado invalido' });
     });
 
-    it('error path: throws when schedule has critical issues and status is ready', async () => {
+    it('error path: returns failure when schedule has critical issues and status is ready', async () => {
         analyzeScheduleMock.mockReturnValue({ ...healthClean, criticalCount: 1, warnCount: 0 });
 
-        await expect(
-            updateProgramDayStatus({ date: '2026-05-08', status: 'ready' }),
-        ).rejects.toThrow('criticas');
+        const result = await updateProgramDayStatus({ date: '2026-05-08', status: 'ready' });
+
+        expect(result.success).toBe(false);
+
+        if (!result.success) {
+            expect(result.error).toMatch(/criticas/);
+        }
     });
 
-    it('error path: throws on warnings without allowWarnings flag', async () => {
+    it('error path: returns failure on warnings without allowWarnings flag', async () => {
         analyzeScheduleMock.mockReturnValue({ ...healthClean, criticalCount: 0, warnCount: 2 });
 
-        await expect(
-            updateProgramDayStatus({ date: '2026-05-08', status: 'ready' }),
-        ).rejects.toThrow('advertencias');
+        const result = await updateProgramDayStatus({ date: '2026-05-08', status: 'ready' });
+
+        expect(result.success).toBe(false);
+
+        if (!result.success) {
+            expect(result.error).toMatch(/advertencias/);
+        }
     });
 
     it('happy path: allows ready when warnings present and allowWarnings=true', async () => {
@@ -862,23 +890,23 @@ describe('updateProgramDayStatus', () => {
         expect(supabaseMock.update).toHaveBeenCalled();
     });
 
-    it('error path: throws when day not found in schedule', async () => {
+    it('error path: returns failure when day not found in schedule', async () => {
         getScheduleForDateMock.mockResolvedValue({ ...mockSchedule, day: null });
 
-        await expect(
-            updateProgramDayStatus({ date: '2026-05-08', status: 'draft' }),
-        ).rejects.toThrow('Dia no encontrado');
+        const result = await updateProgramDayStatus({ date: '2026-05-08', status: 'draft' });
+
+        expect(result).toEqual({ success: false, error: 'Dia no encontrado' });
     });
 
-    it('error path: throws when supabase update fails', async () => {
+    it('error path: returns failure when supabase update fails', async () => {
         (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
             (resolve: (value: MockResult) => void) =>
                 Promise.resolve({ data: null, error: new Error('Update error') }).then(resolve),
         );
 
-        await expect(
-            updateProgramDayStatus({ date: '2026-05-08', status: 'draft' }),
-        ).rejects.toThrow('Update error');
+        const result = await updateProgramDayStatus({ date: '2026-05-08', status: 'draft' });
+
+        expect(result).toEqual({ success: false, error: 'Update error' });
     });
 });
 
@@ -1001,31 +1029,42 @@ describe('updateProgramBlock', () => {
         );
     });
 
-    it('error path: throws for invalid block type', async () => {
-        await expect(
-            updateProgramBlock({ ...baseInput, blockType: 'unknown' as 'video' }),
-        ).rejects.toThrow('Tipo de bloque invalido');
+    it('error path: returns failure for invalid block type', async () => {
+        const result = await updateProgramBlock({
+            ...baseInput,
+            blockType: 'unknown' as 'video',
+        });
+
+        expect(result).toEqual({ success: false, error: 'Tipo de bloque invalido' });
     });
 
-    it('error path: throws for invalid status', async () => {
-        await expect(updateProgramBlock({ ...baseInput, status: 'invalid' })).rejects.toThrow(
-            'Estado invalido',
-        );
+    it('error path: returns failure for invalid status', async () => {
+        const result = await updateProgramBlock({ ...baseInput, status: 'invalid' });
+
+        expect(result).toEqual({ success: false, error: 'Estado invalido' });
     });
 
-    it('error path: throws when block not found', async () => {
-        await expect(updateProgramBlock({ ...baseInput, blockId: 'nonexistent' })).rejects.toThrow(
-            'Bloque no encontrado',
-        );
+    it('error path: returns failure when block not found', async () => {
+        const result = await updateProgramBlock({ ...baseInput, blockId: 'nonexistent' });
+
+        expect(result).toEqual({ success: false, error: 'Bloque no encontrado' });
     });
 
-    it('error path: throws for ad > 300s', async () => {
-        await expect(
-            updateProgramBlock({ ...baseInput, blockType: 'ad', durationSeconds: 400 }),
-        ).rejects.toThrow('300 seconds');
+    it('error path: returns failure for ad > 300s', async () => {
+        const result = await updateProgramBlock({
+            ...baseInput,
+            blockType: 'ad',
+            durationSeconds: 400,
+        });
+
+        expect(result.success).toBe(false);
+
+        if (!result.success) {
+            expect(result.error).toMatch(/300 seconds/);
+        }
     });
 
-    it('error path: throws when supabase update fails', async () => {
+    it('error path: returns failure when supabase update fails', async () => {
         (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
             (resolve: (value: MockResult) => void) =>
                 Promise.resolve({ data: null, error: new Error('Update block error') }).then(
@@ -1033,7 +1072,9 @@ describe('updateProgramBlock', () => {
                 ),
         );
 
-        await expect(updateProgramBlock(baseInput)).rejects.toThrow('Update block error');
+        const result = await updateProgramBlock(baseInput);
+
+        expect(result).toEqual({ success: false, error: 'Update block error' });
     });
 });
 
@@ -1090,14 +1131,20 @@ describe('createLongTestSchedule', () => {
         );
     });
 
-    it('error path: throws when buildLongTestSchedule returns empty array', async () => {
+    it('error path: returns failure when buildLongTestSchedule returns empty array', async () => {
         supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
         buildLongTestScheduleMock.mockReturnValue([]);
 
-        await expect(createLongTestSchedule(baseInput)).rejects.toThrow('No se pudo generar');
+        const result = await createLongTestSchedule(baseInput);
+
+        expect(result.success).toBe(false);
+
+        if (!result.success) {
+            expect(result.error).toMatch(/No se pudo generar/);
+        }
     });
 
-    it('error path: throws when supabase insert fails', async () => {
+    it('error path: returns failure when supabase insert fails', async () => {
         // ensureProgramDay resolves via .single(); the bulk insert is awaited
         // directly on the builder (via .then) — make single succeed, then fail.
         (supabaseMock.single as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -1111,7 +1158,9 @@ describe('createLongTestSchedule', () => {
                 ),
         );
 
-        await expect(createLongTestSchedule(baseInput)).rejects.toThrow('Bulk insert failed');
+        const result = await createLongTestSchedule(baseInput);
+
+        expect(result).toEqual({ success: false, error: 'Bulk insert failed' });
     });
 });
 
@@ -1208,7 +1257,13 @@ describe('createBulkCardLoop', () => {
             ],
         } as ScheduleBundle);
 
-        await expect(createBulkCardLoop(baseInput)).rejects.toThrow('se solapa');
+        const result = await createBulkCardLoop(baseInput);
+
+        expect(result.success).toBe(false);
+
+        if (!result.success) {
+            expect(result.error).toMatch(/se solapa/);
+        }
     });
 
     it('happy path: archives conflicts when replaceWindow=true', async () => {
@@ -1243,10 +1298,16 @@ describe('createBulkCardLoop', () => {
         expect(supabaseMock.in).toHaveBeenCalledWith('id', ['block-1']);
     });
 
-    it('error path: throws when no complete card fits', async () => {
+    it('error path: returns failure when no complete card fits', async () => {
         buildBulkCardLoopMock.mockReturnValue([]);
 
-        await expect(createBulkCardLoop(baseInput)).rejects.toThrow('ninguna card completa');
+        const result = await createBulkCardLoop(baseInput);
+
+        expect(result.success).toBe(false);
+
+        if (!result.success) {
+            expect(result.error).toMatch(/ninguna card completa/);
+        }
     });
 });
 

@@ -88,7 +88,7 @@ export async function goLiveWithVimeo(input: GoLiveNowInput): Promise<{ programB
     const startTime = formatTimecode(startSeconds);
     const durationSeconds = resolveDuration(asset);
 
-    await createProgramBlock({
+    const createResult = await createProgramBlock({
         date: airDate,
         title: asset.title,
         blockType: 'video',
@@ -99,6 +99,10 @@ export async function goLiveWithVimeo(input: GoLiveNowInput): Promise<{ programB
         hideOverlays: false,
         conflictResolution: 'archive_conflicts',
     });
+
+    if (!createResult.success) {
+        throw new Error(createResult.error);
+    }
 
     const programBlockId = await fetchInsertedBlockId(airDate, startSeconds);
     await logManualBroadcast('manual_broadcast.go_live', {
@@ -141,7 +145,7 @@ export async function scheduleVimeoBlock(
     const startSeconds = startTimeToSeconds(startTime);
     const durationSeconds = resolveDuration(asset);
 
-    await createProgramBlock({
+    const createResult = await createProgramBlock({
         date: airDate,
         title: asset.title,
         blockType: 'video',
@@ -151,6 +155,10 @@ export async function scheduleVimeoBlock(
         durationSeconds,
         hideOverlays: false,
     });
+
+    if (!createResult.success) {
+        throw new Error(createResult.error);
+    }
 
     const programBlockId = await fetchInsertedBlockId(airDate, startSeconds);
     await logManualBroadcast('manual_broadcast.schedule', {
@@ -253,7 +261,7 @@ export async function goLiveWithReuters(
     const startTime = formatTimecode(startSeconds);
     const durationSeconds = resolveReutersDuration(asset);
 
-    await createProgramBlock({
+    const createResult = await createProgramBlock({
         date: airDate,
         title: asset.title,
         blockType: 'video',
@@ -264,6 +272,10 @@ export async function goLiveWithReuters(
         hideOverlays: false,
         conflictResolution: 'archive_conflicts',
     });
+
+    if (!createResult.success) {
+        throw new Error(createResult.error);
+    }
 
     const programBlockId = await fetchInsertedBlockId(airDate, startSeconds);
     await logManualBroadcast('manual_broadcast.reuters_go_live', {
@@ -302,7 +314,7 @@ export async function scheduleReutersBlock(
     const startSeconds = startTimeToSeconds(startTime);
     const durationSeconds = input.durationSeconds;
 
-    await createProgramBlock({
+    const createResult = await createProgramBlock({
         date: airDate,
         title: asset.title,
         blockType: 'video',
@@ -312,6 +324,10 @@ export async function scheduleReutersBlock(
         durationSeconds,
         hideOverlays: false,
     });
+
+    if (!createResult.success) {
+        throw new Error(createResult.error);
+    }
 
     const programBlockId = await fetchInsertedBlockId(airDate, startSeconds);
     await logManualBroadcast('manual_broadcast.reuters_schedule', {

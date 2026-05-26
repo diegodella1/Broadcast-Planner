@@ -48,7 +48,7 @@ export default async function BlockPage({
 
     async function saveBlock(formData: FormData) {
         'use server';
-        await updateProgramBlock({
+        const result = await updateProgramBlock({
             date,
             blockId: id,
             title: String(formData.get('title')),
@@ -68,6 +68,10 @@ export default async function BlockPage({
                     ? 'archive_conflicts'
                     : 'none',
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function addLayer(formData: FormData) {
@@ -123,7 +127,11 @@ export default async function BlockPage({
 
     async function deleteBlock() {
         'use server';
-        await deleteProgramBlock({ date, blockId: id });
+        const result = await deleteProgramBlock({ date, blockId: id });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
         redirect(`/admin/schedule/${date}`);
     }
 
