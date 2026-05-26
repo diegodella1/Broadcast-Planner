@@ -25,6 +25,9 @@ jobs:
               run: npm run security:service-role
             - name: Audit trail guard
               run: npm run security:audit-trail
+            - name: Zod routes guard
+              run: npm run security:zod-routes
+              continue-on-error: true
             - name: Lint
               run: npm run lint
             - name: Format check
