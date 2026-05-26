@@ -130,21 +130,24 @@ export default async function ScheduleDatePage({
     "use server"
     const slideIds = formData.getAll("slide_ids").map(String)
     const durations = formData.getAll("durations").map(Number)
+    const loopMode = String(formData.get("loop_mode") || "scheduled")
     const cards = slideIds.map((slideId, index) => ({
       slideId,
       durationSeconds: durations[index] || 30
     }))
-    if (formData.get("save_as_fallback_carousel") === "on") {
+    if (loopMode === "fallback" || loopMode === "both") {
       await saveGlobalFallbackCarouselFromSlides({ cards })
-      redirect(`/admin/schedule/${date}?fallback_carousel=1#bulk-cards`)
     }
-    await createBulkCardLoop({
-      date,
-      startTime: String(formData.get("start_time") || "00:00:00"),
-      endTime: String(formData.get("end_time") || "00:00:00"),
-      cards,
-      replaceWindow: formData.get("replace_window") === "on"
-    })
+    if (loopMode === "scheduled" || loopMode === "both") {
+      await createBulkCardLoop({
+        date,
+        startTime: String(formData.get("start_time") || "00:00:00"),
+        endTime: String(formData.get("end_time") || "00:00:00"),
+        cards,
+        replaceWindow: formData.get("replace_window") === "on"
+      })
+    }
+    if (loopMode === "fallback") redirect(`/admin/schedule/${date}?fallback_carousel=1#bulk-cards`)
   }
   async function setDayStatus(formData: FormData) {
     "use server"
@@ -298,7 +301,9 @@ export default async function ScheduleDatePage({
     >
       {query.uploaded ? <Notice tone="ok">Media uploaded and scheduled.</Notice> : null}
       {query.fallback_carousel ? (
-        <Notice tone="ok">Fallback carousel updated from Bulk Cards.</Notice>
+        <Notice tone="ok">
+          Fallback carousel updated from Loop Builder. This did not create scheduled blocks.
+        </Notice>
       ) : null}
       <ScheduleControlBar
         date={date}

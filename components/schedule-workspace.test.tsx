@@ -130,8 +130,10 @@ describe("ScheduleWorkspace", () => {
   it("shows bulk card loop controls for ready slides", () => {
     renderWorkspace({ blocks: [] })
 
-    expect(screen.getByText("Bulk Cards")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Create loop" })).toBeEnabled()
+    expect(screen.getByText("Loop Builder / Fallback Carousel")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Create scheduled loop" })).toBeEnabled()
+    expect(screen.getByRole("button", { name: "Set fallback only" })).toBeEnabled()
+    expect(screen.getByRole("button", { name: "Create loop + set fallback" })).toBeEnabled()
 
     fireEvent.click(screen.getByRole("button", { name: "Add card" }))
 

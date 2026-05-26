@@ -2,12 +2,12 @@
 
 import {
   CalendarDays,
-  Clapperboard,
   HeartPulse,
   LayoutDashboard,
   MonitorPlay,
   Music,
-  Users,
+  PackageOpen,
+  RadioTower,
   Video
 } from "lucide-react"
 import Link from "next/link"
@@ -20,6 +20,7 @@ type NavItem = {
   href: string
   icon: LucideIcon
   match?: "exact"
+  activePaths?: string[]
 }
 
 type NavGroup = {
@@ -29,21 +30,41 @@ type NavGroup = {
 
 export const navGroups: NavGroup[] = [
   {
-    label: "Operate",
+    label: "Flow",
     items: [
-      { label: "Schedule", href: "/admin/calendar", icon: CalendarDays },
-      { label: "Library", href: "/admin/assets", icon: Video },
-      { label: "Output", href: "/admin/output", icon: MonitorPlay }
+      { label: "Cockpit", href: "/admin", icon: LayoutDashboard, match: "exact" },
+      {
+        label: "Prepare",
+        href: "/admin/prepare",
+        icon: PackageOpen,
+        activePaths: [
+          "/admin/assets",
+          "/admin/vimeo",
+          "/admin/slides",
+          "/admin/guests",
+          "/admin/music"
+        ]
+      },
+      {
+        label: "Program",
+        href: "/admin/program",
+        icon: CalendarDays,
+        activePaths: ["/admin/calendar", "/admin/schedule"]
+      },
+      {
+        label: "Operate",
+        href: "/admin/operate",
+        icon: RadioTower,
+        activePaths: ["/admin/output", "/admin/health", "/admin/runbook", "/admin/audit"]
+      }
     ]
   },
   {
-    label: "Manage",
+    label: "Direct",
     items: [
-      { label: "Home", href: "/admin", icon: LayoutDashboard, match: "exact" },
-      { label: "Vimeo", href: "/admin/vimeo", icon: MonitorPlay },
-      { label: "Graphics", href: "/admin/slides", icon: Clapperboard },
-      { label: "Guests", href: "/admin/guests", icon: Users },
+      { label: "Output", href: "/admin/output", icon: MonitorPlay },
       { label: "Music", href: "/admin/music", icon: Music },
+      { label: "Library", href: "/admin/assets", icon: Video },
       { label: "Health", href: "/admin/health", icon: HeartPulse }
     ]
   }
@@ -60,8 +81,8 @@ export function AdminNav({ mobile = false }: { mobile?: boolean }) {
         className="mt-4 flex max-w-full flex-wrap gap-2 pb-1 md:hidden"
         aria-label="Admin sections"
       >
-        {links!.map(({ label, href, icon: Icon, match }) => {
-          const active = isActivePath(pathname, href, match)
+        {links!.map(({ label, href, icon: Icon, match, activePaths }) => {
+          const active = isActivePath(pathname, href, match, activePaths)
           return (
             <Link
               key={href}
@@ -89,8 +110,8 @@ export function AdminNav({ mobile = false }: { mobile?: boolean }) {
         <section key={group.label}>
           <p className="px-3 text-[0.68rem] font-bold uppercase text-muted">{group.label}</p>
           <div className="mt-2 grid gap-1">
-            {group.items.map(({ label, href, icon: Icon, match }) => {
-              const active = isActivePath(pathname, href, match)
+            {group.items.map(({ label, href, icon: Icon, match, activePaths }) => {
+              const active = isActivePath(pathname, href, match, activePaths)
               return (
                 <Link
                   key={href}
@@ -115,8 +136,9 @@ export function AdminNav({ mobile = false }: { mobile?: boolean }) {
   )
 }
 
-function isActivePath(pathname: string, href: string, match?: string) {
+function isActivePath(pathname: string, href: string, match?: string, activePaths: string[] = []) {
   const basePath = href.split("?")[0]!
   if (match === "exact") return pathname === basePath
+  if (activePaths.some((path) => pathname === path || pathname.startsWith(`${path}/`))) return true
   return pathname === basePath || pathname.startsWith(`${basePath}/`)
 }

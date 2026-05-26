@@ -58,7 +58,10 @@ export default async function AdminDashboardPage() {
       description="Simple operator path: add content, schedule the day, open browser output for OBS/vMix."
       actions={
         <>
-          <ButtonLink href="/admin/assets">Add Content</ButtonLink>
+          <ButtonLink href="/admin/prepare">Prepare</ButtonLink>
+          <ButtonLink href="/admin/program" variant="secondary">
+            Program
+          </ButtonLink>
           <ButtonLink href="/admin/output" variant="secondary">
             Browser Output
           </ButtonLink>
@@ -84,14 +87,22 @@ export default async function AdminDashboardPage() {
         }
         detail={
           !assets.length
-            ? "New operators only need three steps: add content to Library, place it on Schedule, then use Output for OBS/vMix capture."
+            ? "New operators only need three modes: Prepare content, Program the day, then Operate the output for OBS/vMix capture."
             : blocks.length
               ? `${readyBlocksLabel(readyAssets, assets.length)} · ${blocks.length} blocks on today's rundown.`
               : "Library has content. Add the first block to today and the output will follow the schedule."
         }
         action={
-          <ButtonLink href={!assets.length ? "/admin/assets" : `/admin/schedule/${today}`}>
-            {!assets.length ? "Open Library" : blocks.length ? "Open Today" : "Schedule Today"}
+          <ButtonLink
+            href={
+              !assets.length
+                ? "/admin/prepare"
+                : blocks.length
+                  ? "/admin/operate"
+                  : "/admin/program"
+            }
+          >
+            {!assets.length ? "Open Prepare" : blocks.length ? "Open Operate" : "Open Program"}
           </ButtonLink>
         }
         secondary={
@@ -164,22 +175,24 @@ export default async function AdminDashboardPage() {
           <p className="eyebrow">Operator path</p>
           <div className="mt-4 grid gap-2">
             <ActionLink
-              href="/admin/assets"
+              href="/admin/prepare"
               icon={<Plus size={17} />}
-              title="1. Library"
-              detail={`${readyAssets} ready assets, ${reviewAssets} need review.`}
+              title="1. Prepare"
+              detail={`${readyAssets} ready assets, ${reviewAssets} need fix.`}
             />
             <ActionLink
-              href={`/admin/schedule/${today}`}
+              href="/admin/program"
               icon={<CalendarDays size={17} />}
-              title="2. Schedule"
-              detail={blocks.length ? "Edit today's rundown." : "Create today's first block."}
+              title="2. Program"
+              detail={
+                blocks.length ? "Edit today, loops and fallback." : "Create today's first block."
+              }
             />
             <ActionLink
-              href="/admin/output"
+              href="/admin/operate"
               icon={<MonitorPlay size={17} />}
-              title="3. Browser Output"
-              detail="Open the capture page for OBS/vMix."
+              title="3. Operate"
+              detail="Open output, health and recovery."
             />
             <ActionLink
               href="/admin/health"

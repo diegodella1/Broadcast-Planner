@@ -511,8 +511,15 @@ function BulkCardLoopPanel({
 
   return (
     <details id="bulk-cards" className="border-t border-line bg-panel-soft">
-      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">Bulk Cards</summary>
+      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+        Loop Builder / Fallback Carousel
+      </summary>
       <form action={action} className="grid gap-4 px-4 pb-4">
+        <p className="max-w-3xl text-sm leading-6 text-muted">
+          Build one silent slide loop. Choose whether it becomes scheduled blocks, the global visual
+          fallback carousel, or both. The music playlist plays under slide loops and visual
+          fallback.
+        </p>
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
           <label className="grid gap-1 text-xs font-semibold text-muted">
             Clock start (24 h)
@@ -623,16 +630,29 @@ function BulkCardLoopPanel({
             <Plus size={15} aria-hidden="true" />
             Add card
           </button>
-          <button className="btn-primary" disabled={!readySlides.length}>
-            Create loop
+          <button
+            className="btn-primary"
+            name="loop_mode"
+            value="scheduled"
+            disabled={!readySlides.length}
+          >
+            Create scheduled loop
           </button>
           <button
             className="btn-secondary"
-            name="save_as_fallback_carousel"
-            value="on"
+            name="loop_mode"
+            value="fallback"
             disabled={!readySlides.length}
           >
-            Save as fallback carousel
+            Set fallback only
+          </button>
+          <button
+            className="btn-secondary"
+            name="loop_mode"
+            value="both"
+            disabled={!readySlides.length}
+          >
+            Create loop + set fallback
           </button>
         </div>
       </form>
