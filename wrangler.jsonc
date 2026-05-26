@@ -20,6 +20,11 @@
     "compatibility_date": "2026-04-15",
     "compatibility_flags": ["nodejs_compat"],
 
+    // Preserve dashboard env vars + secrets on every deploy, regardless of
+    // CLI flag or CF Workers Builds dashboard build command. Defensive guard
+    // against `wrangler deploy` raw wiping dashboard variables.
+    "keep_vars": true,
+
     "assets": {
         "directory": ".open-next/assets",
         "binding": "ASSETS",
