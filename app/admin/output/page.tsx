@@ -114,7 +114,11 @@ export default async function AdminOutputPage() {
         }
 
         if (dayId) {
-            await clearOutputOverride(dayId);
+            const clearResult = await clearOutputOverride(dayId);
+
+            if (!clearResult.success) {
+                throw new Error(clearResult.error);
+            }
         }
         const updateResult = await updateProgramDayStatus({
             date: parsed.data.date,
@@ -139,12 +143,16 @@ export default async function AdminOutputPage() {
         if (!dayId) {
             return;
         }
-        await setReutersOutputOverride({
+        const result = await setReutersOutputOverride({
             programDayId: dayId,
             streamUrl: String(formData.get('stream_url') || ''),
             label: String(formData.get('label') || 'Reuters live'),
             expiresAt: String(formData.get('expires_at') || ''),
         });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     async function clearOverride() {
@@ -153,7 +161,11 @@ export default async function AdminOutputPage() {
         if (!dayId) {
             return;
         }
-        await clearOutputOverride(dayId);
+        const result = await clearOutputOverride(dayId);
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
     }
 
     return (

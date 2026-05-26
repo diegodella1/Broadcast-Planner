@@ -42,3 +42,14 @@ export {
     updateRunbookCheck,
     updateWeatherPlate,
 } from './mutations/slides';
+
+export {
+    clearOutputOverride,
+    ensureVimeoAssetCached,
+    goLiveWithReuters,
+    goLiveWithVimeo,
+    scheduleReutersBlock,
+    scheduleVimeoBlock,
+    searchVimeoCatalog,
+    setReutersOutputOverride,
+} from './mutations/output';

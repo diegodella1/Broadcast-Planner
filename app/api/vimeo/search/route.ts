@@ -18,9 +18,15 @@ export async function GET(request: Request) {
                 { status: 400 },
             );
         }
-        const results = await searchVimeoCatalog(parsed.data.query);
+        const result = await searchVimeoCatalog(parsed.data.query);
 
-        return NextResponse.json(results, { headers: { 'Cache-Control': 'no-store' } });
+        if (!result.success) {
+            console.error('[api/vimeo/search]', result.error);
+
+            return NextResponse.json({ error: result.error }, { status: 500 });
+        }
+
+        return NextResponse.json(result.data, { headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
         if (error instanceof Error && error.message === 'Unauthorized') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

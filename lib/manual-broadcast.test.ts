@@ -32,9 +32,11 @@ vi.mock('@/lib/data', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock @/lib/mutations
+// Mock @/lib/mutations/blocks (createProgramBlock lives in blocks module after
+// the Phase 3.1 migration). The manual-broadcast functions live in
+// @/lib/mutations/output and import createProgramBlock directly from blocks.
 // ---------------------------------------------------------------------------
-vi.mock('@/lib/mutations', () => ({
+vi.mock('@/lib/mutations/blocks', () => ({
     createProgramBlock: vi.fn(),
 }));
 
@@ -96,7 +98,7 @@ import {
     scheduleVimeoBlock,
     searchVimeoCatalog,
 } from './manual-broadcast';
-import { createProgramBlock } from './mutations';
+import { createProgramBlock } from './mutations/blocks';
 import { getVimeoToken } from './settings';
 import { searchVimeoAccountVideos, getVimeoVideo, upsertVimeoVideos } from './vimeo';
 
@@ -161,9 +163,12 @@ function resetMocks() {
 describe('searchVimeoCatalog', () => {
     beforeEach(resetMocks);
 
-    it('throws when no token is configured', async () => {
+    it('returns err when no token is configured', async () => {
         vi.mocked(getVimeoToken).mockResolvedValue(null);
-        await expect(searchVimeoCatalog('test')).rejects.toThrow(/no token/i);
+        const result = await searchVimeoCatalog('test');
+
+        expect(result.success).toBe(false);
+        expect(result.success ? '' : result.error).toMatch(/no token/i);
     });
 
     it('returns search results when token is present', async () => {
@@ -173,16 +178,23 @@ describe('searchVimeoCatalog', () => {
 
         const result = await searchVimeoCatalog('test');
 
-        expect(result).toHaveLength(1);
-        expect(result[0]!.uri).toBe('/videos/123');
+        expect(result.success).toBe(true);
+
+        if (result.success) {
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0]!.uri).toBe('/videos/123');
+        }
         expect(searchVimeoAccountVideos).toHaveBeenCalledWith('fake-token', 'test');
     });
 
-    it('propagates errors from searchVimeoAccountVideos', async () => {
+    it('captures errors from searchVimeoAccountVideos as err', async () => {
         vi.mocked(getVimeoToken).mockResolvedValue('fake-token');
         vi.mocked(searchVimeoAccountVideos).mockRejectedValue(new Error('Vimeo returned 401'));
 
-        await expect(searchVimeoCatalog('query')).rejects.toThrow('Vimeo returned 401');
+        const result = await searchVimeoCatalog('query');
+
+        expect(result.success).toBe(false);
+        expect(result.success ? '' : result.error).toBe('Vimeo returned 401');
     });
 });
 
@@ -192,9 +204,12 @@ describe('searchVimeoCatalog', () => {
 describe('goLiveWithVimeo', () => {
     beforeEach(resetMocks);
 
-    it('throws when no token is configured', async () => {
+    it('returns err when no token is configured', async () => {
         vi.mocked(getVimeoToken).mockResolvedValue(null);
-        await expect(goLiveWithVimeo({ vimeoUri: '/videos/123' })).rejects.toThrow(/no token/i);
+        const result = await goLiveWithVimeo({ vimeoUri: '/videos/123' });
+
+        expect(result.success).toBe(false);
+        expect(result.success ? '' : result.error).toMatch(/no token/i);
     });
 
     it('creates a ProgramBlock with category broadcast using the asset duration', async () => {
@@ -219,7 +234,7 @@ describe('goLiveWithVimeo', () => {
                 title: 'Test Video',
             }),
         );
-        expect(result).toEqual({ programBlockId: '' });
+        expect(result).toEqual({ success: true, data: { programBlockId: '' } });
     });
 
     it('uses asset durationSeconds for the ProgramBlock duration', async () => {
@@ -305,11 +320,12 @@ describe('goLiveWithVimeo', () => {
 describe('scheduleVimeoBlock', () => {
     beforeEach(resetMocks);
 
-    it('throws when no token is configured', async () => {
+    it('returns err when no token is configured', async () => {
         vi.mocked(getVimeoToken).mockResolvedValue(null);
-        await expect(
-            scheduleVimeoBlock({ vimeoUri: '/videos/123', startAt: '14:30' }),
-        ).rejects.toThrow(/no token/i);
+        const result = await scheduleVimeoBlock({ vimeoUri: '/videos/123', startAt: '14:30' });
+
+        expect(result.success).toBe(false);
+        expect(result.success ? '' : result.error).toMatch(/no token/i);
     });
 
     it('parses HH:MM startAt to correct startTimeSeconds in ProgramBlock', async () => {
@@ -392,18 +408,24 @@ describe('goLiveWithReuters', () => {
         });
     }
 
-    it('throws when the asset id does not resolve to a media asset', async () => {
+    it('returns err when the asset id does not resolve to a media asset', async () => {
         vi.mocked(getMediaAssetById).mockResolvedValue(null);
-        await expect(
-            goLiveWithReuters({ assetId: '11111111-1111-1111-1111-111111111111' }),
-        ).rejects.toThrow(/reuters asset not found/i);
+        const result = await goLiveWithReuters({
+            assetId: '11111111-1111-1111-1111-111111111111',
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.success ? '' : result.error).toMatch(/reuters asset not found/i);
     });
 
-    it('throws when the asset is not a reuters source', async () => {
+    it('returns err when the asset is not a reuters source', async () => {
         vi.mocked(getMediaAssetById).mockResolvedValue(makeAsset({ sourceType: 'vimeo' }));
-        await expect(
-            goLiveWithReuters({ assetId: '11111111-1111-1111-1111-111111111111' }),
-        ).rejects.toThrow(/not a reuters channel/i);
+        const result = await goLiveWithReuters({
+            assetId: '11111111-1111-1111-1111-111111111111',
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.success ? '' : result.error).toMatch(/not a reuters channel/i);
     });
 
     it('creates a ProgramBlock with category=reuters and 1800s default for live channels', async () => {

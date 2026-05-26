@@ -21,23 +21,21 @@ export async function goLiveAction(input: {
     vimeoUri: string;
     preempt?: boolean;
 }): Promise<ManualBroadcastResult> {
-    try {
-        const parsed = goLiveNowSchema.safeParse(input);
+    const parsed = goLiveNowSchema.safeParse(input);
 
-        if (!parsed.success) {
-            return {
-                success: false,
-                error: parsed.error.issues[0]?.message ?? 'Invalid input',
-            };
-        }
-        const { programBlockId } = await goLiveWithVimeo(parsed.data);
-
-        return { success: true, programBlockId };
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-
-        return { success: false, error: message };
+    if (!parsed.success) {
+        return {
+            success: false,
+            error: parsed.error.issues[0]?.message ?? 'Invalid input',
+        };
     }
+    const result = await goLiveWithVimeo(parsed.data);
+
+    if (!result.success) {
+        return { success: false, error: result.error };
+    }
+
+    return { success: true, programBlockId: result.data.programBlockId };
 }
 
 export async function scheduleAction(input: {
@@ -45,45 +43,41 @@ export async function scheduleAction(input: {
     startAt: string;
     airDate?: string;
 }): Promise<ManualBroadcastResult> {
-    try {
-        const parsed = scheduleVimeoBlockSchema.safeParse(input);
+    const parsed = scheduleVimeoBlockSchema.safeParse(input);
 
-        if (!parsed.success) {
-            return {
-                success: false,
-                error: parsed.error.issues[0]?.message ?? 'Invalid input',
-            };
-        }
-        const { programBlockId } = await scheduleVimeoBlock(parsed.data);
-
-        return { success: true, programBlockId };
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-
-        return { success: false, error: message };
+    if (!parsed.success) {
+        return {
+            success: false,
+            error: parsed.error.issues[0]?.message ?? 'Invalid input',
+        };
     }
+    const result = await scheduleVimeoBlock(parsed.data);
+
+    if (!result.success) {
+        return { success: false, error: result.error };
+    }
+
+    return { success: true, programBlockId: result.data.programBlockId };
 }
 
 export async function goLiveReutersAction(input: {
     assetId: string;
 }): Promise<ManualBroadcastResult> {
-    try {
-        const parsed = goLiveReutersSchema.safeParse(input);
+    const parsed = goLiveReutersSchema.safeParse(input);
 
-        if (!parsed.success) {
-            return {
-                success: false,
-                error: parsed.error.issues[0]?.message ?? 'Invalid input',
-            };
-        }
-        const { programBlockId } = await goLiveWithReuters(parsed.data);
-
-        return { success: true, programBlockId };
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-
-        return { success: false, error: message };
+    if (!parsed.success) {
+        return {
+            success: false,
+            error: parsed.error.issues[0]?.message ?? 'Invalid input',
+        };
     }
+    const result = await goLiveWithReuters(parsed.data);
+
+    if (!result.success) {
+        return { success: false, error: result.error };
+    }
+
+    return { success: true, programBlockId: result.data.programBlockId };
 }
 
 export async function scheduleReutersAction(input: {
@@ -92,21 +86,19 @@ export async function scheduleReutersAction(input: {
     airDate?: string;
     durationSeconds?: number;
 }): Promise<ManualBroadcastResult> {
-    try {
-        const parsed = scheduleReutersBlockSchema.safeParse(input);
+    const parsed = scheduleReutersBlockSchema.safeParse(input);
 
-        if (!parsed.success) {
-            return {
-                success: false,
-                error: parsed.error.issues[0]?.message ?? 'Invalid input',
-            };
-        }
-        const { programBlockId } = await scheduleReutersBlock(parsed.data);
-
-        return { success: true, programBlockId };
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-
-        return { success: false, error: message };
+    if (!parsed.success) {
+        return {
+            success: false,
+            error: parsed.error.issues[0]?.message ?? 'Invalid input',
+        };
     }
+    const result = await scheduleReutersBlock(parsed.data);
+
+    if (!result.success) {
+        return { success: false, error: result.error };
+    }
+
+    return { success: true, programBlockId: result.data.programBlockId };
 }

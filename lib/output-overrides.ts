@@ -1,8 +1,3 @@
-import { revalidatePath } from 'next/cache';
-
-import { auditedMutation } from './audit';
-import { getCurrentOperatorSession } from './auth';
-import { parseReutersStreamInput, maskStreamUrl } from './reuters-stream';
 import { createServiceClient } from './supabase/server';
 
 import type { OutputOverride } from './types';
@@ -28,88 +23,7 @@ export async function getActiveOutputOverride(programDayId?: string | null) {
     return data ? mapOutputOverride(data as Row) : null;
 }
 
-export async function setReutersOutputOverride(input: {
-    programDayId: string;
-    streamUrl: string;
-    label?: string;
-    expiresAt?: string;
-}) {
-    const stream = parseReutersStreamInput({
-        url: input.streamUrl,
-        ...(input.label ? { label: input.label } : {}),
-        ...(input.expiresAt ? { expiresAt: input.expiresAt } : {}),
-    });
-
-    if (!stream) {
-        throw new Error('Reuters stream URL is required');
-    }
-    const supabase = createServiceClient();
-    const operator = await getCurrentOperatorSession();
-    await auditedMutation(
-        {
-            action: 'output_override.reuters_set',
-            entityType: 'output_overrides',
-            entityId: input.programDayId,
-            metadata: {
-                source_type: 'reuters',
-                protocol: stream.protocol,
-                stream_url: maskStreamUrl(stream.url),
-                expires_at: stream.expiresAt ?? null,
-            },
-        },
-        async () => {
-            await clearOutputOverride(input.programDayId, false);
-            const { error } = await supabase.from('output_overrides').insert({
-                program_day_id: input.programDayId,
-                enabled: true,
-                source_type: 'reuters',
-                stream_url: stream.url,
-                stream_protocol: stream.protocol,
-                label: stream.label,
-                expires_at: stream.expiresAt ?? null,
-                metadata: {
-                    stream_url_masked: maskStreamUrl(stream.url),
-                    refreshed_at: new Date().toISOString(),
-                },
-                created_by: operator?.operatorId === 'bootstrap' ? null : operator?.operatorId,
-            });
-
-            if (error) {
-                throw error;
-            }
-        },
-    );
-    revalidatePath('/admin/output');
-}
-
-export async function clearOutputOverride(programDayId: string, audit = true) {
-    const supabase = createServiceClient();
-    const operation = async () => {
-        const { error } = await supabase
-            .from('output_overrides')
-            .update({ enabled: false, updated_at: new Date().toISOString() })
-            .eq('program_day_id', programDayId)
-            .eq('enabled', true);
-
-        if (error) {
-            throw error;
-        }
-    };
-
-    if (audit) {
-        await auditedMutation(
-            {
-                action: 'output_override.cleared',
-                entityType: 'output_overrides',
-                entityId: programDayId,
-            },
-            operation,
-        );
-    } else {
-        await operation();
-    }
-    revalidatePath('/admin/output');
-}
+export { clearOutputOverride, setReutersOutputOverride } from './mutations/output';
 
 export function mapOutputOverride(row: Row): OutputOverride {
     return {
