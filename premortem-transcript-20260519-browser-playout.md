@@ -162,35 +162,35 @@ Severity: high. Likelihood: medium.
 ## Revised Product Plan
 
 1. Add a Go Live Drill page/state.
-   - Must verify current day active, current block present, output opens, audio unlocked, video plays, slide renders, fallback works, reload resumes at offset.
-   - Result stored with timestamp and shown in Admin Health.
+    - Must verify current day active, current block present, output opens, audio unlocked, video plays, slide renders, fallback works, reload resumes at offset.
+    - Result stored with timestamp and shown in Admin Health.
 
 2. Certify one capture runtime.
-   - Pick OBS Browser Source or vMix as official first.
-   - Test actual capture runtime, not only Chrome.
-   - Document exact settings: autoplay, reload behavior, resolution, audio route.
+    - Pick OBS Browser Source or vMix as official first.
+    - Test actual capture runtime, not only Chrome.
+    - Document exact settings: autoplay, reload behavior, resolution, audio route.
 
 3. Add output drift monitor.
-   - Compare `video.currentTime` to expected schedule offset.
-   - Warn if drift exceeds 2 seconds for 10 seconds.
-   - Fail if stalled/waiting persists over threshold.
+    - Compare `video.currentTime` to expected schedule offset.
+    - Warn if drift exceeds 2 seconds for 10 seconds.
+    - Fail if stalled/waiting persists over threshold.
 
 4. Make fallback an asset requirement.
-   - No active day without ready global fallback.
-   - Test fallback in browser output before live.
+    - No active day without ready global fallback.
+    - Test fallback in browser output before live.
 
 5. Remove split-brain docs and primary UI.
-   - Browser Output is official.
-   - ffmpeg/VLC path marked legacy or removed.
+    - Browser Output is official.
+    - ffmpeg/VLC path marked legacy or removed.
 
 6. Add operator incident prompts.
-   - If mediaState errored: show "force fallback / reload output / return to schedule."
-   - If audio locked: show "click Start Output on capture machine."
-   - If no active day: show "activate today's schedule."
+    - If mediaState errored: show "force fallback / reload output / return to schedule."
+    - If audio locked: show "click Start Output on capture machine."
+    - If no active day: show "activate today's schedule."
 
 7. Add endurance test.
-   - Run output renderer for at least 2 hours with video, slide, image/ad, fallback.
-   - Log memory, drift, stalled events, reload recovery.
+    - Run output renderer for at least 2 hours with video, slide, image/ad, fallback.
+    - Log memory, drift, stalled events, reload recovery.
 
 ## Pre-Launch Checklist
 

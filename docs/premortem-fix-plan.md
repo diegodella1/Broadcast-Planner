@@ -10,9 +10,9 @@ Status: superseded by the browser output workflow. Production output smoke now t
 - Test `/output/live` status route against local production build and the public
   `cloudflared` tunnel.
 - Wait for one of these explicit outcomes:
-  - media state reaches `playing`
-  - branded fallback slate renders intentionally
-  - schedule unavailable emergency slate renders with explicit reason
+    - media state reaches `playing`
+    - branded fallback slate renders intentionally
+    - schedule unavailable emergency slate renders with explicit reason
 - Capture screenshot and assert nonblack/nonblank pixels.
 - Keep output checks focused on schedule, auth, media rendering, fallback and drift visibility.
 - Keep Node smoke as `npm run smoke:http` for fast endpoint checks.
@@ -46,15 +46,15 @@ Status: implemented by removing arbitrary HTML insertion from the output rendere
 - Preferred MVP path: remove arbitrary slide HTML from production output and render it as plain text or trusted templates only.
 - If HTML must remain, add a real parser-based sanitizer dependency and allowlist tags/attrs.
 - Add tests for:
-  - event handlers
-  - malformed script tags
-  - `javascript:` URLs
-  - SVG payloads
-  - style URL payloads
+    - event handlers
+    - malformed script tags
+    - `javascript:` URLs
+    - SVG payloads
+    - style URL payloads
 - Tighten CSP:
-  - remove broad `connect-src`/`media-src` where possible
-  - document why `unsafe-inline` or `unsafe-eval` remain if Next requires them
-  - add report-only CSP endpoint later if needed
+    - remove broad `connect-src`/`media-src` where possible
+    - document why `unsafe-inline` or `unsafe-eval` remain if Next requires them
+    - add report-only CSP endpoint later if needed
 
 Acceptance:
 
@@ -68,21 +68,21 @@ Status: implemented for critical app mutation paths with a static guard.
 
 - Add `auditedMutation()` helper.
 - For broadcast-critical writes, store:
-  - actor
-  - action
-  - entity type/id
-  - result
-  - previous critical values
-  - next critical values
-  - correlation id
+    - actor
+    - action
+    - entity type/id
+    - result
+    - previous critical values
+    - next critical values
+    - correlation id
 - Route these through helper:
-  - program day status changes
-  - block create/update/delete
-  - layer create/toggle/delete
-  - asset create/update/upload/import
-  - Vimeo/Reuters sync
-  - manual broadcast actions
-  - settings changes
+    - program day status changes
+    - block create/update/delete
+    - layer create/toggle/delete
+    - asset create/update/upload/import
+    - Vimeo/Reuters sync
+    - manual broadcast actions
+    - settings changes
 - Add static check that flags critical mutation files missing `auditedMutation`.
 
 Acceptance:
@@ -96,8 +96,8 @@ Status: implemented with a Supabase trigger migration and richer conflict UX.
 
 - Add Supabase migration for per-day no-overlap enforcement.
 - Use either:
-  - PostgreSQL exclusion constraint with range type, if extension support is available
-  - trigger function that rejects overlapping `program_blocks`
+    - PostgreSQL exclusion constraint with range type, if extension support is available
+    - trigger function that rejects overlapping `program_blocks`
 - Keep app-level `findScheduleConflicts()` for friendly UX, suggested safe time, safe resize and archive-conflicts replacement.
 - Add tests for same-day overlap, cross-day non-overlap, update self, and concurrent write simulation.
 
@@ -112,20 +112,20 @@ Status: implemented as a guarded staging-only smoke script with sandbox cleanup.
 
 - Create `npm run smoke:staging-write`.
 - Required env:
-  - `RTV_STAGING_BASE_URL`
-  - `ADMIN_BOOTSTRAP_TOKEN`
-  - `OUTPUT_CAPTURE_TOKEN`
-  - `NEXT_PUBLIC_SUPABASE_URL`
-  - `SUPABASE_SERVICE_ROLE_KEY`
+    - `RTV_STAGING_BASE_URL`
+    - `ADMIN_BOOTSTRAP_TOKEN`
+    - `OUTPUT_CAPTURE_TOKEN`
+    - `NEXT_PUBLIC_SUPABASE_URL`
+    - `SUPABASE_SERVICE_ROLE_KEY`
 - Use a reserved future sandbox date.
 - Test:
-  - get CSRF
-  - create/register tiny media or URL asset
-  - create block
-  - set day ready when health permits
-  - open preview/output
-  - verify audit rows
-  - archive/delete sandbox data
+    - get CSRF
+    - create/register tiny media or URL asset
+    - create block
+    - set day ready when health permits
+    - open preview/output
+    - verify audit rows
+    - archive/delete sandbox data
 - Never run this against live production.
 
 Acceptance:
@@ -140,11 +140,11 @@ Status: release docs now require local tunnel deploy plus HTTP/browser/staging/p
 
 - Treat `deploy:local` behind `cloudflared` as the current primary production path.
 - Release order:
-  1. local type/lint/test/build
-  2. production deploy with `deploy:local`
-  3. production read-only smoke
-  4. production output status smoke
-  5. staging write smoke when a staging host exists
+    1. local type/lint/test/build
+    2. production deploy with `deploy:local`
+    3. production read-only smoke
+    4. production output status smoke
+    5. staging write smoke when a staging host exists
 - Keep Cloudflare Worker/OpenNext build as optional validation for future deploy strategy.
 
 Acceptance:

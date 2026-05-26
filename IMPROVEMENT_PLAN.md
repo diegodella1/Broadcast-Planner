@@ -57,9 +57,9 @@ Problem: API routes can use privileged Supabase service role. Every write path n
 Actions:
 
 - Add `requireAdmin()` to:
-  - `app/api/assets/upload/route.ts`
-  - `app/api/settings/route.ts`
-  - `app/api/vimeo/import/route.ts`
+    - `app/api/assets/upload/route.ts`
+    - `app/api/settings/route.ts`
+    - `app/api/vimeo/import/route.ts`
 - Review server actions using `createServiceClient()` and ensure admin pages are protected by middleware or route guards.
 - Add regression test or static script that fails when an API route uses `createServiceClient()` without `requireAdmin()`.
 
@@ -124,10 +124,10 @@ Problem: fallback exists but needs deterministic priority.
 Actions:
 
 - Resolve fallback in this order:
-  1. Block fallback
-  2. Day fallback
-  3. Global ready fallback asset
-  4. Hardcoded Roxom emergency slate
+    1. Block fallback
+    2. Day fallback
+    3. Global ready fallback asset
+    4. Hardcoded Roxom emergency slate
 - Add health warning when output would reach level 4.
 
 Acceptance:
@@ -145,13 +145,13 @@ Problem: counts are useful, but operators need pass/fail readiness.
 Actions:
 
 - Add checklist to schedule page:
-  - No overlaps
-  - No missing base assets
-  - No unsupported base assets
-  - Ready fallback available
-  - Required coverage window filled
-  - Layers fit inside blocks
-  - Active output preview opens cleanly
+    - No overlaps
+    - No missing base assets
+    - No unsupported base assets
+    - Ready fallback available
+    - Required coverage window filled
+    - Layers fit inside blocks
+    - Active output preview opens cleanly
 - Block `ready`/`active` status when critical items fail.
 
 Acceptance:
@@ -186,11 +186,11 @@ Actions:
 - Add `/admin/live` or panel on schedule page.
 - Show now, next, active media state, fallback state, current layers, warnings.
 - Add actions:
-  - Force fallback
-  - Disable overlay
-  - Force next block
-  - Hold current block
-  - Clear override
+    - Force fallback
+    - Disable overlay
+    - Force next block
+    - Hold current block
+    - Clear override
 - Persist overrides with expiry and audit log.
 
 Acceptance:

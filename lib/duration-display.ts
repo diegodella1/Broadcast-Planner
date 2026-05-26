@@ -1,6 +1,6 @@
-import type { SourceType } from "./types"
+import type { SourceType } from './types';
 
-export type DurationDisplay = { kind: "live" } | { kind: "duration"; seconds: number }
+export type DurationDisplay = { kind: 'live' } | { kind: 'duration'; seconds: number };
 
 /**
  * Decides whether a duration chip should render as the literal "Live" label
@@ -15,14 +15,16 @@ export type DurationDisplay = { kind: "live" } | { kind: "duration"; seconds: nu
  * always has a numeric branch available.
  */
 export function getDurationDisplay(input: {
-  durationSeconds: number | null
-  sourceType: SourceType
+    durationSeconds: number | null;
+    sourceType: SourceType;
 }): DurationDisplay {
-  if (input.durationSeconds === null && input.sourceType === "reuters") {
-    return { kind: "live" }
-  }
-  if (input.durationSeconds === null) {
-    return { kind: "duration", seconds: 0 }
-  }
-  return { kind: "duration", seconds: input.durationSeconds }
+    if (input.durationSeconds === null && input.sourceType === 'reuters') {
+        return { kind: 'live' };
+    }
+
+    if (input.durationSeconds === null) {
+        return { kind: 'duration', seconds: 0 };
+    }
+
+    return { kind: 'duration', seconds: input.durationSeconds };
 }

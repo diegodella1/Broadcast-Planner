@@ -363,13 +363,13 @@ The admin should not have to open the output route to know if the schedule is sa
 Feature:
 
 - Compact panel on schedule page showing:
-  - current block,
-  - current asset,
-  - renderer support,
-  - fallback asset,
-  - active layers,
-  - next transition time,
-  - detected critical issues.
+    - current block,
+    - current asset,
+    - renderer support,
+    - fallback asset,
+    - active layers,
+    - next transition time,
+    - detected critical issues.
 
 Acceptance:
 
@@ -424,11 +424,11 @@ The current long test generator proves the concept. It should become a productio
 Feature:
 
 - Named patterns:
-  - program plus ad break,
-  - promo loop,
-  - long-form video with bumpers,
-  - filler loop,
-  - overnight continuity.
+    - program plus ad break,
+    - promo loop,
+    - long-form video with bumpers,
+    - filler loop,
+    - overnight continuity.
 - Asset pools by type and tag.
 - Configurable duration rules.
 - Preview generated blocks before insert.

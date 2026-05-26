@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { z } from 'zod';
 
 /**
  * Parse a FormData object against a Zod schema. Throws an Error with a
@@ -6,21 +6,27 @@ import { z } from "zod"
  * the route segment's error.tsx boundary.
  */
 export function parseFormData<TSchema extends z.ZodTypeAny>(
-  schema: TSchema,
-  raw: Record<string, unknown>
+    schema: TSchema,
+    raw: Record<string, unknown>,
 ): z.infer<TSchema> {
-  const parsed = schema.safeParse(raw)
-  if (!parsed.success) {
-    throw new Error(formatZodError(parsed.error))
-  }
-  return parsed.data
+    const parsed = schema.safeParse(raw);
+
+    if (!parsed.success) {
+        throw new Error(formatZodError(parsed.error));
+    }
+
+    return parsed.data;
 }
 
 export function formatZodError(error: z.ZodError): string {
-  const first = error.issues[0]
-  if (!first) return "Invalid form input"
-  const path = first.path.length > 0 ? first.path.join(".") : "input"
-  return `${path}: ${first.message}`
+    const first = error.issues[0];
+
+    if (!first) {
+        return 'Invalid form input';
+    }
+    const path = first.path.length > 0 ? first.path.join('.') : 'input';
+
+    return `${path}: ${first.message}`;
 }
 
 /**
@@ -29,12 +35,15 @@ export function formatZodError(error: z.ZodError): string {
  * holds explicit `undefined` for missing optional fields.
  */
 export function stripUndefined<T extends Record<string, unknown>>(input: T): Partial<T> {
-  const out: Partial<T> = {}
-  for (const key of Object.keys(input) as Array<keyof T>) {
-    const value = input[key]
-    if (value !== undefined) {
-      out[key] = value
+    const out: Partial<T> = {};
+
+    for (const key of Object.keys(input) as Array<keyof T>) {
+        const value = input[key];
+
+        if (value !== undefined) {
+            out[key] = value;
+        }
     }
-  }
-  return out
+
+    return out;
 }

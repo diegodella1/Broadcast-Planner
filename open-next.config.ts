@@ -1,4 +1,4 @@
-import { defineCloudflareConfig } from "@opennextjs/cloudflare"
+import { defineCloudflareConfig } from '@opennextjs/cloudflare';
 
 // Minimal Cloudflare Workers configuration for roxom-playout-manager.
 //
@@ -22,4 +22,4 @@ import { defineCloudflareConfig } from "@opennextjs/cloudflare"
 //        import r2IncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/r2-incremental-cache"
 //        export default defineCloudflareConfig({ incrementalCache: r2IncrementalCache })
 
-export default defineCloudflareConfig({})
+export default defineCloudflareConfig({});

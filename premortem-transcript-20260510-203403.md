@@ -190,46 +190,46 @@ P2 - Deployment/runtime divergence remains. OpenNext, Docker, standalone, and lo
 ## Revised Fix Plan
 
 1. Add browser-based playout smoke.
-   - Use Playwright or Chromium headless against a production-like URL.
-   - Wait for a stable selector/debug field showing media state.
-   - Capture screenshot and assert nonblack pixels.
-   - Add forced bad-media scenario in local/staging to prove fallback.
+    - Use Playwright or Chromium headless against a production-like URL.
+    - Wait for a stable selector/debug field showing media state.
+    - Capture screenshot and assert nonblack pixels.
+    - Add forced bad-media scenario in local/staging to prove fallback.
 
 2. Replace query output token for operators.
-   - Add `/admin/output/session` action to mint short-lived `rpm_output_token` cookie.
-   - Keep query token only as temporary bootstrap for capture setup.
-   - Make `OUTPUT_CAPTURE_TOKEN` required in production health.
-   - Add token rotation runbook.
+    - Add `/admin/output/session` action to mint short-lived `rpm_output_token` cookie.
+    - Keep query token only as temporary bootstrap for capture setup.
+    - Make `OUTPUT_CAPTURE_TOKEN` required in production health.
+    - Add token rotation runbook.
 
 3. Tighten output/API auth.
-   - Keep `/api/playout/schedule` and `/api/vimeo/playback` protected by output token.
-   - Require admin for Vimeo search and Reuters sync/list.
-   - Add tests for unauthorized API reads.
+    - Keep `/api/playout/schedule` and `/api/vimeo/playback` protected by output token.
+    - Require admin for Vimeo search and Reuters sync/list.
+    - Add tests for unauthorized API reads.
 
 4. Upgrade XSS defense.
-   - Replace regex sanitizer with a real sanitizer or remove arbitrary slide HTML from production MVP.
-   - Add tests for malformed tags, event handlers, style URLs, SVG payloads, and javascript URLs.
-   - Move CSP toward nonces/hashes and remove `unsafe-eval` where Next runtime allows.
+    - Replace regex sanitizer with a real sanitizer or remove arbitrary slide HTML from production MVP.
+    - Add tests for malformed tags, event handlers, style URLs, SVG payloads, and javascript URLs.
+    - Move CSP toward nonces/hashes and remove `unsafe-eval` where Next runtime allows.
 
 5. Make audit mandatory.
-   - Add an `auditedMutation` helper.
-   - Store actor, action, entity, result, previous critical fields, next critical fields, and correlation id.
-   - Add static guard for broadcast-critical mutations that do not call audit helper.
+    - Add an `auditedMutation` helper.
+    - Store actor, action, entity, result, previous critical fields, next critical fields, and correlation id.
+    - Add static guard for broadcast-critical mutations that do not call audit helper.
 
 6. Add DB-level schedule invariant.
-   - Add exclusion/trigger constraint or serialized transaction for per-day block overlap.
-   - Test concurrent writes.
-   - Keep app helper only for user-friendly message and suggested slot.
+    - Add exclusion/trigger constraint or serialized transaction for per-day block overlap.
+    - Test concurrent writes.
+    - Keep app helper only for user-friendly message and suggested slot.
 
 7. Add staging write smoke.
-   - Never write in live production smoke.
-   - In staging, create future sandbox date, upload/register tiny asset, create block, publish/check output, delete or archive sandbox data.
-   - Assert audit rows exist for every write.
+    - Never write in live production smoke.
+    - In staging, create future sandbox date, upload/register tiny asset, create block, publish/check output, delete or archive sandbox data.
+    - Assert audit rows exist for every write.
 
 8. Canonicalize deployment.
-   - Pick Cloudflare as primary production artifact if that is the real target.
-   - Run smoke against Cloudflare preview before promotion.
-   - Keep Docker/local tunnel as secondary with separate smoke script.
+    - Pick Cloudflare as primary production artifact if that is the real target.
+    - Run smoke against Cloudflare preview before promotion.
+    - Keep Docker/local tunnel as secondary with separate smoke script.
 
 ## Pre-Launch Checklist
 

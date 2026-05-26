@@ -1,478 +1,506 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Premortem - RTV Planner MVP Production Readiness</title>
-    <style>
-      :root {
-        color-scheme: dark;
-        --bg: #0a0e1a;
-        --panel: #111827;
-        --panel2: #182132;
-        --line: #2b3548;
-        --text: #f8fafc;
-        --muted: #a7b0c0;
-        --red: #fb7185;
-        --amber: #fbbf24;
-        --green: #34d399;
-        --blue: #60a5fa;
-        --violet: #a78bfa;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        background: radial-gradient(circle at 20% 0%, #172033 0, var(--bg) 42%);
-        color: var(--text);
-        font-family:
-          Inter,
-          ui-sans-serif,
-          system-ui,
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          sans-serif;
-        line-height: 1.55;
-      }
-      main {
-        max-width: 1180px;
-        margin: 0 auto;
-        padding: 40px 20px 56px;
-      }
-      header {
-        margin-bottom: 24px;
-      }
-      .eyebrow {
-        color: var(--green);
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.16em;
-        font-weight: 800;
-      }
-      h1 {
-        margin: 8px 0 10px;
-        font-size: clamp(32px, 5vw, 54px);
-        line-height: 1.03;
-      }
-      h2 {
-        margin: 0 0 14px;
-        font-size: 22px;
-      }
-      h3 {
-        margin: 0 0 10px;
-        font-size: 17px;
-      }
-      p {
-        margin: 0 0 12px;
-      }
-      .summary {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 14px;
-        margin: 24px 0;
-      }
-      .card {
-        border: 1px solid var(--line);
-        background: color-mix(in srgb, var(--panel) 88%, transparent);
-        border-radius: 10px;
-        padding: 18px;
-        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
-      }
-      .danger {
-        border-color: color-mix(in srgb, var(--red) 55%, var(--line));
-      }
-      .likely {
-        border-color: color-mix(in srgb, var(--amber) 55%, var(--line));
-      }
-      .hidden {
-        border-color: color-mix(in srgb, var(--violet) 55%, var(--line));
-      }
-      .label {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 10px;
-        color: var(--muted);
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        font-weight: 800;
-      }
-      .pill {
-        display: inline-block;
-        border-radius: 999px;
-        padding: 3px 9px;
-        font-size: 11px;
-        font-weight: 800;
-        border: 1px solid var(--line);
-        color: var(--muted);
-      }
-      .p0 {
-        color: var(--red);
-        border-color: var(--red);
-      }
-      .p1 {
-        color: var(--amber);
-        border-color: var(--amber);
-      }
-      .p2 {
-        color: var(--blue);
-        border-color: var(--blue);
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 14px;
-      }
-      .failure {
-        position: relative;
-        overflow: hidden;
-      }
-      .failure::before {
-        content: "";
-        position: absolute;
-        inset: 0 0 auto;
-        height: 4px;
-        background: var(--accent, var(--blue));
-      }
-      .meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin: 10px 0 14px;
-      }
-      .muted {
-        color: var(--muted);
-      }
-      ul,
-      ol {
-        margin: 10px 0 0;
-        padding-left: 20px;
-      }
-      li {
-        margin: 7px 0;
-      }
-      .section {
-        margin-top: 24px;
-      }
-      .fixes {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 14px;
-      }
-      footer {
-        margin-top: 30px;
-        color: var(--muted);
-        font-size: 13px;
-        border-top: 1px solid var(--line);
-        padding-top: 18px;
-      }
-      @media (max-width: 820px) {
-        .summary,
-        .grid,
-        .fixes {
-          grid-template-columns: 1fr;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <header>
-        <div class="eyebrow">Premortem report</div>
-        <h1>RTV Planner MVP production readiness failed</h1>
-        <p class="muted">
-          Premise: it is 6 months from now. The hardening plan shipped, was declared MVP-ready, and
-          still failed during real broadcast operation.
-        </p>
-      </header>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Premortem - RTV Planner MVP Production Readiness</title>
+        <style>
+            :root {
+                color-scheme: dark;
+                --bg: #0a0e1a;
+                --panel: #111827;
+                --panel2: #182132;
+                --line: #2b3548;
+                --text: #f8fafc;
+                --muted: #a7b0c0;
+                --red: #fb7185;
+                --amber: #fbbf24;
+                --green: #34d399;
+                --blue: #60a5fa;
+                --violet: #a78bfa;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                background: radial-gradient(circle at 20% 0%, #172033 0, var(--bg) 42%);
+                color: var(--text);
+                font-family:
+                    Inter,
+                    ui-sans-serif,
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    'Segoe UI',
+                    sans-serif;
+                line-height: 1.55;
+            }
+            main {
+                max-width: 1180px;
+                margin: 0 auto;
+                padding: 40px 20px 56px;
+            }
+            header {
+                margin-bottom: 24px;
+            }
+            .eyebrow {
+                color: var(--green);
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.16em;
+                font-weight: 800;
+            }
+            h1 {
+                margin: 8px 0 10px;
+                font-size: clamp(32px, 5vw, 54px);
+                line-height: 1.03;
+            }
+            h2 {
+                margin: 0 0 14px;
+                font-size: 22px;
+            }
+            h3 {
+                margin: 0 0 10px;
+                font-size: 17px;
+            }
+            p {
+                margin: 0 0 12px;
+            }
+            .summary {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 14px;
+                margin: 24px 0;
+            }
+            .card {
+                border: 1px solid var(--line);
+                background: color-mix(in srgb, var(--panel) 88%, transparent);
+                border-radius: 10px;
+                padding: 18px;
+                box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+            }
+            .danger {
+                border-color: color-mix(in srgb, var(--red) 55%, var(--line));
+            }
+            .likely {
+                border-color: color-mix(in srgb, var(--amber) 55%, var(--line));
+            }
+            .hidden {
+                border-color: color-mix(in srgb, var(--violet) 55%, var(--line));
+            }
+            .label {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 10px;
+                color: var(--muted);
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+                font-weight: 800;
+            }
+            .pill {
+                display: inline-block;
+                border-radius: 999px;
+                padding: 3px 9px;
+                font-size: 11px;
+                font-weight: 800;
+                border: 1px solid var(--line);
+                color: var(--muted);
+            }
+            .p0 {
+                color: var(--red);
+                border-color: var(--red);
+            }
+            .p1 {
+                color: var(--amber);
+                border-color: var(--amber);
+            }
+            .p2 {
+                color: var(--blue);
+                border-color: var(--blue);
+            }
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 14px;
+            }
+            .failure {
+                position: relative;
+                overflow: hidden;
+            }
+            .failure::before {
+                content: '';
+                position: absolute;
+                inset: 0 0 auto;
+                height: 4px;
+                background: var(--accent, var(--blue));
+            }
+            .meta {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin: 10px 0 14px;
+            }
+            .muted {
+                color: var(--muted);
+            }
+            ul,
+            ol {
+                margin: 10px 0 0;
+                padding-left: 20px;
+            }
+            li {
+                margin: 7px 0;
+            }
+            .section {
+                margin-top: 24px;
+            }
+            .fixes {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 14px;
+            }
+            footer {
+                margin-top: 30px;
+                color: var(--muted);
+                font-size: 13px;
+                border-top: 1px solid var(--line);
+                padding-top: 18px;
+            }
+            @media (max-width: 820px) {
+                .summary,
+                .grid,
+                .fixes {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <header>
+                <div class="eyebrow">Premortem report</div>
+                <h1>RTV Planner MVP production readiness failed</h1>
+                <p class="muted">
+                    Premise: it is 6 months from now. The hardening plan shipped, was declared
+                    MVP-ready, and still failed during real broadcast operation.
+                </p>
+            </header>
 
-      <section class="summary">
-        <article class="card likely">
-          <div class="label">Most likely failure</div>
-          <h2>Smoke passed, playout failed</h2>
-          <p>
-            Endpoint probes returned HTML and JSON, but the hydrated renderer never reached reliable
-            video playback, fallback, or nonblack pixels in the capture path.
-          </p>
-        </article>
-        <article class="card danger">
-          <div class="label">Most dangerous failure</div>
-          <h2>Output token leaked or disabled</h2>
-          <p>
-            Query-string tokens became operationally hard to protect. If unset or leaked, schedule
-            data and playback URLs become exposed.
-          </p>
-        </article>
-        <article class="card hidden">
-          <div class="label">Hidden assumption</div>
-          <h2>Readiness is not endpoint reachability</h2>
-          <p>
-            Broadcast readiness must prove capture, media playback, fallback, operator recovery, and
-            auditability - not just server response shape.
-          </p>
-        </article>
-      </section>
+            <section class="summary">
+                <article class="card likely">
+                    <div class="label">Most likely failure</div>
+                    <h2>Smoke passed, playout failed</h2>
+                    <p>
+                        Endpoint probes returned HTML and JSON, but the hydrated renderer never
+                        reached reliable video playback, fallback, or nonblack pixels in the capture
+                        path.
+                    </p>
+                </article>
+                <article class="card danger">
+                    <div class="label">Most dangerous failure</div>
+                    <h2>Output token leaked or disabled</h2>
+                    <p>
+                        Query-string tokens became operationally hard to protect. If unset or
+                        leaked, schedule data and playback URLs become exposed.
+                    </p>
+                </article>
+                <article class="card hidden">
+                    <div class="label">Hidden assumption</div>
+                    <h2>Readiness is not endpoint reachability</h2>
+                    <p>
+                        Broadcast readiness must prove capture, media playback, fallback, operator
+                        recovery, and auditability - not just server response shape.
+                    </p>
+                </article>
+            </section>
 
-      <section class="section card">
-        <h2>Red-team findings</h2>
-        <div class="grid">
-          <p>
-            <span class="pill p0">P0</span> Output token in URLs leaks through browser history,
-            logs, capture configs, screenshots, and referrers.
-          </p>
-          <p>
-            <span class="pill p0">P0</span> Current smoke does not prove real playout, HLS startup,
-            black-frame detection, audio/autoplay, or fallback.
-          </p>
-          <p>
-            <span class="pill p1">P1</span> CSP still allows `unsafe-inline`, `unsafe-eval`, and
-            broad connection/media sources.
-          </p>
-          <p>
-            <span class="pill p1">P1</span> Regex HTML sanitization is not a robust XSS boundary for
-            slide HTML.
-          </p>
-          <p>
-            <span class="pill p1">P1</span> Audit lacks enforced common write path, actor identity,
-            and previous/next critical values.
-          </p>
-          <p>
-            <span class="pill p1">P1</span> No production-like mutation smoke covers upload, sync,
-            publish, CSRF, or audit writes.
-          </p>
-        </div>
-      </section>
+            <section class="section card">
+                <h2>Red-team findings</h2>
+                <div class="grid">
+                    <p>
+                        <span class="pill p0">P0</span> Output token in URLs leaks through browser
+                        history, logs, capture configs, screenshots, and referrers.
+                    </p>
+                    <p>
+                        <span class="pill p0">P0</span> Current smoke does not prove real playout,
+                        HLS startup, black-frame detection, audio/autoplay, or fallback.
+                    </p>
+                    <p>
+                        <span class="pill p1">P1</span> CSP still allows `unsafe-inline`,
+                        `unsafe-eval`, and broad connection/media sources.
+                    </p>
+                    <p>
+                        <span class="pill p1">P1</span> Regex HTML sanitization is not a robust XSS
+                        boundary for slide HTML.
+                    </p>
+                    <p>
+                        <span class="pill p1">P1</span> Audit lacks enforced common write path,
+                        actor identity, and previous/next critical values.
+                    </p>
+                    <p>
+                        <span class="pill p1">P1</span> No production-like mutation smoke covers
+                        upload, sync, publish, CSRF, or audit writes.
+                    </p>
+                </div>
+            </section>
 
-      <section class="section">
-        <h2>Revised plan</h2>
-        <div class="fixes">
-          <article class="card">
-            <h3>1. Browser playout smoke</h3>
-            <p>
-              Add headless browser smoke that waits for renderer state, captures screenshots,
-              asserts nonblack pixels, and tests forced fallback in local/staging.
-            </p>
-          </article>
-          <article class="card">
-            <h3>2. Safer output sessions</h3>
-            <p>
-              Mint short-lived output cookies from admin. Keep query token only for bootstrap,
-              require it in production, and add rotation runbook.
-            </p>
-          </article>
-          <article class="card">
-            <h3>3. Tighten auth and API reads</h3>
-            <p>
-              Keep playout schedule/playback protected by output token. Require admin for catalog
-              search and Reuters listing/sync.
-            </p>
-          </article>
-          <article class="card">
-            <h3>4. Real XSS boundary</h3>
-            <p>
-              Remove arbitrary slide HTML for MVP or replace regex sanitizer with parser-based
-              sanitizer and payload tests.
-            </p>
-          </article>
-          <article class="card">
-            <h3>5. Mandatory audit helper</h3>
-            <p>
-              Force broadcast-critical writes through an audited mutation helper with actor, result,
-              previous/next values, and correlation id.
-            </p>
-          </article>
-          <article class="card">
-            <h3>6. Staging write smoke</h3>
-            <p>
-              Use staging for future sandbox date write tests. Keep live production smoke read-only.
-            </p>
-          </article>
-        </div>
-      </section>
+            <section class="section">
+                <h2>Revised plan</h2>
+                <div class="fixes">
+                    <article class="card">
+                        <h3>1. Browser playout smoke</h3>
+                        <p>
+                            Add headless browser smoke that waits for renderer state, captures
+                            screenshots, asserts nonblack pixels, and tests forced fallback in
+                            local/staging.
+                        </p>
+                    </article>
+                    <article class="card">
+                        <h3>2. Safer output sessions</h3>
+                        <p>
+                            Mint short-lived output cookies from admin. Keep query token only for
+                            bootstrap, require it in production, and add rotation runbook.
+                        </p>
+                    </article>
+                    <article class="card">
+                        <h3>3. Tighten auth and API reads</h3>
+                        <p>
+                            Keep playout schedule/playback protected by output token. Require admin
+                            for catalog search and Reuters listing/sync.
+                        </p>
+                    </article>
+                    <article class="card">
+                        <h3>4. Real XSS boundary</h3>
+                        <p>
+                            Remove arbitrary slide HTML for MVP or replace regex sanitizer with
+                            parser-based sanitizer and payload tests.
+                        </p>
+                    </article>
+                    <article class="card">
+                        <h3>5. Mandatory audit helper</h3>
+                        <p>
+                            Force broadcast-critical writes through an audited mutation helper with
+                            actor, result, previous/next values, and correlation id.
+                        </p>
+                    </article>
+                    <article class="card">
+                        <h3>6. Staging write smoke</h3>
+                        <p>
+                            Use staging for future sandbox date write tests. Keep live production
+                            smoke read-only.
+                        </p>
+                    </article>
+                </div>
+            </section>
 
-      <section class="section">
-        <h2>Failure-mode cards</h2>
-        <div class="grid">
-          <article class="card failure" style="--accent: #fbbf24">
-            <h3>Smoke passed, output failed</h3>
-            <div class="meta">
-              <span class="pill p0">High likelihood</span><span class="pill p0">High impact</span>
-            </div>
-            <p>
-              Server HTML looked healthy while hydrated media stayed stuck at "Loading Vimeo
-              stream". The smoke did not wait for `playing` or inspect pixels.
-            </p>
-            <p><strong>Assumption:</strong> Nonblank HTML means broadcast output works.</p>
-            <p>
-              <strong>Warnings:</strong> Debug state stays `loading`; smoke artifacts contain
-              loading/emergency slate.
-            </p>
-          </article>
-          <article class="card failure" style="--accent: #fb7185">
-            <h3>Output token leaked</h3>
-            <div class="meta">
-              <span class="pill p0">Medium likelihood</span
-              ><span class="pill p0">Critical impact</span>
-            </div>
-            <p>
-              Tokens in URLs spread through capture configs, browser history, screenshots, and logs.
-              Someone eventually disables the token to reduce friction.
-            </p>
-            <p><strong>Assumption:</strong> Query tokens are acceptable for production capture.</p>
-            <p>
-              <strong>Warnings:</strong> Docs/screenshots include `?token=`; prod health treats
-              token as optional.
-            </p>
-          </article>
-          <article class="card failure" style="--accent: #60a5fa">
-            <h3>CSRF broke operations</h3>
-            <div class="meta">
-              <span class="pill p1">Medium likelihood</span><span class="pill p1">High impact</span>
-            </div>
-            <p>
-              Long-lived tabs and scripts fail with `Invalid CSRF token`. Recovery controls fail
-              during live incidents.
-            </p>
-            <p><strong>Assumption:</strong> Obvious forms are all legitimate mutation paths.</p>
-            <p>
-              <strong>Warnings:</strong> Same-origin admins get 403s; scripts need browser CSRF
-              bootstrap.
-            </p>
-          </article>
-          <article class="card failure" style="--accent: #a78bfa">
-            <h3>Audit was incomplete</h3>
-            <div class="meta">
-              <span class="pill p1">High likelihood</span><span class="pill p1">Medium impact</span>
-            </div>
-            <p>
-              Audit rows exist but cannot answer who changed what, from what value, and by which
-              path.
-            </p>
-            <p><strong>Assumption:</strong> Audit table equals traceability.</p>
-            <p>
-              <strong>Warnings:</strong> Events lack before/after; writes bypass common audited
-              helper.
-            </p>
-          </article>
-          <article class="card failure" style="--accent: #34d399">
-            <h3>Vimeo readiness went stale</h3>
-            <div class="meta">
-              <span class="pill p1">Medium likelihood</span><span class="pill p1">High impact</span>
-            </div>
-            <p>
-              Assets marked ready during sync later fail at live playback due permission, rate, or
-              transient HLS changes.
-            </p>
-            <p><strong>Assumption:</strong> Vimeo readiness is stable after sync.</p>
-            <p>
-              <strong>Warnings:</strong> `playback_checked_at` older than publish; many transient
-              readiness failures.
-            </p>
-          </article>
-          <article class="card failure" style="--accent: #f97316">
-            <h3>Conflicts bypassed app checks</h3>
-            <div class="meta">
-              <span class="pill p1">Medium likelihood</span><span class="pill p1">High impact</span>
-            </div>
-            <p>
-              Concurrent or direct writes created overlapping blocks. Scheduler picked the
-              later-starting block and output jumped unexpectedly.
-            </p>
-            <p><strong>Assumption:</strong> App validation enforces invariants.</p>
-            <p>
-              <strong>Warnings:</strong> Near-simultaneous writes; health detects overlap after
-              successful actions.
-            </p>
-          </article>
-          <article class="card failure" style="--accent: #22c55e">
-            <h3>Fallback was not playout-grade</h3>
-            <div class="meta">
-              <span class="pill p1">Medium likelihood</span><span class="pill p0">High impact</span>
-            </div>
-            <p>
-              Fallback existed as data but was missing, archived, unsupported, or untested in
-              capture. Output fell to slate or black.
-            </p>
-            <p><strong>Assumption:</strong> A fallback row means recovery works.</p>
-            <p>
-              <strong>Warnings:</strong> Health reaches hardcoded slate; smoke never forces bad
-              media.
-            </p>
-          </article>
-          <article class="card failure" style="--accent: #e879f9">
-            <h3>OWASP remained superficial</h3>
-            <div class="meta">
-              <span class="pill p1">Medium likelihood</span><span class="pill p1">High impact</span>
-            </div>
-            <p>
-              CSP existed but remained loose. Regex sanitizer failed on nontrivial HTML payloads.
-            </p>
-            <p><strong>Assumption:</strong> Header plus regex is enough.</p>
-            <p>
-              <strong>Warnings:</strong> CSP never tightened; sanitizer tests cover only obvious
-              payloads.
-            </p>
-          </article>
-          <article class="card failure" style="--accent: #38bdf8">
-            <h3>Runtime paths diverged</h3>
-            <div class="meta">
-              <span class="pill p2">Medium likelihood</span
-              ><span class="pill p1">Medium impact</span>
-            </div>
-            <p>
-              Next, Docker, OpenNext, and local tunnel behaved differently. Smoke target was not the
-              deployed artifact.
-            </p>
-            <p><strong>Assumption:</strong> Green build approximates production.</p>
-            <p>
-              <strong>Warnings:</strong> OpenNext warnings have no owner; smoke runs locally only.
-            </p>
-          </article>
-          <article class="card failure" style="--accent: #facc15">
-            <h3>Read-only smoke missed writes</h3>
-            <div class="meta">
-              <span class="pill p1">High likelihood</span><span class="pill p1">High impact</span>
-            </div>
-            <p>
-              Viewing worked, but upload, settings, sync, publish, manual broadcast, CSRF, and audit
-              writes broke after deploy.
-            </p>
-            <p><strong>Assumption:</strong> Local write tests are enough.</p>
-            <p><strong>Warnings:</strong> Auth/CSRF changed but only read-only prod smoke ran.</p>
-          </article>
-        </div>
-      </section>
+            <section class="section">
+                <h2>Failure-mode cards</h2>
+                <div class="grid">
+                    <article class="card failure" style="--accent: #fbbf24">
+                        <h3>Smoke passed, output failed</h3>
+                        <div class="meta">
+                            <span class="pill p0">High likelihood</span
+                            ><span class="pill p0">High impact</span>
+                        </div>
+                        <p>
+                            Server HTML looked healthy while hydrated media stayed stuck at "Loading
+                            Vimeo stream". The smoke did not wait for `playing` or inspect pixels.
+                        </p>
+                        <p>
+                            <strong>Assumption:</strong> Nonblank HTML means broadcast output works.
+                        </p>
+                        <p>
+                            <strong>Warnings:</strong> Debug state stays `loading`; smoke artifacts
+                            contain loading/emergency slate.
+                        </p>
+                    </article>
+                    <article class="card failure" style="--accent: #fb7185">
+                        <h3>Output token leaked</h3>
+                        <div class="meta">
+                            <span class="pill p0">Medium likelihood</span
+                            ><span class="pill p0">Critical impact</span>
+                        </div>
+                        <p>
+                            Tokens in URLs spread through capture configs, browser history,
+                            screenshots, and logs. Someone eventually disables the token to reduce
+                            friction.
+                        </p>
+                        <p>
+                            <strong>Assumption:</strong> Query tokens are acceptable for production
+                            capture.
+                        </p>
+                        <p>
+                            <strong>Warnings:</strong> Docs/screenshots include `?token=`; prod
+                            health treats token as optional.
+                        </p>
+                    </article>
+                    <article class="card failure" style="--accent: #60a5fa">
+                        <h3>CSRF broke operations</h3>
+                        <div class="meta">
+                            <span class="pill p1">Medium likelihood</span
+                            ><span class="pill p1">High impact</span>
+                        </div>
+                        <p>
+                            Long-lived tabs and scripts fail with `Invalid CSRF token`. Recovery
+                            controls fail during live incidents.
+                        </p>
+                        <p>
+                            <strong>Assumption:</strong> Obvious forms are all legitimate mutation
+                            paths.
+                        </p>
+                        <p>
+                            <strong>Warnings:</strong> Same-origin admins get 403s; scripts need
+                            browser CSRF bootstrap.
+                        </p>
+                    </article>
+                    <article class="card failure" style="--accent: #a78bfa">
+                        <h3>Audit was incomplete</h3>
+                        <div class="meta">
+                            <span class="pill p1">High likelihood</span
+                            ><span class="pill p1">Medium impact</span>
+                        </div>
+                        <p>
+                            Audit rows exist but cannot answer who changed what, from what value,
+                            and by which path.
+                        </p>
+                        <p><strong>Assumption:</strong> Audit table equals traceability.</p>
+                        <p>
+                            <strong>Warnings:</strong> Events lack before/after; writes bypass
+                            common audited helper.
+                        </p>
+                    </article>
+                    <article class="card failure" style="--accent: #34d399">
+                        <h3>Vimeo readiness went stale</h3>
+                        <div class="meta">
+                            <span class="pill p1">Medium likelihood</span
+                            ><span class="pill p1">High impact</span>
+                        </div>
+                        <p>
+                            Assets marked ready during sync later fail at live playback due
+                            permission, rate, or transient HLS changes.
+                        </p>
+                        <p><strong>Assumption:</strong> Vimeo readiness is stable after sync.</p>
+                        <p>
+                            <strong>Warnings:</strong> `playback_checked_at` older than publish;
+                            many transient readiness failures.
+                        </p>
+                    </article>
+                    <article class="card failure" style="--accent: #f97316">
+                        <h3>Conflicts bypassed app checks</h3>
+                        <div class="meta">
+                            <span class="pill p1">Medium likelihood</span
+                            ><span class="pill p1">High impact</span>
+                        </div>
+                        <p>
+                            Concurrent or direct writes created overlapping blocks. Scheduler picked
+                            the later-starting block and output jumped unexpectedly.
+                        </p>
+                        <p><strong>Assumption:</strong> App validation enforces invariants.</p>
+                        <p>
+                            <strong>Warnings:</strong> Near-simultaneous writes; health detects
+                            overlap after successful actions.
+                        </p>
+                    </article>
+                    <article class="card failure" style="--accent: #22c55e">
+                        <h3>Fallback was not playout-grade</h3>
+                        <div class="meta">
+                            <span class="pill p1">Medium likelihood</span
+                            ><span class="pill p0">High impact</span>
+                        </div>
+                        <p>
+                            Fallback existed as data but was missing, archived, unsupported, or
+                            untested in capture. Output fell to slate or black.
+                        </p>
+                        <p><strong>Assumption:</strong> A fallback row means recovery works.</p>
+                        <p>
+                            <strong>Warnings:</strong> Health reaches hardcoded slate; smoke never
+                            forces bad media.
+                        </p>
+                    </article>
+                    <article class="card failure" style="--accent: #e879f9">
+                        <h3>OWASP remained superficial</h3>
+                        <div class="meta">
+                            <span class="pill p1">Medium likelihood</span
+                            ><span class="pill p1">High impact</span>
+                        </div>
+                        <p>
+                            CSP existed but remained loose. Regex sanitizer failed on nontrivial
+                            HTML payloads.
+                        </p>
+                        <p><strong>Assumption:</strong> Header plus regex is enough.</p>
+                        <p>
+                            <strong>Warnings:</strong> CSP never tightened; sanitizer tests cover
+                            only obvious payloads.
+                        </p>
+                    </article>
+                    <article class="card failure" style="--accent: #38bdf8">
+                        <h3>Runtime paths diverged</h3>
+                        <div class="meta">
+                            <span class="pill p2">Medium likelihood</span
+                            ><span class="pill p1">Medium impact</span>
+                        </div>
+                        <p>
+                            Next, Docker, OpenNext, and local tunnel behaved differently. Smoke
+                            target was not the deployed artifact.
+                        </p>
+                        <p><strong>Assumption:</strong> Green build approximates production.</p>
+                        <p>
+                            <strong>Warnings:</strong> OpenNext warnings have no owner; smoke runs
+                            locally only.
+                        </p>
+                    </article>
+                    <article class="card failure" style="--accent: #facc15">
+                        <h3>Read-only smoke missed writes</h3>
+                        <div class="meta">
+                            <span class="pill p1">High likelihood</span
+                            ><span class="pill p1">High impact</span>
+                        </div>
+                        <p>
+                            Viewing worked, but upload, settings, sync, publish, manual broadcast,
+                            CSRF, and audit writes broke after deploy.
+                        </p>
+                        <p><strong>Assumption:</strong> Local write tests are enough.</p>
+                        <p>
+                            <strong>Warnings:</strong> Auth/CSRF changed but only read-only prod
+                            smoke ran.
+                        </p>
+                    </article>
+                </div>
+            </section>
 
-      <section class="section card">
-        <h2>Pre-launch checklist</h2>
-        <ol>
-          <li>
-            Browser playout smoke proves `playing` or branded fallback and nonblack screenshot.
-          </li>
-          <li>
-            Production output token is required, rotated, and absent from public docs/screenshots.
-          </li>
-          <li>
-            Staging write smoke covers upload/register, schedule, publish, sync, CSRF, audit, and
-            cleanup.
-          </li>
-          <li>
-            Broadcast-critical mutations use mandatory audited helper with previous/next values.
-          </li>
-          <li>
-            CSP/XSS review has no open P0/P1 issues; arbitrary slide HTML is removed or
-            parser-sanitized.
-          </li>
-        </ol>
-      </section>
+            <section class="section card">
+                <h2>Pre-launch checklist</h2>
+                <ol>
+                    <li>
+                        Browser playout smoke proves `playing` or branded fallback and nonblack
+                        screenshot.
+                    </li>
+                    <li>
+                        Production output token is required, rotated, and absent from public
+                        docs/screenshots.
+                    </li>
+                    <li>
+                        Staging write smoke covers upload/register, schedule, publish, sync, CSRF,
+                        audit, and cleanup.
+                    </li>
+                    <li>
+                        Broadcast-critical mutations use mandatory audited helper with previous/next
+                        values.
+                    </li>
+                    <li>
+                        CSP/XSS review has no open P0/P1 issues; arbitrary slide HTML is removed or
+                        parser-sanitized.
+                    </li>
+                </ol>
+            </section>
 
-      <footer>
-        Generated 2026-05-10 20:34:03. Premortemed: RTV Planner MVP production readiness and live
-        broadcast hardening plan.
-      </footer>
-    </main>
-  </body>
+            <footer>
+                Generated 2026-05-10 20:34:03. Premortemed: RTV Planner MVP production readiness and
+                live broadcast hardening plan.
+            </footer>
+        </main>
+    </body>
 </html>

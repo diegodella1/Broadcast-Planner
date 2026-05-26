@@ -3,46 +3,46 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+    color-scheme: dark;
 }
 
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 html,
 body {
-  min-height: 100%;
-  margin: 0;
-  @apply bg-surface-elevated-1;
-  color: rgba(255, 255, 255, 0.9);
+    min-height: 100%;
+    margin: 0;
+    @apply bg-surface-elevated-1;
+    color: rgba(255, 255, 255, 0.9);
 }
 
 body {
-  font-family:
-    var(--font-dm-sans),
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    system-ui,
-    sans-serif;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
+    font-family:
+        var(--font-dm-sans),
+        -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        system-ui,
+        sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
 }
 
 button,
 input,
 select,
 textarea {
-  font: inherit;
+    font: inherit;
 }
 
-input:not([type="checkbox"]):not([type="radio"]),
+input:not([type='checkbox']):not([type='radio']),
 select,
 textarea {
-  min-width: 0;
-  max-width: 100%;
-  width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
 }
 
 a,
@@ -51,17 +51,17 @@ summary,
 input,
 select,
 textarea {
-  transition:
-    border-color 160ms ease-out,
-    background-color 160ms ease-out,
-    color 160ms ease-out,
-    box-shadow 160ms ease-out;
+    transition:
+        border-color 160ms ease-out,
+        background-color 160ms ease-out,
+        color 160ms ease-out,
+        box-shadow 160ms ease-out;
 }
 
 button,
 summary,
 a {
-  -webkit-tap-highlight-color: transparent;
+    -webkit-tap-highlight-color: transparent;
 }
 
 button:focus-visible,
@@ -70,39 +70,39 @@ summary:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  @apply outline-2 outline-offset-2 outline-accent-positive;
+    @apply outline-2 outline-offset-2 outline-accent-positive;
 }
 
 input,
 select,
 textarea {
-  min-height: 2.5rem;
-  border-radius: 0.375rem;
-  @apply bg-surface-elevated-2;
+    min-height: 2.5rem;
+    border-radius: 0.375rem;
+    @apply bg-surface-elevated-2;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+    color: rgba(255, 255, 255, 0.4);
 }
 
 .surface-card {
-  @apply border border-white/10 rounded-lg bg-surface-elevated-2;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 40%);
+    @apply border border-white/10 rounded-lg bg-surface-elevated-2;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 40%);
 }
 
 .surface-panel {
-  @apply border border-white/10 rounded-lg bg-surface-elevated-2;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 40%);
+    @apply border border-white/10 rounded-lg bg-surface-elevated-2;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 40%);
 }
 
 .eyebrow {
-  @apply text-white/50;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1rem;
-  text-transform: uppercase;
+    @apply text-white/50;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1rem;
+    text-transform: uppercase;
 }
 
 .btn-primary,
@@ -110,53 +110,53 @@ textarea::placeholder {
 .btn-danger,
 .chip,
 .chip-active {
-  display: inline-flex;
-  min-height: 2.5rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border-radius: 0.375rem;
-  padding: 0 0.875rem;
-  font-size: 0.875rem;
-  font-weight: 700;
-  white-space: nowrap;
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.375rem;
+    padding: 0 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    white-space: nowrap;
 }
 
 .btn-primary {
-  @apply border border-accent-positive bg-accent-positive text-surface-elevated-1;
+    @apply border border-accent-positive bg-accent-positive text-surface-elevated-1;
 }
 
 .btn-primary:hover {
-  @apply bg-accent-positive-hover border-accent-positive-hover;
+    @apply bg-accent-positive-hover border-accent-positive-hover;
 }
 
 .btn-danger {
-  @apply border border-danger-line bg-danger-soft text-danger-strong;
+    @apply border border-danger-line bg-danger-soft text-danger-strong;
 }
 
 .btn-danger:hover {
-  @apply bg-accent-live text-white;
+    @apply bg-accent-live text-white;
 }
 
 .btn-secondary,
 .chip {
-  @apply border border-white/15 bg-surface-elevated-2 text-white/90;
+    @apply border border-white/15 bg-surface-elevated-2 text-white/90;
 }
 
 .btn-secondary:hover,
 .chip:hover {
-  @apply border-white/25 bg-surface-elevated-2;
+    @apply border-white/25 bg-surface-elevated-2;
 }
 
 .chip-active {
-  @apply border border-accent-positive bg-surface-selected-positive text-accent-positive;
+    @apply border border-accent-positive bg-surface-selected-positive text-accent-positive;
 }
 
 .tv-output {
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  @apply bg-surface-elevated-1 text-white/90;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    @apply bg-surface-elevated-1 text-white/90;
 }
 
 /* ---------------------------------------------------------------------------
@@ -171,77 +171,77 @@ textarea::placeholder {
 
 /* blink — ON AIR pill, LIVE dot (chyron HTML line 45; opacity 0.15 matches source) */
 @keyframes blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.15;
-  }
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.15;
+    }
 }
 
 /* pd — globe / earthcam preview dots, concentric pulse (chyron HTML line 197) */
 @keyframes pd {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.6);
-    opacity: 0.4;
-  }
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.6);
+        opacity: 0.4;
+    }
 }
 
 /* bar-grow — market chart bars growing from a floor (chyron HTML line 209;
    uses height rather than scaleY because bars set an explicit --h custom property) */
 @keyframes bar-grow {
-  from {
-    height: 20%;
-  }
-  to {
-    height: var(--h);
-  }
+    from {
+        height: 20%;
+    }
+    to {
+        height: var(--h);
+    }
 }
 
 /* flash-up — green tint flash on price increase (inferred; not in chyron HTML) */
 @keyframes flash-up {
-  0% {
-    background-color: rgba(26, 231, 132, 0.5);
-  }
-  100% {
-    background-color: transparent;
-  }
+    0% {
+        background-color: rgba(26, 231, 132, 0.5);
+    }
+    100% {
+        background-color: transparent;
+    }
 }
 
 /* flash-down — red tint flash on price decrease (inferred; not in chyron HTML) */
 @keyframes flash-down {
-  0% {
-    background-color: rgba(239, 68, 68, 0.5);
-  }
-  100% {
-    background-color: transparent;
-  }
+    0% {
+        background-color: rgba(239, 68, 68, 0.5);
+    }
+    100% {
+        background-color: transparent;
+    }
 }
 
 /* ticker-scroll-news — news ticker belt, 80 s (inferred; not in chyron HTML) */
 @keyframes ticker-scroll-news {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-100%);
-  }
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-100%);
+    }
 }
 
 /* ticker-scroll-stocks — stocks ticker belt, 28 s (inferred; not in chyron HTML) */
 @keyframes ticker-scroll-stocks {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-100%);
-  }
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-100%);
+    }
 }
 
 /* ---------------------------------------------------------------------------
@@ -254,38 +254,38 @@ textarea::placeholder {
    keyframe is added.
    --------------------------------------------------------------------------- */
 .anim-blink {
-  animation: var(--motion-blink-duration, 1.4s) infinite blink;
+    animation: var(--motion-blink-duration, 1.4s) infinite blink;
 }
 .anim-pd {
-  animation: var(--motion-pd-duration, 2s) infinite pd;
+    animation: var(--motion-pd-duration, 2s) infinite pd;
 }
 .anim-bar-grow {
-  animation: var(--motion-bar-grow-duration, 1.2s) ease-out bar-grow;
+    animation: var(--motion-bar-grow-duration, 1.2s) ease-out bar-grow;
 }
 .anim-flash-up {
-  animation: var(--motion-flash-duration, 0.4s) ease-out flash-up;
+    animation: var(--motion-flash-duration, 0.4s) ease-out flash-up;
 }
 .anim-flash-down {
-  animation: var(--motion-flash-duration, 0.4s) ease-out flash-down;
+    animation: var(--motion-flash-duration, 0.4s) ease-out flash-down;
 }
 .anim-ticker-scroll-news {
-  animation: var(--motion-ticker-news-duration, 80s) linear infinite ticker-scroll-news;
+    animation: var(--motion-ticker-news-duration, 80s) linear infinite ticker-scroll-news;
 }
 .anim-ticker-scroll-stocks {
-  animation: var(--motion-ticker-stocks-duration, 28s) linear infinite ticker-scroll-stocks;
+    animation: var(--motion-ticker-stocks-duration, 28s) linear infinite ticker-scroll-stocks;
 }
 
 @keyframes schedule-new-block-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(26, 231, 132, 0.6);
-  }
-  100% {
-    box-shadow: 0 0 0 14px rgba(26, 231, 132, 0);
-  }
+    0% {
+        box-shadow: 0 0 0 0 rgba(26, 231, 132, 0.6);
+    }
+    100% {
+        box-shadow: 0 0 0 14px rgba(26, 231, 132, 0);
+    }
 }
 
 .schedule-new-block {
-  animation: schedule-new-block-pulse 1.6s ease-out 2;
+    animation: schedule-new-block-pulse 1.6s ease-out 2;
 }
 
 /* ---------------------------------------------------------------------------
@@ -297,23 +297,23 @@ textarea::placeholder {
    variant on a per-element basis for those.
    --------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  :root {
-    --motion-blink-duration: 0s;
-    --motion-pd-duration: 0s;
-    --motion-bar-grow-duration: 0s;
-    --motion-flash-duration: 0s;
-    --motion-ticker-news-duration: 0s;
-    --motion-ticker-stocks-duration: 0s;
-  }
+    :root {
+        --motion-blink-duration: 0s;
+        --motion-pd-duration: 0s;
+        --motion-bar-grow-duration: 0s;
+        --motion-flash-duration: 0s;
+        --motion-ticker-news-duration: 0s;
+        --motion-ticker-stocks-duration: 0s;
+    }
 
-  .anim-blink,
-  .anim-pd,
-  .anim-bar-grow,
-  .anim-flash-up,
-  .anim-flash-down,
-  .anim-ticker-scroll-news,
-  .anim-ticker-scroll-stocks,
-  .schedule-new-block {
-    animation: none !important;
-  }
+    .anim-blink,
+    .anim-pd,
+    .anim-bar-grow,
+    .anim-flash-up,
+    .anim-flash-down,
+    .anim-ticker-scroll-news,
+    .anim-ticker-scroll-stocks,
+    .schedule-new-block {
+        animation: none !important;
+    }
 }

@@ -1,126 +1,161 @@
-import { getCurrentOperatorSession, hashSecret } from "./auth"
-import { createServiceClient } from "./supabase/server"
+import { getCurrentOperatorSession, hashSecret } from './auth';
+import { createServiceClient } from './supabase/server';
 
 export type RateLimitResult = {
-  allowed: boolean
-  retryAfterSeconds: number
-}
+    allowed: boolean;
+    retryAfterSeconds: number;
+};
 
 export async function assertRateLimit(input: {
-  scope: string
-  request?: Request
-  limit?: number
-  windowSeconds?: number
+    scope: string;
+    request?: Request;
+    limit?: number;
+    windowSeconds?: number;
 }) {
-  const result = await checkRateLimit(input)
-  if (!result.allowed) {
-    const error = new Error("Rate limit exceeded")
-    ;(error as Error & { retryAfterSeconds?: number }).retryAfterSeconds = result.retryAfterSeconds
-    throw error
-  }
+    const result = await checkRateLimit(input);
+
+    if (!result.allowed) {
+        const error = new Error('Rate limit exceeded');
+        (error as Error & { retryAfterSeconds?: number }).retryAfterSeconds =
+            result.retryAfterSeconds;
+        throw error;
+    }
 }
 
 export async function checkRateLimit(input: {
-  scope: string
-  request?: Request
-  limit?: number
-  windowSeconds?: number
+    scope: string;
+    request?: Request;
+    limit?: number;
+    windowSeconds?: number;
 }): Promise<RateLimitResult> {
-  const limit = input.limit ?? 60
-  const windowSeconds = input.windowSeconds ?? 60
-  const identity = await rateLimitIdentity(input.request)
-  const now = new Date()
-  const bucketKey = `${input.scope}:${identity}:${Math.floor(now.getTime() / (windowSeconds * 1000))}`
-  const resetAt = new Date(Math.ceil(now.getTime() / (windowSeconds * 1000)) * windowSeconds * 1000)
-  const rpcResult = await atomicRateLimitHit(bucketKey, resetAt)
-  if (rpcResult) {
-    return {
-      allowed: rpcResult.hits <= limit,
-      retryAfterSeconds: Math.max(
-        1,
-        Math.ceil((rpcResult.resetAt.getTime() - now.getTime()) / 1000)
-      )
+    const limit = input.limit ?? 60;
+    const windowSeconds = input.windowSeconds ?? 60;
+    const identity = await rateLimitIdentity(input.request);
+    const now = new Date();
+    const bucketKey = `${input.scope}:${identity}:${Math.floor(now.getTime() / (windowSeconds * 1000))}`;
+    const resetAt = new Date(
+        Math.ceil(now.getTime() / (windowSeconds * 1000)) * windowSeconds * 1000,
+    );
+    const rpcResult = await atomicRateLimitHit(bucketKey, resetAt);
+
+    if (rpcResult) {
+        return {
+            allowed: rpcResult.hits <= limit,
+            retryAfterSeconds: Math.max(
+                1,
+                Math.ceil((rpcResult.resetAt.getTime() - now.getTime()) / 1000),
+            ),
+        };
     }
-  }
-  return legacyRateLimitHit(bucketKey, resetAt, now, limit)
+
+    return legacyRateLimitHit(bucketKey, resetAt, now, limit);
 }
 
 async function atomicRateLimitHit(
-  bucketKey: string,
-  resetAt: Date
+    bucketKey: string,
+    resetAt: Date,
 ): Promise<{ hits: number; resetAt: Date } | null> {
-  const supabase = createServiceClient()
-  if (typeof supabase.rpc !== "function") return null
-  const { data, error } = await supabase.rpc("increment_rate_limit", {
-    p_bucket_key: bucketKey,
-    p_reset_at: resetAt.toISOString()
-  })
-  if (!error) {
-    const row = Array.isArray(data) ? data[0] : data
-    if (!row) return { hits: 1, resetAt }
-    return {
-      hits: Number(row.hits ?? 1),
-      resetAt: new Date(String(row.reset_at ?? resetAt.toISOString()))
+    const supabase = createServiceClient();
+
+    if (typeof supabase.rpc !== 'function') {
+        return null;
     }
-  }
-  if (!isMissingRateLimitFunction(error)) {
-    fallbackForRateLimitBackendError(error)
-    return null
-  }
-  return null
+    const { data, error } = await supabase.rpc('increment_rate_limit', {
+        p_bucket_key: bucketKey,
+        p_reset_at: resetAt.toISOString(),
+    });
+
+    if (!error) {
+        const row = Array.isArray(data) ? data[0] : data;
+
+        if (!row) {
+            return { hits: 1, resetAt };
+        }
+
+        return {
+            hits: Number(row.hits ?? 1),
+            resetAt: new Date(String(row.reset_at ?? resetAt.toISOString())),
+        };
+    }
+
+    if (!isMissingRateLimitFunction(error)) {
+        fallbackForRateLimitBackendError(error);
+
+        return null;
+    }
+
+    return null;
 }
 
 async function legacyRateLimitHit(bucketKey: string, resetAt: Date, now: Date, limit: number) {
-  const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from("api_rate_limits")
-    .select("hits, reset_at")
-    .eq("bucket_key", bucketKey)
-    .maybeSingle()
-  if (error) return fallbackForRateLimitBackendError(error)
-  const currentHits =
-    data && new Date(String(data.reset_at)).getTime() > now.getTime() ? Number(data.hits) : 0
-  const nextHits = currentHits + 1
-  const { error: upsertError } = await supabase.from("api_rate_limits").upsert({
-    bucket_key: bucketKey,
-    hits: nextHits,
-    reset_at: resetAt.toISOString(),
-    updated_at: now.toISOString()
-  })
-  if (upsertError) return fallbackForRateLimitBackendError(upsertError)
-  return {
-    allowed: nextHits <= limit,
-    retryAfterSeconds: Math.max(1, Math.ceil((resetAt.getTime() - now.getTime()) / 1000))
-  }
+    const supabase = createServiceClient();
+    const { data, error } = await supabase
+        .from('api_rate_limits')
+        .select('hits, reset_at')
+        .eq('bucket_key', bucketKey)
+        .maybeSingle();
+
+    if (error) {
+        return fallbackForRateLimitBackendError(error);
+    }
+    const currentHits =
+        data && new Date(String(data.reset_at)).getTime() > now.getTime() ? Number(data.hits) : 0;
+    const nextHits = currentHits + 1;
+    const { error: upsertError } = await supabase.from('api_rate_limits').upsert({
+        bucket_key: bucketKey,
+        hits: nextHits,
+        reset_at: resetAt.toISOString(),
+        updated_at: now.toISOString(),
+    });
+
+    if (upsertError) {
+        return fallbackForRateLimitBackendError(upsertError);
+    }
+
+    return {
+        allowed: nextHits <= limit,
+        retryAfterSeconds: Math.max(1, Math.ceil((resetAt.getTime() - now.getTime()) / 1000)),
+    };
 }
 
 function isMissingRateLimitFunction(error: unknown) {
-  if (typeof error !== "object" || error === null) return false
-  const code = "code" in error ? String((error as { code?: unknown }).code) : ""
-  const message = "message" in error ? String((error as { message?: unknown }).message) : ""
-  return code === "42883" || message.includes("increment_rate_limit")
+    if (typeof error !== 'object' || error === null) {
+        return false;
+    }
+    const code = 'code' in error ? String((error as { code?: unknown }).code) : '';
+    const message = 'message' in error ? String((error as { message?: unknown }).message) : '';
+
+    return code === '42883' || message.includes('increment_rate_limit');
 }
 
 function fallbackForRateLimitBackendError(error: unknown): RateLimitResult {
-  if (process.env.NODE_ENV === "production") throw error
-  return { allowed: true, retryAfterSeconds: 0 }
+    if (process.env.NODE_ENV === 'production') {
+        throw error;
+    }
+
+    return { allowed: true, retryAfterSeconds: 0 };
 }
 
 export function rateLimitErrorResponse(error: unknown) {
-  const retryAfterSeconds =
-    typeof error === "object" && error !== null && "retryAfterSeconds" in error
-      ? Number((error as { retryAfterSeconds?: unknown }).retryAfterSeconds)
-      : 60
-  return { retryAfterSeconds: Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : 60 }
+    const retryAfterSeconds =
+        typeof error === 'object' && error !== null && 'retryAfterSeconds' in error
+            ? Number((error as { retryAfterSeconds?: unknown }).retryAfterSeconds)
+            : 60;
+
+    return { retryAfterSeconds: Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : 60 };
 }
 
 async function rateLimitIdentity(request?: Request) {
-  const session = await getCurrentOperatorSession()
-  if (session) return `operator:${session.operatorId}`
-  const rawIp =
-    request?.headers.get("cf-connecting-ip") ??
-    request?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request?.headers.get("x-real-ip") ??
-    "unknown"
-  return `ip:${hashSecret(rawIp)}`
+    const session = await getCurrentOperatorSession();
+
+    if (session) {
+        return `operator:${session.operatorId}`;
+    }
+    const rawIp =
+        request?.headers.get('cf-connecting-ip') ??
+        request?.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+        request?.headers.get('x-real-ip') ??
+        'unknown';
+
+    return `ip:${hashSecret(rawIp)}`;
 }

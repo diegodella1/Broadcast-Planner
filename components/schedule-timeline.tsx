@@ -1,588 +1,667 @@
-"use client"
+'use client';
 
-import clsx from "clsx"
-import { useRouter } from "next/navigation"
-import { useMemo, useRef, useState, useTransition } from "react"
-import { PlayoutTime } from "@/components/playout-time"
-import { formatPlayoutTimeLabel, formatTimecode } from "@/lib/time"
-import { findScheduleConflicts, scheduleConflictMessage } from "@/lib/schedule-conflicts"
-import type { ScheduleIssue } from "@/lib/schedule-health"
-import type { MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from "@/lib/types"
+import clsx from 'clsx';
+import { useRouter } from 'next/navigation';
+import { useMemo, useRef, useState, useTransition } from 'react';
+import { PlayoutTime } from '@/components/playout-time';
+import { formatPlayoutTimeLabel, formatTimecode } from '@/lib/time';
+import { findScheduleConflicts, scheduleConflictMessage } from '@/lib/schedule-conflicts';
+import type { ScheduleIssue } from '@/lib/schedule-health';
+import type { MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from '@/lib/types';
 
-const DAY_SECONDS = 86400
-const SNAP_SECONDS = 300
-const HOUR_HEIGHT = 84
+const DAY_SECONDS = 86400;
+const SNAP_SECONDS = 300;
+const HOUR_HEIGHT = 84;
 
 type Selection = {
-  start: number
-  end: number
-}
+    start: number;
+    end: number;
+};
 
 type BlockDrag = {
-  id: string
-  pointerId: number
-  pointerOffsetSeconds: number
-  startSeconds: number
-  currentSeconds: number
-  moved: boolean
-}
+    id: string;
+    pointerId: number;
+    pointerOffsetSeconds: number;
+    startSeconds: number;
+    currentSeconds: number;
+    moved: boolean;
+};
 
 export function ScheduleTimeline({
-  blocks,
-  schedule,
-  date,
-  nowSeconds,
-  issues,
-  createBlockAction,
-  moveBlockAction
+    blocks,
+    schedule,
+    date,
+    nowSeconds,
+    issues,
+    createBlockAction,
+    moveBlockAction,
 }: {
-  blocks: ProgramBlock[]
-  schedule: ScheduleBundle
-  date: string
-  nowSeconds: number | null
-  issues: ScheduleIssue[]
-  createBlockAction: (formData: FormData) => Promise<void>
-  moveBlockAction: (input: { blockId: string; startTimeSeconds: number }) => Promise<void>
+    blocks: ProgramBlock[];
+    schedule: ScheduleBundle;
+    date: string;
+    nowSeconds: number | null;
+    issues: ScheduleIssue[];
+    createBlockAction: (formData: FormData) => Promise<void>;
+    moveBlockAction: (input: { blockId: string; startTimeSeconds: number }) => Promise<void>;
 }) {
-  const router = useRouter()
-  const trackRef = useRef<HTMLDivElement>(null)
-  const suppressClickRef = useRef(false)
-  const [dragStart, setDragStart] = useState<number | null>(null)
-  const [dragEnd, setDragEnd] = useState<number | null>(null)
-  const [selection, setSelection] = useState<Selection | null>(null)
-  const [blockDrag, setBlockDrag] = useState<BlockDrag | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
-  const issueMap = useMemo(
-    () => new Map(issues.filter((issue) => issue.blockId).map((issue) => [issue.blockId, issue])),
-    [issues]
-  )
-  const selectedRange =
-    dragStart !== null && dragEnd !== null ? normalizeSelection(dragStart, dragEnd) : selection
+    const router = useRouter();
+    const trackRef = useRef<HTMLDivElement>(null);
+    const suppressClickRef = useRef(false);
+    const [dragStart, setDragStart] = useState<number | null>(null);
+    const [dragEnd, setDragEnd] = useState<number | null>(null);
+    const [selection, setSelection] = useState<Selection | null>(null);
+    const [blockDrag, setBlockDrag] = useState<BlockDrag | null>(null);
+    const [message, setMessage] = useState<string | null>(null);
+    const [isPending, startTransition] = useTransition();
+    const issueMap = useMemo(
+        () =>
+            new Map(issues.filter((issue) => issue.blockId).map((issue) => [issue.blockId, issue])),
+        [issues],
+    );
+    const selectedRange =
+        dragStart !== null && dragEnd !== null ? normalizeSelection(dragStart, dragEnd) : selection;
 
-  function secondsFromPointer(clientY: number) {
-    const rect = trackRef.current?.getBoundingClientRect()
-    if (!rect) return 0
-    const y = Math.min(Math.max(clientY - rect.top, 0), rect.height)
-    return snapSeconds((y / rect.height) * DAY_SECONDS)
-  }
+    function secondsFromPointer(clientY: number) {
+        const rect = trackRef.current?.getBoundingClientRect();
 
-  function clampedBlockStart(block: ProgramBlock, seconds: number) {
-    return Math.max(0, Math.min(seconds, DAY_SECONDS - block.durationSeconds))
-  }
+        if (!rect) {
+            return 0;
+        }
+        const y = Math.min(Math.max(clientY - rect.top, 0), rect.height);
 
-  function startDrag(event: React.PointerEvent<HTMLDivElement>) {
-    if ((event.target as HTMLElement).closest("[data-block-card], [data-create-card]")) return
-    const start = secondsFromPointer(event.clientY)
-    setSelection(null)
-    setDragStart(start)
-    setDragEnd(Math.min(start + SNAP_SECONDS, DAY_SECONDS))
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-
-  function updateDrag(event: React.PointerEvent<HTMLDivElement>) {
-    if (dragStart === null) return
-    const next = secondsFromPointer(event.clientY)
-    setDragEnd(next === dragStart ? Math.min(next + SNAP_SECONDS, DAY_SECONDS) : next)
-  }
-
-  function endDrag(event: React.PointerEvent<HTMLDivElement>) {
-    if (dragStart === null || dragEnd === null) return
-    const nextSelection = normalizeSelection(dragStart, dragEnd)
-    setSelection(nextSelection)
-    setDragStart(null)
-    setDragEnd(null)
-    event.currentTarget.releasePointerCapture(event.pointerId)
-  }
-
-  function startBlockDrag(event: React.PointerEvent<HTMLDivElement>, block: ProgramBlock) {
-    if (block.status === "archived" || isPending) return
-    event.preventDefault()
-    event.stopPropagation()
-    setMessage(null)
-    setSelection(null)
-    const pointerSeconds = secondsFromPointer(event.clientY)
-    setBlockDrag({
-      id: block.id,
-      pointerId: event.pointerId,
-      pointerOffsetSeconds: pointerSeconds - block.startTimeSeconds,
-      startSeconds: block.startTimeSeconds,
-      currentSeconds: block.startTimeSeconds,
-      moved: false
-    })
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-
-  function updateBlockDrag(event: React.PointerEvent<HTMLDivElement>, block: ProgramBlock) {
-    if (!blockDrag || blockDrag.id !== block.id || blockDrag.pointerId !== event.pointerId) return
-    const nextSeconds = clampedBlockStart(
-      block,
-      secondsFromPointer(event.clientY) - blockDrag.pointerOffsetSeconds
-    )
-    setBlockDrag((current) =>
-      current && current.id === block.id
-        ? {
-            ...current,
-            currentSeconds: nextSeconds,
-            moved: current.moved || Math.abs(nextSeconds - current.startSeconds) >= SNAP_SECONDS
-          }
-        : current
-    )
-  }
-
-  function endBlockDrag(event: React.PointerEvent<HTMLDivElement>, block: ProgramBlock) {
-    if (!blockDrag || blockDrag.id !== block.id || blockDrag.pointerId !== event.pointerId) return
-    event.preventDefault()
-    event.stopPropagation()
-    event.currentTarget.releasePointerCapture(event.pointerId)
-    const nextSeconds = blockDrag.currentSeconds
-    const moved = blockDrag.moved && nextSeconds !== block.startTimeSeconds
-    setBlockDrag(null)
-    suppressClickRef.current = true
-    if (!moved) {
-      router.push(`/admin/schedule/${date}/blocks/${block.id}`)
-      return
+        return snapSeconds((y / rect.height) * DAY_SECONDS);
     }
-    startTransition(async () => {
-      try {
-        await moveBlockAction({ blockId: block.id, startTimeSeconds: nextSeconds })
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : String(error))
-      }
-    })
-  }
 
-  return (
-    <>
-      <div className="border-b border-line bg-panel-soft px-4 py-2 text-xs font-semibold text-muted">
-        Drag empty timeline space to select a range. Drag existing blocks to move their time.
-      </div>
-      {message ? (
-        <div className="border-b border-danger-line bg-danger-soft px-4 py-3 text-sm font-semibold text-danger-strong">
-          {message}
-        </div>
-      ) : null}
-      {selection ? (
-        <SelectionCreatePanel
-          key={`${selection.start}-${selection.end}`}
-          selection={selection}
-          schedule={schedule}
-          action={createBlockAction}
-          onCancel={() => setSelection(null)}
-        />
-      ) : null}
-      <div className="max-h-[760px] overflow-y-auto overflow-x-hidden">
-        <div className="relative w-full min-w-0">
-          <div className="grid" style={{ gridTemplateColumns: "72px minmax(0, 1fr)" }}>
-            <div>
-              {Array.from({ length: 24 }, (_, hour) => (
-                <div
-                  key={hour}
-                  className="border-b border-r border-line bg-panel-soft px-3 py-2 text-xs font-semibold text-muted last:border-b-0"
-                  style={{ height: HOUR_HEIGHT }}
-                >
-                  {String(hour).padStart(2, "0")}:00
-                </div>
-              ))}
+    function clampedBlockStart(block: ProgramBlock, seconds: number) {
+        return Math.max(0, Math.min(seconds, DAY_SECONDS - block.durationSeconds));
+    }
+
+    function startDrag(event: React.PointerEvent<HTMLDivElement>) {
+        if ((event.target as HTMLElement).closest('[data-block-card], [data-create-card]')) {
+            return;
+        }
+        const start = secondsFromPointer(event.clientY);
+        setSelection(null);
+        setDragStart(start);
+        setDragEnd(Math.min(start + SNAP_SECONDS, DAY_SECONDS));
+        event.currentTarget.setPointerCapture(event.pointerId);
+    }
+
+    function updateDrag(event: React.PointerEvent<HTMLDivElement>) {
+        if (dragStart === null) {
+            return;
+        }
+        const next = secondsFromPointer(event.clientY);
+        setDragEnd(next === dragStart ? Math.min(next + SNAP_SECONDS, DAY_SECONDS) : next);
+    }
+
+    function endDrag(event: React.PointerEvent<HTMLDivElement>) {
+        if (dragStart === null || dragEnd === null) {
+            return;
+        }
+        const nextSelection = normalizeSelection(dragStart, dragEnd);
+        setSelection(nextSelection);
+        setDragStart(null);
+        setDragEnd(null);
+        event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    function startBlockDrag(event: React.PointerEvent<HTMLDivElement>, block: ProgramBlock) {
+        if (block.status === 'archived' || isPending) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        setMessage(null);
+        setSelection(null);
+        const pointerSeconds = secondsFromPointer(event.clientY);
+        setBlockDrag({
+            id: block.id,
+            pointerId: event.pointerId,
+            pointerOffsetSeconds: pointerSeconds - block.startTimeSeconds,
+            startSeconds: block.startTimeSeconds,
+            currentSeconds: block.startTimeSeconds,
+            moved: false,
+        });
+        event.currentTarget.setPointerCapture(event.pointerId);
+    }
+
+    function updateBlockDrag(event: React.PointerEvent<HTMLDivElement>, block: ProgramBlock) {
+        if (!blockDrag || blockDrag.id !== block.id || blockDrag.pointerId !== event.pointerId) {
+            return;
+        }
+        const nextSeconds = clampedBlockStart(
+            block,
+            secondsFromPointer(event.clientY) - blockDrag.pointerOffsetSeconds,
+        );
+        setBlockDrag((current) =>
+            current && current.id === block.id
+                ? {
+                      ...current,
+                      currentSeconds: nextSeconds,
+                      moved:
+                          current.moved ||
+                          Math.abs(nextSeconds - current.startSeconds) >= SNAP_SECONDS,
+                  }
+                : current,
+        );
+    }
+
+    function endBlockDrag(event: React.PointerEvent<HTMLDivElement>, block: ProgramBlock) {
+        if (!blockDrag || blockDrag.id !== block.id || blockDrag.pointerId !== event.pointerId) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        event.currentTarget.releasePointerCapture(event.pointerId);
+        const nextSeconds = blockDrag.currentSeconds;
+        const moved = blockDrag.moved && nextSeconds !== block.startTimeSeconds;
+        setBlockDrag(null);
+        suppressClickRef.current = true;
+
+        if (!moved) {
+            router.push(`/admin/schedule/${date}/blocks/${block.id}`);
+
+            return;
+        }
+        startTransition(async () => {
+            try {
+                await moveBlockAction({ blockId: block.id, startTimeSeconds: nextSeconds });
+            } catch (error) {
+                setMessage(error instanceof Error ? error.message : String(error));
+            }
+        });
+    }
+
+    return (
+        <>
+            <div className="border-b border-line bg-panel-soft px-4 py-2 text-xs font-semibold text-muted">
+                Drag empty timeline space to select a range. Drag existing blocks to move their
+                time.
             </div>
-            <div
-              ref={trackRef}
-              data-testid="schedule-timeline-track"
-              className="relative cursor-crosshair touch-none select-none"
-              style={{ height: HOUR_HEIGHT * 24 }}
-              onPointerDown={startDrag}
-              onPointerMove={updateDrag}
-              onPointerUp={endDrag}
-              onPointerCancel={() => {
-                setDragStart(null)
-                setDragEnd(null)
-              }}
-            >
-              {Array.from({ length: 24 }, (_, hour) => (
-                <div
-                  key={hour}
-                  className="border-b border-line last:border-b-0"
-                  style={{ height: HOUR_HEIGHT }}
-                >
-                  <div className="h-1/2 border-b border-dashed border-line/70" />
+            {message ? (
+                <div className="border-b border-danger-line bg-danger-soft px-4 py-3 text-sm font-semibold text-danger-strong">
+                    {message}
                 </div>
-              ))}
-              {nowSeconds !== null ? (
-                <div
-                  className="absolute left-0 right-0 z-20 border-t-2 border-red-500"
-                  style={{ top: `${(nowSeconds / DAY_SECONDS) * 100}%` }}
-                >
-                  <span className="absolute -top-3 right-2 rounded bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white">
-                    LIVE
-                  </span>
+            ) : null}
+            {selection ? (
+                <SelectionCreatePanel
+                    key={`${selection.start}-${selection.end}`}
+                    selection={selection}
+                    schedule={schedule}
+                    action={createBlockAction}
+                    onCancel={() => setSelection(null)}
+                />
+            ) : null}
+            <div className="max-h-[760px] overflow-y-auto overflow-x-hidden">
+                <div className="relative w-full min-w-0">
+                    <div className="grid" style={{ gridTemplateColumns: '72px minmax(0, 1fr)' }}>
+                        <div>
+                            {Array.from({ length: 24 }, (_, hour) => (
+                                <div
+                                    key={hour}
+                                    className="border-b border-r border-line bg-panel-soft px-3 py-2 text-xs font-semibold text-muted last:border-b-0"
+                                    style={{ height: HOUR_HEIGHT }}
+                                >
+                                    {String(hour).padStart(2, '0')}:00
+                                </div>
+                            ))}
+                        </div>
+                        <div
+                            ref={trackRef}
+                            data-testid="schedule-timeline-track"
+                            className="relative cursor-crosshair touch-none select-none"
+                            style={{ height: HOUR_HEIGHT * 24 }}
+                            onPointerDown={startDrag}
+                            onPointerMove={updateDrag}
+                            onPointerUp={endDrag}
+                            onPointerCancel={() => {
+                                setDragStart(null);
+                                setDragEnd(null);
+                            }}
+                        >
+                            {Array.from({ length: 24 }, (_, hour) => (
+                                <div
+                                    key={hour}
+                                    className="border-b border-line last:border-b-0"
+                                    style={{ height: HOUR_HEIGHT }}
+                                >
+                                    <div className="h-1/2 border-b border-dashed border-line/70" />
+                                </div>
+                            ))}
+                            {nowSeconds !== null ? (
+                                <div
+                                    className="absolute left-0 right-0 z-20 border-t-2 border-red-500"
+                                    style={{ top: `${(nowSeconds / DAY_SECONDS) * 100}%` }}
+                                >
+                                    <span className="absolute -top-3 right-2 rounded bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                                        LIVE
+                                    </span>
+                                </div>
+                            ) : null}
+                            {blocks.map((block) => {
+                                const issue = issueMap.get(block.id);
+                                const dragStartSeconds =
+                                    blockDrag?.id === block.id
+                                        ? blockDrag.currentSeconds
+                                        : block.startTimeSeconds;
+
+                                return (
+                                    <div
+                                        key={block.id}
+                                        data-block-card
+                                        role="link"
+                                        tabIndex={0}
+                                        aria-label={`Open ${block.title}`}
+                                        onClick={() => {
+                                            if (suppressClickRef.current) {
+                                                suppressClickRef.current = false;
+
+                                                return;
+                                            }
+                                            router.push(
+                                                `/admin/schedule/${date}/blocks/${block.id}`,
+                                            );
+                                        }}
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter') {
+                                                router.push(
+                                                    `/admin/schedule/${date}/blocks/${block.id}`,
+                                                );
+                                            }
+                                        }}
+                                        onPointerDown={(event) => startBlockDrag(event, block)}
+                                        onPointerMove={(event) => updateBlockDrag(event, block)}
+                                        onPointerUp={(event) => endBlockDrag(event, block)}
+                                        onPointerCancel={() => setBlockDrag(null)}
+                                        className={clsx(
+                                            'absolute left-2 right-2 overflow-hidden rounded-md border px-3 py-2 text-left text-xs shadow-sm transition hover:brightness-95',
+                                            blockTone(block, issue?.severity),
+                                            block.status === 'archived' || isPending
+                                                ? 'cursor-pointer'
+                                                : 'cursor-grab active:cursor-grabbing',
+                                            blockDrag?.id === block.id
+                                                ? 'z-30 opacity-90 shadow-lg'
+                                                : '',
+                                        )}
+                                        style={{
+                                            top: `${(dragStartSeconds / DAY_SECONDS) * 100}%`,
+                                            height: `${Math.max((block.durationSeconds / DAY_SECONDS) * 100, 1.7)}%`,
+                                            minHeight: '34px',
+                                        }}
+                                    >
+                                        <span className="flex items-center justify-between gap-2">
+                                            <span className="truncate font-semibold">
+                                                {block.title}
+                                            </span>
+                                            <span className="shrink-0">
+                                                {formatTimecode(block.durationSeconds)}
+                                            </span>
+                                        </span>
+                                        <span className="mt-0.5 block truncate opacity-80">
+                                            <PlayoutTime
+                                                airDate={date}
+                                                seconds={dragStartSeconds}
+                                            />{' '}
+                                            · {block.blockType} · {blockAssetLabel(schedule, block)}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                            {selectedRange ? (
+                                <SelectionHighlight selection={selectedRange} />
+                            ) : null}
+                        </div>
+                    </div>
                 </div>
-              ) : null}
-              {blocks.map((block) => {
-                const issue = issueMap.get(block.id)
-                const dragStartSeconds =
-                  blockDrag?.id === block.id ? blockDrag.currentSeconds : block.startTimeSeconds
-                return (
-                  <div
-                    key={block.id}
-                    data-block-card
-                    role="link"
-                    tabIndex={0}
-                    aria-label={`Open ${block.title}`}
-                    onClick={() => {
-                      if (suppressClickRef.current) {
-                        suppressClickRef.current = false
-                        return
-                      }
-                      router.push(`/admin/schedule/${date}/blocks/${block.id}`)
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter")
-                        router.push(`/admin/schedule/${date}/blocks/${block.id}`)
-                    }}
-                    onPointerDown={(event) => startBlockDrag(event, block)}
-                    onPointerMove={(event) => updateBlockDrag(event, block)}
-                    onPointerUp={(event) => endBlockDrag(event, block)}
-                    onPointerCancel={() => setBlockDrag(null)}
-                    className={clsx(
-                      "absolute left-2 right-2 overflow-hidden rounded-md border px-3 py-2 text-left text-xs shadow-sm transition hover:brightness-95",
-                      blockTone(block, issue?.severity),
-                      block.status === "archived" || isPending
-                        ? "cursor-pointer"
-                        : "cursor-grab active:cursor-grabbing",
-                      blockDrag?.id === block.id ? "z-30 opacity-90 shadow-lg" : ""
-                    )}
-                    style={{
-                      top: `${(dragStartSeconds / DAY_SECONDS) * 100}%`,
-                      height: `${Math.max((block.durationSeconds / DAY_SECONDS) * 100, 1.7)}%`,
-                      minHeight: "34px"
-                    }}
-                  >
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="truncate font-semibold">{block.title}</span>
-                      <span className="shrink-0">{formatTimecode(block.durationSeconds)}</span>
-                    </span>
-                    <span className="mt-0.5 block truncate opacity-80">
-                      <PlayoutTime airDate={date} seconds={dragStartSeconds} /> · {block.blockType}{" "}
-                      · {blockAssetLabel(schedule, block)}
-                    </span>
-                  </div>
-                )
-              })}
-              {selectedRange ? <SelectionHighlight selection={selectedRange} /> : null}
             </div>
-          </div>
-        </div>
-      </div>
-    </>
-  )
+        </>
+    );
 }
 
 function SelectionHighlight({ selection }: { selection: Selection }) {
-  const durationSeconds = Math.max(SNAP_SECONDS, selection.end - selection.start)
-  const topPercent = (selection.start / DAY_SECONDS) * 100
-  const heightPercent = Math.max((durationSeconds / DAY_SECONDS) * 100, 1.7)
-  return (
-    <div
-      className="pointer-events-none absolute left-2 right-2 z-30 rounded-md border border-signal bg-info-soft/85"
-      style={{ top: `${topPercent}%`, height: `${heightPercent}%`, minHeight: "34px" }}
-    >
-      <span className="absolute left-2 top-2 rounded bg-surface px-2 py-0.5 text-[10px] font-semibold text-info-strong shadow-sm">
-        {formatPlayoutTimeLabel(selection.start)} to {formatPlayoutTimeLabel(selection.end)}
-      </span>
-    </div>
-  )
+    const durationSeconds = Math.max(SNAP_SECONDS, selection.end - selection.start);
+    const topPercent = (selection.start / DAY_SECONDS) * 100;
+    const heightPercent = Math.max((durationSeconds / DAY_SECONDS) * 100, 1.7);
+
+    return (
+        <div
+            className="pointer-events-none absolute left-2 right-2 z-30 rounded-md border border-signal bg-info-soft/85"
+            style={{ top: `${topPercent}%`, height: `${heightPercent}%`, minHeight: '34px' }}
+        >
+            <span className="absolute left-2 top-2 rounded bg-surface px-2 py-0.5 text-[10px] font-semibold text-info-strong shadow-sm">
+                {formatPlayoutTimeLabel(selection.start)} to {formatPlayoutTimeLabel(selection.end)}
+            </span>
+        </div>
+    );
 }
 
 function SelectionCreatePanel({
-  selection,
-  schedule,
-  action,
-  onCancel
+    selection,
+    schedule,
+    action,
+    onCancel,
 }: {
-  selection: Selection
-  schedule: ScheduleBundle
-  action: (formData: FormData) => Promise<void>
-  onCancel: () => void
+    selection: Selection;
+    schedule: ScheduleBundle;
+    action: (formData: FormData) => Promise<void>;
+    onCancel: () => void;
 }) {
-  const selectionDuration = Math.max(SNAP_SECONDS, selection.end - selection.start)
-  const [assetId, setAssetId] = useState("")
-  const [slideId, setSlideId] = useState("")
-  const [preRollSeconds, setPreRollSeconds] = useState(0)
-  const [postRollSeconds, setPostRollSeconds] = useState(0)
-  const [startTimeSeconds, setStartTimeSeconds] = useState(selection.start)
-  const [durationSeconds, setDurationSeconds] = useState(selectionDuration)
-  const selectedAsset = assetId ? schedule.mediaAssets.find((asset) => asset.id === assetId) : null
-  const selectedSlide = slideId ? schedule.slideAssets.find((slide) => slide.id === slideId) : null
-  const knownDuration = selectedAsset?.durationSeconds ?? selectedSlide?.defaultDurationSeconds ?? 0
-  const minimumDuration = Math.max(1, knownDuration + preRollSeconds + postRollSeconds)
-  const effectiveDuration = Math.max(durationSeconds, minimumDuration)
-  const dayId = schedule.day?.id ?? ""
-  const conflict = dayId
-    ? findScheduleConflicts(schedule.blocks, {
-        programDayId: dayId,
-        startTimeSeconds,
-        durationSeconds: effectiveDuration
-      })
-    : {
-        hasConflict: false,
-        conflicts: [],
-        suggestedStartSeconds: null,
-        maxSafeDurationSeconds: null,
-        gapOptions: []
-      }
-  const conflictMessage = scheduleConflictMessage(conflict)
-  const safeResizeSeconds =
-    conflict.maxSafeDurationSeconds && conflict.maxSafeDurationSeconds >= minimumDuration
-      ? conflict.maxSafeDurationSeconds
-      : null
+    const selectionDuration = Math.max(SNAP_SECONDS, selection.end - selection.start);
+    const [assetId, setAssetId] = useState('');
+    const [slideId, setSlideId] = useState('');
+    const [preRollSeconds, setPreRollSeconds] = useState(0);
+    const [postRollSeconds, setPostRollSeconds] = useState(0);
+    const [startTimeSeconds, setStartTimeSeconds] = useState(selection.start);
+    const [durationSeconds, setDurationSeconds] = useState(selectionDuration);
+    const selectedAsset = assetId
+        ? schedule.mediaAssets.find((asset) => asset.id === assetId)
+        : null;
+    const selectedSlide = slideId
+        ? schedule.slideAssets.find((slide) => slide.id === slideId)
+        : null;
+    const knownDuration =
+        selectedAsset?.durationSeconds ?? selectedSlide?.defaultDurationSeconds ?? 0;
+    const minimumDuration = Math.max(1, knownDuration + preRollSeconds + postRollSeconds);
+    const effectiveDuration = Math.max(durationSeconds, minimumDuration);
+    const dayId = schedule.day?.id ?? '';
+    const conflict = dayId
+        ? findScheduleConflicts(schedule.blocks, {
+              programDayId: dayId,
+              startTimeSeconds,
+              durationSeconds: effectiveDuration,
+          })
+        : {
+              hasConflict: false,
+              conflicts: [],
+              suggestedStartSeconds: null,
+              maxSafeDurationSeconds: null,
+              gapOptions: [],
+          };
+    const conflictMessage = scheduleConflictMessage(conflict);
+    const safeResizeSeconds =
+        conflict.maxSafeDurationSeconds && conflict.maxSafeDurationSeconds >= minimumDuration
+            ? conflict.maxSafeDurationSeconds
+            : null;
 
-  function setAsset(value: string) {
-    setAssetId(value)
-    if (value) setSlideId("")
-    const assetDuration =
-      schedule.mediaAssets.find((asset) => asset.id === value)?.durationSeconds ?? 0
-    setDurationSeconds((current) =>
-      Math.max(current, assetDuration + preRollSeconds + postRollSeconds)
-    )
-  }
+    function setAsset(value: string) {
+        setAssetId(value);
 
-  function setSlide(value: string) {
-    setSlideId(value)
-    if (value) setAssetId("")
-    const slideDuration =
-      schedule.slideAssets.find((slide) => slide.id === value)?.defaultDurationSeconds ?? 0
-    setDurationSeconds((current) =>
-      Math.max(current, slideDuration + preRollSeconds + postRollSeconds)
-    )
-  }
+        if (value) {
+            setSlideId('');
+        }
+        const assetDuration =
+            schedule.mediaAssets.find((asset) => asset.id === value)?.durationSeconds ?? 0;
+        setDurationSeconds((current) =>
+            Math.max(current, assetDuration + preRollSeconds + postRollSeconds),
+        );
+    }
 
-  function setPadding(kind: "pre" | "post", value: number) {
-    const safeValue = Math.max(0, Number(value) || 0)
-    const nextPre = kind === "pre" ? safeValue : preRollSeconds
-    const nextPost = kind === "post" ? safeValue : postRollSeconds
-    setPreRollSeconds(nextPre)
-    setPostRollSeconds(nextPost)
-    setDurationSeconds((current) => Math.max(current, knownDuration + nextPre + nextPost))
-  }
+    function setSlide(value: string) {
+        setSlideId(value);
 
-  return (
-    <div className="border-t border-line bg-surface p-4">
-      <form
-        data-create-card
-        action={action}
-        className="grid grid-cols-1 gap-3 text-sm lg:grid-cols-[minmax(0,1.2fr)_116px_116px_130px_160px_160px_auto]"
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3 lg:col-span-7">
-          <div>
-            <p className="font-semibold">Create block</p>
-            <p className="mt-0.5 text-xs text-muted">
-              {formatPlayoutTimeLabel(startTimeSeconds)} to{" "}
-              {formatPlayoutTimeLabel(startTimeSeconds + effectiveDuration)}
-            </p>
-            {knownDuration ? (
-              <p className="mt-0.5 text-xs text-muted">
-                Min {formatTimecode(minimumDuration)} from selected content
-              </p>
-            ) : null}
-            {conflictMessage ? (
-              <div className="mt-2 rounded-md border border-danger-line bg-danger-soft px-2 py-2 text-xs text-danger-strong">
-                <p className="font-semibold">{conflictMessage}</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {conflict.suggestedStartSeconds !== null ? (
+        if (value) {
+            setAssetId('');
+        }
+        const slideDuration =
+            schedule.slideAssets.find((slide) => slide.id === value)?.defaultDurationSeconds ?? 0;
+        setDurationSeconds((current) =>
+            Math.max(current, slideDuration + preRollSeconds + postRollSeconds),
+        );
+    }
+
+    function setPadding(kind: 'pre' | 'post', value: number) {
+        const safeValue = Math.max(0, Number(value) || 0);
+        const nextPre = kind === 'pre' ? safeValue : preRollSeconds;
+        const nextPost = kind === 'post' ? safeValue : postRollSeconds;
+        setPreRollSeconds(nextPre);
+        setPostRollSeconds(nextPost);
+        setDurationSeconds((current) => Math.max(current, knownDuration + nextPre + nextPost));
+    }
+
+    return (
+        <div className="border-t border-line bg-surface p-4">
+            <form
+                data-create-card
+                action={action}
+                className="grid grid-cols-1 gap-3 text-sm lg:grid-cols-[minmax(0,1.2fr)_116px_116px_130px_160px_160px_auto]"
+                onPointerDown={(event) => event.stopPropagation()}
+            >
+                <div className="flex items-start justify-between gap-3 lg:col-span-7">
+                    <div>
+                        <p className="font-semibold">Create block</p>
+                        <p className="mt-0.5 text-xs text-muted">
+                            {formatPlayoutTimeLabel(startTimeSeconds)} to{' '}
+                            {formatPlayoutTimeLabel(startTimeSeconds + effectiveDuration)}
+                        </p>
+                        {knownDuration ? (
+                            <p className="mt-0.5 text-xs text-muted">
+                                Min {formatTimecode(minimumDuration)} from selected content
+                            </p>
+                        ) : null}
+                        {conflictMessage ? (
+                            <div className="mt-2 rounded-md border border-danger-line bg-danger-soft px-2 py-2 text-xs text-danger-strong">
+                                <p className="font-semibold">{conflictMessage}</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    {conflict.suggestedStartSeconds !== null ? (
+                                        <button
+                                            type="button"
+                                            className="rounded border border-danger-line bg-surface px-2 py-1 font-semibold"
+                                            onClick={() =>
+                                                setStartTimeSeconds(
+                                                    conflict.suggestedStartSeconds ??
+                                                        startTimeSeconds,
+                                                )
+                                            }
+                                        >
+                                            Move to {formatTimecode(conflict.suggestedStartSeconds)}
+                                        </button>
+                                    ) : null}
+                                    {safeResizeSeconds ? (
+                                        <button
+                                            type="button"
+                                            className="rounded border border-danger-line bg-surface px-2 py-1 font-semibold"
+                                            onClick={() => setDurationSeconds(safeResizeSeconds)}
+                                        >
+                                            Resize to {formatTimecode(safeResizeSeconds)}
+                                        </button>
+                                    ) : null}
+                                    <span className="rounded border border-danger-line px-2 py-1 font-semibold">
+                                        Or archive conflicts on submit
+                                    </span>
+                                </div>
+                                {conflict.gapOptions.length ? (
+                                    <p className="mt-2 text-[11px]">
+                                        Open gaps:{' '}
+                                        {conflict.gapOptions
+                                            .slice(0, 3)
+                                            .map(
+                                                (gap) =>
+                                                    `${formatTimecode(gap.startTimeSeconds)} (${formatTimecode(gap.durationSeconds)})`,
+                                            )
+                                            .join(', ')}
+                                    </p>
+                                ) : null}
+                            </div>
+                        ) : null}
+                    </div>
                     <button
-                      type="button"
-                      className="rounded border border-danger-line bg-surface px-2 py-1 font-semibold"
-                      onClick={() =>
-                        setStartTimeSeconds(conflict.suggestedStartSeconds ?? startTimeSeconds)
-                      }
+                        type="button"
+                        onClick={onCancel}
+                        className="rounded-md border border-line px-2 py-1 text-xs font-semibold text-muted hover:bg-panel-soft"
                     >
-                      Move to {formatTimecode(conflict.suggestedStartSeconds)}
+                        Cancel
                     </button>
-                  ) : null}
-                  {safeResizeSeconds ? (
-                    <button
-                      type="button"
-                      className="rounded border border-danger-line bg-surface px-2 py-1 font-semibold"
-                      onClick={() => setDurationSeconds(safeResizeSeconds)}
-                    >
-                      Resize to {formatTimecode(safeResizeSeconds)}
-                    </button>
-                  ) : null}
-                  <span className="rounded border border-danger-line px-2 py-1 font-semibold">
-                    Or archive conflicts on submit
-                  </span>
                 </div>
-                {conflict.gapOptions.length ? (
-                  <p className="mt-2 text-[11px]">
-                    Open gaps:{" "}
-                    {conflict.gapOptions
-                      .slice(0, 3)
-                      .map(
-                        (gap) =>
-                          `${formatTimecode(gap.startTimeSeconds)} (${formatTimecode(gap.durationSeconds)})`
-                      )
-                      .join(", ")}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md border border-line px-2 py-1 text-xs font-semibold text-muted hover:bg-panel-soft"
-          >
-            Cancel
-          </button>
+                <input
+                    name="title"
+                    required
+                    defaultValue={`Block ${formatPlayoutTimeLabel(selection.start)}`}
+                    placeholder="Block title"
+                    className="border border-line px-3 py-2 text-sm"
+                />
+                <input
+                    name="start_time"
+                    required
+                    value={formatTimecode(startTimeSeconds)}
+                    onChange={(event) => setStartTimeSeconds(parseTimeInput(event.target.value))}
+                    title="Clock start in 24-hour format"
+                    placeholder="13:30:00"
+                    className="border border-line px-3 py-2 text-sm"
+                />
+                <input
+                    name="duration_seconds"
+                    required
+                    type="number"
+                    min={minimumDuration}
+                    value={effectiveDuration}
+                    onChange={(event) => setDurationSeconds(Number(event.target.value))}
+                    className="border border-line px-3 py-2 text-sm"
+                />
+                <select name="block_type" className="border border-line px-3 py-2 text-sm">
+                    <option value="video">Video</option>
+                    <option value="image">Image</option>
+                    <option value="slide">Slide</option>
+                    <option value="ad">Ad</option>
+                    <option value="promo">Promo</option>
+                    <option value="fallback">Fallback</option>
+                </select>
+                <select
+                    name="asset_id"
+                    value={assetId}
+                    onChange={(event) => setAsset(event.target.value)}
+                    className="border border-line px-3 py-2 text-sm"
+                >
+                    <option value="">No asset</option>
+                    {schedule.mediaAssets.map((asset) => (
+                        <option key={asset.id} value={asset.id}>
+                            {asset.title} · {asset.status}
+                            {asset.durationSeconds
+                                ? ` · ${formatTimecode(asset.durationSeconds)}`
+                                : ''}
+                        </option>
+                    ))}
+                </select>
+                <select
+                    name="slide_id"
+                    value={slideId}
+                    onChange={(event) => setSlide(event.target.value)}
+                    className="border border-line px-3 py-2 text-sm"
+                >
+                    <option value="">No slide</option>
+                    {schedule.slideAssets.map((slide) => (
+                        <option key={slide.id} value={slide.id}>
+                            {slide.title} · {slide.status}
+                        </option>
+                    ))}
+                </select>
+                <input
+                    name="pre_roll_seconds"
+                    type="number"
+                    min="0"
+                    value={preRollSeconds}
+                    onChange={(event) => setPadding('pre', Number(event.target.value))}
+                    placeholder="Before sec"
+                    className="border border-line px-3 py-2 text-sm"
+                />
+                <input
+                    name="post_roll_seconds"
+                    type="number"
+                    min="0"
+                    value={postRollSeconds}
+                    onChange={(event) => setPadding('post', Number(event.target.value))}
+                    placeholder="After sec"
+                    className="border border-line px-3 py-2 text-sm"
+                />
+                <label className="flex min-h-10 items-center gap-2 rounded-md border border-line px-3 text-sm lg:col-span-2">
+                    <input name="hide_overlays" type="checkbox" />
+                    Hide overlays
+                </label>
+                <button
+                    className="btn-primary lg:col-span-5"
+                    name="conflict_resolution"
+                    value="none"
+                    disabled={conflict.hasConflict}
+                >
+                    {conflict.hasConflict ? 'Resolve conflict before creating' : 'Create block'}
+                </button>
+            </form>
         </div>
-        <input
-          name="title"
-          required
-          defaultValue={`Block ${formatPlayoutTimeLabel(selection.start)}`}
-          placeholder="Block title"
-          className="border border-line px-3 py-2 text-sm"
-        />
-        <input
-          name="start_time"
-          required
-          value={formatTimecode(startTimeSeconds)}
-          onChange={(event) => setStartTimeSeconds(parseTimeInput(event.target.value))}
-          title="Clock start in 24-hour format"
-          placeholder="13:30:00"
-          className="border border-line px-3 py-2 text-sm"
-        />
-        <input
-          name="duration_seconds"
-          required
-          type="number"
-          min={minimumDuration}
-          value={effectiveDuration}
-          onChange={(event) => setDurationSeconds(Number(event.target.value))}
-          className="border border-line px-3 py-2 text-sm"
-        />
-        <select name="block_type" className="border border-line px-3 py-2 text-sm">
-          <option value="video">Video</option>
-          <option value="image">Image</option>
-          <option value="slide">Slide</option>
-          <option value="ad">Ad</option>
-          <option value="promo">Promo</option>
-          <option value="fallback">Fallback</option>
-        </select>
-        <select
-          name="asset_id"
-          value={assetId}
-          onChange={(event) => setAsset(event.target.value)}
-          className="border border-line px-3 py-2 text-sm"
-        >
-          <option value="">No asset</option>
-          {schedule.mediaAssets.map((asset) => (
-            <option key={asset.id} value={asset.id}>
-              {asset.title} · {asset.status}
-              {asset.durationSeconds ? ` · ${formatTimecode(asset.durationSeconds)}` : ""}
-            </option>
-          ))}
-        </select>
-        <select
-          name="slide_id"
-          value={slideId}
-          onChange={(event) => setSlide(event.target.value)}
-          className="border border-line px-3 py-2 text-sm"
-        >
-          <option value="">No slide</option>
-          {schedule.slideAssets.map((slide) => (
-            <option key={slide.id} value={slide.id}>
-              {slide.title} · {slide.status}
-            </option>
-          ))}
-        </select>
-        <input
-          name="pre_roll_seconds"
-          type="number"
-          min="0"
-          value={preRollSeconds}
-          onChange={(event) => setPadding("pre", Number(event.target.value))}
-          placeholder="Before sec"
-          className="border border-line px-3 py-2 text-sm"
-        />
-        <input
-          name="post_roll_seconds"
-          type="number"
-          min="0"
-          value={postRollSeconds}
-          onChange={(event) => setPadding("post", Number(event.target.value))}
-          placeholder="After sec"
-          className="border border-line px-3 py-2 text-sm"
-        />
-        <label className="flex min-h-10 items-center gap-2 rounded-md border border-line px-3 text-sm lg:col-span-2">
-          <input name="hide_overlays" type="checkbox" />
-          Hide overlays
-        </label>
-        <button
-          className="btn-primary lg:col-span-5"
-          name="conflict_resolution"
-          value="none"
-          disabled={conflict.hasConflict}
-        >
-          {conflict.hasConflict ? "Resolve conflict before creating" : "Create block"}
-        </button>
-      </form>
-    </div>
-  )
+    );
 }
 
 function parseTimeInput(value: string) {
-  const [hours = "0", minutes = "0", seconds = "0"] = value.split(":")
-  const total = Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds)
-  if (!Number.isFinite(total)) return 0
-  return Math.max(0, Math.min(total, DAY_SECONDS - SNAP_SECONDS))
+    const [hours = '0', minutes = '0', seconds = '0'] = value.split(':');
+    const total = Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
+
+    if (!Number.isFinite(total)) {
+        return 0;
+    }
+
+    return Math.max(0, Math.min(total, DAY_SECONDS - SNAP_SECONDS));
 }
 
 function normalizeSelection(start: number, end: number): Selection {
-  const min = Math.min(start, end)
-  const max = Math.max(start, end)
-  return {
-    start: Math.max(0, Math.min(min, DAY_SECONDS - SNAP_SECONDS)),
-    end: Math.min(DAY_SECONDS, Math.max(max, min + SNAP_SECONDS))
-  }
+    const min = Math.min(start, end);
+    const max = Math.max(start, end);
+
+    return {
+        start: Math.max(0, Math.min(min, DAY_SECONDS - SNAP_SECONDS)),
+        end: Math.min(DAY_SECONDS, Math.max(max, min + SNAP_SECONDS)),
+    };
 }
 
 function snapSeconds(value: number) {
-  return Math.max(0, Math.min(DAY_SECONDS, Math.round(value / SNAP_SECONDS) * SNAP_SECONDS))
+    return Math.max(0, Math.min(DAY_SECONDS, Math.round(value / SNAP_SECONDS) * SNAP_SECONDS));
 }
 
 function blockAssetLabel(schedule: ScheduleBundle, block: ProgramBlock) {
-  const asset = block.assetId
-    ? schedule.mediaAssets.find((item) => item.id === block.assetId)
-    : null
-  const slide = block.slideId
-    ? schedule.slideAssets.find((item) => item.id === block.slideId)
-    : null
-  return assetLabel(asset, slide)
+    const asset = block.assetId
+        ? schedule.mediaAssets.find((item) => item.id === block.assetId)
+        : null;
+    const slide = block.slideId
+        ? schedule.slideAssets.find((item) => item.id === block.slideId)
+        : null;
+
+    return assetLabel(asset, slide);
 }
 
 function assetLabel(asset: MediaAsset | null | undefined, slide: SlideAsset | null | undefined) {
-  if (asset) return `${asset.title} (${asset.status})`
-  if (slide) return `${slide.title} (${slide.status})`
-  return "No asset"
+    if (asset) {
+        return `${asset.title} (${asset.status})`;
+    }
+
+    if (slide) {
+        return `${slide.title} (${slide.status})`;
+    }
+
+    return 'No asset';
 }
 
 function blockTone(block: ProgramBlock, issueSeverity?: string) {
-  if (issueSeverity === "critical") return "border-danger-line bg-danger-soft text-danger-strong"
-  if (issueSeverity === "warning") return "border-warn-line bg-warn-soft text-warn-strong"
-  if (block.status !== "ready" && block.status !== "active")
-    return "border-line bg-panel text-muted"
-  switch (block.blockType) {
-    case "ad":
-      return "border-info-line bg-info-soft text-info-strong"
-    case "promo":
-      return "border-signal/30 bg-info-soft text-info-strong"
-    case "image":
-    case "slide":
-      return "border-success-line bg-success-soft text-success-strong"
-    case "fallback":
-      return "border-warn-line bg-warn-soft text-warn-strong"
-    default:
-      return "border-line bg-surface text-ink"
-  }
+    if (issueSeverity === 'critical') {
+        return 'border-danger-line bg-danger-soft text-danger-strong';
+    }
+
+    if (issueSeverity === 'warning') {
+        return 'border-warn-line bg-warn-soft text-warn-strong';
+    }
+
+    if (block.status !== 'ready' && block.status !== 'active') {
+        return 'border-line bg-panel text-muted';
+    }
+
+    switch (block.blockType) {
+        case 'ad':
+            return 'border-info-line bg-info-soft text-info-strong';
+        case 'promo':
+            return 'border-signal/30 bg-info-soft text-info-strong';
+        case 'image':
+        case 'slide':
+            return 'border-success-line bg-success-soft text-success-strong';
+        case 'fallback':
+            return 'border-warn-line bg-warn-soft text-warn-strong';
+        default:
+            return 'border-line bg-surface text-ink';
+    }
 }

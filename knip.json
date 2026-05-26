@@ -1,25 +1,25 @@
 {
-  "$schema": "https://unpkg.com/knip@latest/schema.json",
-  "entry": [
-    "app/**/*.{ts,tsx}",
-    "components/**/*.{ts,tsx}",
-    "e2e/**/*.{ts,mjs}",
-    "i18n.ts",
-    "lib/**/*.{ts,tsx}",
-    "next.config.*",
-    "open-next.config.*",
-    "playwright.config.*",
-    "postcss.config.*",
-    "scripts/*.{js,mjs}",
-    "tailwind.config.*",
-    "vitest.config.*"
-  ],
-  "project": ["**/*.{ts,tsx,js,mjs,cjs}"],
-  "ignore": ["guests/**"],
-  "ignoreBinaries": ["supabase"],
-  "ignoreDependencies": [
-    "eslint-config-next",
-    "eslint-plugin-jsx-a11y",
-    "eslint-plugin-react-hooks"
-  ]
+    "$schema": "https://unpkg.com/knip@latest/schema.json",
+    "entry": [
+        "app/**/*.{ts,tsx}",
+        "components/**/*.{ts,tsx}",
+        "e2e/**/*.{ts,mjs}",
+        "i18n.ts",
+        "lib/**/*.{ts,tsx}",
+        "next.config.*",
+        "open-next.config.*",
+        "playwright.config.*",
+        "postcss.config.*",
+        "scripts/*.{js,mjs}",
+        "tailwind.config.*",
+        "vitest.config.*"
+    ],
+    "project": ["**/*.{ts,tsx,js,mjs,cjs}"],
+    "ignore": ["guests/**"],
+    "ignoreBinaries": ["supabase"],
+    "ignoreDependencies": [
+        "eslint-config-next",
+        "eslint-plugin-jsx-a11y",
+        "eslint-plugin-react-hooks"
+    ]
 }

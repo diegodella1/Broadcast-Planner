@@ -10,13 +10,13 @@
  * Reference: https://developer.thomsonreuters.com (Reuters Connect API).
  */
 
-import type { ReutersClient } from "./reuters"
+import type { ReutersClient } from './reuters';
 
 export function createRealReutersClient(): ReutersClient {
-  throw new Error(
-    "lib/reuters-real.ts: real Reuters Connect client is not implemented. " +
-      "Set REUTERS_PROVIDER=fixtures (default) until OAuth2 credentials are " +
-      "provisioned and lib/reuters-real.ts is wired against the Reuters " +
-      "Connect API. See lib/reuters.ts for the ReutersClient contract."
-  )
+    throw new Error(
+        'lib/reuters-real.ts: real Reuters Connect client is not implemented. ' +
+            'Set REUTERS_PROVIDER=fixtures (default) until OAuth2 credentials are ' +
+            'provisioned and lib/reuters-real.ts is wired against the Reuters ' +
+            'Connect API. See lib/reuters.ts for the ReutersClient contract.',
+    );
 }

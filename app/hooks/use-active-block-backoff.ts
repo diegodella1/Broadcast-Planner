@@ -1,5 +1,5 @@
-export const ACTIVE_BLOCK_MAX_INTERVAL_MS = 60_000
-export const ACTIVE_BLOCK_BACKOFF_THRESHOLD = 3
+export const ACTIVE_BLOCK_MAX_INTERVAL_MS = 60_000;
+export const ACTIVE_BLOCK_BACKOFF_THRESHOLD = 3;
 
 /**
  * Compute the next polling interval for `useActiveBlock`.
@@ -12,20 +12,23 @@ export const ACTIVE_BLOCK_BACKOFF_THRESHOLD = 3
  * Pure function so it can be unit-tested in a node environment without DOM.
  */
 export function nextPollState(
-  current: { intervalMs: number; consecutiveErrors: number },
-  outcome: "success" | "error",
-  baseIntervalMs: number
+    current: { intervalMs: number; consecutiveErrors: number },
+    outcome: 'success' | 'error',
+    baseIntervalMs: number,
 ): { intervalMs: number; consecutiveErrors: number } {
-  if (outcome === "success") {
-    return { intervalMs: baseIntervalMs, consecutiveErrors: 0 }
-  }
+    if (outcome === 'success') {
+        return { intervalMs: baseIntervalMs, consecutiveErrors: 0 };
+    }
 
-  const consecutiveErrors = current.consecutiveErrors + 1
-  if (consecutiveErrors < ACTIVE_BLOCK_BACKOFF_THRESHOLD) {
-    return { intervalMs: baseIntervalMs, consecutiveErrors }
-  }
+    const consecutiveErrors = current.consecutiveErrors + 1;
 
-  const doubled = current.intervalMs >= baseIntervalMs ? current.intervalMs * 2 : baseIntervalMs * 2
-  const intervalMs = Math.min(doubled, ACTIVE_BLOCK_MAX_INTERVAL_MS)
-  return { intervalMs, consecutiveErrors }
+    if (consecutiveErrors < ACTIVE_BLOCK_BACKOFF_THRESHOLD) {
+        return { intervalMs: baseIntervalMs, consecutiveErrors };
+    }
+
+    const doubled =
+        current.intervalMs >= baseIntervalMs ? current.intervalMs * 2 : baseIntervalMs * 2;
+    const intervalMs = Math.min(doubled, ACTIVE_BLOCK_MAX_INTERVAL_MS);
+
+    return { intervalMs, consecutiveErrors };
 }

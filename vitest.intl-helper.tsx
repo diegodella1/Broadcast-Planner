@@ -14,16 +14,16 @@
  *     return render(renderWithIntl(<MyComponent {...props} />))
  *   }
  */
-import { NextIntlClientProvider } from "next-intl"
+import { NextIntlClientProvider } from 'next-intl';
 
-import enMessages from "./messages/en.json"
+import enMessages from './messages/en.json';
 
-import type { ReactNode } from "react"
+import type { ReactNode } from 'react';
 
-export function renderWithIntl(children: ReactNode, locale = "en") {
-  return (
-    <NextIntlClientProvider locale={locale} messages={enMessages}>
-      {children}
-    </NextIntlClientProvider>
-  )
+export function renderWithIntl(children: ReactNode, locale = 'en') {
+    return (
+        <NextIntlClientProvider locale={locale} messages={enMessages}>
+            {children}
+        </NextIntlClientProvider>
+    );
 }

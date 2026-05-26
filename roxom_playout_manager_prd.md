@@ -450,51 +450,51 @@ These are suggested TypeScript models. They can be adapted during implementation
 
 ```ts
 type MediaAsset = {
-  id: string
-  title: string
-  description?: string
+    id: string;
+    title: string;
+    description?: string;
 
-  assetType:
-    | "long_form_video"
-    | "short_clip"
-    | "ad"
-    | "promo"
-    | "bumper"
-    | "loop"
-    | "camera"
-    | "graphic"
+    assetType:
+        | 'long_form_video'
+        | 'short_clip'
+        | 'ad'
+        | 'promo'
+        | 'bumper'
+        | 'loop'
+        | 'camera'
+        | 'graphic';
 
-  sourceType: "uploaded_file" | "remote_url" | "youtube_embed" | "hls" | "internal_storage"
+    sourceType: 'uploaded_file' | 'remote_url' | 'youtube_embed' | 'hls' | 'internal_storage';
 
-  url: string
-  thumbnailUrl?: string
+    url: string;
+    thumbnailUrl?: string;
 
-  durationSeconds?: number
+    durationSeconds?: number;
 
-  status:
-    | "draft"
-    | "processing"
-    | "ready"
-    | "scheduled"
-    | "playing"
-    | "played"
-    | "expired"
-    | "failed"
+    status:
+        | 'draft'
+        | 'processing'
+        | 'ready'
+        | 'scheduled'
+        | 'playing'
+        | 'played'
+        | 'expired'
+        | 'failed';
 
-  enabled: boolean
-  priority: number
+    enabled: boolean;
+    priority: number;
 
-  startsAt?: string
-  endsAt?: string
-  expiresAt?: string
+    startsAt?: string;
+    endsAt?: string;
+    expiresAt?: string;
 
-  tags: string[]
-  relatedLocationIds?: string[]
-  relatedTopicIds?: string[]
+    tags: string[];
+    relatedLocationIds?: string[];
+    relatedTopicIds?: string[];
 
-  createdAt: string
-  updatedAt: string
-}
+    createdAt: string;
+    updatedAt: string;
+};
 ```
 
 ---
@@ -503,23 +503,23 @@ type MediaAsset = {
 
 ```ts
 type SlideAsset = {
-  id: string
-  title: string
+    id: string;
+    title: string;
 
-  slideType: "image" | "html" | "template" | "markdown" | "custom_graphic"
+    slideType: 'image' | 'html' | 'template' | 'markdown' | 'custom_graphic';
 
-  content?: string
-  imageUrl?: string
-  htmlContent?: string
-  templateId?: string
+    content?: string;
+    imageUrl?: string;
+    htmlContent?: string;
+    templateId?: string;
 
-  defaultDurationSeconds?: number
+    defaultDurationSeconds?: number;
 
-  status: "draft" | "ready" | "archived"
+    status: 'draft' | 'ready' | 'archived';
 
-  createdAt: string
-  updatedAt: string
-}
+    createdAt: string;
+    updatedAt: string;
+};
 ```
 
 A slide is not necessarily a PowerPoint slide. It can be:
@@ -538,26 +538,26 @@ A slide is not necessarily a PowerPoint slide. It can be:
 
 ```ts
 type BroadcastTimeline = {
-  id: string
-  title: string
-  description?: string
+    id: string;
+    title: string;
+    description?: string;
 
-  status: "draft" | "ready" | "active" | "archived"
+    status: 'draft' | 'ready' | 'active' | 'archived';
 
-  totalDurationSeconds?: number
+    totalDurationSeconds?: number;
 
-  startsAt?: string
-  endsAt?: string
+    startsAt?: string;
+    endsAt?: string;
 
-  outputMode: "manual" | "scheduled" | "loop"
+    outputMode: 'manual' | 'scheduled' | 'loop';
 
-  fallbackSceneId?: string
+    fallbackSceneId?: string;
 
-  layers: ScheduledLayer[]
+    layers: ScheduledLayer[];
 
-  createdAt: string
-  updatedAt: string
-}
+    createdAt: string;
+    updatedAt: string;
+};
 ```
 
 ---
@@ -566,50 +566,50 @@ type BroadcastTimeline = {
 
 ```ts
 type ScheduledLayer = {
-  id: string
+    id: string;
 
-  timelineId: string
+    timelineId: string;
 
-  layerType:
-    | "video"
-    | "ad"
-    | "promo"
-    | "slide"
-    | "image"
-    | "camera"
-    | "map"
-    | "weather"
-    | "widget"
-    | "calendar"
-    | "topic"
-    | "lower_third"
-    | "logo_bug"
-    | "ticker"
-    | "audio"
+    layerType:
+        | 'video'
+        | 'ad'
+        | 'promo'
+        | 'slide'
+        | 'image'
+        | 'camera'
+        | 'map'
+        | 'weather'
+        | 'widget'
+        | 'calendar'
+        | 'topic'
+        | 'lower_third'
+        | 'logo_bug'
+        | 'ticker'
+        | 'audio';
 
-  title: string
+    title: string;
 
-  assetId?: string
-  slideId?: string
-  sceneId?: string
-  widgetId?: string
+    assetId?: string;
+    slideId?: string;
+    sceneId?: string;
+    widgetId?: string;
 
-  startTimeSeconds: number
-  durationSeconds: number
+    startTimeSeconds: number;
+    durationSeconds: number;
 
-  zIndex: number
+    zIndex: number;
 
-  position?: "fullscreen" | "lower_third" | "sidebar" | "top_right" | "bottom_bar" | "custom"
+    position?: 'fullscreen' | 'lower_third' | 'sidebar' | 'top_right' | 'bottom_bar' | 'custom';
 
-  transitionIn?: "cut" | "fade" | "slide" | "none"
-  transitionOut?: "cut" | "fade" | "slide" | "none"
+    transitionIn?: 'cut' | 'fade' | 'slide' | 'none';
+    transitionOut?: 'cut' | 'fade' | 'slide' | 'none';
 
-  enabled: boolean
-  locked: boolean
+    enabled: boolean;
+    locked: boolean;
 
-  createdAt: string
-  updatedAt: string
-}
+    createdAt: string;
+    updatedAt: string;
+};
 ```
 
 ---
@@ -618,25 +618,25 @@ type ScheduledLayer = {
 
 ```ts
 type BroadcastScene = {
-  id: string
-  name: string
+    id: string;
+    name: string;
 
-  baseLayer:
-    | { type: "media_asset"; mediaAssetId: string }
-    | { type: "camera"; cameraId: string }
-    | { type: "map"; locationId?: string }
-    | { type: "graphic"; graphicId: string }
-    | { type: "empty" }
+    baseLayer:
+        | { type: 'media_asset'; mediaAssetId: string }
+        | { type: 'camera'; cameraId: string }
+        | { type: 'map'; locationId?: string }
+        | { type: 'graphic'; graphicId: string }
+        | { type: 'empty' };
 
-  overlays: BroadcastOverlay[]
+    overlays: BroadcastOverlay[];
 
-  durationSeconds?: number
+    durationSeconds?: number;
 
-  transitionIn?: "cut" | "fade" | "slide" | "none"
-  transitionOut?: "cut" | "fade" | "slide" | "none"
+    transitionIn?: 'cut' | 'fade' | 'slide' | 'none';
+    transitionOut?: 'cut' | 'fade' | 'slide' | 'none';
 
-  status: "draft" | "ready" | "active" | "expired"
-}
+    status: 'draft' | 'ready' | 'active' | 'expired';
+};
 ```
 
 ---
@@ -645,28 +645,28 @@ type BroadcastScene = {
 
 ```ts
 type BroadcastOverlay = {
-  id: string
-  type:
-    | "slide"
-    | "widget"
-    | "lower_third"
-    | "logo_bug"
-    | "ticker"
-    | "weather"
-    | "topic"
-    | "calendar"
-    | "promo"
+    id: string;
+    type:
+        | 'slide'
+        | 'widget'
+        | 'lower_third'
+        | 'logo_bug'
+        | 'ticker'
+        | 'weather'
+        | 'topic'
+        | 'calendar'
+        | 'promo';
 
-  assetId?: string
-  slideId?: string
-  widgetId?: string
+    assetId?: string;
+    slideId?: string;
+    widgetId?: string;
 
-  position: "fullscreen" | "lower_third" | "sidebar" | "top_right" | "bottom_bar" | "custom"
+    position: 'fullscreen' | 'lower_third' | 'sidebar' | 'top_right' | 'bottom_bar' | 'custom';
 
-  zIndex: number
-  durationSeconds?: number
-  enabled: boolean
-}
+    zIndex: number;
+    durationSeconds?: number;
+    enabled: boolean;
+};
 ```
 
 ---
@@ -677,33 +677,33 @@ The old `backgroundclima` functionality should become a scene type.
 
 ```ts
 type Location = {
-  id: string
-  name: string
-  country: string
-  region: string
-  latitude?: number
-  longitude?: number
-  timezone: string
-  weatherQuery: string
-  enabled: boolean
-  priority: number
-  tags: string[]
-}
+    id: string;
+    name: string;
+    country: string;
+    region: string;
+    latitude?: number;
+    longitude?: number;
+    timezone: string;
+    weatherQuery: string;
+    enabled: boolean;
+    priority: number;
+    tags: string[];
+};
 ```
 
 ```ts
 type CameraFeed = {
-  id: string
-  locationId: string
-  title: string
-  provider: "youtube" | "remote_url" | "custom"
-  url: string
-  embedUrl?: string
-  status: "active" | "inactive" | "broken" | "testing"
-  priority: number
-  notes?: string
-  lastCheckedAt?: string
-}
+    id: string;
+    locationId: string;
+    title: string;
+    provider: 'youtube' | 'remote_url' | 'custom';
+    url: string;
+    embedUrl?: string;
+    status: 'active' | 'inactive' | 'broken' | 'testing';
+    priority: number;
+    notes?: string;
+    lastCheckedAt?: string;
+};
 ```
 
 ---
@@ -712,18 +712,18 @@ type CameraFeed = {
 
 ```ts
 type DataWidget = {
-  id: string
-  name: string
-  type: "market" | "debt" | "commodity" | "bitcoin" | "treasury" | "macro" | "custom"
+    id: string;
+    name: string;
+    type: 'market' | 'debt' | 'commodity' | 'bitcoin' | 'treasury' | 'macro' | 'custom';
 
-  enabled: boolean
-  priority: number
-  maxDisplaySeconds: number
-  source: string
-  refreshIntervalSeconds: number
-  staleAfterSeconds: number
-  displayMode: "compact" | "standard" | "full"
-}
+    enabled: boolean;
+    priority: number;
+    maxDisplaySeconds: number;
+    source: string;
+    refreshIntervalSeconds: number;
+    staleAfterSeconds: number;
+    displayMode: 'compact' | 'standard' | 'full';
+};
 ```
 
 ---
@@ -820,7 +820,7 @@ Every timeline should define fallback behavior.
 Possible fallback modes:
 
 ```ts
-type FallbackMode = "black" | "slate" | "default_loop" | "weather_camera" | "next_item"
+type FallbackMode = 'black' | 'slate' | 'default_loop' | 'weather_camera' | 'next_item';
 ```
 
 Recommended MVP fallback:
@@ -919,11 +919,11 @@ The implementation should prioritize the playout engine before the complete admi
 ### Phase 1 — Core Types and Renderer
 
 1. Create TypeScript types:
-   - MediaAsset
-   - SlideAsset
-   - BroadcastTimeline
-   - ScheduledLayer
-   - BroadcastScene
+    - MediaAsset
+    - SlideAsset
+    - BroadcastTimeline
+    - ScheduledLayer
+    - BroadcastScene
 2. Create sample/mock data.
 3. Build `/output/[timelineId]` route.
 4. Build `TimelineRenderer`.

@@ -159,41 +159,41 @@ The hidden assumption is that "the app renders" equals "the signal is safe." For
 ## Revised Plan
 
 1. Make real-data integrity non-negotiable.
-   - Remove mock fallback from production data paths.
-   - Return explicit error state when Supabase fails.
-   - Add a visible "data source: real/mock/error" signal in non-output admin screens.
-   - Keep mock schedule only for local demo mode behind an explicit flag.
+    - Remove mock fallback from production data paths.
+    - Return explicit error state when Supabase fails.
+    - Add a visible "data source: real/mock/error" signal in non-output admin screens.
+    - Keep mock schedule only for local demo mode behind an explicit flag.
 
 2. Lock privileged mutations.
-   - Add `requireAdmin()` to every mutating API route and server action path that writes through service role.
-   - Add tests or static checks for `createServiceClient()` in API routes without auth guard.
-   - Log actor/action/entity for uploads, imports, settings changes, block edits, and overrides.
+    - Add `requireAdmin()` to every mutating API route and server action path that writes through service role.
+    - Add tests or static checks for `createServiceClient()` in API routes without auth guard.
+    - Log actor/action/entity for uploads, imports, settings changes, block edits, and overrides.
 
 3. Build playout-grade fallback behavior.
-   - Add output renderer state machine: loading, playing, stalled, errored, ended, fallback.
-   - Wire `video` events: `onCanPlay`, `onPlaying`, `onWaiting`, `onStalled`, `onError`, `onEnded`.
-   - Add timeout-based fallback if media does not start within N seconds.
-   - Add debug overlay fields for media state, selected fallback, and last error.
+    - Add output renderer state machine: loading, playing, stalled, errored, ended, fallback.
+    - Wire `video` events: `onCanPlay`, `onPlaying`, `onWaiting`, `onStalled`, `onError`, `onEnded`.
+    - Add timeout-based fallback if media does not start within N seconds.
+    - Add debug overlay fields for media state, selected fallback, and last error.
 
 4. Turn readiness into enforcement.
-   - Add database-level overlap protection for program blocks, likely with range/exclusion constraint or guarded RPC.
-   - Expand publish gate: no critical health issues, fallback ready, active day has coverage for required window, active assets playable.
-   - Add a day readiness checklist component with pass/fail items, not only counts.
+    - Add database-level overlap protection for program blocks, likely with range/exclusion constraint or guarded RPC.
+    - Expand publish gate: no critical health issues, fallback ready, active day has coverage for required window, active assets playable.
+    - Add a day readiness checklist component with pass/fail items, not only counts.
 
 5. Create a live operations panel.
-   - Add route or panel for current output: now, next, active media state, warnings, and one-click actions.
-   - Actions: force fallback, disable overlay, force next block, hold current block, clear override.
-   - Store overrides and audit them.
+    - Add route or panel for current output: now, next, active media state, warnings, and one-click actions.
+    - Actions: force fallback, disable overlay, force next block, hold current block, clear override.
+    - Store overrides and audit them.
 
 6. Add end-to-end broadcast smoke tests.
-   - Playwright: admin login, create block, set ready/active, open output route.
-   - Browser output: verify no admin UI leaks, no visible debug by default, nonblank pixels, media element exists for video blocks.
-   - Failure test: bad media URL triggers fallback.
-   - Production smoke script: health + Supabase + storage bucket + output route + basePath.
+    - Playwright: admin login, create block, set ready/active, open output route.
+    - Browser output: verify no admin UI leaks, no visible debug by default, nonblank pixels, media element exists for video blocks.
+    - Failure test: bad media URL triggers fallback.
+    - Production smoke script: health + Supabase + storage bucket + output route + basePath.
 
 7. Narrow roadmap around reliability before more CMS features.
-   - Freeze new content types until output error handling, auth hardening, publish gates, and live controls are done.
-   - After reliability proof, add templates, clone day, scene library, and richer producer workflow.
+    - Freeze new content types until output error handling, auth hardening, publish gates, and live controls are done.
+    - After reliability proof, add templates, clone day, scene library, and richer producer workflow.
 
 ## Pre-Launch Checklist
 

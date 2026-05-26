@@ -15,46 +15,46 @@ Use the configured admin token or named operator handle/token.
 ## Daily Workflow
 
 1. **Prepare content**
-   - Start at `/admin/prepare`.
-   - Use it as the front door for uploads, remote URLs, Vimeo, music, guest plates, weather city
-     plates and data plates.
-   - Direct routes still exist: `/admin/assets`, `/admin/vimeo`, `/admin/slides`, `/admin/guests`
-     and `/admin/music`.
+    - Start at `/admin/prepare`.
+    - Use it as the front door for uploads, remote URLs, Vimeo, music, guest plates, weather city
+      plates and data plates.
+    - Direct routes still exist: `/admin/assets`, `/admin/vimeo`, `/admin/slides`, `/admin/guests`
+      and `/admin/music`.
 
 2. **Program the day**
-   - Start at `/admin/program`.
-   - Create or open the day from Calendar.
-   - Add blocks in `/admin/schedule/[date]`.
-   - Use Loop Builder for silent slide loops.
-   - Choose the loop intent clearly: scheduled loop, fallback carousel only, or both.
-   - Assign ready media, slides, overlays, and fallback assets.
-   - For normal video programs that need disclosure, enable `Previously Recorded bug` and choose
-     one of the four screen corners. This does not apply to ads, promos, slides, images, fallback,
-     Reuters, or manual overrides.
+    - Start at `/admin/program`.
+    - Create or open the day from Calendar.
+    - Add blocks in `/admin/schedule/[date]`.
+    - Use Loop Builder for silent slide loops.
+    - Choose the loop intent clearly: scheduled loop, fallback carousel only, or both.
+    - Assign ready media, slides, overlays, and fallback assets.
+    - For normal video programs that need disclosure, enable `Previously Recorded bug` and choose
+      one of the four screen corners. This does not apply to ads, promos, slides, images, fallback,
+      Reuters, or manual overrides.
 
 3. **Check readiness**
-   - Fix schedule health errors.
-   - Confirm fallback policy. Fallback can be a ready fallback video or the visual fallback
-     carousel from Loop Builder.
-   - Open `/admin/runbook/[date]`.
-   - Complete critical preflight checks.
+    - Fix schedule health errors.
+    - Confirm fallback policy. Fallback can be a ready fallback video or the visual fallback
+      carousel from Loop Builder.
+    - Open `/admin/runbook/[date]`.
+    - Complete critical preflight checks.
 
 4. **Go live**
-   - Set the program day `active`.
-   - Open `/admin/operate`.
-   - From Operate, open `/admin/output`.
-   - Launch Live Browser Output.
-   - Click `Start Output` once to unlock audio.
-   - Capture that browser window in OBS/vMix.
+    - Set the program day `active`.
+    - Open `/admin/operate`.
+    - From Operate, open `/admin/output`.
+    - Launch Live Browser Output.
+    - Click `Start Output` once to unlock audio.
+    - Capture that browser window in OBS/vMix.
 
 5. **During live**
-   - Watch `/admin/output` monitor.
-   - Check active block, next block, fallback reason, clock skew, and drift.
-   - Use the runbook for incidents and handoff notes.
+    - Watch `/admin/output` monitor.
+    - Check active block, next block, fallback reason, clock skew, and drift.
+    - Use the runbook for incidents and handoff notes.
 
 6. **Stop**
-   - Use `/admin/output` -> Stop broadcast.
-   - Complete shutdown checks.
+    - Use `/admin/output` -> Stop broadcast.
+    - Complete shutdown checks.
 
 ## Output Behavior
 

@@ -1,273 +1,279 @@
-import clsx from "clsx"
-import Link from "next/link"
+import clsx from 'clsx';
+import Link from 'next/link';
 
-import type { ReactNode } from "react"
+import type { ReactNode } from 'react';
 
-type Tone = "neutral" | "ok" | "warn" | "danger" | "info"
+type Tone = 'neutral' | 'ok' | 'warn' | 'danger' | 'info';
 
 export function MetricTile({
-  label,
-  value,
-  detail,
-  tone = "neutral"
+    label,
+    value,
+    detail,
+    tone = 'neutral',
 }: {
-  label: string
-  value: string
-  detail: string
-  tone?: Tone
+    label: string;
+    value: string;
+    detail: string;
+    tone?: Tone;
 }) {
-  return (
-    <section className={clsx("surface-card p-4", toneBorder(tone))}>
-      <p className="eyebrow">{label}</p>
-      <p className={clsx("mt-2 text-2xl font-semibold tabular-nums", toneText(tone))}>{value}</p>
-      <p className="mt-1 text-sm text-muted">{detail}</p>
-    </section>
-  )
+    return (
+        <section className={clsx('surface-card p-4', toneBorder(tone))}>
+            <p className="eyebrow">{label}</p>
+            <p className={clsx('mt-2 text-2xl font-semibold tabular-nums', toneText(tone))}>
+                {value}
+            </p>
+            <p className="mt-1 text-sm text-muted">{detail}</p>
+        </section>
+    );
 }
 
 export function ClearStateBadge({
-  tone = "neutral",
-  children
+    tone = 'neutral',
+    children,
 }: {
-  tone?: Tone
-  children: ReactNode
+    tone?: Tone;
+    children: ReactNode;
 }) {
-  return (
-    <span
-      className={clsx(
-        "inline-flex min-h-7 items-center rounded-md border px-2.5 text-xs font-bold",
-        stateBadgeTone(tone)
-      )}
-    >
-      {children}
-    </span>
-  )
+    return (
+        <span
+            className={clsx(
+                'inline-flex min-h-7 items-center rounded-md border px-2.5 text-xs font-bold',
+                stateBadgeTone(tone),
+            )}
+        >
+            {children}
+        </span>
+    );
 }
 
 export function ActionHint({
-  label,
-  children,
-  tone = "info"
+    label,
+    children,
+    tone = 'info',
 }: {
-  label: string
-  children: ReactNode
-  tone?: Tone
+    label: string;
+    children: ReactNode;
+    tone?: Tone;
 }) {
-  return (
-    <div className={clsx("rounded-md border px-3 py-2 text-sm", noticeTone(tone))}>
-      <p className="text-[0.68rem] font-bold uppercase">{label}</p>
-      <div className="mt-1 leading-5">{children}</div>
-    </div>
-  )
+    return (
+        <div className={clsx('rounded-md border px-3 py-2 text-sm', noticeTone(tone))}>
+            <p className="text-[0.68rem] font-bold uppercase">{label}</p>
+            <div className="mt-1 leading-5">{children}</div>
+        </div>
+    );
 }
 
 export function Notice({
-  tone = "info",
-  title,
-  children
+    tone = 'info',
+    title,
+    children,
 }: {
-  tone?: Tone
-  title?: string
-  children: ReactNode
+    tone?: Tone;
+    title?: string;
+    children: ReactNode;
 }) {
-  return (
-    <div className={clsx("mb-4 rounded-md border px-4 py-3 text-sm", noticeTone(tone))}>
-      {title ? <p className="font-semibold">{title}</p> : null}
-      <div className={title ? "mt-1" : ""}>{children}</div>
-    </div>
-  )
+    return (
+        <div className={clsx('mb-4 rounded-md border px-4 py-3 text-sm', noticeTone(tone))}>
+            {title ? <p className="font-semibold">{title}</p> : null}
+            <div className={title ? 'mt-1' : ''}>{children}</div>
+        </div>
+    );
 }
 
 export function StatusBanner({
-  tone = "info",
-  label,
-  title,
-  detail,
-  action
+    tone = 'info',
+    label,
+    title,
+    detail,
+    action,
 }: {
-  tone?: Tone
-  label: string
-  title: string
-  detail?: ReactNode
-  action?: ReactNode
+    tone?: Tone;
+    label: string;
+    title: string;
+    detail?: ReactNode;
+    action?: ReactNode;
 }) {
-  return (
-    <section className={clsx("rounded-lg border px-4 py-3", noticeTone(tone))}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[0.68rem] font-bold uppercase">{label}</p>
-          <h2 className="mt-1 truncate text-lg font-semibold text-ink">{title}</h2>
-          {detail ? <div className="mt-1 text-sm opacity-85">{detail}</div> : null}
-        </div>
-        {action ? <div className="flex min-w-0 flex-wrap items-center gap-2">{action}</div> : null}
-      </div>
-    </section>
-  )
+    return (
+        <section className={clsx('rounded-lg border px-4 py-3', noticeTone(tone))}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                    <p className="text-[0.68rem] font-bold uppercase">{label}</p>
+                    <h2 className="mt-1 truncate text-lg font-semibold text-ink">{title}</h2>
+                    {detail ? <div className="mt-1 text-sm opacity-85">{detail}</div> : null}
+                </div>
+                {action ? (
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">{action}</div>
+                ) : null}
+            </div>
+        </section>
+    );
 }
 
 export function PrimaryActionPanel({
-  eyebrow,
-  title,
-  detail,
-  action,
-  secondary
+    eyebrow,
+    title,
+    detail,
+    action,
+    secondary,
 }: {
-  eyebrow: string
-  title: string
-  detail: ReactNode
-  action: ReactNode
-  secondary?: ReactNode
+    eyebrow: string;
+    title: string;
+    detail: ReactNode;
+    action: ReactNode;
+    secondary?: ReactNode;
 }) {
-  return (
-    <section className="mb-5 rounded-lg border border-accent-positive bg-surface-selected-positive p-4 shadow-accent-positive-glow">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="eyebrow text-accent-positive">{eyebrow}</p>
-          <h2 className="mt-1 text-xl font-semibold text-ink md:text-2xl">{title}</h2>
-          <div className="mt-1 max-w-3xl text-sm leading-6 text-muted">{detail}</div>
-        </div>
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {action}
-          {secondary}
-        </div>
-      </div>
-    </section>
-  )
+    return (
+        <section className="mb-5 rounded-lg border border-accent-positive bg-surface-selected-positive p-4 shadow-accent-positive-glow">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="min-w-0">
+                    <p className="eyebrow text-accent-positive">{eyebrow}</p>
+                    <h2 className="mt-1 text-xl font-semibold text-ink md:text-2xl">{title}</h2>
+                    <div className="mt-1 max-w-3xl text-sm leading-6 text-muted">{detail}</div>
+                </div>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    {action}
+                    {secondary}
+                </div>
+            </div>
+        </section>
+    );
 }
 
 export function EmptyState({
-  title,
-  children,
-  action
+    title,
+    children,
+    action,
 }: {
-  title: string
-  children: ReactNode
-  action?: ReactNode
+    title: string;
+    children: ReactNode;
+    action?: ReactNode;
 }) {
-  return (
-    <div className="rounded-md border border-dashed border-line bg-panel-soft px-4 py-5 text-sm">
-      <p className="font-semibold text-ink">{title}</p>
-      <div className="mt-1 max-w-2xl text-muted">{children}</div>
-      {action ? <div className="mt-4">{action}</div> : null}
-    </div>
-  )
+    return (
+        <div className="rounded-md border border-dashed border-line bg-panel-soft px-4 py-5 text-sm">
+            <p className="font-semibold text-ink">{title}</p>
+            <div className="mt-1 max-w-2xl text-muted">{children}</div>
+            {action ? <div className="mt-4">{action}</div> : null}
+        </div>
+    );
 }
 
 export function FormHeader({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div>
-      <h2 className="text-base font-semibold">{title}</h2>
-      <p className="mt-1 text-sm text-muted">{detail}</p>
-    </div>
-  )
+    return (
+        <div>
+            <h2 className="text-base font-semibold">{title}</h2>
+            <p className="mt-1 text-sm text-muted">{detail}</p>
+        </div>
+    );
 }
 
 export function Field({
-  label,
-  hint,
-  children,
-  className
+    label,
+    hint,
+    children,
+    className,
 }: {
-  label: string
-  hint?: string
-  children: ReactNode
-  className?: string
+    label: string;
+    hint?: string;
+    children: ReactNode;
+    className?: string;
 }) {
-  return (
-    <label className={clsx("grid gap-1 text-xs font-semibold text-muted", className)}>
-      <span>{label}</span>
-      {children}
-      {hint ? <span className="text-[0.7rem] font-normal leading-4 text-muted">{hint}</span> : null}
-    </label>
-  )
+    return (
+        <label className={clsx('grid gap-1 text-xs font-semibold text-muted', className)}>
+            <span>{label}</span>
+            {children}
+            {hint ? (
+                <span className="text-[0.7rem] font-normal leading-4 text-muted">{hint}</span>
+            ) : null}
+        </label>
+    );
 }
 
 export function FilterLink({
-  href,
-  active,
-  children
+    href,
+    active,
+    children,
 }: {
-  href: string
-  active: boolean
-  children: ReactNode
+    href: string;
+    active: boolean;
+    children: ReactNode;
 }) {
-  return (
-    <Link className={active ? "chip-active" : "chip"} href={href}>
-      {children}
-    </Link>
-  )
+    return (
+        <Link className={active ? 'chip-active' : 'chip'} href={href}>
+            {children}
+        </Link>
+    );
 }
 
 export function ButtonLink({
-  href,
-  variant = "primary",
-  children
+    href,
+    variant = 'primary',
+    children,
 }: {
-  href: string
-  variant?: "primary" | "secondary"
-  children: ReactNode
+    href: string;
+    variant?: 'primary' | 'secondary';
+    children: ReactNode;
 }) {
-  return (
-    <Link className={variant === "secondary" ? "btn-secondary" : "btn-primary"} href={href}>
-      {children}
-    </Link>
-  )
+    return (
+        <Link className={variant === 'secondary' ? 'btn-secondary' : 'btn-primary'} href={href}>
+            {children}
+        </Link>
+    );
 }
 
 function toneBorder(tone: Tone) {
-  switch (tone) {
-    case "ok":
-      return "border-success-line"
-    case "warn":
-      return "border-warn-line"
-    case "danger":
-      return "border-danger-line"
-    case "info":
-      return "border-info-line"
-    default:
-      return "border-line"
-  }
+    switch (tone) {
+        case 'ok':
+            return 'border-success-line';
+        case 'warn':
+            return 'border-warn-line';
+        case 'danger':
+            return 'border-danger-line';
+        case 'info':
+            return 'border-info-line';
+        default:
+            return 'border-line';
+    }
 }
 
 function toneText(tone: Tone) {
-  switch (tone) {
-    case "ok":
-      return "text-success"
-    case "warn":
-      return "text-warn"
-    case "danger":
-      return "text-danger"
-    case "info":
-      return "text-info"
-    default:
-      return "text-ink"
-  }
+    switch (tone) {
+        case 'ok':
+            return 'text-success';
+        case 'warn':
+            return 'text-warn';
+        case 'danger':
+            return 'text-danger';
+        case 'info':
+            return 'text-info';
+        default:
+            return 'text-ink';
+    }
 }
 
 function noticeTone(tone: Tone) {
-  switch (tone) {
-    case "ok":
-      return "border-success-line bg-success-soft text-success-strong"
-    case "warn":
-      return "border-warn-line bg-warn-soft text-warn-strong"
-    case "danger":
-      return "border-danger-line bg-danger-soft text-danger-strong"
-    default:
-      return "border-info-line bg-info-soft text-info-strong"
-  }
+    switch (tone) {
+        case 'ok':
+            return 'border-success-line bg-success-soft text-success-strong';
+        case 'warn':
+            return 'border-warn-line bg-warn-soft text-warn-strong';
+        case 'danger':
+            return 'border-danger-line bg-danger-soft text-danger-strong';
+        default:
+            return 'border-info-line bg-info-soft text-info-strong';
+    }
 }
 
 function stateBadgeTone(tone: Tone) {
-  switch (tone) {
-    case "ok":
-      return "border-success-line bg-success-soft text-success-strong"
-    case "warn":
-      return "border-warn-line bg-warn-soft text-warn-strong"
-    case "danger":
-      return "border-danger-line bg-danger-soft text-danger-strong"
-    case "info":
-      return "border-info-line bg-info-soft text-info-strong"
-    default:
-      return "border-line bg-panel-soft text-ink"
-  }
+    switch (tone) {
+        case 'ok':
+            return 'border-success-line bg-success-soft text-success-strong';
+        case 'warn':
+            return 'border-warn-line bg-warn-soft text-warn-strong';
+        case 'danger':
+            return 'border-danger-line bg-danger-soft text-danger-strong';
+        case 'info':
+            return 'border-info-line bg-info-soft text-info-strong';
+        default:
+            return 'border-line bg-panel-soft text-ink';
+    }
 }

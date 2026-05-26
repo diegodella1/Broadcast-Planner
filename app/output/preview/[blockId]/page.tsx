@@ -1,25 +1,27 @@
-import { BrowserOutputRenderer } from "@/components/browser-output-renderer"
-import { EmergencyOutputStub } from "@/components/output-stub"
-import { isOutputRequestAllowed, outputAccessDeniedReason } from "@/lib/output-auth"
+import { BrowserOutputRenderer } from '@/components/browser-output-renderer';
+import { EmergencyOutputStub } from '@/components/output-stub';
+import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/output-auth';
 
 export default async function OutputPreviewPage({
-  params,
-  searchParams
+    params,
+    searchParams,
 }: {
-  params: Promise<{ blockId: string }>
-  searchParams: Promise<{ debug?: string; startAt?: string; token?: string }>
+    params: Promise<{ blockId: string }>;
+    searchParams: Promise<{ debug?: string; startAt?: string; token?: string }>;
 }) {
-  const [{ blockId }, query] = await Promise.all([params, searchParams])
-  if (!(await isOutputRequestAllowed(query))) {
-    return <EmergencyOutputStub reason={outputAccessDeniedReason()} />
-  }
-  const startAt = query.startAt ? Number(query.startAt) : null
-  return (
-    <BrowserOutputRenderer
-      debug={query.debug === "true"}
-      previewBlockId={blockId}
-      startAt={Number.isFinite(startAt) ? startAt : null}
-      token={query.token}
-    />
-  )
+    const [{ blockId }, query] = await Promise.all([params, searchParams]);
+
+    if (!(await isOutputRequestAllowed(query))) {
+        return <EmergencyOutputStub reason={outputAccessDeniedReason()} />;
+    }
+    const startAt = query.startAt ? Number(query.startAt) : null;
+
+    return (
+        <BrowserOutputRenderer
+            debug={query.debug === 'true'}
+            previewBlockId={blockId}
+            startAt={Number.isFinite(startAt) ? startAt : null}
+            token={query.token}
+        />
+    );
 }
