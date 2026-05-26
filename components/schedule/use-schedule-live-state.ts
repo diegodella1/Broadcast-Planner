@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-import { getScheduleLiveState } from '@/lib/schedule-live-state';
+import { getScheduleLiveState } from '@/lib/scheduling/schedule-live-state';
 import type { ProgramBlock } from '@/lib/types';
 
 export function useScheduleLiveState(date: string, timezone: string, blocks: ProgramBlock[]) {

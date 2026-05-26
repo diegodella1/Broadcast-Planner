@@ -1,4 +1,4 @@
-import { formatPlayoutTimeLabel, formatTimeZoneHelp } from '@/lib/time';
+import { formatPlayoutTimeLabel, formatTimeZoneHelp } from '@/lib/helpers/time';
 
 export function PlayoutTime({
     airDate,

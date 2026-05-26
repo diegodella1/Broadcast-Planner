@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 
-import { auditedMutation } from './audit';
+import { auditedMutation } from '../audit/audit';
 import { hashSecret, requireRole } from './auth';
-import { createServiceClient } from './supabase/server';
+import { createServiceClient } from '../supabase/server';
 
 export type AdminOperator = {
     id: string;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mockSchedule } from './mock-data';
+import { mockSchedule } from '../mock-data';
 import {
     findActiveLayers,
     findActiveSchedule,
@@ -8,7 +8,7 @@ import {
     validateBlock,
 } from './scheduler';
 
-import type { ProgramBlock } from './types';
+import type { ProgramBlock } from '../types';
 
 describe('scheduler', () => {
     it('selects the active block by second of day', () => {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getMarketData } from '@/lib/market-data';
+import { getMarketData } from '@/lib/services/market-data';
 
 export const dynamic = 'force-dynamic';
 

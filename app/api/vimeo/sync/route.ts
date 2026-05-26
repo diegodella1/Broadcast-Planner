@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 
-import { appUrl } from '@/lib/app-url';
-import { recordAuditEvent } from '@/lib/audit';
-import { requireAdmin } from '@/lib/auth';
-import { verifyCsrfToken } from '@/lib/csrf';
-import { assertRateLimit, rateLimitErrorResponse } from '@/lib/rate-limit';
+import { appUrl } from '@/lib/helpers/app-url';
+import { recordAuditEvent } from '@/lib/audit/audit';
+import { requireAdmin } from '@/lib/auth/auth';
+import { verifyCsrfToken } from '@/lib/auth/csrf';
+import { assertRateLimit, rateLimitErrorResponse } from '@/lib/auth/rate-limit';
 import { syncVimeoCatalogSchema } from '@/lib/schemas';
 import { getVimeoSettings, getVimeoToken, recordVimeoSyncStatus } from '@/lib/settings';
-import { syncVimeoCatalog } from '@/lib/vimeo';
+import { syncVimeoCatalog } from '@/lib/services/vimeo';
 
 export async function POST(request: Request) {
     try {

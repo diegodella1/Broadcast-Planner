@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { describe, expect, it } from 'vitest';
 
-import { middleware } from '../middleware';
+import { middleware } from '../../middleware';
 
 import { appUrl } from './app-url';
 

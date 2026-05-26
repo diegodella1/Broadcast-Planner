@@ -1,5 +1,5 @@
-import { previewInsertShift } from '@/lib/schedule-planner';
-import { formatPlayoutTimeLabel, formatTimecode } from '@/lib/time';
+import { previewInsertShift } from '@/lib/scheduling/schedule-planner';
+import { formatPlayoutTimeLabel, formatTimecode } from '@/lib/helpers/time';
 import type { BlockType, MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from '@/lib/types';
 
 export const DEFAULT_MANUAL_DURATION = 30;

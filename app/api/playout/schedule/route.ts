@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { getLivePlaybackSchedule } from '@/lib/data';
-import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/output-auth';
-import { secondsSinceMidnightInTimezone } from '@/lib/time';
+import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/auth/output-auth';
+import { secondsSinceMidnightInTimezone } from '@/lib/helpers/time';
 
 export const dynamic = 'force-dynamic';
 

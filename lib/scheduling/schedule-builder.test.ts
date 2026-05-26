@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { buildBulkCardLoop, buildLongTestSchedule } from './schedule-builder';
 
-import type { MediaAsset } from './types';
+import type { MediaAsset } from '../types';
 
 const baseAsset = {
     description: null,

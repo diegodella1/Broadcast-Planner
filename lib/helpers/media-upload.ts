@@ -1,4 +1,4 @@
-import { createMediaAsset } from './mutations';
+import { createMediaAsset } from '../mutations';
 import {
     MAX_SHORT_VIDEO_SECONDS,
     SMALL_MEDIA_BUCKET,
@@ -8,7 +8,7 @@ import {
 } from './media-upload-constants';
 import { publicMediaAssetUrl } from './media-asset-url';
 import { parseMusicMetadataJson } from './music-metadata';
-import { createServiceClient } from './supabase/server';
+import { createServiceClient } from '../supabase/server';
 
 export {
     MAX_SHORT_VIDEO_SECONDS,

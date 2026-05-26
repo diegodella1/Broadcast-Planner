@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/auth';
 import { getLiveSchedule } from '@/lib/data';
 import { getActiveOutputOverride } from '@/lib/output-overrides';
-import { findActiveSchedule } from '@/lib/scheduler';
-import { secondsSinceMidnightInTimezone, PLAYOUT_TIMEZONE } from '@/lib/time';
+import { findActiveSchedule } from '@/lib/scheduling/scheduler';
+import { secondsSinceMidnightInTimezone, PLAYOUT_TIMEZONE } from '@/lib/helpers/time';
 
 export const dynamic = 'force-dynamic';
 

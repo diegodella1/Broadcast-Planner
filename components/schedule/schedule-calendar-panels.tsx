@@ -2,8 +2,8 @@
 
 import type { MouseEvent, PointerEvent } from 'react';
 
-import { getScheduleLiveState } from '@/lib/schedule-live-state';
-import { formatPlayoutTimeLabel } from '@/lib/time';
+import { getScheduleLiveState } from '@/lib/scheduling/schedule-live-state';
+import { formatPlayoutTimeLabel } from '@/lib/helpers/time';
 import type { ProgramBlock } from '@/lib/types';
 
 import {

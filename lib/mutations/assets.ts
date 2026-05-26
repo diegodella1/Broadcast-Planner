@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache';
 
-import { auditedMutation } from '../audit';
+import { auditedMutation } from '../audit/audit';
 import { err, ok, type Result } from '../result';
 import { createServiceClient } from '../supabase/server';
 

@@ -3,9 +3,12 @@
 import { useMemo, useState } from 'react';
 
 import { Notice } from '@/components/ui';
-import { findScheduleConflicts, scheduleConflictMessage } from '@/lib/schedule-conflicts';
-import { slidePreviewHref } from '@/lib/slide-preview';
-import { formatPlayoutTimeLabel, formatTimecode } from '@/lib/time';
+import {
+    findScheduleConflicts,
+    scheduleConflictMessage,
+} from '@/lib/scheduling/schedule-conflicts';
+import { slidePreviewHref } from '@/lib/helpers/slide-preview';
+import { formatPlayoutTimeLabel, formatTimecode } from '@/lib/helpers/time';
 
 import type { BlockType, MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from '@/lib/types';
 

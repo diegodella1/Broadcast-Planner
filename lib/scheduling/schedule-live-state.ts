@@ -1,6 +1,6 @@
-import { isoDateInTimezone, secondsSinceMidnightInTimezone } from './time';
+import { isoDateInTimezone, secondsSinceMidnightInTimezone } from '../helpers/time';
 
-import type { ProgramBlock } from './types';
+import type { ProgramBlock } from '../types';
 
 export type ScheduleLiveState = {
     isToday: boolean;

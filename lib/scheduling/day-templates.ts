@@ -1,6 +1,6 @@
-import { formatTimecode, parseTimecode } from './time';
+import { formatTimecode, parseTimecode } from '../helpers/time';
 
-import type { BlockCategory, BlockType } from './types';
+import type { BlockCategory, BlockType } from '../types';
 
 export type DayTemplateSlot = {
     title: string;

@@ -3,9 +3,9 @@ import Link from 'next/link';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { CsrfInput } from '@/components/forms/csrf-input';
 import { FormHeader, MetricTile, Notice } from '@/components/ui';
-import { createOperator, listOperators } from '@/lib/operators';
+import { createOperator, listOperators } from '@/lib/auth/operators';
 import { getVimeoSettings, getVimeoToken } from '@/lib/settings';
-import { PLAYOUT_TIMEZONE } from '@/lib/time';
+import { PLAYOUT_TIMEZONE } from '@/lib/helpers/time';
 
 export const dynamic = 'force-dynamic';
 

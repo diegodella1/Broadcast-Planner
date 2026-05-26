@@ -1,9 +1,9 @@
 import { revalidatePath } from 'next/cache';
 
-import { auditedMutation, recordAuditEvent } from '../audit';
-import { getCurrentOperatorSession } from '../auth';
+import { auditedMutation, recordAuditEvent } from '../audit/audit';
+import { getCurrentOperatorSession } from '../auth/auth';
 import { getMediaAssetById, getMediaAssetByVimeoUri } from '../data';
-import { maskStreamUrl, parseReutersStreamInput } from '../reuters-stream';
+import { maskStreamUrl, parseReutersStreamInput } from '../services/reuters-stream';
 import { err, ok, type Result } from '../result';
 import { getVimeoToken } from '../settings';
 import { createServiceClient } from '../supabase/server';
@@ -12,13 +12,13 @@ import {
     isoDateInTimezone,
     PLAYOUT_TIMEZONE,
     secondsSinceMidnightInTimezone,
-} from '../time';
+} from '../helpers/time';
 import {
     getVimeoVideo,
     searchVimeoAccountVideos,
     upsertVimeoVideos,
     type VimeoVideo,
-} from '../vimeo';
+} from '../services/vimeo';
 
 import { createProgramBlock } from './blocks';
 

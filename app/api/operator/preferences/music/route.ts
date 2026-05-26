@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 
-import { requireAdmin } from '@/lib/auth';
-import { verifyCsrfToken } from '@/lib/csrf';
+import { requireAdmin } from '@/lib/auth/auth';
+import { verifyCsrfToken } from '@/lib/auth/csrf';
 import { getMusicPreference, saveMusicPreference } from '@/lib/operator-preferences';
-import { assertRateLimit, rateLimitErrorResponse } from '@/lib/rate-limit';
+import { assertRateLimit, rateLimitErrorResponse } from '@/lib/auth/rate-limit';
 import { updateMusicPreferenceSchema } from '@/lib/schemas';
 
 export const dynamic = 'force-dynamic';

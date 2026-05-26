@@ -8,7 +8,7 @@ const required = [
     { path: 'lib/mutations/output.ts', token: 'auditedMutation' },
     { path: 'lib/mutations/output.ts', token: 'recordAuditEvent' },
     { path: 'lib/settings.ts', token: 'auditedMutation' },
-    { path: 'lib/reuters-credentials.ts', token: 'auditedMutation' },
+    { path: 'lib/services/reuters-credentials.ts', token: 'auditedMutation' },
     { path: 'app/admin/output/page.tsx', token: 'recordAuditEvent' },
     { path: 'app/api/vimeo/sync/route.ts', token: 'recordAuditEvent' },
     { path: 'app/api/reuters/sync/route.ts', token: 'recordAuditEvent' },
@@ -47,11 +47,11 @@ function scan(path) {
     }
     const source = fs.readFileSync(path, 'utf8');
 
-    if (path !== 'lib/audit.ts' && source.includes('.from("audit_log").insert')) {
+    if (path !== 'lib/audit/audit.ts' && source.includes('.from("audit_log").insert')) {
         violations.push(`${path}: writes audit_log directly instead of using audit helpers`);
     }
 
-    if (path !== 'lib/audit.ts' && source.includes(".from('audit_log').insert")) {
+    if (path !== 'lib/audit/audit.ts' && source.includes(".from('audit_log').insert")) {
         violations.push(`${path}: writes audit_log directly instead of using audit helpers`);
     }
 }

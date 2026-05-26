@@ -3,9 +3,9 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
-import { CSRF_FIELD } from '@/lib/csrf-constants';
-import { MAX_SMALL_MEDIA_BYTES, formatUploadLimit } from '@/lib/media-upload-constants';
-import { sanitizeMusicMetadata, type MusicMetadata } from '@/lib/music-metadata';
+import { CSRF_FIELD } from '@/lib/auth/csrf-constants';
+import { MAX_SMALL_MEDIA_BYTES, formatUploadLimit } from '@/lib/helpers/media-upload-constants';
+import { sanitizeMusicMetadata, type MusicMetadata } from '@/lib/helpers/music-metadata';
 
 type TrackRow = {
     id: string;

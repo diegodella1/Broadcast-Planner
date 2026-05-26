@@ -1,14 +1,14 @@
-import { getLiveSchedule } from './data';
-import { getActiveOutputOverride } from './output-overrides';
-import { getReutersSettings } from './reuters-credentials';
-import { getVimeoSettings, getVimeoToken } from './settings';
+import { getLiveSchedule } from '../data';
+import { getActiveOutputOverride } from '../output-overrides';
+import { getReutersSettings } from '../services/reuters-credentials';
+import { getVimeoSettings, getVimeoToken } from '../settings';
 import {
     isSmokeStatusOk,
     isSmokeStatusStale,
     readSmokeStatus,
     smokeStatusMessage,
 } from './smoke-status';
-import { createServiceClient } from './supabase/server';
+import { createServiceClient } from '../supabase/server';
 
 export type OperatorHealthStatus = 'ok' | 'degraded' | 'fail';
 

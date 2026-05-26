@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache';
 
-import { createServiceClient } from './supabase/server';
+import { createServiceClient } from '../supabase/server';
 
 const VIMEO_API = 'https://api.vimeo.com';
 const VIMEO_ACCEPT = 'application/vnd.vimeo.*+json;version=3.4';

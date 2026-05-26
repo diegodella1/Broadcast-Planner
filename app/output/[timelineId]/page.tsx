@@ -1,8 +1,8 @@
 import { EmergencyOutputStub, OutputStub } from '@/components/output/output-stub';
 import { getLivePlaybackSchedule } from '@/lib/data';
-import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/output-auth';
-import { findActiveSchedule } from '@/lib/scheduler';
-import { secondsSinceMidnightInTimezone } from '@/lib/time';
+import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/auth/output-auth';
+import { findActiveSchedule } from '@/lib/scheduling/scheduler';
+import { secondsSinceMidnightInTimezone } from '@/lib/helpers/time';
 
 export default async function OutputTimelineCompatPage({
     searchParams,

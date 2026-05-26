@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 
-import { notifyHealthFailures } from '@/lib/alerts';
-import { requireAdmin } from '@/lib/auth';
+import { notifyHealthFailures } from '@/lib/audit/alerts';
+import { requireAdmin } from '@/lib/auth/auth';
 import {
     collectOperatorHealth,
     sanitizeOperatorHealthReport,
     type OperatorHealthReport,
-} from '@/lib/health-checks';
+} from '@/lib/health/health-checks';
 
 export const dynamic = 'force-dynamic';
 

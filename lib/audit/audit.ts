@@ -1,5 +1,5 @@
-import { createServiceClient } from './supabase/server';
-import { currentAuditActor } from './auth';
+import { createServiceClient } from '../supabase/server';
+import { currentAuditActor } from '../auth/auth';
 
 export type AuditResult = 'success' | 'failure';
 

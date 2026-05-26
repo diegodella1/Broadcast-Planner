@@ -1,4 +1,4 @@
-import type { OperatorHealthReport } from './health-checks';
+import type { OperatorHealthReport } from '../health/health-checks';
 
 const sentAlerts = new Map<string, number>();
 

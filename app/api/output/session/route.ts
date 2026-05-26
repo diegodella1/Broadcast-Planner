@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
-import { requireAdmin } from '@/lib/auth';
-import { OUTPUT_COOKIE } from '@/lib/output-auth';
-import { assertRateLimit, rateLimitErrorResponse } from '@/lib/rate-limit';
+import { requireAdmin } from '@/lib/auth/auth';
+import { OUTPUT_COOKIE } from '@/lib/auth/output-auth';
+import { assertRateLimit, rateLimitErrorResponse } from '@/lib/auth/rate-limit';
 
 export const dynamic = 'force-dynamic';
 

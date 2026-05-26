@@ -15,16 +15,16 @@ import { Timecode } from '@/components/ui/timecode';
 import { PlayoutTime } from '@/components/output/playout-time';
 import { ButtonLink, EmptyState, MetricTile, Notice, PrimaryActionPanel } from '@/components/ui';
 import { getAssets, getDays, getScheduleForDate } from '@/lib/data';
-import { collectOperatorHealth } from '@/lib/health-checks';
-import { analyzeSchedule } from '@/lib/schedule-health';
-import { findActiveSchedule } from '@/lib/scheduler';
+import { collectOperatorHealth } from '@/lib/health/health-checks';
+import { analyzeSchedule } from '@/lib/scheduling/schedule-health';
+import { findActiveSchedule } from '@/lib/scheduling/scheduler';
 import {
     formatTimecode,
     formatPlayoutTimeLabel,
     isoDateInTimezone,
     PLAYOUT_TIMEZONE,
     secondsSinceMidnightInTimezone,
-} from '@/lib/time';
+} from '@/lib/helpers/time';
 
 export const dynamic = 'force-dynamic';
 

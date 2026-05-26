@@ -1,4 +1,4 @@
-import { getCurrentOperatorSession } from './auth';
+import { getCurrentOperatorSession } from './auth/auth';
 import { createServiceClient } from './supabase/server';
 
 export type MusicPreference = {

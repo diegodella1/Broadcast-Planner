@@ -9,9 +9,9 @@ import {
     scheduleAction,
     scheduleReutersAction,
 } from '@/app/admin/output/actions';
-import { formatTimecode } from '@/lib/time';
+import { formatTimecode } from '@/lib/helpers/time';
 
-import type { VimeoVideo } from '@/lib/vimeo';
+import type { VimeoVideo } from '@/lib/services/vimeo';
 
 type Mode = 'now' | 'scheduled';
 type Source = 'vimeo' | 'reuters';

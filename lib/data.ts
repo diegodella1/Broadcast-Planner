@@ -1,7 +1,7 @@
 import { mockSchedule } from './mock-data';
-import { mapAuditEvent, type AuditEvent } from './audit';
+import { mapAuditEvent, type AuditEvent } from './audit/audit';
 import { createServiceClient } from './supabase/server';
-import { isoDateInTimezone, PLAYOUT_TIMEZONE } from './time';
+import { isoDateInTimezone, PLAYOUT_TIMEZONE } from './helpers/time';
 
 import type {
     Guest,

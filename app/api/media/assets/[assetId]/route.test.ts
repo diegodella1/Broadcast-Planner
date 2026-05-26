@@ -10,18 +10,18 @@ vi.mock('@/lib/supabase/server', () => ({
     createServiceClient: vi.fn(),
 }));
 
-vi.mock('@/lib/auth', () => ({
+vi.mock('@/lib/auth/auth', () => ({
     requireAdmin: vi.fn(async () => {
         throw new Error('Unauthorized');
     }),
 }));
 
-vi.mock('@/lib/output-auth', () => ({
+vi.mock('@/lib/auth/output-auth', () => ({
     isOutputRequestAllowed: vi.fn(async () => true),
     outputAccessDeniedReason: vi.fn(() => 'Output capture token required'),
 }));
 
-vi.mock('@/lib/rate-limit', () => ({
+vi.mock('@/lib/auth/rate-limit', () => ({
     assertRateLimit: vi.fn(async () => undefined),
     rateLimitErrorResponse: vi.fn(() => ({ retryAfterSeconds: 60 })),
 }));

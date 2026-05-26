@@ -25,7 +25,7 @@ vi.mock('@/lib/fallback-carousel', async (importOriginal) => {
     };
 });
 
-vi.mock('@/lib/output-auth', () => ({
+vi.mock('@/lib/auth/output-auth', () => ({
     isOutputRequestAllowed: vi.fn(async () => true),
     outputAccessDeniedReason: vi.fn(() => 'denied'),
 }));
@@ -38,7 +38,7 @@ vi.mock('@/lib/settings', () => ({
     getVimeoToken: vi.fn(async () => 'vimeo-token'),
 }));
 
-vi.mock('@/lib/vimeo', () => ({
+vi.mock('@/lib/services/vimeo', () => ({
     getVimeoPlayback: vi.fn(async () => ({
         title: 'Vimeo clip',
         hlsUrl: 'https://example.com/video.m3u8',

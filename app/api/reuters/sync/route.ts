@@ -1,11 +1,11 @@
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 
-import { recordAuditEvent } from '@/lib/audit';
-import { requireAdmin } from '@/lib/auth';
-import { verifyCsrfToken } from '@/lib/csrf';
-import { assertRateLimit, rateLimitErrorResponse } from '@/lib/rate-limit';
-import { getReutersClient, type ReutersChannel } from '@/lib/reuters';
+import { recordAuditEvent } from '@/lib/audit/audit';
+import { requireAdmin } from '@/lib/auth/auth';
+import { verifyCsrfToken } from '@/lib/auth/csrf';
+import { assertRateLimit, rateLimitErrorResponse } from '@/lib/auth/rate-limit';
+import { getReutersClient, type ReutersChannel } from '@/lib/services/reuters';
 import { createServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';

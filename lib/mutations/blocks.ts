@@ -1,20 +1,20 @@
 import { revalidatePath } from 'next/cache';
 
-import { auditedMutation } from '../audit';
+import { auditedMutation } from '../audit/audit';
 import { getScheduleForDate } from '../data';
-import { buildTemplateBlocks, getDayTemplate } from '../day-templates';
+import { buildTemplateBlocks, getDayTemplate } from '../scheduling/day-templates';
 import { err, ok, type Result } from '../result';
-import { buildBulkCardLoop, buildLongTestSchedule } from '../schedule-builder';
-import { analyzeSchedule } from '../schedule-health';
+import { buildBulkCardLoop, buildLongTestSchedule } from '../scheduling/schedule-builder';
+import { analyzeSchedule } from '../scheduling/schedule-health';
 import {
     planScheduleMutation,
     type ScheduleBlockShift,
     type ScheduleMutationMode,
-} from '../schedule-planner';
-import { parseReutersStreamInput, maskStreamUrl } from '../reuters-stream';
+} from '../scheduling/schedule-planner';
+import { parseReutersStreamInput, maskStreamUrl } from '../services/reuters-stream';
 import { recordedBugMetadata, type RecordedBugPosition } from '../recorded-bug';
 import { createServiceClient } from '../supabase/server';
-import { formatTimecode, parseTimecode, PLAYOUT_TIMEZONE } from '../time';
+import { formatTimecode, parseTimecode, PLAYOUT_TIMEZONE } from '../helpers/time';
 
 import type { BlockCategory, ProgramBlock, ProgramStatus } from '../types';
 

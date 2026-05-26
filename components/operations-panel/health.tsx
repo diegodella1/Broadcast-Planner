@@ -2,8 +2,8 @@ import { AlertTriangle, AlertOctagon, Check } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
 import { getLiveSchedule } from '@/lib/data';
-import { analyzeSchedule } from '@/lib/schedule-health';
-import { isoDateInTimezone, PLAYOUT_TIMEZONE } from '@/lib/time';
+import { analyzeSchedule } from '@/lib/scheduling/schedule-health';
+import { isoDateInTimezone, PLAYOUT_TIMEZONE } from '@/lib/helpers/time';
 
 export async function OperationsPanelHealth() {
     const t = await getTranslations();

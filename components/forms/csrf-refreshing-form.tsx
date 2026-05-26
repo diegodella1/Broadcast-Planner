@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent, type ReactNode } from 'react';
 
-import { CSRF_FIELD } from '@/lib/csrf-constants';
+import { CSRF_FIELD } from '@/lib/auth/csrf-constants';
 
 export function CsrfRefreshingForm({
     action,

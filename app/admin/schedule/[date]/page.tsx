@@ -7,7 +7,7 @@ import { StatusPill } from '@/components/ui/status-pill';
 import { Timecode } from '@/components/ui/timecode';
 import { ButtonLink, Field, FormHeader, Notice } from '@/components/ui';
 import { getScheduleForDate } from '@/lib/data';
-import { DAY_TEMPLATES } from '@/lib/day-templates';
+import { DAY_TEMPLATES } from '@/lib/scheduling/day-templates';
 import {
     archiveProgramBlock,
     createBulkCardLoop,
@@ -22,16 +22,16 @@ import {
     updateProgramDayStatus,
     saveGlobalFallbackCarouselFromSlides,
 } from '@/lib/mutations';
-import { liveOutputHref } from '@/lib/output-auth';
-import { analyzeSchedule, withScheduleIssueLinks } from '@/lib/schedule-health';
-import { findActiveSchedule } from '@/lib/scheduler';
+import { liveOutputHref } from '@/lib/auth/output-auth';
+import { analyzeSchedule, withScheduleIssueLinks } from '@/lib/scheduling/schedule-health';
+import { findActiveSchedule } from '@/lib/scheduling/scheduler';
 import {
     formatPlayoutTimeLabel,
     formatTimecode,
     isoDateInTimezone,
     PLAYOUT_TIMEZONE,
     secondsSinceMidnightInTimezone,
-} from '@/lib/time';
+} from '@/lib/helpers/time';
 
 export default async function ScheduleDatePage({
     params,

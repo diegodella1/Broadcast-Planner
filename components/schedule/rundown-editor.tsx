@@ -24,7 +24,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { PlayoutTime } from '@/components/output/playout-time';
 import { StatusPill } from '@/components/ui/status-pill';
 import { Timecode } from '@/components/ui/timecode';
-import { formatTimecode } from '@/lib/time';
+import { formatTimecode } from '@/lib/helpers/time';
 
 import type {
     MediaAsset,

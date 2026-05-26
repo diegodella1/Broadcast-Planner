@@ -7,7 +7,7 @@ import { useTransition } from 'react';
 import type { ContentOption } from './helpers';
 
 import type { ProgramBlock } from '@/lib/types';
-import type { ScheduleConflictResult } from '@/lib/schedule-conflicts';
+import type { ScheduleConflictResult } from '@/lib/scheduling/schedule-conflicts';
 
 // ─── ReutersStreamFields ──────────────────────────────────────────────────────
 

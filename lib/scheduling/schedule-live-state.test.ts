@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { getScheduleLiveState } from './schedule-live-state';
 
-import type { ProgramBlock } from './types';
+import type { ProgramBlock } from '../types';
 
 describe('getScheduleLiveState', () => {
     it('returns inactive state when the schedule date is not today in the schedule timezone', () => {

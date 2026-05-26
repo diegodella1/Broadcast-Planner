@@ -1,4 +1,4 @@
-import { formatTimecode } from '@/lib/time';
+import { formatTimecode } from '@/lib/helpers/time';
 
 import type { ActiveSchedule } from '@/lib/types';
 

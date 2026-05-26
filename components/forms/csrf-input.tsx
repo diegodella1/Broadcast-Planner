@@ -1,4 +1,4 @@
-import { CSRF_FIELD, getCsrfToken } from '@/lib/csrf';
+import { CSRF_FIELD, getCsrfToken } from '@/lib/auth/csrf';
 
 export async function CsrfInput() {
     const token = await getCsrfToken();

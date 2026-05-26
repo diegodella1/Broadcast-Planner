@@ -12,8 +12,8 @@ import { Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 
-import { analyzeSchedule } from '@/lib/schedule-health';
-import { formatTimecode } from '@/lib/time';
+import { analyzeSchedule } from '@/lib/scheduling/schedule-health';
+import { formatTimecode } from '@/lib/helpers/time';
 import type { ProgramBlock, ScheduleBundle } from '@/lib/types';
 
 import { BulkCardLoopPanel } from './schedule/schedule-bulk-loop';

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 
-import { appUrl } from '@/lib/app-url';
-import { requireAdmin } from '@/lib/auth';
-import { CSRF_FIELD, verifyCsrfTokenValue } from '@/lib/csrf';
-import { uploadedMediaFieldsFromForm, uploadMediaFile } from '@/lib/media-upload';
-import { assertRateLimit, rateLimitErrorResponse } from '@/lib/rate-limit';
+import { appUrl } from '@/lib/helpers/app-url';
+import { requireAdmin } from '@/lib/auth/auth';
+import { CSRF_FIELD, verifyCsrfTokenValue } from '@/lib/auth/csrf';
+import { uploadedMediaFieldsFromForm, uploadMediaFile } from '@/lib/helpers/media-upload';
+import { assertRateLimit, rateLimitErrorResponse } from '@/lib/auth/rate-limit';
 import { uploadAssetFormSchema } from '@/lib/schemas';
 
 export async function POST(request: Request) {

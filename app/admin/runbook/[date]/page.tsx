@@ -4,9 +4,9 @@ import { AdminShell } from '@/components/admin/admin-shell';
 import { StatusPill } from '@/components/ui/status-pill';
 import { ButtonLink, EmptyState, Notice } from '@/components/ui';
 import { getRunbookState, getScheduleForDate } from '@/lib/data';
-import { collectOperatorHealth } from '@/lib/health-checks';
+import { collectOperatorHealth } from '@/lib/health/health-checks';
 import { updateRunbookCheck } from '@/lib/mutations';
-import { liveOutputHref } from '@/lib/output-auth';
+import { liveOutputHref } from '@/lib/auth/output-auth';
 import { RUNBOOK_TEMPLATE } from '@/lib/runbook';
 
 import type { RunbookCheckState, RunbookSection } from '@/lib/types';

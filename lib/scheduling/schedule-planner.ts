@@ -1,7 +1,7 @@
 import { findScheduleConflicts, type ScheduleConflict } from './schedule-conflicts';
-import { formatTimecode } from './time';
+import { formatTimecode } from '../helpers/time';
 
-import type { ProgramBlock, ProgramStatus } from './types';
+import type { ProgramBlock, ProgramStatus } from '../types';
 
 export type ScheduleMutationMode = 'insert_shift' | 'replace_window' | 'strict';
 

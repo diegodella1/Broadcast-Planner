@@ -4,16 +4,16 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { AdminNav } from '@/components/admin/admin-nav';
-import { requireAdmin, revokeCurrentOperatorSession, safeAdminReturnTo } from '@/lib/auth';
+import { requireAdmin, revokeCurrentOperatorSession, safeAdminReturnTo } from '@/lib/auth/auth';
 import { getLiveSchedule } from '@/lib/data';
 import { getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
-import { collectOperatorHealth } from '@/lib/health-checks';
-import { findActiveSchedule } from '@/lib/scheduler';
+import { collectOperatorHealth } from '@/lib/health/health-checks';
+import { findActiveSchedule } from '@/lib/scheduling/scheduler';
 import {
     formatPlayoutTimeLabel,
     PLAYOUT_TIMEZONE,
     secondsSinceMidnightInTimezone,
-} from '@/lib/time';
+} from '@/lib/helpers/time';
 
 import type { ReactNode } from 'react';
 

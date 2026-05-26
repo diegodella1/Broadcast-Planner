@@ -127,7 +127,7 @@ const fakeGeneratedCardBlocks: GeneratedBlock[] = [
     },
 ];
 
-vi.mock('@/lib/schedule-builder', () => ({
+vi.mock('@/lib/scheduling/schedule-builder', () => ({
     buildBulkCardLoop: vi.fn(() => fakeGeneratedCardBlocks),
     buildLongTestSchedule: vi.fn(() => fakeGeneratedBlocks),
 }));
@@ -136,13 +136,13 @@ vi.mock('@/lib/schedule-builder', () => ({
 // Mock lib/schedule-health (analyzeSchedule)
 // vi.hoisted ensures the fn is available when vi.mock factory is hoisted
 // ---------------------------------------------------------------------------
-import type { ScheduleHealth } from './schedule-health';
+import type { ScheduleHealth } from './scheduling/schedule-health';
 
 const { analyzeScheduleMock } = vi.hoisted(() => ({
     analyzeScheduleMock: vi.fn(),
 }));
 
-vi.mock('@/lib/schedule-health', () => ({
+vi.mock('@/lib/scheduling/schedule-health', () => ({
     analyzeSchedule: analyzeScheduleMock,
 }));
 
@@ -165,7 +165,7 @@ const healthClean: ScheduleHealth = {
 import { revalidatePath } from 'next/cache';
 
 import { getScheduleForDate } from '@/lib/data';
-import { buildBulkCardLoop, buildLongTestSchedule } from '@/lib/schedule-builder';
+import { buildBulkCardLoop, buildLongTestSchedule } from '@/lib/scheduling/schedule-builder';
 
 import {
     ensureProgramDay,
@@ -192,7 +192,7 @@ import {
     updateMediaAsset,
 } from './mutations';
 
-import type { GeneratedBlock } from './schedule-builder';
+import type { GeneratedBlock } from './scheduling/schedule-builder';
 import type { ProgramBlock, ScheduleBundle } from './types';
 
 // Typed references to the mocked functions for easy use in tests

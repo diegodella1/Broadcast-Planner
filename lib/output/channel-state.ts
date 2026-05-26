@@ -1,13 +1,13 @@
-import { appUrl } from '@/lib/app-url';
+import { appUrl } from '@/lib/helpers/app-url';
 import { getLiveSchedule, getPlaybackScheduleForBlock } from '@/lib/data';
 import { getGlobalFallbackCarousel, selectFallbackCarouselSlide } from '@/lib/fallback-carousel';
 import { getLatestMusicPreference } from '@/lib/operator-preferences';
 import { getActiveOutputOverride } from '@/lib/output-overrides';
 import { recordedBugFromBlock } from '@/lib/recorded-bug';
-import { findActiveLayers, findActiveSchedule } from '@/lib/scheduler';
+import { findActiveLayers, findActiveSchedule } from '@/lib/scheduling/scheduler';
 import { getVimeoToken } from '@/lib/settings';
-import { PLAYOUT_TIMEZONE, secondsSinceMidnightInTimezone } from '@/lib/time';
-import { getVimeoPlayback } from '@/lib/vimeo';
+import { PLAYOUT_TIMEZONE, secondsSinceMidnightInTimezone } from '@/lib/helpers/time';
+import { getVimeoPlayback } from '@/lib/services/vimeo';
 
 import type { MediaAsset, OutputOverride, ScheduleBundle } from '@/lib/types';
 

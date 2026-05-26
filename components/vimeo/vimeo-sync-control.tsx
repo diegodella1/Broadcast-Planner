@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { CSRF_FIELD } from '@/lib/csrf-constants';
+import { CSRF_FIELD } from '@/lib/auth/csrf-constants';
 
 type SyncState = 'idle' | 'syncing' | 'complete' | 'error';
 

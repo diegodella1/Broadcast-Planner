@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { mockSchedule } from './mock-data';
+import { mockSchedule } from '../mock-data';
 import { analyzeSchedule, getAssetReadiness } from './schedule-health';
 
-import type { MediaAsset, ProgramBlock, ScheduledLayer } from './types';
+import type { MediaAsset, ProgramBlock, ScheduledLayer } from '../types';
 
 const firstBlock = mockSchedule.blocks[0] as ProgramBlock;
 const secondBlock = mockSchedule.blocks[1] as ProgramBlock;

@@ -1,4 +1,4 @@
-import type { SourceType } from './types';
+import type { SourceType } from '../types';
 
 export type DurationDisplay = { kind: 'live' } | { kind: 'duration'; seconds: number };
 

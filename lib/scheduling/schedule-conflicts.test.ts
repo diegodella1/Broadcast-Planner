@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { findNearestSafeStart, findScheduleConflicts } from './schedule-conflicts';
 
-import type { ProgramBlock } from './types';
+import type { ProgramBlock } from '../types';
 
 const blocks: ProgramBlock[] = [
     block('a', 0, 1800),

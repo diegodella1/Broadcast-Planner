@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import crypto from 'node:crypto';
 
 import { ADMIN_SESSION_COOKIE } from './auth-constants';
-import { createServiceClient } from './supabase/server';
+import { createServiceClient } from '../supabase/server';
 
 export { ADMIN_SESSION_COOKIE } from './auth-constants';
 

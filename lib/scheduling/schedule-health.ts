@@ -1,6 +1,12 @@
-import { formatTimecode } from './time';
+import { formatTimecode } from '../helpers/time';
 
-import type { MediaAsset, ProgramBlock, ScheduleBundle, ScheduledLayer, SlideAsset } from './types';
+import type {
+    MediaAsset,
+    ProgramBlock,
+    ScheduleBundle,
+    ScheduledLayer,
+    SlideAsset,
+} from '../types';
 
 export type ScheduleIssueSeverity = 'warning' | 'critical';
 export type ScheduleIssueKind =

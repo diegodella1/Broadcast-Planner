@@ -1,7 +1,7 @@
 import { EmergencyOutputStub } from '@/components/output/output-stub';
 import { SlideTemplateRenderer } from '@/components/slides';
 import { getSlides } from '@/lib/data';
-import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/output-auth';
+import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/auth/output-auth';
 import { SLIDE_TEMPLATES, type SlideTemplateId } from '@/lib/slides/registry';
 import { getSlideRenderData } from '@/lib/slides/render-data';
 

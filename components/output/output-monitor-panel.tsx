@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { formatTimecode } from '@/lib/time';
+import { formatTimecode } from '@/lib/helpers/time';
 
 type MonitorPayload = {
     generatedAt: string;

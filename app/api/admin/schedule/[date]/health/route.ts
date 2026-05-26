@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/auth';
 import { getScheduleForDate } from '@/lib/data';
-import { analyzeSchedule, withScheduleIssueLinks } from '@/lib/schedule-health';
+import { analyzeSchedule, withScheduleIssueLinks } from '@/lib/scheduling/schedule-health';
 
 export const dynamic = 'force-dynamic';
 

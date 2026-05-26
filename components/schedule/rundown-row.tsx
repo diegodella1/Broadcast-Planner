@@ -2,8 +2,8 @@ import Link from 'next/link';
 import clsx from 'clsx';
 import { BlockBadge } from '@/components/schedule/block-badge';
 import { PlayoutTime } from '@/components/output/playout-time';
-import { formatTimecode } from '@/lib/time';
-import { getDurationDisplay } from '@/lib/duration-display';
+import { formatTimecode } from '@/lib/helpers/time';
+import { getDurationDisplay } from '@/lib/helpers/duration-display';
 import type { BlockCategory, ProgramBlock, ScheduleBundle } from '@/lib/types';
 
 type RundownRowState = 'active' | 'next' | 'default';

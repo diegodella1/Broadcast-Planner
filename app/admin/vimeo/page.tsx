@@ -4,12 +4,12 @@ import { redirect } from 'next/navigation';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { EmptyState, Field, FilterLink, MetricTile, Notice } from '@/components/ui';
 import { VimeoSyncControl } from '@/components/vimeo/vimeo-sync-control';
-import { recordAuditEvent } from '@/lib/audit';
-import { requireAdmin } from '@/lib/auth';
-import { getCsrfToken } from '@/lib/csrf';
+import { recordAuditEvent } from '@/lib/audit/audit';
+import { requireAdmin } from '@/lib/auth/auth';
+import { getCsrfToken } from '@/lib/auth/csrf';
 import { getAssets } from '@/lib/data';
 import { getVimeoSettings, getVimeoToken } from '@/lib/settings';
-import { checkVimeoAssetPlayback } from '@/lib/vimeo';
+import { checkVimeoAssetPlayback } from '@/lib/services/vimeo';
 
 import type { MediaAsset } from '@/lib/types';
 

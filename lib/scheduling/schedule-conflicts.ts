@@ -1,6 +1,6 @@
-import { formatTimecode } from './time';
+import { formatTimecode } from '../helpers/time';
 
-import type { ProgramBlock } from './types';
+import type { ProgramBlock } from '../types';
 
 export type ScheduleConflict = {
     blockId: string;

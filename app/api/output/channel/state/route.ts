@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { composeChannelState, fallbackState } from '@/lib/output/channel-state';
-import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/output-auth';
+import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/auth/output-auth';
 
 export const dynamic = 'force-dynamic';
 

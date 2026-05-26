@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getCsrfToken } from '@/lib/csrf';
+import { getCsrfToken } from '@/lib/auth/csrf';
 
 export const dynamic = 'force-dynamic';
 

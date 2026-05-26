@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/auth';
 import { getLiveSchedule } from '@/lib/data';
-import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/output-auth';
-import { findActiveSchedule } from '@/lib/scheduler';
-import { secondsSinceMidnightInTimezone } from '@/lib/time';
+import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/auth/output-auth';
+import { findActiveSchedule } from '@/lib/scheduling/scheduler';
+import { secondsSinceMidnightInTimezone } from '@/lib/helpers/time';
 import type { ProgramStatus, BlockCategory } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';

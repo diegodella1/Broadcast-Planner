@@ -1,6 +1,6 @@
-import { parseTimecode } from './time';
+import { parseTimecode } from '../helpers/time';
 
-import type { MediaAsset, SlideAsset } from './types';
+import type { MediaAsset, SlideAsset } from '../types';
 
 type BuildInput = {
     mediaAssets: MediaAsset[];

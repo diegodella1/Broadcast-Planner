@@ -1,8 +1,8 @@
 'use client';
 
-import { findScheduleConflicts } from '@/lib/schedule-conflicts';
-import { previewInsertShift } from '@/lib/schedule-planner';
-import { formatPlayoutTimeLabel } from '@/lib/time';
+import { findScheduleConflicts } from '@/lib/scheduling/schedule-conflicts';
+import { previewInsertShift } from '@/lib/scheduling/schedule-planner';
+import { formatPlayoutTimeLabel } from '@/lib/helpers/time';
 
 type ScheduleImpactPreviewProps = {
     conflict: ReturnType<typeof findScheduleConflicts> | null;

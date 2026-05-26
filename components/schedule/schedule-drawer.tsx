@@ -3,9 +3,12 @@
 import { X } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
-import { findScheduleConflicts, scheduleConflictMessage } from '@/lib/schedule-conflicts';
-import { slidePreviewHref } from '@/lib/slide-preview';
-import { formatPlayoutTimeLabel } from '@/lib/time';
+import {
+    findScheduleConflicts,
+    scheduleConflictMessage,
+} from '@/lib/scheduling/schedule-conflicts';
+import { slidePreviewHref } from '@/lib/helpers/slide-preview';
+import { formatPlayoutTimeLabel } from '@/lib/helpers/time';
 import type { BlockType, ProgramBlock, ProgramStatus, ScheduleBundle } from '@/lib/types';
 
 import { ScheduleImpactPreview } from './schedule-impact-preview';

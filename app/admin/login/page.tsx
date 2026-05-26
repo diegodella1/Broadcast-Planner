@@ -9,8 +9,8 @@ import {
     hashSecret,
     isAdminTokenValid,
     safeAdminReturnTo,
-} from '@/lib/auth';
-import { assertRateLimit } from '@/lib/rate-limit';
+} from '@/lib/auth/auth';
+import { assertRateLimit } from '@/lib/auth/rate-limit';
 import { loginSchema } from '@/lib/schemas';
 
 export default async function LoginPage({

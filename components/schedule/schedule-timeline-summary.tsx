@@ -1,8 +1,8 @@
 'use client';
 
-import { findSameDayGaps } from '@/lib/schedule-conflicts';
-import { analyzeSchedule } from '@/lib/schedule-health';
-import { formatPlayoutTimeLabel, formatTimecode } from '@/lib/time';
+import { findSameDayGaps } from '@/lib/scheduling/schedule-conflicts';
+import { analyzeSchedule } from '@/lib/scheduling/schedule-health';
+import { formatPlayoutTimeLabel, formatTimecode } from '@/lib/helpers/time';
 import type { ProgramBlock, ScheduleBundle } from '@/lib/types';
 
 import { CALENDAR_SNAP_SECONDS } from './helpers';

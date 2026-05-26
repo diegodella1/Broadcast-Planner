@@ -4,10 +4,10 @@ import { Plus } from 'lucide-react';
 import type { MouseEvent, PointerEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
-import { findSameDayGaps } from '@/lib/schedule-conflicts';
-import { formatPlayoutTimeLabel } from '@/lib/time';
+import { findSameDayGaps } from '@/lib/scheduling/schedule-conflicts';
+import { formatPlayoutTimeLabel } from '@/lib/helpers/time';
 import type { ProgramBlock, ScheduleBundle } from '@/lib/types';
-import type { ScheduleIssue } from '@/lib/schedule-health';
+import type { ScheduleIssue } from '@/lib/scheduling/schedule-health';
 
 import {
     CALENDAR_SNAP_SECONDS,

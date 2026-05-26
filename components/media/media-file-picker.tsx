@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { MAX_SMALL_MEDIA_BYTES, formatUploadLimit } from '@/lib/media-upload-constants';
+import { MAX_SMALL_MEDIA_BYTES, formatUploadLimit } from '@/lib/helpers/media-upload-constants';
 
 type MediaMetadata = {
     durationSeconds: string;

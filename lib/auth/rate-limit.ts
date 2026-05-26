@@ -1,5 +1,5 @@
 import { getCurrentOperatorSession, hashSecret } from './auth';
-import { createServiceClient } from './supabase/server';
+import { createServiceClient } from '../supabase/server';
 
 export type RateLimitResult = {
     allowed: boolean;

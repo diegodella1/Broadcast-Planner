@@ -12,14 +12,14 @@ import { AdminShell } from '@/components/admin/admin-shell';
 import { ButtonLink } from '@/components/ui';
 import { getLiveSchedule } from '@/lib/data';
 import { getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
-import { collectOperatorHealth } from '@/lib/health-checks';
-import { findActiveSchedule } from '@/lib/scheduler';
-import { liveOutputHref } from '@/lib/output-auth';
+import { collectOperatorHealth } from '@/lib/health/health-checks';
+import { findActiveSchedule } from '@/lib/scheduling/scheduler';
+import { liveOutputHref } from '@/lib/auth/output-auth';
 import {
     formatPlayoutTimeLabel,
     PLAYOUT_TIMEZONE,
     secondsSinceMidnightInTimezone,
-} from '@/lib/time';
+} from '@/lib/helpers/time';
 
 export const dynamic = 'force-dynamic';
 

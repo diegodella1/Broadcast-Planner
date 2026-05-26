@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 
-import { appUrl } from '@/lib/app-url';
-import { requireAdmin } from '@/lib/auth';
-import { verifyCsrfToken } from '@/lib/csrf';
-import { assertRateLimit, rateLimitErrorResponse } from '@/lib/rate-limit';
+import { appUrl } from '@/lib/helpers/app-url';
+import { requireAdmin } from '@/lib/auth/auth';
+import { verifyCsrfToken } from '@/lib/auth/csrf';
+import { assertRateLimit, rateLimitErrorResponse } from '@/lib/auth/rate-limit';
 import { importVimeoVideoSchema } from '@/lib/schemas';
 import { getVimeoToken, markVimeoStatus, recordVimeoSyncStatus } from '@/lib/settings';
 import { createServiceClient } from '@/lib/supabase/server';
@@ -12,7 +12,7 @@ import {
     getVimeoVideo,
     listVimeoAccountVideos,
     upsertVimeoVideos,
-} from '@/lib/vimeo';
+} from '@/lib/services/vimeo';
 
 export async function POST(request: Request) {
     try {

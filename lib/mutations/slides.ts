@@ -1,10 +1,10 @@
 import { revalidatePath } from 'next/cache';
 
-import { auditedMutation } from '../audit';
+import { auditedMutation } from '../audit/audit';
 import type { FallbackCarouselCard } from '../fallback-carousel';
 import { err, ok, type Result } from '../result';
 import { createServiceClient } from '../supabase/server';
-import { parseTimecode } from '../time';
+import { parseTimecode } from '../helpers/time';
 
 import { createSlideAsset } from './assets';
 

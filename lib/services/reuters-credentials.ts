@@ -1,8 +1,8 @@
-import { decryptSecret, encryptSecret, maskSecret } from './crypto';
-import { auditedMutation } from './audit';
-import { createServiceClient } from './supabase/server';
+import { decryptSecret, encryptSecret, maskSecret } from '../auth/crypto';
+import { auditedMutation } from '../audit/audit';
+import { createServiceClient } from '../supabase/server';
 
-import type { IntegrationSetting } from './settings';
+import type { IntegrationSetting } from '../settings';
 
 /**
  * Reuters credential storage. Mirrors the Vimeo pattern in `lib/settings.ts`.

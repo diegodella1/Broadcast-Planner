@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth/auth';
 import { searchVimeoCatalog } from '@/lib/manual-broadcast';
 import { vimeoSearchSchema } from '@/lib/schemas';
 

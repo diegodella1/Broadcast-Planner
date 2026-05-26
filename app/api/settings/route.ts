@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 
-import { appUrl } from '@/lib/app-url';
-import { requireAdmin } from '@/lib/auth';
-import { verifyCsrfToken } from '@/lib/csrf';
-import { assertRateLimit, rateLimitErrorResponse } from '@/lib/rate-limit';
+import { appUrl } from '@/lib/helpers/app-url';
+import { requireAdmin } from '@/lib/auth/auth';
+import { verifyCsrfToken } from '@/lib/auth/csrf';
+import { assertRateLimit, rateLimitErrorResponse } from '@/lib/auth/rate-limit';
 import { updateVimeoSettingsSchema } from '@/lib/schemas';
 import { saveVimeoSettings } from '@/lib/settings';
 

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import type { ScheduleIssue } from '@/lib/schedule-health';
+import type { ScheduleIssue } from '@/lib/scheduling/schedule-health';
 
 type HealthPayload = {
     generatedAt: string;

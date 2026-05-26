@@ -14,8 +14,8 @@ import {
     updateMediaAsset,
     updateProgramBlock,
 } from '@/lib/mutations';
-import { analyzeSchedule, getAssetReadiness } from '@/lib/schedule-health';
-import { formatTimecode } from '@/lib/time';
+import { analyzeSchedule, getAssetReadiness } from '@/lib/scheduling/schedule-health';
+import { formatTimecode } from '@/lib/helpers/time';
 
 import type { MediaAsset } from '@/lib/types';
 import type { ReactNode } from 'react';

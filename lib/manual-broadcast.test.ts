@@ -17,7 +17,7 @@ vi.mock('@/lib/settings', () => ({
 // ---------------------------------------------------------------------------
 // Mock @/lib/vimeo
 // ---------------------------------------------------------------------------
-vi.mock('@/lib/vimeo', () => ({
+vi.mock('@/lib/services/vimeo', () => ({
     searchVimeoAccountVideos: vi.fn(),
     getVimeoVideo: vi.fn(),
     upsertVimeoVideos: vi.fn(),
@@ -100,10 +100,10 @@ import {
 } from './manual-broadcast';
 import { createProgramBlock } from './mutations/blocks';
 import { getVimeoToken } from './settings';
-import { searchVimeoAccountVideos, getVimeoVideo, upsertVimeoVideos } from './vimeo';
+import { searchVimeoAccountVideos, getVimeoVideo, upsertVimeoVideos } from './services/vimeo';
 
 import type { MediaAsset } from './types';
-import type { VimeoVideo } from './vimeo';
+import type { VimeoVideo } from './services/vimeo';
 
 // ---------------------------------------------------------------------------
 // Shared fixture builders

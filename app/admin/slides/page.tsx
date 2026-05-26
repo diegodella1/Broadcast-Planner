@@ -10,7 +10,7 @@ import {
     createWeatherPlate,
     updateWeatherPlate,
 } from '@/lib/mutations';
-import { slidePreviewHref } from '@/lib/slide-preview';
+import { slidePreviewHref } from '@/lib/helpers/slide-preview';
 import { SLIDE_TEMPLATES, type SlideTemplateEntry } from '@/lib/slides/registry';
 import { createServiceClient } from '@/lib/supabase/server';
 import type { SlideAsset } from '@/lib/types';

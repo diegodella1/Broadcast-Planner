@@ -4,9 +4,12 @@ import clsx from 'clsx';
 import { useRouter } from 'next/navigation';
 import { useMemo, useRef, useState, useTransition } from 'react';
 import { PlayoutTime } from '@/components/output/playout-time';
-import { formatPlayoutTimeLabel, formatTimecode } from '@/lib/time';
-import { findScheduleConflicts, scheduleConflictMessage } from '@/lib/schedule-conflicts';
-import type { ScheduleIssue } from '@/lib/schedule-health';
+import { formatPlayoutTimeLabel, formatTimecode } from '@/lib/helpers/time';
+import {
+    findScheduleConflicts,
+    scheduleConflictMessage,
+} from '@/lib/scheduling/schedule-conflicts';
+import type { ScheduleIssue } from '@/lib/scheduling/schedule-health';
 import type { MediaAsset, ProgramBlock, ScheduleBundle, SlideAsset } from '@/lib/types';
 
 const DAY_SECONDS = 86400;

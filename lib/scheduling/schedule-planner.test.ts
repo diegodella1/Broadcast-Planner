@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { planScheduleMutation } from './schedule-planner';
 
-import type { ProgramBlock } from './types';
+import type { ProgramBlock } from '../types';
 
 describe('schedule planner', () => {
     it('auto-inserts by shifting affected blocks', () => {

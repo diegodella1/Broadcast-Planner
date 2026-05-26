@@ -13,7 +13,7 @@ import {
     updateGuest,
     updateGuestPlate,
 } from '@/lib/mutations';
-import { slidePreviewHref } from '@/lib/slide-preview';
+import { slidePreviewHref } from '@/lib/helpers/slide-preview';
 
 import type { GuestStatus } from '@/lib/types';
 

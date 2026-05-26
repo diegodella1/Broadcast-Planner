@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { ADMIN_SESSION_COOKIE } from '@/lib/auth-constants';
-import { CSRF_COOKIE, INTERNAL_CSRF_HEADER } from '@/lib/csrf-constants';
+import { ADMIN_SESSION_COOKIE } from '@/lib/auth/auth-constants';
+import { CSRF_COOKIE, INTERNAL_CSRF_HEADER } from '@/lib/auth/csrf-constants';
 
 export function middleware(request: NextRequest) {
     const csrfResponse = rejectCrossSiteMutation(request);

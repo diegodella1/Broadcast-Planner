@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 
-import { requireAdmin } from '@/lib/auth';
-import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/output-auth';
-import { assertRateLimit, rateLimitErrorResponse } from '@/lib/rate-limit';
-import { SMALL_MEDIA_BUCKET } from '@/lib/media-upload-constants';
+import { requireAdmin } from '@/lib/auth/auth';
+import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/auth/output-auth';
+import { assertRateLimit, rateLimitErrorResponse } from '@/lib/auth/rate-limit';
+import { SMALL_MEDIA_BUCKET } from '@/lib/helpers/media-upload-constants';
 import { createServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';

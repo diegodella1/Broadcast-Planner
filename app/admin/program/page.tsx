@@ -5,8 +5,8 @@ import { AdminShell } from '@/components/admin/admin-shell';
 import { ButtonLink } from '@/components/ui';
 import { getDays, getScheduleForDate } from '@/lib/data';
 import { getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
-import { analyzeSchedule } from '@/lib/schedule-health';
-import { isoDateInTimezone, PLAYOUT_TIMEZONE } from '@/lib/time';
+import { analyzeSchedule } from '@/lib/scheduling/schedule-health';
+import { isoDateInTimezone, PLAYOUT_TIMEZONE } from '@/lib/helpers/time';
 
 export const dynamic = 'force-dynamic';
 

@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import { AdminShell } from '@/components/admin/admin-shell';
 import { ActionHint, ClearStateBadge, Notice } from '@/components/ui';
-import { collectOperatorHealth, type OperatorHealthCheck } from '@/lib/health-checks';
+import { collectOperatorHealth, type OperatorHealthCheck } from '@/lib/health/health-checks';
 
 export const dynamic = 'force-dynamic';
 

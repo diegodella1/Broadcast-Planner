@@ -5,7 +5,7 @@ import type {
     ScheduleBundle,
     ScheduledLayer,
     SlideAsset,
-} from './types';
+} from '../types';
 import { findScheduleConflicts } from './schedule-conflicts';
 
 export function findActiveSchedule(bundle: ScheduleBundle, secondsOfDay: number): ActiveSchedule {

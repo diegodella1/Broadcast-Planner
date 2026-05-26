@@ -18,8 +18,8 @@ import {
 import { getAssets, getSlides } from '@/lib/data';
 import { getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
 import { createMediaAsset, deleteMediaAsset, updateMediaAsset } from '@/lib/mutations';
-import { slidePreviewHref } from '@/lib/slide-preview';
-import { isoDateInTimezone, PLAYOUT_TIMEZONE } from '@/lib/time';
+import { slidePreviewHref } from '@/lib/helpers/slide-preview';
+import { isoDateInTimezone, PLAYOUT_TIMEZONE } from '@/lib/helpers/time';
 
 import type { MediaAsset, SlideAsset } from '@/lib/types';
 import type { ReactNode } from 'react';

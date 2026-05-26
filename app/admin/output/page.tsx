@@ -4,19 +4,23 @@ import { AdminShell } from '@/components/admin/admin-shell';
 import { OutputMonitorPanel } from '@/components/output/output-monitor-panel';
 import { StopBroadcastButton } from '@/components/output/stop-broadcast-button';
 import { ClearStateBadge, StatusBanner } from '@/components/ui';
-import { recordAuditEvent } from '@/lib/audit';
+import { recordAuditEvent } from '@/lib/audit/audit';
 import { getLiveSchedule } from '@/lib/data';
-import { collectOperatorHealth } from '@/lib/health-checks';
+import { collectOperatorHealth } from '@/lib/health/health-checks';
 import { updateProgramDayStatus } from '@/lib/mutations';
 import {
     clearOutputOverride,
     getActiveOutputOverride,
     setReutersOutputOverride,
 } from '@/lib/output-overrides';
-import { liveOutputHref } from '@/lib/output-auth';
-import { findActiveSchedule } from '@/lib/scheduler';
+import { liveOutputHref } from '@/lib/auth/output-auth';
+import { findActiveSchedule } from '@/lib/scheduling/scheduler';
 import { createDaySchema } from '@/lib/schemas';
-import { secondsSinceMidnightInTimezone, isoDateInTimezone, PLAYOUT_TIMEZONE } from '@/lib/time';
+import {
+    secondsSinceMidnightInTimezone,
+    isoDateInTimezone,
+    PLAYOUT_TIMEZONE,
+} from '@/lib/helpers/time';
 
 export default async function AdminOutputPage() {
     const [t, tOps, liveBundle, healthReport] = await Promise.all([

@@ -5,11 +5,11 @@ const { createMediaAssetMock, createServiceClientMock } = vi.hoisted(() => ({
     createServiceClientMock: vi.fn(),
 }));
 
-vi.mock('./mutations', () => ({
+vi.mock('../mutations', () => ({
     createMediaAsset: createMediaAssetMock,
 }));
 
-vi.mock('./supabase/server', () => ({
+vi.mock('../supabase/server', () => ({
     createServiceClient: createServiceClientMock,
 }));
 

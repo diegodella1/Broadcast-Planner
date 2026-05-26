@@ -13,7 +13,7 @@ vi.mock('@/lib/supabase/server', () => ({
     createServiceClient: vi.fn(),
 }));
 
-vi.mock('@/lib/reuters-credentials', () => ({
+vi.mock('@/lib/services/reuters-credentials', () => ({
     getReutersSettings: vi.fn(async () => ({ hasSecret: true })),
 }));
 

@@ -1,7 +1,7 @@
 'use client';
 
-import { getScheduleLiveState } from '@/lib/schedule-live-state';
-import { formatPlayoutTimeLabel, formatTimecode } from '@/lib/time';
+import { getScheduleLiveState } from '@/lib/scheduling/schedule-live-state';
+import { formatPlayoutTimeLabel, formatTimecode } from '@/lib/helpers/time';
 
 type LiveState = ReturnType<typeof getScheduleLiveState>;
 
