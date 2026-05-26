@@ -6,6 +6,7 @@ import { CSRF_FIELD, verifyCsrfTokenValue } from '@/lib/csrf';
 import { uploadedMediaFieldsFromForm, uploadMediaFile } from '@/lib/media-upload';
 import { createProgramBlock } from '@/lib/mutations';
 import { assertRateLimit, rateLimitErrorResponse } from '@/lib/rate-limit';
+import { uploadScheduleFormSchema } from '@/lib/schemas';
 
 export async function POST(request: Request) {
     try {
@@ -18,28 +19,30 @@ export async function POST(request: Request) {
         });
         const form = await request.formData();
         await verifyCsrfTokenValue(form.get(CSRF_FIELD));
-        const file = form.get('media_file') ?? form.get('video_file');
+        const parsed = uploadScheduleFormSchema.safeParse({
+            media_file: form.get('media_file') ?? form.get('video_file'),
+            date: form.get('date'),
+            start_time: form.get('start_time'),
+            hide_overlays: form.get('hide_overlays'),
+            return_to: form.get('return_to'),
+        });
 
-        if (!(file instanceof File) || file.size === 0) {
-            throw new Error('Select a media file');
-        }
-
-        if (file.type.startsWith('audio/')) {
-            throw new Error(
-                'MP3 is saved in the library. It cannot be a primary schedule block yet.',
+        if (!parsed.success) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: parsed.error.flatten().formErrors.join(', ') || 'Invalid input',
+                },
+                { status: 400 },
             );
         }
-
-        const date = String(form.get('date') || '').trim();
-        const startTime = String(form.get('start_time') || '').trim();
-
-        if (!date) {
-            throw new Error('Date is required');
-        }
-
-        if (!startTime) {
-            throw new Error('Start time is required');
-        }
+        const {
+            media_file: file,
+            date,
+            start_time: startTime,
+            hide_overlays: hideOverlays,
+            return_to: returnToRaw,
+        } = parsed.data;
 
         const uploaded = await uploadMediaFile(file, uploadedMediaFieldsFromForm(form));
         const created = await createProgramBlock({
@@ -49,12 +52,10 @@ export async function POST(request: Request) {
             assetId: uploaded.assetId,
             startTime,
             durationSeconds: uploaded.durationSeconds,
-            hideOverlays: form.get('hide_overlays') === 'on',
+            hideOverlays,
         });
 
-        const returnTo = String(
-            form.get('return_to') || `/admin/schedule/${date}?uploaded=1&created=${created.id}`,
-        );
+        const returnTo = returnToRaw || `/admin/schedule/${date}?uploaded=1&created=${created.id}`;
 
         return NextResponse.redirect(appUrl(returnTo), 303);
     } catch (error) {

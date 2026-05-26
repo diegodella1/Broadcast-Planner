@@ -9,4 +9,7 @@ export * from './operator-preferences';
 export * from './vimeo-settings';
 export * from './vimeo-import';
 export * from './vimeo-sync';
+export * from './upload-asset-form';
+export * from './upload-schedule-form';
+export * from './upload-guest-form';
 export { parseFormData, formatZodError, stripUndefined } from './form-helpers';

@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/auth';
 import { CSRF_FIELD, verifyCsrfTokenValue } from '@/lib/csrf';
 import { uploadedMediaFieldsFromForm, uploadMediaFile } from '@/lib/media-upload';
 import { assertRateLimit, rateLimitErrorResponse } from '@/lib/rate-limit';
+import { uploadAssetFormSchema } from '@/lib/schemas';
 
 export async function POST(request: Request) {
     try {
@@ -17,12 +18,22 @@ export async function POST(request: Request) {
         });
         const form = await request.formData();
         await verifyCsrfTokenValue(form.get(CSRF_FIELD));
-        const file = form.get('media_file') ?? form.get('video_file');
+        const parsed = uploadAssetFormSchema.safeParse({
+            media_file: form.get('media_file') ?? form.get('video_file'),
+            return_to: form.get('return_to'),
+        });
 
-        if (!(file instanceof File) || file.size === 0) {
-            throw new Error('Select a media file');
+        if (!parsed.success) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: parsed.error.flatten().formErrors.join(', ') || 'Invalid input',
+                },
+                { status: 400 },
+            );
         }
-        const returnTo = String(form.get('return_to') || '/admin/assets?uploaded=1');
+        const { media_file: file, return_to: returnToRaw } = parsed.data;
+        const returnTo = returnToRaw || '/admin/assets?uploaded=1';
         const uploaded = await uploadMediaFile(file, uploadedMediaFieldsFromForm(form));
 
         if (wantsJson(request)) {
