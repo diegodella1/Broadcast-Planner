@@ -17,7 +17,7 @@ const liveNow: Item[] = [
   {
     title: "End-to-end operator workflow",
     detail:
-      "Content library, daily rundown, health checks, runbook, output control, monitor state and clean shutdown are live.",
+      "Prepare, Program and Operate hubs guide content intake, daily rundown, health checks, output control and clean shutdown.",
     status: "Done"
   },
   {
@@ -30,6 +30,12 @@ const liveNow: Item[] = [
     title: "Schedule creation feedback",
     detail:
       "Newly-created blocks are highlighted, announced and shown with readable start/end ranges so operators can immediately see what changed.",
+    status: "Done"
+  },
+  {
+    title: "Loop Builder and fallback carousel",
+    detail:
+      "Operators can create scheduled slide loops, update the visual fallback carousel, or do both from one explicit flow.",
     status: "Done"
   },
   {
@@ -213,8 +219,8 @@ export default function PendingPage() {
             <h2 className="text-xl font-semibold">Definition of Workable</h2>
           </div>
           <p className="mt-4 text-sm leading-6 text-white/70">
-            A non-technical operator can create a broadcast day, schedule ready content, run
-            preflight, launch browser output, recover from reload, confirm audio/video in OBS or
+            A non-technical operator can use Prepare to create content, Program to build the day,
+            Operate to launch browser output, recover from reload, confirm audio/video in OBS or
             vMix, and stop cleanly with an audit trail.
           </p>
         </section>

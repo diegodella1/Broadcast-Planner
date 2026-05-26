@@ -3,34 +3,34 @@ import {
   CalendarDays,
   Clapperboard,
   HeartPulse,
-  Library,
   ListChecks,
-  MonitorPlay,
+  PackageOpen,
+  RadioTower,
   Shield
 } from "lucide-react"
 import Link from "next/link"
 
 const workflowSteps = [
-  "Add or sync videos, graphics, slides, audio, Vimeo shows and live endpoints.",
+  "Open Prepare and add or sync videos, graphics, slides, audio, Vimeo shows, guest plates, weather cities and live endpoints.",
   "Create guest records and individualized guest lineup plates when the programming needs guest cards.",
-  "Create the broadcast day in Calendar.",
-  "Build the rundown in Schedule and assign ready media, slides or live streams.",
+  "Open Program to create the broadcast day, build the rundown and assign ready media, slides or live streams.",
+  "Use Loop Builder for silent slide loops. Save as scheduled blocks, fallback carousel, or both.",
   "Enable the optional Previously Recorded bug on normal video programs when needed.",
-  "Assign fallback media at day or block level.",
+  "Confirm fallback policy before active: block fallback, day fallback, global fallback video or visual fallback carousel.",
   "Resolve critical health issues before the signal goes live.",
   "Complete runbook preflight checks.",
   "Set the day active.",
-  "Open Output, launch Live Browser Output, click Start Output, then capture the browser in OBS or vMix.",
+  "Open Operate, launch Live Browser Output, click Start Output, then capture the browser in OBS or vMix.",
   "During live, watch active block, next block, fallback reason, drift, playback state and runbook notes.",
   "Stop broadcast from Output and complete shutdown checks."
 ]
 
 const sections = [
   {
-    title: "Content",
-    icon: Library,
-    body: "Centralize uploaded media, remote URLs, music beds, fallbacks, Vimeo episodes, guest lineups and reusable graphics before anything reaches air. Uploaded ads/promos and guest media play through the public app media proxy even when Supabase storage is local.",
-    href: "/admin/assets"
+    title: "Prepare",
+    icon: PackageOpen,
+    body: "Unified intake for uploaded media, remote URLs, music beds, Vimeo episodes, guests, weather cities, data plates and reusable graphics before anything reaches air. Uploaded ads/promos and guest media play through the public app media proxy even when Supabase storage is local.",
+    href: "/admin/prepare"
   },
   {
     title: "Guests",
@@ -39,10 +39,10 @@ const sections = [
     href: "/admin/guests"
   },
   {
-    title: "Schedule",
+    title: "Program",
     icon: CalendarDays,
-    body: "Build a broadcast day as a timed rundown. Blocks define what airs, when it starts, how long it runs, whether a normal video program needs a Previously Recorded bug, and what fallback protects it.",
-    href: "/admin/calendar"
+    body: "Build a broadcast day as a timed rundown. Program owns Calendar, Schedule, Loop Builder, fallback policy and schedule health.",
+    href: "/admin/program"
   },
   {
     title: "Runbook",
@@ -51,10 +51,10 @@ const sections = [
     href: "/admin/runbook"
   },
   {
-    title: "Output",
-    icon: MonitorPlay,
-    body: "Use Live Browser Output as the playout surface. It resumes on reload, exposes monitor state and is built for OBS/vMix capture.",
-    href: "/admin/output"
+    title: "Operate",
+    icon: RadioTower,
+    body: "Live control-room hub for Output, health, runbook, audit, current block, next block, fallback state and recovery actions.",
+    href: "/admin/operate"
   },
   {
     title: "Preview",
@@ -70,11 +70,35 @@ const sections = [
   }
 ]
 
+const operatorHubs = [
+  {
+    name: "Prepare",
+    href: "/admin/prepare",
+    promise: "Create and review content before it reaches a day.",
+    items: ["Assets", "Vimeo", "Music", "Guests", "Weather", "Data plates"]
+  },
+  {
+    name: "Program",
+    href: "/admin/program",
+    promise: "Build the daily signal and define what protects it.",
+    items: ["Calendar", "Schedule", "Loop Builder", "Fallback", "Health"]
+  },
+  {
+    name: "Operate",
+    href: "/admin/operate",
+    promise: "Run the live signal and recover from problems fast.",
+    items: ["Output", "Audio unlock", "Runbook", "Health", "Audit"]
+  }
+]
+
 const limits = [
   "Production app is live and usable with an operator present.",
   "Browser output has been confirmed through web player, vMix and OBS.",
   "Uploaded ads/promos use the public app proxy; older 127.0.0.1 asset URLs were backfilled.",
   "Guest lineup plates now use operator-configured guests, uploaded/remote photos and short muted videos.",
+  "Prepare, Program and Operate hubs reduce the visible operator path while keeping direct routes available.",
+  "Loop Builder can create scheduled slide loops, set the global visual fallback carousel, or do both.",
+  "Weather plates can be created per city from the admin graphics surface.",
   "Metals use Roxom API data when available; weather falls back to Open-Meteo when OpenWeather is not configured.",
   "Calendar/event plates use the Supabase events table from the latest migration/bootstrap SQL.",
   "Previously Recorded bugs apply only to normal video program blocks, not ads, promos, slides, images, fallbacks, Reuters or manual overrides.",
@@ -91,6 +115,8 @@ const recentUpdates = [
   "Schedule now highlights the block that was just created.",
   "Calendar blocks show start/end ranges and a readable duration chip.",
   "Gaps show their full time range so operators can fill the right window faster.",
+  "Admin navigation is now grouped around Prepare, Program and Operate.",
+  "Loop Builder separates scheduled loops from fallback-only carousel updates.",
   "Local Supabase media uploads now play publicly through /api/media/assets/:assetId.",
   "Deploy/read-only smoke scripts now persist the latest smoke result for health checks.",
   "Guest lineup plates can now be individualized per slide from /admin/guests.",
@@ -125,19 +151,65 @@ export default function ManualPage() {
 
         <section className="grid gap-3 border-b border-white/10 py-6 md:grid-cols-4">
           <ManualMetric label="Status" value="Production live" />
-          <ManualMetric label="Workflow" value="Plan -> Verify -> Air" />
+          <ManualMetric label="Workflow" value="Prepare -> Program -> Operate" />
           <ManualMetric label="Output" value="Browser playout" />
           <ManualMetric label="Backend" value="Supabase" />
         </section>
 
         <section className="border-b border-white/10 py-5">
           <div className="flex flex-wrap gap-2">
+            <Link className="btn-secondary" href="/admin/prepare">
+              Prepare
+            </Link>
+            <Link className="btn-secondary" href="/admin/program">
+              Program
+            </Link>
+            <Link className="btn-secondary" href="/admin/operate">
+              Operate
+            </Link>
             <Link className="btn-secondary" href="/pending">
               Pending
             </Link>
             <Link className="btn-secondary" href="/notion">
               Status
             </Link>
+          </div>
+        </section>
+
+        <section className="border-b border-white/10 py-8">
+          <div className="flex items-center gap-3">
+            <RadioTower size={22} className="text-accent-positive" aria-hidden="true" />
+            <h2 className="text-2xl font-semibold">Operator Map</h2>
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            {operatorHubs.map((hub, index) => (
+              <Link
+                key={hub.name}
+                href={hub.href}
+                className="group flex min-h-[16rem] flex-col justify-between border border-white/10 bg-surface-elevated-2 p-5 transition hover:-translate-y-0.5 hover:border-accent-positive hover:bg-surface-selected-positive"
+              >
+                <span>
+                  <span className="grid h-9 w-9 place-items-center rounded-md bg-accent-positive text-sm font-bold text-surface-elevated-1">
+                    {index + 1}
+                  </span>
+                  <span className="mt-4 block text-2xl font-semibold">{hub.name}</span>
+                  <span className="mt-2 block text-sm leading-6 text-white/65">{hub.promise}</span>
+                  <span className="mt-4 flex flex-wrap gap-2">
+                    {hub.items.map((item) => (
+                      <span
+                        key={item}
+                        className="rounded-md border border-white/10 bg-black/20 px-2 py-1 text-xs font-semibold text-white/60"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </span>
+                </span>
+                <span className="mt-5 text-sm font-semibold text-accent-positive group-hover:underline">
+                  Open {hub.name}
+                </span>
+              </Link>
+            ))}
           </div>
         </section>
 

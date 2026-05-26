@@ -59,11 +59,23 @@ This product should feel like a broadcast operations console: dense, calm, expli
 
 ### Current Implementation Notes
 
+The admin UX is now grouped by operator intent:
+
+- `/admin/prepare` is the front door for assets, Vimeo, music, guests, weather city plates and
+  real-data plates.
+- `/admin/program` is the front door for Calendar, Schedule, Loop Builder, fallback policy and
+  schedule health.
+- `/admin/operate` is the live control-room hub for Output, health, runbook, audit and recovery.
+
 The focused block editor exists at `/admin/schedule/[date]/blocks/[id]` and is the primary surface
 for detailed timing/content/fallback/layer work. Inline schedule editing also supports normal
 program-only `PREVIOUSLY RECORDED` bug configuration with four-corner placement. Real-data plate
 coverage now includes Roxom metals data with fallback, Open-Meteo weather fallback, Supabase events
 for calendar plates, guest lineup inputs and a CSS-safe debt plate background.
+
+Loop Builder lives on the schedule page and makes the operator choose one intent: create scheduled
+slide-loop blocks, update the global visual fallback carousel, or do both. Fallback-only updates do
+not create scheduled blocks.
 
 ## Product Thesis
 
@@ -159,11 +171,16 @@ Every output state should be explainable from schedule data. If something appear
 
 Shipping many asset fields matters less than knowing the output can survive missing media, bad status, gaps, and timing conflicts.
 
-### 3. Operator Correction Must Be Faster Than Editing Raw Data
+### 3. Fewer Visible Choices, Same Power
+
+The primary admin path is Prepare -> Program -> Operate. Direct routes and advanced metadata remain
+available, but operators should not need to scan every tool at once during normal work.
+
+### 4. Operator Correction Must Be Faster Than Editing Raw Data
 
 During live operation, the operator should not need to search several pages to fix the current output. The system needs direct controls for preview, disable, force next, force fallback, and mark unsafe.
 
-### 4. Ready Means Ready To Air
+### 5. Ready Means Ready To Air
 
 An asset with status `ready` should satisfy minimum playout requirements:
 
@@ -173,11 +190,11 @@ An asset with status `ready` should satisfy minimum playout requirements:
 - status is not failed or syncing,
 - fallback is available when the asset is used in an active schedule.
 
-### 5. Daily Programming Is A First-Class Object
+### 6. Daily Programming Is A First-Class Object
 
 The current architecture uses `program_days`, which is correct for broadcast operations. The product should keep leaning into daily programming rather than generic project timelines.
 
-### 6. Output Renderer Is Sacred
+### 7. Output Renderer Is Sacred
 
 The output route must remain clean, fullscreen, stable, and boring in the best way. Debug panels are useful only behind explicit debug parameters.
 

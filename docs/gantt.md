@@ -16,7 +16,9 @@ Current roadmap only. The product is in controlled production: useful now, still
 | Persisted smoke status       | Live   | Deploy/read-only smoke scripts write the latest smoke result for `/api/health`.                         |
 | Supabase migration kit       | Live   | Fresh-project SQL creates schema, RLS policies, buckets and operational tables.                         |
 | Security baseline            | Live   | Named operators, sessions, roles, CSRF, output auth, sanitized health, rate limiting and audit logging. |
+| Unified operator hubs        | Live   | Prepare, Program and Operate reduce visible choices while keeping direct routes available.              |
 | Schedule UX feedback         | Live   | Newly-created blocks are announced, highlighted and shown with clear start/end time ranges.             |
+| Loop Builder                 | Live   | Operators can create scheduled slide loops, visual fallback carousels, or both from one flow.           |
 | Guest lineup plates          | Live   | Operators can create guests with URL/uploaded media and build individualized guest plates.              |
 | Real-data plate inputs       | Live   | Metals, weather, debt and calendar/event plates now use real data paths or resilient fallbacks.         |
 | Previously Recorded bug      | Live   | Normal video programs can show a four-corner broadcast disclosure bug.                                  |
@@ -31,7 +33,7 @@ Current roadmap only. The product is in controlled production: useful now, still
 | Dependency audit cleanup      | P1       | Resolve current moderate upstream advisories without unsafe downgrades or forced fixes.       |
 | Named operator rollout        | P1       | Move day-to-day work off bootstrap access and improve audit identity.                         |
 | Cloudflare Workers smoke      | P1       | Prove the OpenNext deploy path in Workers before treating it as production-primary.           |
-| Asset preview/review polish   | P2       | Faster QA before scheduling media into a live day.                                            |
+| Asset preview/review polish   | P2       | Faster QA inside Prepare before scheduling media into a live day.                             |
 | Recurring/copy schedule tools | P2       | Speeds daily programming once the core workflow is stable.                                    |
 
 ## Future Capability Ideas
@@ -48,4 +50,4 @@ Current roadmap only. The product is in controlled production: useful now, still
 
 ## Selling Point
 
-RTV Planner is valuable because it reduces live broadcast risk. It gives operators one source of truth for content, schedule, fallbacks, health, output and audit. That means fewer manual handoffs, fewer last-minute surprises and a clearer path from "today's plan" to "signal is on air."
+RTV Planner is valuable because it reduces live broadcast risk. It gives operators one source of truth for Prepare, Program and Operate: content, schedule, fallbacks, health, output and audit. That means fewer manual handoffs, fewer last-minute surprises and a clearer path from "today's plan" to "signal is on air."

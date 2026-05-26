@@ -10,10 +10,13 @@ Production is live at `rtvtime.diegodella.ar` using local standalone Next.js beh
 
 What is already working:
 
+- unified operator flow with `/admin/prepare`, `/admin/program` and `/admin/operate`
 - daily schedule builder with timed blocks
 - timeline-first schedule UI with visible newly-added block confirmation, time ranges and gap filling
 - media library for uploads, remote URLs, Vimeo, slides, music and fallbacks
 - guest library with per-plate lineups, uploaded/remote guest photos and short muted guest videos
+- city-specific weather plates and a Loop Builder that can create scheduled slide loops, fallback
+  carousels, or both
 - Supabase database/storage backend, including local-storage media proxy for public playback
 - browser playout for OBS/vMix capture
 - Vimeo, HLS, MP4, images, slides and Reuters stream snapshots
@@ -53,7 +56,10 @@ The value is not just playing media. The value is reducing live mistakes: wrong 
 ## Main Routes
 
 - `/admin/login` - operator login
-- `/admin` - dashboard
+- `/admin` - cockpit dashboard
+- `/admin/prepare` - unified intake for assets, Vimeo, music, guests and plates
+- `/admin/program` - daily programming hub for calendar, schedule, loop builder, fallback and health
+- `/admin/operate` - live control-room hub for output, health, runbook and audit
 - `/admin/calendar` - program days
 - `/admin/schedule/[date]` - daily rundown
 - `/admin/runbook/[date]` - preflight/live/incident/shutdown checklist
@@ -75,17 +81,22 @@ The value is not just playing media. The value is reducing live mistakes: wrong 
 
 ## Production Workflow
 
-1. Add content in `/admin/assets`, `/admin/vimeo`, `/admin/music` or `/admin/slides`.
-2. Build guest records and guest lineup plates in `/admin/guests` when the show needs guest cards.
-3. Build the day in `/admin/calendar` -> `/admin/schedule/[date]`.
+1. Open `/admin/prepare` and add or sync content: assets, Vimeo shows, music, guest plates, weather
+   city plates and data plates.
+2. Open `/admin/program` and build the day: calendar, schedule, Loop Builder, fallback policy and
+   schedule health.
+3. Use Loop Builder when the day needs a silent slide loop. Choose one clear intent: create
+   scheduled blocks, set the visual fallback carousel, or do both. Background music plays under
+   slide loops and visual fallback.
 4. For normal video programs that are not live/Reuters/ads/promos, enable the optional
    `PREVIOUSLY RECORDED` bug from the block editor when editorial needs that disclosure.
-5. Resolve schedule health issues and assign fallback assets.
-6. Complete the runbook in `/admin/runbook/[date]`.
-7. Set the day `active`.
-8. Open `/admin/output`, launch Live Browser Output, click `Start Output`, then capture that browser window in OBS/vMix.
-9. During live, watch active block, next block, fallback reason, playback state and runbook notes.
-10. Stop broadcast and complete shutdown checks.
+5. Resolve schedule health issues and confirm fallback before activating the day.
+6. Open `/admin/operate`, complete the runbook, open Output, launch Live Browser Output and click
+   `Start Output` once to unlock audio.
+7. Capture the live browser window in OBS/vMix.
+8. During live, watch active block, next block, fallback reason, playlist/audio state, playback
+   state and runbook notes from Operate/Output.
+9. Stop broadcast and complete shutdown checks.
 
 If the output page reloads mid-show, it asks the server for the active block and resumes video at the current scheduled offset. Browser audio still requires one operator click after load or reload.
 

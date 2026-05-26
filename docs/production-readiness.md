@@ -12,6 +12,8 @@ release and go-live checklist for the Roxom TV browser-output workflow.
 - Uploaded media: local Supabase Storage served publicly through `/api/media/assets/[assetId]`.
 - Playout: `/output/live` captured by OBS or vMix.
 - Operational model: named operators for normal use, bootstrap token for emergency access.
+- Operator model: `/admin/prepare` for content and plates, `/admin/program` for day/rundown/loop
+  and fallback work, and `/admin/operate` for live output, health, runbook and recovery.
 - Capture status: browser output has been confirmed through web player, vMix and OBS.
 - Main product gate: remodel the on-air plate design for a stronger broadcast look, then tighten
   output alerts for drift, stalls, silence and media errors.
@@ -25,6 +27,8 @@ release and go-live checklist for the Roxom TV browser-output workflow.
   `supabase/migrations/20260522120000_guest_lineup.sql` or
   `public/manual/guest-lineup-migration.sql` plus
   `supabase/migrations/20260522172000_slide_asset_metadata.sql` applied before use.
+- Loop Builder in `/admin/schedule/[date]#bulk-cards` can create scheduled slide loops, update the
+  global visual fallback carousel, or do both. Fallback-only updates do not create scheduled blocks.
 - API rate limiting now uses the atomic Supabase function in
   `supabase/migrations/20260522153000_atomic_rate_limits.sql`; existing backends should apply the
   matching standalone file at `public/manual/atomic-rate-limits-migration.sql`.
@@ -95,9 +99,10 @@ export OUTPUT_CAPTURE_TOKEN="..."
 rtk npm run smoke:prod
 ```
 
-Before live operation, open `/admin/runbook/<air-date>` and complete the critical preflight checks:
-schedule health, fallback readiness, output monitor and media readiness. The app warns on open
-critical checks but does not block output, so the operator owns final go/no-go.
+Before live operation, use `/admin/operate` as the live hub, then open
+`/admin/runbook/<air-date>` and complete the critical preflight checks: schedule health, fallback
+readiness, output monitor and media readiness. The app warns on open critical checks but does not
+block output, so the operator owns final go/no-go.
 
 ## Sales-Ready Summary
 
@@ -108,6 +113,7 @@ runbook, browser playout, output monitor, live overrides, fallbacks and audit tr
 What to say in a demo:
 
 - "This is the daily control room for Roxom TV."
+- "The operator path is Prepare, Program, Operate."
 - "The operator can see what is live, what is next and what can fail before it goes on air."
 - "The browser output is designed to be captured by OBS or vMix."
 - "The web player has already been confirmed in browser, vMix and OBS."
@@ -115,6 +121,7 @@ What to say in a demo:
 - "Supabase stores the operational state, and a fresh backend can be bootstrapped from SQL."
 - "Schedule editing now confirms newly-added blocks clearly, with highlighted placement and
   readable start/end ranges."
+- "Loop Builder can either create scheduled slide loops, update the fallback carousel, or do both."
 
 Current demo caveat:
 

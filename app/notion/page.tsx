@@ -7,7 +7,9 @@ const shipped = [
   "Rate limiting, CSRF protection and output token flow",
   "Admin health checks and Go Live Drill",
   "Daily schedule builder with schedule health polling",
+  "Unified Prepare, Program and Operate operator hubs",
   "Schedule add-block confirmation with highlighted placement and readable time ranges",
+  "Loop Builder for scheduled slide loops, visual fallback carousel, or both",
   "Runbook for preflight, live operation, incident notes and shutdown",
   "Output overrides for urgent live cuts",
   "Music preferences for slides, images and visual fallbacks",
@@ -34,7 +36,7 @@ const verification = [
   "i18n check passed",
   "security service-role guard passed",
   "audit trail guard passed",
-  "Vitest passed: 341 tests",
+  "Vitest passed: 348 tests",
   "Next production build passed",
   "local production deploy passed",
   "local read-only smoke passed",
@@ -51,12 +53,13 @@ const nextSteps = [
 
 const operationSteps = [
   {
-    name: "1. Load content",
-    route: "/admin/assets",
+    name: "1. Prepare content",
+    route: "/admin/prepare",
     actions: [
-      "Upload videos, images, audio and graphics.",
-      "Sync Vimeo.",
+      "Upload videos, images, audio and graphics from the Prepare hub.",
+      "Sync Vimeo or open the direct Vimeo route from Prepare.",
       "Register remote URLs when needed.",
+      "Create weather city plates and data plates before scheduling.",
       "Mark assets as ready only after reviewing playback, duration and fallback."
     ]
   },
@@ -71,11 +74,13 @@ const operationSteps = [
     ]
   },
   {
-    name: "3. Build the day",
-    route: "/admin/calendar",
+    name: "3. Program the day",
+    route: "/admin/program",
     actions: [
       "Create or open the programming day.",
-      "Add blocks in chronological order.",
+      "Add blocks in chronological order from Schedule.",
+      "Use Loop Builder for silent slide loops.",
+      "Choose scheduled loop, fallback carousel only, or both.",
       "Assign an asset, slide or Reuters stream.",
       "For Reuters, paste the current HLS/RTMP endpoint because those URLs are dynamic."
     ]
@@ -87,7 +92,7 @@ const operationSteps = [
       "Fix gaps.",
       "Fix overlaps.",
       "Resolve missing or not-ready assets.",
-      "Review fallback at day and block level.",
+      "Review fallback policy: block fallback, day fallback, global fallback video or visual fallback carousel.",
       "Use schedule health deep links to jump directly to the affected block."
     ]
   },
@@ -103,9 +108,10 @@ const operationSteps = [
   },
   {
     name: "6. Go live",
-    route: "/admin/output",
+    route: "/admin/operate",
     actions: [
       "Activate the correct day.",
+      "Open Output from Operate.",
       "Open Browser Output.",
       "Click Start Output once to unlock audio.",
       "Capture the browser or window in OBS/vMix.",
@@ -114,9 +120,9 @@ const operationSteps = [
   },
   {
     name: "7. Operate during live",
-    route: "/admin/output",
+    route: "/admin/operate",
     actions: [
-      "Monitor current block, next block, fallback reason and playback errors.",
+      "Monitor current block, next block, fallback reason, playlist/audio state and playback errors.",
       "Use Reuters live override only when the output must cut immediately to a dynamic endpoint.",
       "Return to schedule when the override ends."
     ]
@@ -200,9 +206,56 @@ export default function NotionStatusPage() {
             <h2 className={h2Class}>Current status</h2>
             <p>
               RTV Planner is the broadcast control room for Roxom TV. It gives operators one place
-              to load content, build the daily rundown, check schedule risk, run preflight and send
-              browser playout into OBS or vMix.
+              to prepare content, program the daily rundown, check schedule risk, run preflight and
+              send browser playout into OBS or vMix.
             </p>
+            <p>
+              The admin workflow is now grouped by intent: Prepare for content and plates, Program
+              for day/rundown/loop/fallback work and Operate for live output, health, runbook and
+              recovery.
+            </p>
+
+            <h2 className={h2Class}>Operator map</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[620px] border-collapse text-sm">
+                <thead>
+                  <tr className="border-y border-[#e9e7e3] text-left text-[#787774]">
+                    <th className="py-2 pr-4 font-medium">Hub</th>
+                    <th className="py-2 pr-4 font-medium">Route</th>
+                    <th className="py-2 font-medium">Use when</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-[#e9e7e3] align-top">
+                    <td className="py-3 pr-4 font-medium">Prepare</td>
+                    <td className="py-3 pr-4">
+                      <code className={codeClass}>/admin/prepare</code>
+                    </td>
+                    <td className="py-3">
+                      Create media, music, guest plates, weather and data plates.
+                    </td>
+                  </tr>
+                  <tr className="border-b border-[#e9e7e3] align-top">
+                    <td className="py-3 pr-4 font-medium">Program</td>
+                    <td className="py-3 pr-4">
+                      <code className={codeClass}>/admin/program</code>
+                    </td>
+                    <td className="py-3">
+                      Build the day, create loops, set fallback and fix health.
+                    </td>
+                  </tr>
+                  <tr className="border-b border-[#e9e7e3] align-top">
+                    <td className="py-3 pr-4 font-medium">Operate</td>
+                    <td className="py-3 pr-4">
+                      <code className={codeClass}>/admin/operate</code>
+                    </td>
+                    <td className="py-3">
+                      Run output, unlock audio, monitor fallback and recover live.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
             <p>
               The workflow is browser-output-first: the operator opens Browser Output from Admin
               Output, clicks Start Output once to unlock audio and captures the page in OBS/vMix.
@@ -247,6 +300,17 @@ export default function NotionStatusPage() {
 
             <h2 className={h2Class}>Notes</h2>
             <ul className={listClass}>
+              <li>
+                Prepare, Program and Operate are the primary operator hubs. Direct routes like{" "}
+                <code className={codeClass}>/admin/assets</code>,{" "}
+                <code className={codeClass}>/admin/schedule/&lt;date&gt;</code> and{" "}
+                <code className={codeClass}>/admin/output</code> remain available for deep work.
+              </li>
+              <li>
+                Loop Builder can create scheduled slide blocks, update the global visual fallback
+                carousel, or do both in one action. Fallback-only updates do not create scheduled
+                blocks.
+              </li>
               <li>
                 Reuters stream URLs are dynamic snapshots. Expired or rotated HLS/RTMP endpoints
                 must be refreshed.
