@@ -4,7 +4,12 @@ import { AdminShell } from "@/components/admin-shell"
 import { StatusPill } from "@/components/status-pill"
 import { EmptyState, FormHeader } from "@/components/ui"
 import { getSlides } from "@/lib/data"
-import { archiveSlideAsset, createSlideAsset } from "@/lib/mutations"
+import {
+  archiveSlideAsset,
+  createSlideAsset,
+  createWeatherPlate,
+  updateWeatherPlate
+} from "@/lib/mutations"
 import { slidePreviewHref } from "@/lib/slide-preview"
 import { SLIDE_TEMPLATES, type SlideTemplateEntry } from "@/lib/slides/registry"
 import { createServiceClient } from "@/lib/supabase/server"
@@ -67,6 +72,7 @@ export default async function SlidesPage() {
     (preset) => !activeByTemplate.has(preset.templateId)
   )
   const legacySlides = activeSlides.filter((slide) => isLegacySlide(slide, currentTemplateIds))
+  const weatherPlates = activeSlides.filter((slide) => slide.templateId === "weather")
   const customSlides = activeSlides.filter(
     (slide) => !slide.templateId && !isLegacySlide(slide, currentTemplateIds)
   )
@@ -135,6 +141,31 @@ export default async function SlidesPage() {
     await archiveSlideAsset(String(formData.get("slide_id")))
   }
 
+  async function addWeatherPlate(formData: FormData) {
+    "use server"
+    await createWeatherPlate({
+      title: String(formData.get("title") || ""),
+      locationName: String(formData.get("location_name") || ""),
+      lat: Number(formData.get("lat")),
+      lon: Number(formData.get("lon")),
+      defaultDurationSeconds: Number(formData.get("default_duration_seconds") || 30),
+      status: String(formData.get("status") || "ready")
+    })
+  }
+
+  async function updateWeatherPlateAction(formData: FormData) {
+    "use server"
+    await updateWeatherPlate({
+      slideId: String(formData.get("slide_id") || ""),
+      title: String(formData.get("title") || ""),
+      locationName: String(formData.get("location_name") || ""),
+      lat: Number(formData.get("lat")),
+      lon: Number(formData.get("lon")),
+      defaultDurationSeconds: Number(formData.get("default_duration_seconds") || 30),
+      status: String(formData.get("status") || "ready")
+    })
+  }
+
   async function archiveLegacySlides() {
     "use server"
     const existing = await getSlides()
@@ -198,6 +229,80 @@ export default async function SlidesPage() {
             </section>
           ))}
         </div>
+      </section>
+
+      <section className="surface-panel mb-5 overflow-hidden">
+        <div className="border-b border-line p-4">
+          <FormHeader
+            title="Weather plates"
+            detail="Create multiple city-specific Weather plates. Each plate keeps its own city name, latitude and longitude."
+          />
+        </div>
+        <form
+          action={addWeatherPlate}
+          className="grid gap-3 border-b border-line p-4 lg:grid-cols-[1fr_1fr_130px_130px_110px_110px]"
+        >
+          <input
+            name="title"
+            required
+            placeholder="Plate title"
+            className="border border-line px-3 py-2 text-sm"
+          />
+          <input
+            name="location_name"
+            required
+            placeholder="City label"
+            className="border border-line px-3 py-2 text-sm"
+          />
+          <input
+            name="lat"
+            required
+            type="number"
+            step="any"
+            min="-90"
+            max="90"
+            placeholder="Lat"
+            className="border border-line px-3 py-2 text-sm"
+          />
+          <input
+            name="lon"
+            required
+            type="number"
+            step="any"
+            min="-180"
+            max="180"
+            placeholder="Lon"
+            className="border border-line px-3 py-2 text-sm"
+          />
+          <input
+            name="default_duration_seconds"
+            type="number"
+            min="1"
+            defaultValue="30"
+            className="border border-line px-3 py-2 text-sm"
+            aria-label="Duration seconds"
+          />
+          <select name="status" className="border border-line px-3 py-2 text-sm">
+            <option value="ready">Ready</option>
+            <option value="draft">Draft</option>
+          </select>
+          <button className="btn-primary lg:col-span-6">Create weather plate</button>
+        </form>
+        {weatherPlates.map((slide) => (
+          <WeatherPlateRow
+            key={slide.id}
+            slide={slide}
+            updateWeatherPlateAction={updateWeatherPlateAction}
+            archiveSlide={archiveSlide}
+          />
+        ))}
+        {weatherPlates.length === 0 ? (
+          <div className="p-4">
+            <EmptyState title="No city weather plates">
+              Create Buenos Aires, Miami, Madrid or any city with latitude and longitude.
+            </EmptyState>
+          </div>
+        ) : null}
       </section>
 
       {legacySlides.length > 0 && (
@@ -380,6 +485,95 @@ function SystemTemplateCard({
   )
 }
 
+function WeatherPlateRow({
+  slide,
+  updateWeatherPlateAction,
+  archiveSlide
+}: {
+  slide: SlideAsset
+  updateWeatherPlateAction: (formData: FormData) => Promise<void>
+  archiveSlide: (formData: FormData) => Promise<void>
+}) {
+  const weather = weatherMetadata(slide)
+  return (
+    <form
+      action={updateWeatherPlateAction}
+      className="grid gap-3 border-b border-line p-4 last:border-b-0 lg:grid-cols-[1fr_1fr_130px_130px_110px_110px_170px]"
+    >
+      <input type="hidden" name="slide_id" value={slide.id} />
+      <input
+        name="title"
+        required
+        defaultValue={slide.title}
+        className="border border-line px-3 py-2 text-sm"
+        aria-label="Plate title"
+      />
+      <input
+        name="location_name"
+        required
+        defaultValue={weather.locationName}
+        className="border border-line px-3 py-2 text-sm"
+        aria-label="City label"
+      />
+      <input
+        name="lat"
+        required
+        type="number"
+        step="any"
+        min="-90"
+        max="90"
+        defaultValue={weather.lat}
+        className="border border-line px-3 py-2 text-sm"
+        aria-label="Latitude"
+      />
+      <input
+        name="lon"
+        required
+        type="number"
+        step="any"
+        min="-180"
+        max="180"
+        defaultValue={weather.lon}
+        className="border border-line px-3 py-2 text-sm"
+        aria-label="Longitude"
+      />
+      <input
+        name="default_duration_seconds"
+        type="number"
+        min="1"
+        defaultValue={slide.defaultDurationSeconds ?? 30}
+        className="border border-line px-3 py-2 text-sm"
+        aria-label="Duration seconds"
+      />
+      <select
+        name="status"
+        defaultValue={slide.status}
+        className="border border-line px-3 py-2 text-sm"
+        aria-label="Status"
+      >
+        <option value="ready">Ready</option>
+        <option value="draft">Draft</option>
+        <option value="archived">Archived</option>
+      </select>
+      <div className="flex flex-wrap gap-2 lg:justify-end">
+        <a
+          className="btn-secondary min-h-9 gap-2"
+          href={slidePreviewHref(slide.id)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Eye size={15} aria-hidden="true" />
+          View
+        </a>
+        <button className="btn-secondary min-h-9">Save</button>
+        <button formAction={archiveSlide} className="btn-secondary min-h-9">
+          Archive
+        </button>
+      </div>
+    </form>
+  )
+}
+
 function SlideRow({
   slide,
   archiveSlide,
@@ -433,6 +627,23 @@ function SlideRow({
       </div>
     </div>
   )
+}
+
+function weatherMetadata(slide: SlideAsset) {
+  return {
+    locationName: stringMetadata(slide.metadata?.weatherLocationName, "Buenos Aires"),
+    lat: numberMetadata(slide.metadata?.weatherLat, -34.6037),
+    lon: numberMetadata(slide.metadata?.weatherLon, -58.3816)
+  }
+}
+
+function stringMetadata(value: unknown, fallback: string) {
+  return typeof value === "string" && value.trim() ? value : fallback
+}
+
+function numberMetadata(value: unknown, fallback: number) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
 }
 
 function MetricCard({

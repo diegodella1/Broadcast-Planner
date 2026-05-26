@@ -1,5 +1,6 @@
 import { SLIDE_TEMPLATES, type SlideTemplateId } from "./registry"
 import { demoData as mockGuestLineupData, getGuestLineupData } from "./data/guests"
+import { getWeatherSlideData } from "./data/weather"
 import type { SlideAsset } from "@/lib/types"
 import type {
   CalendarEvent,
@@ -20,6 +21,13 @@ export async function getSlideRenderData(templateId: SlideTemplateId, slide?: Sl
       return { data: await getGuestLineupData({ slide }) }
     } catch {
       return { data: mockGuestLineupData() }
+    }
+  }
+  if (templateId === "weather") {
+    try {
+      return { data: await getWeatherSlideData({ slide }) }
+    } catch {
+      return { data: unavailableWeatherData() }
     }
   }
   const entry = SLIDE_TEMPLATES.find((template) => template.id === templateId)

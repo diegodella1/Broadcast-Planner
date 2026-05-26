@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { __resetWeatherCacheForTests, getWeatherSlideData } from "./weather"
+import type { SlideAsset } from "@/lib/types"
 
 describe("getWeatherSlideData", () => {
   const originalEnv = process.env
@@ -98,7 +99,71 @@ describe("getWeatherSlideData", () => {
       precipitationProbability: 25
     })
   })
+
+  it("uses slide weather metadata and keeps location caches separate", async () => {
+    delete process.env.OPENWEATHER_API_KEY
+    delete process.env.OPENWEATHERMAP_API_KEY
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          current: {
+            time: "2026-05-22T12:00",
+            temperature_2m: 20,
+            apparent_temperature: 21,
+            relative_humidity_2m: 60,
+            wind_speed_10m: 10,
+            weather_code: 0
+          },
+          hourly: { time: ["2026-05-22T12:00"], temperature_2m: [20], weather_code: [0] }
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          current: {
+            time: "2026-05-22T12:00",
+            temperature_2m: 31,
+            apparent_temperature: 32,
+            relative_humidity_2m: 70,
+            wind_speed_10m: 15,
+            weather_code: 61
+          },
+          hourly: { time: ["2026-05-22T12:00"], temperature_2m: [31], weather_code: [61] }
+        })
+      )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const buenosAires = await getWeatherSlideData({
+      slide: weatherSlide("Buenos Aires", -34.6037, -58.3816)
+    })
+    const miami = await getWeatherSlideData({
+      slide: weatherSlide("Miami", 25.7617, -80.1918)
+    })
+    const cachedBuenosAires = await getWeatherSlideData({
+      slide: weatherSlide("Buenos Aires", -34.6037, -58.3816)
+    })
+
+    expect(buenosAires.locationName).toBe("Buenos Aires")
+    expect(miami.locationName).toBe("Miami")
+    expect(buenosAires.temperatureC).toBe(20)
+    expect(miami.temperatureC).toBe(31)
+    expect(cachedBuenosAires.temperatureC).toBe(20)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
 })
+
+function weatherSlide(locationName: string, lat: number, lon: number): SlideAsset {
+  return {
+    id: `weather-${locationName}`,
+    title: `${locationName} Weather`,
+    slideType: "template",
+    templateId: "weather",
+    status: "ready",
+    metadata: { weatherLocationName: locationName, weatherLat: lat, weatherLon: lon },
+    createdAt: "",
+    updatedAt: ""
+  }
+}
 
 function jsonResponse(payload: unknown) {
   return new Response(JSON.stringify(payload), {

@@ -177,6 +177,8 @@ import {
   createBulkCardLoop,
   saveGlobalFallbackCarouselFromSlides,
   createLongTestSchedule,
+  createWeatherPlate,
+  updateWeatherPlate,
   reorderProgramBlocks,
   resizeProgramBlock,
   moveProgramBlock,
@@ -1296,6 +1298,62 @@ describe("createSlideAsset", () => {
     await expect(createSlideAsset({ title: "Bad Slide", slideType: "html" })).rejects.toThrow(
       "Slide insert failed"
     )
+  })
+})
+
+describe("weather plate mutations", () => {
+  beforeEach(async () => {
+    await resetMocks()
+  })
+
+  it("creates weather plates with city coordinates in metadata", async () => {
+    await createWeatherPlate({
+      title: "Miami Weather",
+      locationName: "Miami",
+      lat: 25.7617,
+      lon: -80.1918,
+      defaultDurationSeconds: 45,
+      status: "ready"
+    })
+
+    expect(supabaseMock.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Miami Weather",
+        slide_type: "template",
+        template_id: "weather",
+        default_duration_seconds: 45,
+        metadata: {
+          weatherLocationName: "Miami",
+          weatherLat: 25.7617,
+          weatherLon: -80.1918
+        }
+      })
+    )
+  })
+
+  it("updates only weather template plates", async () => {
+    await updateWeatherPlate({
+      slideId: "slide-weather-1",
+      title: "Madrid Weather",
+      locationName: "Madrid",
+      lat: 40.4168,
+      lon: -3.7038,
+      defaultDurationSeconds: 30,
+      status: "draft"
+    })
+
+    expect(supabaseMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Madrid Weather",
+        status: "draft",
+        metadata: {
+          weatherLocationName: "Madrid",
+          weatherLat: 40.4168,
+          weatherLon: -3.7038
+        }
+      })
+    )
+    expect(supabaseMock.eq).toHaveBeenCalledWith("template_id", "weather")
   })
 })
 

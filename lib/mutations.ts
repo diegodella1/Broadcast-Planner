@@ -1199,6 +1199,85 @@ export async function archiveSlideAsset(slideId: string) {
   revalidatePath("/admin/calendar")
 }
 
+export async function createWeatherPlate(input: {
+  title: string
+  locationName: string
+  lat: number
+  lon: number
+  defaultDurationSeconds?: number
+  status?: string
+}) {
+  const location = normalizeWeatherLocation(input)
+  await createSlideAsset({
+    title: input.title,
+    slideType: "template",
+    templateId: "weather",
+    content: `Weather plate for ${location.locationName}.`,
+    defaultDurationSeconds: input.defaultDurationSeconds ?? 30,
+    status: input.status || "ready",
+    metadata: weatherPlateMetadata(location)
+  })
+  revalidatePath("/admin/slides")
+}
+
+export async function updateWeatherPlate(input: {
+  slideId: string
+  title: string
+  locationName: string
+  lat: number
+  lon: number
+  defaultDurationSeconds?: number
+  status?: string
+}) {
+  const location = normalizeWeatherLocation(input)
+  const status = input.status === "draft" || input.status === "archived" ? input.status : "ready"
+  const supabase = createServiceClient()
+  await auditedMutation(
+    {
+      action: "weather_plate.updated",
+      entityType: "slide_assets",
+      entityId: input.slideId,
+      next: { title: input.title, status, locationName: location.locationName }
+    },
+    async () => {
+      const { error } = await supabase
+        .from("slide_assets")
+        .update({
+          title: input.title,
+          content: `Weather plate for ${location.locationName}.`,
+          default_duration_seconds: input.defaultDurationSeconds ?? 30,
+          status,
+          metadata: weatherPlateMetadata(location),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", input.slideId)
+        .eq("template_id", "weather")
+      if (error) throw error
+    }
+  )
+  revalidatePath("/admin/slides")
+  revalidatePath("/admin/schedule")
+  revalidatePath("/admin/output")
+}
+
+function normalizeWeatherLocation(input: { locationName: string; lat: number; lon: number }) {
+  const locationName = input.locationName.trim()
+  const lat = Number(input.lat)
+  const lon = Number(input.lon)
+  if (!locationName) throw new Error("City name is required")
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error("Latitude is invalid")
+  if (!Number.isFinite(lon) || lon < -180 || lon > 180) throw new Error("Longitude is invalid")
+  return { locationName, lat, lon }
+}
+
+function weatherPlateMetadata(location: { locationName: string; lat: number; lon: number }) {
+  return {
+    weatherLocationName: location.locationName,
+    weatherLat: location.lat,
+    weatherLon: location.lon
+  }
+}
+
 export async function createGuest(input: {
   name: string
   role?: string

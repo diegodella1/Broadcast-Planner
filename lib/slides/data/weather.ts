@@ -1,9 +1,16 @@
 import type { WeatherForecastPoint, WeatherSlideData } from "@/lib/slides/types"
+import type { SlideAsset } from "@/lib/types"
 
 const DEFAULT_LOCATION_NAME = "Buenos Aires"
 const DEFAULT_LAT = -34.6037
 const DEFAULT_LON = -58.3816
 const WEATHER_CACHE_DURATION_MS = 10 * 60 * 1000
+
+type WeatherLocationConfig = {
+  locationName: string
+  lat: number
+  lon: number
+}
 
 type WeatherCacheEntry = { data: WeatherSlideData; timestamp: number }
 
@@ -40,29 +47,30 @@ type OpenMeteoPayload = {
   }
 }
 
-let weatherCache: WeatherCacheEntry | null = null
+const weatherCache = new Map<string, WeatherCacheEntry>()
 
-export async function getWeatherSlideData(): Promise<WeatherSlideData> {
+export async function getWeatherSlideData(input?: {
+  slide?: SlideAsset | null | undefined
+}): Promise<WeatherSlideData> {
   const now = Date.now()
-  if (weatherCache && now - weatherCache.timestamp < WEATHER_CACHE_DURATION_MS) {
-    return weatherCache.data
+  const config = weatherConfigFromSlide(input?.slide)
+  const cacheKey = `${config.locationName}:${config.lat}:${config.lon}`
+  const cached = weatherCache.get(cacheKey)
+  if (cached && now - cached.timestamp < WEATHER_CACHE_DURATION_MS) {
+    return cached.data
   }
 
   const apiKey = process.env.OPENWEATHER_API_KEY ?? process.env.OPENWEATHERMAP_API_KEY ?? ""
 
-  const lat = parseCoordinate(process.env.WEATHER_LAT, DEFAULT_LAT)
-  const lon = parseCoordinate(process.env.WEATHER_LON, DEFAULT_LON)
-  const configuredLocation = process.env.WEATHER_LOCATION_NAME ?? DEFAULT_LOCATION_NAME
-
   if (!apiKey) {
-    return fetchOpenMeteoWeather(lat, lon, configuredLocation)
+    return fetchOpenMeteoWeather(config, cacheKey)
   }
 
   try {
     const params = new URLSearchParams({
       appid: apiKey,
-      lat: String(lat),
-      lon: String(lon),
+      lat: String(config.lat),
+      lon: String(config.lon),
       units: "metric"
     })
     const [currentResponse, forecastResponse] = await Promise.all([
@@ -88,7 +96,7 @@ export async function getWeatherSlideData(): Promise<WeatherSlideData> {
     const condition = current.weather?.[0]
     const data: WeatherSlideData = {
       available: true,
-      locationName: current.name || configuredLocation,
+      locationName: current.name || config.locationName,
       temperatureC: numberOrNull(current.main?.temp),
       feelsLikeC: numberOrNull(current.main?.feels_like),
       humidityPct: numberOrNull(current.main?.humidity),
@@ -101,24 +109,27 @@ export async function getWeatherSlideData(): Promise<WeatherSlideData> {
       updatedAt: new Date().toISOString()
     }
 
-    weatherCache = { data, timestamp: now }
+    weatherCache.set(cacheKey, { data, timestamp: now })
     return data
   } catch (error) {
     console.error("[lib/slides/data/weather.ts:getWeatherSlideData]", error)
-    if (weatherCache) return { ...weatherCache.data, reason: "stale weather cache" }
-    return unavailableWeatherData(error instanceof Error ? error.message : "weather fetch failed")
+    if (cached) return { ...cached.data, reason: "stale weather cache" }
+    return unavailableWeatherData(
+      error instanceof Error ? error.message : "weather fetch failed",
+      config
+    )
   }
 }
 
 async function fetchOpenMeteoWeather(
-  lat: number,
-  lon: number,
-  configuredLocation: string
+  config: WeatherLocationConfig,
+  cacheKey: string
 ): Promise<WeatherSlideData> {
+  const cached = weatherCache.get(cacheKey)
   try {
     const params = new URLSearchParams({
-      latitude: String(lat),
-      longitude: String(lon),
+      latitude: String(config.lat),
+      longitude: String(config.lon),
       current: [
         "temperature_2m",
         "apparent_temperature",
@@ -140,7 +151,7 @@ async function fetchOpenMeteoWeather(
     const weather = weatherCodeLabel(payload.current?.weather_code)
     const data: WeatherSlideData = {
       available: true,
-      locationName: configuredLocation,
+      locationName: config.locationName,
       temperatureC: numberOrNull(payload.current?.temperature_2m),
       feelsLikeC: numberOrNull(payload.current?.apparent_temperature),
       humidityPct: numberOrNull(payload.current?.relative_humidity_2m),
@@ -151,12 +162,15 @@ async function fetchOpenMeteoWeather(
       forecast: mapOpenMeteoForecast(payload),
       updatedAt: new Date().toISOString()
     }
-    weatherCache = { data, timestamp: Date.now() }
+    weatherCache.set(cacheKey, { data, timestamp: Date.now() })
     return data
   } catch (error) {
     console.error("[lib/slides/data/weather.ts:fetchOpenMeteoWeather]", error)
-    if (weatherCache) return { ...weatherCache.data, reason: "stale weather cache" }
-    return unavailableWeatherData(error instanceof Error ? error.message : "weather fetch failed")
+    if (cached) return { ...cached.data, reason: "stale weather cache" }
+    return unavailableWeatherData(
+      error instanceof Error ? error.message : "weather fetch failed",
+      config
+    )
   }
 }
 
@@ -217,10 +231,13 @@ function weatherCodeLabel(code: number | undefined) {
   return { condition: "Weather", description: "Current Conditions" }
 }
 
-function unavailableWeatherData(reason: string): WeatherSlideData {
+function unavailableWeatherData(
+  reason: string,
+  config: WeatherLocationConfig = envWeatherConfig()
+): WeatherSlideData {
   return {
     available: false,
-    locationName: process.env.WEATHER_LOCATION_NAME ?? DEFAULT_LOCATION_NAME,
+    locationName: config.locationName,
     temperatureC: null,
     feelsLikeC: null,
     humidityPct: null,
@@ -234,7 +251,29 @@ function unavailableWeatherData(reason: string): WeatherSlideData {
   }
 }
 
-function parseCoordinate(value: string | undefined, fallback: number) {
+function weatherConfigFromSlide(slide: SlideAsset | null | undefined): WeatherLocationConfig {
+  const metadata = slide?.metadata ?? {}
+  const locationName =
+    typeof metadata.weatherLocationName === "string" && metadata.weatherLocationName.trim()
+      ? metadata.weatherLocationName.trim()
+      : null
+  const lat = parseCoordinate(metadata.weatherLat, Number.NaN)
+  const lon = parseCoordinate(metadata.weatherLon, Number.NaN)
+  if (locationName && Number.isFinite(lat) && Number.isFinite(lon)) {
+    return { locationName, lat, lon }
+  }
+  return envWeatherConfig()
+}
+
+function envWeatherConfig(): WeatherLocationConfig {
+  return {
+    locationName: process.env.WEATHER_LOCATION_NAME ?? DEFAULT_LOCATION_NAME,
+    lat: parseCoordinate(process.env.WEATHER_LAT, DEFAULT_LAT),
+    lon: parseCoordinate(process.env.WEATHER_LON, DEFAULT_LON)
+  }
+}
+
+function parseCoordinate(value: unknown, fallback: number) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
 }
@@ -255,5 +294,5 @@ function titleCase(value: string) {
 }
 
 export function __resetWeatherCacheForTests() {
-  weatherCache = null
+  weatherCache.clear()
 }
