@@ -334,7 +334,7 @@ async function checkMigrations(): Promise<OperatorHealthCheck> {
 }
 
 async function checkSmoke(): Promise<OperatorHealthCheck> {
-    const smoke = readSmokeStatus();
+    const smoke = await readSmokeStatus();
 
     if (!smoke) {
         return degraded('smoke', 'Smoke', 'No recent smoke status configured');
