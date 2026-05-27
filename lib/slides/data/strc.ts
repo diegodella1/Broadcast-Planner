@@ -11,12 +11,14 @@ import { getBtcPriceData } from './btc-cache';
 
 const STRC_CACHE_DURATION_MS = 60_000;
 const SATA_CACHE_DURATION_MS = 60_000;
+const RTV_API_TIMEOUT_MS = 5_000;
 const DEFAULT_STRATEGY_API_URL = 'https://api.strategy.com/btc/strcKpiData';
 const DEFAULT_STRATEGY_TRACKER_URL = 'https://data.strategytracker.com';
 const PAR_VALUE = 100;
 
 type CacheEntry<T> = { data: T; timestamp: number };
 type JsonObject = Record<string, unknown>;
+type RtvEnvelope<T> = { success?: boolean; data?: T } & Partial<T>;
 
 let strcCache: CacheEntry<StrcData> | null = null;
 let sataCache: CacheEntry<SataData> | null = null;
@@ -80,6 +82,18 @@ export async function getStrcSlideData(): Promise<StrcData> {
         return strcCache.data;
     }
 
+    const rtvApiData = await fetchStrcFromRtvApi().catch((error) => {
+        console.warn('[lib/slides/data/strc.ts:fetchStrcFromRtvApi]', error);
+
+        return null;
+    });
+
+    if (rtvApiData) {
+        strcCache = { data: rtvApiData, timestamp: now };
+
+        return rtvApiData;
+    }
+
     try {
         const [payload, btc] = await Promise.all([fetchStrategyStrc(), getBtcPriceData()]);
         const data = normalizeStrc(payload, btc.price);
@@ -104,6 +118,18 @@ export async function getSataSlideData(): Promise<SataData> {
         return sataCache.data;
     }
 
+    const rtvApiData = await fetchSataFromRtvApi().catch((error) => {
+        console.warn('[lib/slides/data/strc.ts:fetchSataFromRtvApi]', error);
+
+        return null;
+    });
+
+    if (rtvApiData) {
+        sataCache = { data: rtvApiData, timestamp: now };
+
+        return rtvApiData;
+    }
+
     try {
         const [payload, btc] = await Promise.all([fetchStrategyTrackerAsst(), getBtcPriceData()]);
         const data = normalizeSata(payload, btc.price);
@@ -119,6 +145,204 @@ export async function getSataSlideData(): Promise<SataData> {
 
         return emptySata();
     }
+}
+
+async function fetchStrcFromRtvApi(): Promise<StrcData | null> {
+    const payload = await fetchRtvApiPayload<JsonObject>('/api/strc');
+
+    if (!payload) {
+        return null;
+    }
+
+    return mapRtvStrcPayload(payload);
+}
+
+async function fetchSataFromRtvApi(): Promise<SataData | null> {
+    const payload = await fetchRtvApiPayload<JsonObject>('/api/strc/sata');
+
+    if (!payload) {
+        return null;
+    }
+
+    return mapRtvSataPayload(payload);
+}
+
+async function fetchRtvApiPayload<T extends JsonObject>(path: string): Promise<T | null> {
+    const rtvApiUrl = (process.env.RTV_API_URL ?? 'https://api.roxom.tv').replace(/\/$/, '');
+    const rtvApiKey = process.env.RTV_API_KEY ?? process.env.NEXT_PUBLIC_RTV_API_KEY ?? '';
+    const headers: Record<string, string> = { Accept: 'application/json' };
+
+    if (rtvApiKey) {
+        headers['x-api-key'] = rtvApiKey;
+    }
+    const response = await fetch(`${rtvApiUrl}${path}`, {
+        headers,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(RTV_API_TIMEOUT_MS),
+    });
+
+    if (!response.ok) {
+        throw new Error(`rtv-api ${path} error: ${response.status}`);
+    }
+    const envelope = (await response.json()) as RtvEnvelope<T>;
+
+    if (envelope.success === true && isObject(envelope.data)) {
+        return envelope.data as T;
+    }
+
+    if (isObject(envelope) && envelope.success === undefined) {
+        return envelope as T;
+    }
+
+    return null;
+}
+
+function mapRtvStrcPayload(payload: JsonObject): StrcData {
+    const strc = asObject(payload.strc) ?? {};
+    const btc = asObject(payload.btc) ?? {};
+    const metrics = asObject(payload.metrics) ?? {};
+    const btcUsd = numberValue(btc.price) ?? 0;
+    const price = numberValue(strc.price) ?? 0;
+    const priceChange = numberValue(strc.priceChange) ?? 0;
+    const previousClose = numberValue(strc.previousClose) ?? (price > 0 ? price - priceChange : 0);
+    const annualDiv = numberValue(metrics.annualDiv) ?? numberValue(metrics.annualRate) ?? 0;
+    const monthlyDiv = numberValue(metrics.monthlyDiv) ?? 0;
+    const result: StrcData = {
+        strc: {
+            price,
+            previousClose,
+            priceChange,
+            priceChangePercent: numberValue(strc.priceChangePercent) ?? 0,
+            negative: booleanValue(strc.negative) ?? priceChange < 0,
+            volume: numberValue(strc.volume),
+        },
+        btc: { price: btcUsd },
+        dividends: mapRtvStrcDividends(payload.dividends, btcUsd),
+        metrics: {
+            parValue: numberValue(metrics.parValue) ?? PAR_VALUE,
+            annualDiv,
+            annualRate: numberValue(metrics.annualRate) ?? annualDiv / PAR_VALUE,
+            monthlyDiv,
+            monthlyDivBtc: numberValue(metrics.monthlyDivBtc) ?? btcValue(monthlyDiv, btcUsd),
+            annualDivBtc: numberValue(metrics.annualDivBtc) ?? btcValue(annualDiv, btcUsd),
+            effYield: numberValue(metrics.effYield) ?? 0,
+            marketCap: numberValue(metrics.marketCap),
+            sharesOutstanding: numberValue(metrics.sharesOutstanding),
+            nextPayoutDate: stringValue(metrics.nextPayoutDate),
+            nextRecordDate: stringValue(metrics.nextRecordDate),
+        },
+        lastUpdate: isoDate(payload.lastUpdate) ?? new Date().toISOString(),
+    };
+    const sharpeRatio = numberValue(metrics.sharpeRatio);
+    const annualizedVolatility = numberValue(metrics.annualizedVolatility);
+    const vwap1mo = numberValue(metrics.vwap1mo);
+    const mstrPrice = numberValue(metrics.mstrPrice);
+    const correlations = asObject(metrics.correlations);
+
+    if (sharpeRatio != null) {
+        result.metrics.sharpeRatio = sharpeRatio;
+    }
+
+    if (annualizedVolatility != null) {
+        result.metrics.annualizedVolatility = annualizedVolatility;
+    }
+
+    if (vwap1mo != null) {
+        result.metrics.vwap1mo = vwap1mo;
+    }
+
+    if (mstrPrice != null) {
+        result.metrics.mstrPrice = mstrPrice;
+    }
+
+    if (correlations) {
+        const cors: NonNullable<StrcData['metrics']['correlations']> = {
+            mstr: numberValue(correlations.mstr) ?? 0,
+            spy: numberValue(correlations.spy) ?? 0,
+            btc: numberValue(correlations.btc) ?? 0,
+        };
+        const pff = numberValue(correlations.pff);
+
+        if (pff != null) {
+            cors.pff = pff;
+        }
+        result.metrics.correlations = cors;
+    }
+
+    return result;
+}
+
+function mapRtvStrcDividends(value: unknown, btcUsd: number): StrcData['dividends'] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value.filter(isObject).map((row) => {
+        const usd = numberValue(row.usd) ?? numberValue(row.cashAmount) ?? 0;
+
+        return {
+            period: stringValue(row.period),
+            recordDate: stringValue(row.recordDate),
+            payDate: stringValue(row.payDate),
+            usd,
+            rate: numberValue(row.rate) ?? 0,
+            btc: numberValue(row.btc) ?? btcValue(usd, btcUsd),
+        };
+    });
+}
+
+function mapRtvSataPayload(payload: JsonObject): SataData {
+    const btc = asObject(payload.btc) ?? {};
+    const metrics = asObject(payload.metrics) ?? {};
+    const btcUsd = numberValue(btc.price) ?? 0;
+    const preferred = mapRtvSataPreferred(payload.preferred);
+    const result: SataData = {
+        preferred,
+        btc: { price: btcUsd },
+        metrics: {
+            monthlyDiv: numberValue(metrics.monthlyDiv) ?? 0,
+            annualDiv: numberValue(metrics.annualDiv) ?? 0,
+            monthlyDivBtc: numberValue(metrics.monthlyDivBtc) ?? 0,
+            annualDivBtc: numberValue(metrics.annualDivBtc) ?? 0,
+            effYield: numberValue(metrics.effYield),
+            marketCap: numberValue(metrics.marketCap),
+            sharesOutstanding: numberValue(metrics.sharesOutstanding),
+            nextPayoutDate: stringValue(metrics.nextPayoutDate) || null,
+            nextRecordDate: stringValue(metrics.nextRecordDate) || null,
+            companyName: stringValue(metrics.companyName) || null,
+            yearHigh: numberValue(metrics.yearHigh),
+            yearLow: numberValue(metrics.yearLow),
+            avgVolume30D: numberValue(metrics.avgVolume30D),
+        },
+        lastUpdate: isoDate(payload.lastUpdate) ?? new Date().toISOString(),
+    };
+    const source = stringValue(payload.source);
+
+    if (source) {
+        result.source = source;
+    }
+
+    return result;
+}
+
+function mapRtvSataPreferred(value: unknown): SataData['preferred'] {
+    if (!isObject(value)) {
+        return null;
+    }
+    const price = numberValue(value.price);
+    const priceChange = numberValue(value.priceChange);
+    const previousClose = numberValue(value.previousClose);
+
+    return {
+        ticker: stringValue(value.ticker) || 'ASST',
+        name: stringValue(value.name) || 'Strive, Inc.',
+        price,
+        priceChange,
+        priceChangePercent: numberValue(value.priceChangePercent),
+        volume: numberValue(value.volume),
+        previousClose:
+            previousClose ?? (price != null && priceChange != null ? price - priceChange : null),
+    };
 }
 
 async function fetchStrategyStrc() {
