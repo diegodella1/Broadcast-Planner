@@ -13,7 +13,7 @@ export default async function AuditPage({
     const events = await getAuditEvents({
         ...(params.action ? { action: params.action } : {}),
         ...(params.entity ? { entityType: params.entity } : {}),
-        limit: 150,
+        limit: 50,
     });
     const actions = [...new Set(events.map((event) => event.action))].sort();
     const entities = [...new Set(events.map((event) => event.entityType))].sort();
