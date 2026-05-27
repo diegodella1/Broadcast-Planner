@@ -54,11 +54,16 @@ describe('GuestLineupSlide', () => {
         vi.stubGlobal('fetch', vi.fn());
         render(<GuestLineupSlide data={data} />);
 
-        expect(screen.getByText('Guest lineup')).toBeInTheDocument();
+        expect(screen.getByText('Next Guest')).toBeInTheDocument();
         expect(screen.getByText('Jane Doe')).toBeInTheDocument();
-        expect(screen.getByText('Market Strategist · RTV Research')).toBeInTheDocument();
+        expect(screen.getByText('Upcoming Guests')).toBeInTheDocument();
+        expect(screen.getByText('with')).toBeInTheDocument();
+        expect(screen.getByText('Desk')).toBeInTheDocument();
+        expect(screen.getByText('MARKETS')).toBeInTheDocument();
+        expect(screen.getByText('Market Strategist')).toBeInTheDocument();
+        expect(screen.getByText('RTV Research')).toBeInTheDocument();
         expect(screen.getByText('John Smith')).toBeInTheDocument();
-        expect(screen.getByText('Supabase guests · cache 30s')).toBeInTheDocument();
+        expect(screen.getByText(/Supabase guests.*cache 30s/i)).toBeInTheDocument();
     });
 
     it('marks demo mode clearly', () => {

@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Roxom TV — Guest Lineup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html, body { width:100%; height:100%; overflow:hidden; background:#000; font-family:'Inter',sans-serif; color:#fff; -webkit-font-smoothing:antialiased; }
+
+    /* ── Canvas 1920×1080 ── */
+    .gl-root {
+      position:absolute; width:1920px; height:1080px;
+      top:0; left:0; transform-origin:top left; overflow:hidden; background:#060606;
+    }
+
+    /* ════════════════════════════════════════
+       HERO — top 700px
+    ════════════════════════════════════════ */
+    .hero {
+      position:absolute; top:0; left:0; width:100%; height:700px;
+      overflow:hidden; transition:opacity 0.6s ease, transform 0.6s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    /* ── Keyframes ─────────────────────────────────────────────── */
+    @keyframes kenBurns {
+      0%   { transform:scale(1.0);  transform-origin:center 20%; }
+      100% { transform:scale(1.20); transform-origin:center 20%; }
+    }
+    @keyframes revealUp {
+      0%   { opacity:0; transform:translateY(36px); }
+      100% { opacity:1; transform:translateY(0); }
+    }
+    @keyframes revealDown {
+      0%   { opacity:0; transform:translateY(-20px); }
+      100% { opacity:1; transform:translateY(0); }
+    }
+    @keyframes revealLeft {
+      0%   { opacity:0; transform:translateX(24px); }
+      100% { opacity:1; transform:translateX(0); }
+    }
+    @keyframes ambientBreath {
+      0%,100% { opacity:1; }
+      50%      { opacity:0.55; }
+    }
+    @keyframes shimmer {
+      0%   { background-position:200% 0; }
+      100% { background-position:-200% 0; }
+    }
+
+    /* ── Shimmer / reflejo premium ─────────────────────────────── */
+    @keyframes sheenSweep {
+      0%   { transform:translateX(-180%) skewX(-12deg); }
+      100% { transform:translateX(260%)  skewX(-12deg); }
+    }
+    @keyframes accentGlow {
+      0%,100% { opacity:0.55; }
+      50%      { opacity:1;   }
+    }
+
+    /* Sweep global sobre todo el canvas */
+    .gl-shimmer {
+      position:absolute; inset:0; z-index:500; pointer-events:none; overflow:hidden;
+    }
+    .gl-shimmer::before {
+      content:''; position:absolute; top:0; left:0;
+      width:35%; height:100%;
+      background:linear-gradient(
+        to right,
+        transparent 0%,
+        rgba(255,255,255,0.015) 35%,
+        rgba(255,255,255,0.04)  50%,
+        rgba(255,255,255,0.015) 65%,
+        transparent 100%
+      );
+      animation:sheenSweep 7s cubic-bezier(0.45,0,0.55,1) 1.5s infinite;
+    }
+    /* Segunda pasada desfasada — da sensación de dos fuentes de luz */
+    .gl-shimmer::after {
+      content:''; position:absolute; top:0; left:0;
+      width:20%; height:100%;
+      background:linear-gradient(
+        to right,
+        transparent 0%,
+        rgba(255,255,255,0.02) 50%,
+        transparent 100%
+      );
+      animation:sheenSweep 7s cubic-bezier(0.45,0,0.55,1) 4.5s infinite;
+    }
+
+    /* Shimmer persistente en el hero info (más sutil, fase distinta) */
+    .hero-info::after {
+      content:''; position:absolute; inset:0; pointer-events:none; z-index:0;
+      background:linear-gradient(
+        110deg,
+        transparent 30%,
+        rgba(255,255,255,0.025) 50%,
+        transparent 70%
+      );
+      animation:sheenSweep 9s cubic-bezier(0.45,0,0.55,1) 3s infinite;
+    }
+
+    /* Accent bars pulso */
+    .strip-card-accent {
+      animation:accentGlow 3.5s ease-in-out infinite;
+    }
+    /* Cada card con delay distinto para que no pulsen al unísono */
+    .strip-card:nth-child(2) .strip-card-accent { animation-delay:1.1s; }
+    .strip-card:nth-child(3) .strip-card-accent { animation-delay:2.2s; }
+
+    /* Ambient glow */
+    .hero-ambient {
+      position:absolute; inset:0; pointer-events:none; z-index:1;
+      transition:background 1.4s ease;
+      animation:ambientBreath 5s ease-in-out infinite;
+    }
+
+    /* Photo panel */
+    .hero-photo {
+      position:absolute; top:0; left:0; width:680px; height:700px;
+      overflow:hidden; z-index:2;
+    }
+    .hero-photo img {
+      width:100%; height:100%; object-fit:cover; object-position:center top; display:block;
+    }
+    .hero-photo-fallback {
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    }
+    .hero-photo-grad-right {
+      position:absolute; top:0; right:0; width:320px; height:100%;
+      background:linear-gradient(to right, transparent 0%, #060606 100%);
+      z-index:3;
+    }
+    .hero-photo-grad-bottom {
+      position:absolute; bottom:0; left:0; right:0; height:220px;
+      background:linear-gradient(to top, #060606 0%, transparent 100%);
+      z-index:3;
+    }
+
+    /* Info panel */
+    .hero-info {
+      position:absolute; top:0; left:560px; right:0; height:700px; z-index:3;
+      display:flex; flex-direction:column; justify-content:space-between;
+      padding:56px 100px 68px 180px; overflow:hidden;
+    }
+
+    /* Top row */
+    .hero-header {
+      display:flex; align-items:flex-start; justify-content:space-between;
+    }
+    .hero-header-label {
+      font-size:26px; font-weight:800; letter-spacing:5px;
+      text-transform:uppercase; color:rgba(255,255,255,0.55);
+      padding-top:6px;
+    }
+    .hero-month-label {
+      font-size:32px; font-weight:700; letter-spacing:5px;
+      text-transform:uppercase; color:rgba(255,255,255,0.25);
+      text-align:right;
+    }
+
+    /* Category badge */
+    .hero-category {
+      display:inline-flex; align-items:center; gap:10px;
+      font-size:15px; font-weight:800; letter-spacing:3px;
+      text-transform:uppercase; padding:9px 20px 9px 14px;
+      margin-bottom:20px; align-self:flex-start;
+    }
+    .hero-category-dot {
+      width:7px; height:7px; border-radius:50%;
+      background:currentColor; flex-shrink:0;
+      animation:dotBlink 2s ease-in-out infinite;
+    }
+    @keyframes dotBlink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+    /* Guest info */
+    .hero-middle {
+      flex:1; display:flex; flex-direction:column; justify-content:center; padding:16px 0;
+    }
+    .hero-name-row {
+      margin-bottom:30px;
+    }
+    .hero-name {
+      font-size:110px; font-weight:900; letter-spacing:-4px;
+      line-height:0.88; text-transform:uppercase; color:#fff;
+      margin-bottom:16px;
+    }
+    .hero-role {
+      font-size:32px; font-weight:600; color:rgba(255,255,255,0.62);
+      letter-spacing:0; margin-bottom:10px;
+    }
+    .hero-company {
+      font-size:26px; font-weight:500; color:rgba(255,255,255,0.32);
+      letter-spacing:0.3px;
+    }
+
+    /* Host — below the name */
+    .hero-host {
+      display:block;
+      font-size:34px; font-weight:800; font-style:italic;
+      letter-spacing:3px; text-transform:uppercase;
+    }
+    .hero-host-with {
+      color:rgba(255,255,255,0.28); font-weight:700;
+      margin-right:8px;
+    }
+    .hero-host-name {
+      /* color set via JS */
+    }
+
+    /* Strip host */
+    .strip-guest-host {
+      font-size:17px; font-weight:800; letter-spacing:2.5px;
+      text-transform:uppercase; margin-top:8px;
+      color:rgba(255,255,255,0.32);
+    }
+
+    /* Date display */
+    .hero-bottom {
+      display:flex; align-items:flex-end;
+    }
+    .hero-date-display {
+      display:flex; flex-direction:row; align-items:flex-end;
+      justify-content:space-between; width:100%; gap:32px;
+    }
+    .hero-date-weekday {
+      font-size:64px; font-weight:900; letter-spacing:-1px;
+      text-transform:uppercase; color:rgba(255,255,255,0.28);
+      line-height:1; padding-bottom:14px;
+    }
+    .hero-date-main {
+      font-size:160px; font-weight:900; letter-spacing:-6px;
+      text-transform:uppercase; color:#1ae784; line-height:0.85;
+      white-space:nowrap;
+    }
+
+    /* Progress bar */
+    .hero-progress {
+      position:absolute; bottom:0; left:0; right:0; height:3px;
+      background:rgba(255,255,255,0.06); z-index:5;
+    }
+    .hero-progress-fill {
+      position:relative; height:100%; width:0%; transition:none;
+    }
+    .hero-progress-fill::after {
+      content:''; position:absolute; right:-1px; top:50%;
+      transform:translateY(-50%);
+      width:48px; height:8px;
+      background:inherit; filter:blur(5px); opacity:0.9;
+    }
+
+    /* ════════════════════════════════════════
+       STRIP — bottom 380px
+    ════════════════════════════════════════ */
+    .strip {
+      position:absolute; bottom:0; left:0; width:100%; height:380px;
+      background:#070707; border-top:1px solid rgba(255,255,255,0.07);
+      display:flex; flex-direction:column;
+    }
+    .strip-header {
+      height:80px; flex-shrink:0;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0 56px; border-bottom:1px solid rgba(255,255,255,0.05);
+      background:rgba(255,255,255,0.015);
+    }
+    .strip-header-label {
+      font-size:24px; font-weight:800; letter-spacing:3.5px;
+      text-transform:uppercase; color:rgba(255,255,255,0.25);
+    }
+    .strip-header-month {
+      font-size:24px; font-weight:700; letter-spacing:2px;
+      text-transform:uppercase; color:rgba(255,255,255,0.18);
+    }
+    .strip-cards {
+      flex:1; display:flex;
+    }
+
+    /* Strip card */
+    .strip-card {
+      flex:1; display:flex; position:relative; overflow:hidden;
+      border-right:1px solid rgba(255,255,255,0.05);
+      cursor:pointer; transition:background 0.4s ease;
+    }
+    .strip-card:last-child { border-right:none; }
+    .strip-card:hover { background:rgba(255,255,255,0.03); }
+    .strip-card::before {
+      content:''; position:absolute; inset:0; z-index:10; pointer-events:none;
+      background:linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.04) 50%, transparent 65%);
+      background-size:250% 100%; background-position:200% 0;
+      opacity:0; transition:opacity 0.3s;
+    }
+    .strip-card:hover::before {
+      opacity:1; animation:shimmer 1.2s ease-out forwards;
+    }
+    .strip-card-accent {
+      position:absolute; top:0; left:0; width:3px; height:100%;
+    }
+
+    /* Strip thumbnail */
+    .strip-thumb-wrap {
+      position:relative; width:200px; flex-shrink:0;
+      overflow:hidden; background:#0e0e0e;
+    }
+    .strip-thumb {
+      width:100%; height:100%; object-fit:cover; object-position:center top; display:block;
+    }
+    .strip-thumb-fallback {
+      position:absolute; inset:0; display:none;
+      align-items:center; justify-content:center;
+    }
+
+    /* Strip info */
+    .strip-info {
+      flex:1; padding:32px 40px;
+      display:flex; flex-direction:column; justify-content:space-between;
+    }
+    .strip-category {
+      font-size:18px; font-weight:800; letter-spacing:3px;
+      text-transform:uppercase; margin-bottom:12px; display:inline-block;
+    }
+    .strip-guest-name {
+      font-size:38px; font-weight:800; color:#fff; line-height:1.05;
+      letter-spacing:-0.5px; text-transform:uppercase;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+    .strip-guest-sub {
+      font-size:18px; font-weight:500; color:rgba(255,255,255,0.38);
+      margin-top:8px; line-height:1.4;
+    }
+    .strip-date-row {
+      display:flex; align-items:center; justify-content:space-between; width:100%;
+    }
+    .strip-date-exact {
+      font-size:19px; font-weight:700; letter-spacing:1.5px;
+      text-transform:uppercase; color:rgba(255,255,255,0.42);
+    }
+    .strip-cd-pill {
+      font-size:18px; font-weight:700;
+      letter-spacing:1.5px; text-transform:uppercase;
+      padding:9px 18px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="gl-root" id="glRoot">
+
+    <!-- ── HERO ── -->
+    <div class="hero" id="hero">
+      <div class="hero-ambient" id="heroAmbient"></div>
+
+      <div class="hero-photo">
+        <img id="heroPhotoImg" src="" alt="" style="display:none">
+        <div class="hero-photo-fallback" id="heroPhotoFallback"></div>
+        <div class="hero-photo-grad-right"></div>
+        <div class="hero-photo-grad-bottom"></div>
+      </div>
+
+      <div class="hero-info">
+        <div class="hero-header">
+          <span class="hero-header-label">Next Guest</span>
+          <span class="hero-month-label" id="heroMonth"></span>
+        </div>
+
+        <div class="hero-middle">
+          <div class="hero-category" id="heroCat">
+            <span class="hero-category-dot"></span>
+            <span id="heroCatLabel"></span>
+          </div>
+          <div class="hero-name-row">
+            <div class="hero-name" id="heroName"></div>
+            <div class="hero-host" id="heroHost">
+              <span class="hero-host-with">with</span>
+              <span class="hero-host-name" id="heroHostName"></span>
+            </div>
+          </div>
+          <div class="hero-role" id="heroRole"></div>
+          <div class="hero-company" id="heroCompany"></div>
+        </div>
+
+        <div class="hero-bottom">
+          <div class="hero-date-display">
+            <div class="hero-date-weekday" id="heroDateWeekday"></div>
+            <div class="hero-date-main">
+              <span id="heroDateMonth"></span>&nbsp;<span id="heroDateDay"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-progress">
+        <div class="hero-progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+
+    <!-- ── Shimmer global ── -->
+    <div class="gl-shimmer" aria-hidden="true"></div>
+
+    <!-- ── STRIP ── -->
+    <div class="strip">
+      <div class="strip-header">
+        <span class="strip-header-label">Upcoming Guests</span>
+        <span class="strip-header-month" id="stripMonth"></span>
+      </div>
+      <div class="strip-cards" id="stripCards"></div>
+    </div>
+
+  </div>
+
+  <script>
+    // ── Scale to fit ─────────────────────────────────────────────
+    function scaleToFit() {
+      const el = document.getElementById('glRoot');
+      const scaleX = window.innerWidth  / 1920;
+      const scaleY = window.innerHeight / 1080;
+      const scale  = Math.min(scaleX, scaleY);
+      el.style.transform = `scale(${scale})`;
+      el.style.left = ((window.innerWidth  - 1920 * scale) / 2) + 'px';
+      el.style.top  = ((window.innerHeight - 1080 * scale) / 2) + 'px';
+    }
+    scaleToFit();
+    window.addEventListener('resize', scaleToFit);
+
+    // ── Guest data ────────────────────────────────────────────────
+    const GUESTS = [
+      {
+        name:    "Michael Saylor",
+        role:    "Executive Chairman",
+        company: "MicroStrategy",
+        host:    "Hank",
+        date:    new Date(2026, 4,  8, 15, 0),
+        color:   "#f7931a",
+        category:"BITCOIN",
+        photo:   "https://btcprague.com/wp-content/uploads/2026/02/26_btcprg_speakerphoto_web_Michael_Saylor_clearnewdark-768x768.png"
+      },
+      {
+        name:    "Lyn Alden",
+        role:    "Macroeconomist",
+        company: "Lyn Alden Investment Strategy",
+        host:    "Walker",
+        date:    new Date(2026, 4, 12, 18, 0),
+        color:   "#3b82f6",
+        category:"MACRO",
+        photo:   "https://www.lynalden.com/wp-content/uploads/lyn-alden-pic-2022.jpg"
+      },
+      {
+        name:    "Saifedean Ammous",
+        role:    "Economist & Author",
+        company: "The Bitcoin Standard",
+        host:    "Hank",
+        date:    new Date(2026, 4, 15, 16, 0),
+        color:   "#1ae784",
+        category:"BITCOIN",
+        photo:   "https://cdn.prod.website-files.com/6297110132b484d8e5c30863/6351194a56c8224efbd867aa_Full%20portrait%20in%20suit%20-%20front%201-p-500.avif"
+      },
+      {
+        name:    "Caitlin Long",
+        role:    "Chief Executive Officer",
+        company: "Custodia Bank",
+        host:    "Gem Gem",
+        date:    new Date(2026, 4, 20, 19, 0),
+        color:   "#a78bfa",
+        category:"POLICY",
+        photo:   "https://ethdenver.com/wp-content/uploads/2025/08/symbiont-headshot_cropped.webp"
+      },
+      {
+        name:    "Parker Lewis",
+        role:    "Head of Business Dev.",
+        company: "Unchained Capital",
+        host:    "Walker",
+        date:    new Date(2026, 4, 27, 17, 0),
+        color:   "#f59e0b",
+        category:"BITCOIN",
+        photo:   "https://btcprague.com/wp-content/uploads/2024/02/Parker-768x768.png"
+      }
+    ];
+
+    // ── Category colors — fijos por tipo ─────────────────────────
+    const CAT_COLOR = {
+      BITCOIN: '#f7931a',
+      MACRO:   '#3b82f6',
+      POLICY:  '#a78bfa',
+      DEFAULT: '#ffffff',
+    };
+    function catColor(g) { return CAT_COLOR[g.category] || CAT_COLOR.DEFAULT; }
+
+    // ── Helpers ───────────────────────────────────────────────────
+    function daysDiff(guest) {
+      const now  = new Date();
+      const then = new Date(guest.date);
+      now.setHours(0,0,0,0);
+      then.setHours(0,0,0,0);
+      return Math.round((then - now) / 86400000);
+    }
+
+    function stripPill(guest) {
+      const d = daysDiff(guest);
+      if (d < 0)  return { text:'ON AIR',   color:'#ef4444', bg:'rgba(239,68,68,0.12)' };
+      if (d === 0) return { text:'TODAY',    color:'#1ae784', bg:'rgba(26,231,132,0.08)' };
+      if (d === 1) return { text:'TOMORROW', color:'#1ae784', bg:'rgba(26,231,132,0.08)' };
+      return { text:`IN ${d} DAYS`,          color:'#1ae784', bg:'rgba(26,231,132,0.08)' };
+    }
+
+    function monthLabel(date) {
+      return date.toLocaleString('en-US', { month:'long', year:'numeric' }).toUpperCase();
+    }
+
+    function exactDate(date) {
+      const wd  = date.toLocaleString('en-US', { weekday:'short' }).toUpperCase();
+      const mo  = date.toLocaleString('en-US', { month:'short' }).toUpperCase();
+      const day = date.getDate();
+      return `${wd} · ${mo} ${day}`;
+    }
+
+    function initials(name) {
+      return name.split(' ').map(w => w[0]).slice(0, 2).join('');
+    }
+
+    // ── Fallback avatars ──────────────────────────────────────────
+    function heroFallback(guest) {
+      const ini = initials(guest.name);
+      return `
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+          background:linear-gradient(160deg,#111 0%,#060606 100%);">
+          <div style="width:320px;height:320px;border-radius:50%;
+            background:linear-gradient(135deg,${guest.color}28 0%,${guest.color}06 100%);
+            border:2px solid ${guest.color}28;
+            display:flex;align-items:center;justify-content:center;">
+            <span style="font-size:130px;font-weight:900;letter-spacing:-5px;
+              color:${guest.color};opacity:0.55;font-family:'Inter',sans-serif;">${ini}</span>
+          </div>
+        </div>`;
+    }
+
+    function stripFallback(guest) {
+      const ini = initials(guest.name);
+      return `
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+          background:linear-gradient(160deg,#111 0%,#060606 100%);">
+          <div style="width:96px;height:96px;border-radius:50%;
+            background:linear-gradient(135deg,${guest.color}28 0%,${guest.color}06 100%);
+            border:1.5px solid ${guest.color}28;
+            display:flex;align-items:center;justify-content:center;">
+            <span style="font-size:40px;font-weight:900;letter-spacing:-2px;
+              color:${guest.color};opacity:0.65;font-family:'Inter',sans-serif;">${ini}</span>
+          </div>
+        </div>`;
+    }
+
+    // ── Hero render ───────────────────────────────────────────────
+    let heroIdx = 0;
+    const HERO_MS = 9000;
+    let heroStart = performance.now();
+
+    function renderHero(idx, fade) {
+      const g = GUESTS[idx];
+
+      function apply() {
+        // Photo
+        const img      = document.getElementById('heroPhotoImg');
+        const fallback = document.getElementById('heroPhotoFallback');
+        if (g.photo) {
+          img.src = g.photo;
+          img.style.display = 'block';
+          img.onerror = () => { img.style.display='none'; fallback.style.display='flex'; };
+          fallback.style.display = 'none';
+        } else {
+          img.style.display = 'none';
+          fallback.style.display = 'flex';
+          fallback.innerHTML = heroFallback(g);
+        }
+
+        // Category
+        const catEl = document.getElementById('heroCat');
+        catEl.style.color      = catColor(g);
+        catEl.style.background = catColor(g) + '18';
+        document.getElementById('heroCatLabel').textContent = g.category;
+
+        // Info
+        document.getElementById('heroName').textContent    = g.name.toUpperCase();
+        const hostNameEl = document.getElementById('heroHostName');
+        hostNameEl.textContent  = g.host.toUpperCase();
+        hostNameEl.style.color  = '#1ae784';
+        document.getElementById('heroRole').textContent    = g.role;
+        document.getElementById('heroCompany').textContent = g.company;
+
+        // Month header
+        const mo = monthLabel(g.date);
+        document.getElementById('heroMonth').textContent  = mo;
+        document.getElementById('stripMonth').textContent = mo;
+
+        // Date display
+        document.getElementById('heroDateMonth').textContent =
+          g.date.toLocaleString('en-US', { month:'long' }).toUpperCase();
+        document.getElementById('heroDateDay').textContent =
+          g.date.getDate();
+        document.getElementById('heroDateWeekday').textContent =
+          g.date.toLocaleString('en-US', { weekday:'long' }).toUpperCase();
+
+        // Progress color
+        document.getElementById('progressFill').style.background = g.color;
+
+        // Ambient glow
+        document.getElementById('heroAmbient').style.background =
+          `radial-gradient(ellipse at 25% 80%, ${g.color}12 0%, transparent 58%)`;
+
+        // Reset progress timer
+        heroStart = performance.now();
+        advanced = false;
+        document.getElementById('progressFill').style.width = '0%';
+      }
+
+      if (fade) {
+        const heroEl = document.getElementById('hero');
+        heroEl.style.opacity   = '0';
+        heroEl.style.transform = 'scale(1.03)';
+        setTimeout(() => {
+          apply();
+          triggerAnimations(g);
+          heroEl.style.transition = 'none';
+          heroEl.style.transform  = 'scale(0.98)';
+          void heroEl.offsetWidth;
+          heroEl.style.transition = 'opacity 0.65s ease, transform 0.65s cubic-bezier(0.16,1,0.3,1)';
+          heroEl.style.opacity    = '1';
+          heroEl.style.transform  = 'scale(1)';
+        }, 600);
+      } else {
+        apply();
+        triggerAnimations(g);
+      }
+
+      renderStrip();
+    }
+
+    // ── Trigger premium animations on guest change ────────────────
+    function triggerAnimations(g) {
+      // Ken Burns en la foto
+      const img = document.getElementById('heroPhotoImg');
+      if (img && img.style.display !== 'none') {
+        img.style.animation = 'none';
+        void img.offsetWidth;
+        img.style.animation = 'kenBurns 9s ease-out forwards';
+      }
+
+      // Ken Burns en el fallback (si no hay foto)
+      const fallback = document.getElementById('heroPhotoFallback');
+      if (fallback && fallback.style.display !== 'none') {
+        fallback.style.animation = 'none';
+        void fallback.offsetWidth;
+        fallback.style.animation = 'kenBurns 9s ease-out forwards';
+      }
+
+      // Reveals escalonados
+      const seq = [
+        { id:'heroHeader',      delay:0,    dur:0.6,  fn:'revealDown' },
+        { id:'heroCat',         delay:0.18, dur:0.7,  fn:'revealUp'   },
+        { id:'heroName',        delay:0.34, dur:0.95, fn:'revealUp'   },
+        { id:'heroHost',        delay:0.46, dur:0.7,  fn:'revealUp'   },
+        { id:'heroRole',        delay:0.58, dur:0.7,  fn:'revealUp'   },
+        { id:'heroCompany',     delay:0.65, dur:0.7,  fn:'revealUp'   },
+        { id:'heroDateWeekday', delay:0.78, dur:0.8,  fn:'revealUp'   },
+      ];
+      // heroDateMain no tiene id — lo seleccionamos por clase
+      const dateMain = document.querySelector('.hero-date-main');
+      if (dateMain) {
+        dateMain.style.animation = 'none';
+        void dateMain.offsetWidth;
+        dateMain.style.animation = `revealLeft 0.9s cubic-bezier(0.16,1,0.3,1) 0.86s both`;
+      }
+
+      seq.forEach(({ id, delay, dur, fn }) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.animation = 'none';
+        void el.offsetWidth;
+        el.style.animation = `${fn} ${dur}s cubic-bezier(0.16,1,0.3,1) ${delay}s both`;
+      });
+    }
+
+    // ── Strip render ──────────────────────────────────────────────
+    function renderStrip() {
+      const container = document.getElementById('stripCards');
+      container.innerHTML = '';
+
+      const items = GUESTS
+        .map((g, i) => ({ g, i }))
+        .filter(({ i }) => i !== heroIdx)
+        .slice(0, 3);
+
+      items.forEach(({ g, i: gIdx }, pos) => {
+        const pill = stripPill(g);
+        const card = document.createElement('div');
+        card.className = 'strip-card';
+        card.style.animation = `revealUp 0.6s cubic-bezier(0.16,1,0.3,1) ${0.15 + pos * 0.1}s both`;
+
+        card.innerHTML = `
+          <div class="strip-card-accent" style="background:${g.color}"></div>
+          <div class="strip-thumb-wrap">
+            <img class="strip-thumb" src="${g.photo || ''}"
+              style="${g.photo ? '' : 'display:none'}"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="strip-thumb-fallback" style="${g.photo ? 'display:none' : 'display:flex'}">
+              ${stripFallback(g)}
+            </div>
+          </div>
+          <div class="strip-info">
+            <div>
+              <span class="strip-category" style="color:${catColor(g)}">${g.category}</span>
+              <div class="strip-guest-name">${g.name.toUpperCase()}</div>
+              <div class="strip-guest-sub">${g.role} · ${g.company}</div>
+            </div>
+            <div class="strip-date-row">
+              <span class="strip-date-exact">${exactDate(g.date)}</span>
+              <span class="strip-cd-pill" style="color:${pill.color};background:${pill.bg}">${pill.text}</span>
+            </div>
+          </div>
+        `;
+
+        card.addEventListener('click', () => jumpTo(gIdx));
+        container.appendChild(card);
+      });
+    }
+
+    // ── Progress loop — requestAnimationFrame para suavidad total ──
+    let advanced = false;
+    function progressLoop() {
+      const elapsed = performance.now() - heroStart;
+      const pct = Math.min((elapsed / HERO_MS) * 100, 100);
+      document.getElementById('progressFill').style.width = pct + '%';
+      if (pct >= 100 && !advanced) {
+        advanced = true;
+        heroIdx = (heroIdx + 1) % GUESTS.length;
+        renderHero(heroIdx, true);
+      }
+      requestAnimationFrame(progressLoop);
+    }
+
+    // ── Jump to guest ─────────────────────────────────────────────
+    function jumpTo(idx) {
+      if (idx === heroIdx) return;
+      heroIdx = idx;
+      heroStart = performance.now();
+      advanced = false;
+      renderHero(idx, true);
+    }
+
+    // ── Init ──────────────────────────────────────────────────────
+    renderHero(0, false);
+    requestAnimationFrame(progressLoop);
+  </script>
+</body>
+</html>
