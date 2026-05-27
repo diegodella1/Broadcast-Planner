@@ -48,8 +48,10 @@ export async function composeChannelState(inputs: ChannelStateInputs) {
               hasRequestedStartAt && requestedStartAt !== null ? Math.max(0, requestedStartAt) : 0,
           )
         : findActiveSchedule(bundle, secondsOfDay);
-    const override = await getActiveOutputOverride(bundle.day?.id);
-    const music = await backgroundMusicForActive(bundle, active, mediaAccessToken);
+    const [override, music] = await Promise.all([
+        getActiveOutputOverride(bundle.day?.id),
+        backgroundMusicForActive(bundle, active, mediaAccessToken),
+    ]);
     const base: ChannelStateBase = {
         serverSeconds: secondsOfDay,
         generatedAt: now.toISOString(),

@@ -23,13 +23,15 @@ import {
 } from '@/lib/helpers/time';
 
 export default async function AdminOutputPage() {
-    const [t, tOps, liveBundle, healthReport] = await Promise.all([
+    const [t, tOps, liveBundle] = await Promise.all([
         getTranslations(),
         getTranslations('ops'),
         getLiveSchedule(),
-        collectOperatorHealth(),
     ]);
-    const outputOverride = await getActiveOutputOverride(liveBundle.day?.id);
+    const [healthReport, outputOverride] = await Promise.all([
+        collectOperatorHealth({ preloadedLiveSchedule: liveBundle }),
+        getActiveOutputOverride(liveBundle.day?.id),
+    ]);
 
     const nowSeconds = secondsSinceMidnightInTimezone(new Date());
     const active = findActiveSchedule(liveBundle, nowSeconds);
