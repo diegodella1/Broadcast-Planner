@@ -48,6 +48,17 @@ const rtvMetalsPayload = {
     ],
 };
 
+const rtvFxPayload = {
+    rates: { EUR: 0.92, JPY: 155.5, GBP: 0.79 },
+    currencies: {
+        EUR: { usdPerUnit: 1.087 },
+        JPY: { usdPerUnit: 0.00643 },
+        GBP: { usdPerUnit: 1.266 },
+    },
+    base: 'USD',
+    timestamp: 1_748_340_000,
+};
+
 describe('getMarketsSatsData', () => {
     beforeEach(() => {
         vi.useFakeTimers();
@@ -63,17 +74,36 @@ describe('getMarketsSatsData', () => {
         __resetMarketsCachesForTests();
     });
 
-    it('uses the no-key FX fallback when FX_API_URL is not configured', async () => {
+    it('consumes rtv-api /api/fx when available', async () => {
         vi.stubGlobal(
             'fetch',
             vi
                 .fn<typeof fetch>()
                 .mockResolvedValueOnce(jsonResponse(pythPayload))
-                .mockResolvedValueOnce(
-                    jsonResponse({ result: 'success', rates: { EUR: 0.92, JPY: 156, GBP: 0.79 } }),
-                )
+                .mockResolvedValueOnce(jsonResponse(rtvFxPayload))
                 .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
                 .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload)),
+        );
+
+        const data = await getMarketsSatsData();
+
+        expect(data.fx.EUR.usdPerUnit).toBeCloseTo(1.087);
+        expect(data.fx.JPY.usdPerUnit).toBeCloseTo(0.00643);
+        expect(data.fx.GBP.usdPerUnit).toBeCloseTo(1.266);
+    });
+
+    it('falls back to upstream FX when rtv-api /api/fx fails', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi
+                .fn<typeof fetch>()
+                .mockResolvedValueOnce(jsonResponse(pythPayload))
+                .mockResolvedValueOnce(new Response('upstream error', { status: 503 }))
+                .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
+                .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
+                .mockResolvedValueOnce(
+                    jsonResponse({ result: 'success', rates: { EUR: 0.92, JPY: 156, GBP: 0.79 } }),
+                ),
         );
 
         const data = await getMarketsSatsData();
@@ -87,9 +117,7 @@ describe('getMarketsSatsData', () => {
         const fetchMock = vi
             .fn<typeof fetch>()
             .mockResolvedValueOnce(jsonResponse(pythPayload))
-            .mockResolvedValueOnce(
-                jsonResponse({ result: 'success', rates: { EUR: 0.92, JPY: 156, GBP: 0.79 } }),
-            )
+            .mockResolvedValueOnce(jsonResponse(rtvFxPayload))
             .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
             .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload));
         vi.stubGlobal('fetch', fetchMock);
@@ -107,9 +135,7 @@ describe('getMarketsSatsData', () => {
             vi
                 .fn<typeof fetch>()
                 .mockResolvedValueOnce(jsonResponse(pythPayload))
-                .mockResolvedValueOnce(
-                    jsonResponse({ result: 'success', rates: { EUR: 0.92, JPY: 156, GBP: 0.79 } }),
-                )
+                .mockResolvedValueOnce(jsonResponse(rtvFxPayload))
                 .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
                 .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload)),
         );
