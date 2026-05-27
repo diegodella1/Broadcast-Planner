@@ -1,3 +1,5 @@
+import { cache } from 'react';
+
 import { createServiceClient } from './supabase/server';
 
 import type { ScheduleBundle, SlideAsset } from './types';
@@ -22,7 +24,7 @@ export type FallbackCarouselSelection = {
     carouselUpdatedAt: string;
 };
 
-export async function getGlobalFallbackCarousel(): Promise<FallbackCarousel | null> {
+export const getGlobalFallbackCarousel = cache(async (): Promise<FallbackCarousel | null> => {
     const supabase = createServiceClient();
     const { data } = await supabase
         .from('integration_settings')
@@ -31,7 +33,7 @@ export async function getGlobalFallbackCarousel(): Promise<FallbackCarousel | nu
         .maybeSingle();
 
     return parseFallbackCarousel(data?.public_config, data?.updated_at);
-}
+});
 
 export function selectFallbackCarouselSlide(
     carousel: FallbackCarousel | null,

@@ -1,3 +1,5 @@
+import { cache } from 'react';
+
 import { mockSchedule } from './mock-data';
 import { mapAuditEvent, type AuditEvent } from './audit/audit';
 import { createServiceClient } from './supabase/server';
@@ -40,7 +42,7 @@ function isProductionLikeRuntime() {
     );
 }
 
-export async function getScheduleForDate(date: string): Promise<ScheduleBundle> {
+export const getScheduleForDate = cache(async (date: string): Promise<ScheduleBundle> => {
     try {
         const supabase = createServiceClient();
         const [
@@ -105,7 +107,7 @@ export async function getScheduleForDate(date: string): Promise<ScheduleBundle> 
     } catch (error) {
         return handleDataFailure(error, mockSchedule);
     }
-}
+});
 
 export async function getSchedulesForDateRange(
     startDate: string,
@@ -271,7 +273,7 @@ export async function getProgrammedSecondsByDate(days: Pick<ProgramDay, 'id' | '
     }
 }
 
-export async function getPlaybackScheduleForDate(date: string): Promise<ScheduleBundle> {
+export const getPlaybackScheduleForDate = cache(async (date: string): Promise<ScheduleBundle> => {
     try {
         const supabase = createServiceClient();
         const { data: day, error: dayError } = await supabase
@@ -390,7 +392,7 @@ export async function getPlaybackScheduleForDate(date: string): Promise<Schedule
     } catch (error) {
         return handleDataFailure(error, mockSchedule);
     }
-}
+});
 
 export async function getPlaybackScheduleForBlock(blockId: string): Promise<ScheduleBundle> {
     try {
@@ -430,7 +432,7 @@ export async function getLivePlaybackSchedule(now = new Date(), timezone = PLAYO
     return getPlaybackScheduleForDate(isoDateInTimezone(now, timezone));
 }
 
-export async function getAssets(): Promise<MediaAsset[]> {
+export const getAssets = cache(async (): Promise<MediaAsset[]> => {
     try {
         const supabase = createServiceClient();
         const [{ data, error }, usedAssetIds] = await Promise.all([
@@ -446,14 +448,14 @@ export async function getAssets(): Promise<MediaAsset[]> {
     } catch (error) {
         return handleDataFailure(error, mockSchedule.mediaAssets);
     }
-}
+});
 
 export type MediaAssetSummary = Pick<
     MediaAsset,
     'id' | 'title' | 'status' | 'assetType' | 'mediaKind' | 'durationSeconds' | 'createdAt'
 >;
 
-export async function getAssetSummaries(): Promise<MediaAssetSummary[]> {
+export const getAssetSummaries = cache(async (): Promise<MediaAssetSummary[]> => {
     try {
         const supabase = createServiceClient();
         const { data, error } = await supabase
@@ -480,9 +482,9 @@ export async function getAssetSummaries(): Promise<MediaAssetSummary[]> {
             })),
         );
     }
-}
+});
 
-export async function getRunbookState(programDayId: string): Promise<RunbookCheckState[]> {
+export const getRunbookState = cache(async (programDayId: string): Promise<RunbookCheckState[]> => {
     try {
         const supabase = createServiceClient();
         const { data, error } = await supabase
@@ -504,7 +506,7 @@ export async function getRunbookState(programDayId: string): Promise<RunbookChec
 
         return handleDataFailure(error, []);
     }
-}
+});
 
 async function getScheduledAssetIds() {
     const supabase = createServiceClient();
@@ -533,7 +535,7 @@ async function getScheduledAssetIds() {
     return new Set(ids.filter((id): id is string => Boolean(id)));
 }
 
-export async function getMediaAssetById(id: string): Promise<MediaAsset | null> {
+export const getMediaAssetById = cache(async (id: string): Promise<MediaAsset | null> => {
     try {
         const supabase = createServiceClient();
         const { data, error } = await supabase
@@ -552,31 +554,33 @@ export async function getMediaAssetById(id: string): Promise<MediaAsset | null> 
 
         return handleDataFailure(error, fallback);
     }
-}
+});
 
-export async function getMediaAssetByVimeoUri(vimeoUri: string): Promise<MediaAsset | null> {
-    try {
-        const supabase = createServiceClient();
-        const { data, error } = await supabase
-            .from('media_assets')
-            .select('*')
-            .eq('vimeo_uri', vimeoUri)
-            .maybeSingle();
+export const getMediaAssetByVimeoUri = cache(
+    async (vimeoUri: string): Promise<MediaAsset | null> => {
+        try {
+            const supabase = createServiceClient();
+            const { data, error } = await supabase
+                .from('media_assets')
+                .select('*')
+                .eq('vimeo_uri', vimeoUri)
+                .maybeSingle();
 
-        if (error) {
-            throw error;
+            if (error) {
+                throw error;
+            }
+
+            return data ? mapMediaAsset(data) : null;
+        } catch (error) {
+            const fallback =
+                mockSchedule.mediaAssets.find((asset) => asset.vimeoUri === vimeoUri) ?? null;
+
+            return handleDataFailure(error, fallback);
         }
+    },
+);
 
-        return data ? mapMediaAsset(data) : null;
-    } catch (error) {
-        const fallback =
-            mockSchedule.mediaAssets.find((asset) => asset.vimeoUri === vimeoUri) ?? null;
-
-        return handleDataFailure(error, fallback);
-    }
-}
-
-export async function getSlides(): Promise<SlideAsset[]> {
+export const getSlides = cache(async (): Promise<SlideAsset[]> => {
     try {
         const supabase = createServiceClient();
         const { data, error } = await supabase
@@ -592,7 +596,7 @@ export async function getSlides(): Promise<SlideAsset[]> {
     } catch (error) {
         return handleDataFailure(error, mockSchedule.slideAssets);
     }
-}
+});
 
 export async function getGuests(input: { readyOnly?: boolean } = {}): Promise<Guest[]> {
     try {
@@ -621,7 +625,7 @@ export async function getGuests(input: { readyOnly?: boolean } = {}): Promise<Gu
     }
 }
 
-export async function getDays(): Promise<ProgramDay[]> {
+export const getDays = cache(async (): Promise<ProgramDay[]> => {
     try {
         const supabase = createServiceClient();
         const { data, error } = await supabase
@@ -637,7 +641,7 @@ export async function getDays(): Promise<ProgramDay[]> {
     } catch (error) {
         return handleDataFailure(error, mockSchedule.day ? [mockSchedule.day] : []);
     }
-}
+});
 
 export async function getAuditEvents(
     input: {
