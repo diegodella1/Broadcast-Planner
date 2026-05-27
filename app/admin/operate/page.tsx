@@ -24,9 +24,9 @@ import {
 export const dynamic = 'force-dynamic';
 
 export default async function OperatePage() {
-    const [schedule, health, fallbackCarousel] = await Promise.all([
-        getLiveSchedule(),
-        collectOperatorHealth(),
+    const schedule = await getLiveSchedule();
+    const [health, fallbackCarousel] = await Promise.all([
+        collectOperatorHealth({ preloadedLiveSchedule: schedule }),
         getGlobalFallbackCarousel(),
     ]);
     const timezone = schedule.day?.timezone ?? PLAYOUT_TIMEZONE;

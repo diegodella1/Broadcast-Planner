@@ -13,8 +13,13 @@ import { createServiceClient } from '../supabase/server';
 type VimeoSettings = Awaited<ReturnType<typeof getVimeoSettings>>;
 type VimeoToken = Awaited<ReturnType<typeof getVimeoToken>>;
 type ReutersSettings = Awaited<ReturnType<typeof getReutersSettings>>;
+type LiveSchedule = Awaited<ReturnType<typeof getLiveSchedule>>;
 
 type SettingsResult<T> = { ok: true; value: T } | { ok: false; error: unknown };
+
+export type CollectOperatorHealthOptions = {
+    preloadedLiveSchedule?: LiveSchedule;
+};
 
 async function safeSettings<T>(loader: () => Promise<T>): Promise<SettingsResult<T>> {
     try {
@@ -70,7 +75,9 @@ export function sanitizeOperatorHealthReport(report: OperatorHealthReport): Oper
     return { ...report, checks };
 }
 
-export async function collectOperatorHealth(): Promise<OperatorHealthReport> {
+export async function collectOperatorHealth(
+    options: CollectOperatorHealthOptions = {},
+): Promise<OperatorHealthReport> {
     const [vimeoSettings, vimeoToken, reutersSettings] = await Promise.all([
         safeSettings(getVimeoSettings),
         safeSettings(getVimeoToken),
@@ -83,7 +90,7 @@ export async function collectOperatorHealth(): Promise<OperatorHealthReport> {
             checkStorage(),
             checkVimeo(vimeoSettings, vimeoToken),
             checkReuters(reutersSettings),
-            checkOutput(),
+            checkOutput(options.preloadedLiveSchedule),
             checkMigrations(),
             checkSmoke(),
         ]);
@@ -264,13 +271,13 @@ async function checkReuters(
     );
 }
 
-async function checkOutput(): Promise<OperatorHealthCheck> {
+async function checkOutput(preloadedLiveSchedule?: LiveSchedule): Promise<OperatorHealthCheck> {
     if (!process.env.OUTPUT_CAPTURE_TOKEN) {
         return fail('output', 'Output', 'OUTPUT_CAPTURE_TOKEN missing', '/admin/output');
     }
 
     try {
-        const live = await getLiveSchedule();
+        const live = preloadedLiveSchedule ?? (await getLiveSchedule());
         const override = await getActiveOutputOverride(live.day?.id);
 
         if (override?.sourceType === 'reuters') {
