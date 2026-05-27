@@ -21,7 +21,47 @@ describe('getDebtSlideData', () => {
         __resetDebtCachesForTests();
     });
 
-    it('combines official debt, BTC, fiscal, Census, and FRED context', async () => {
+    it('combines official debt, BTC, fiscal, and rtv-api fiscal/context', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi
+                .fn<typeof fetch>()
+                .mockResolvedValueOnce(
+                    jsonResponse({
+                        data: [
+                            { record_date: '2026-05-21', tot_pub_debt_out_amt: '39000000000000' },
+                            { record_date: '2026-05-20', tot_pub_debt_out_amt: '38999000000000' },
+                        ],
+                    }),
+                )
+                .mockResolvedValueOnce(jsonResponse(rtvBtc('80000')))
+                .mockResolvedValueOnce(
+                    jsonResponse({
+                        data: [
+                            {
+                                record_date: '2025-09-30',
+                                record_calendar_month: '09',
+                                current_month_gross_outly_amt: '7000000000000',
+                                current_month_dfct_sur_amt: '-1800000000000',
+                            },
+                        ],
+                    }),
+                )
+                .mockResolvedValueOnce(jsonResponse(rtvFiscalContext())),
+        );
+
+        const data = await getDebtSlideData();
+
+        expect(data.btcPriceUsd).toBe(80_000);
+        expect(data.population).toBe(334_914_895);
+        expect(data.taxReturns).toBeGreaterThan(100_000_000);
+        expect(data.gdpUsd).toBe(29_184_900_000_000);
+        expect(data.debtGdpNowPct).toBe(119.8);
+        expect(data.debtSource).toMatch(/Treasury/);
+        expect(data.stale).toBe(false);
+    });
+
+    it('falls back to Census + FRED when rtv-api fiscal/context fails', async () => {
         vi.stubGlobal(
             'fetch',
             vi
@@ -48,6 +88,12 @@ describe('getDebtSlideData', () => {
                     }),
                 )
                 .mockResolvedValueOnce(
+                    new Response('upstream error', {
+                        status: 503,
+                        headers: { 'Content-Type': 'text/plain' },
+                    }),
+                )
+                .mockResolvedValueOnce(
                     jsonResponse([
                         ['POP_2023', 'NAME', 'us'],
                         ['334914895', 'United States', '1'],
@@ -65,7 +111,6 @@ describe('getDebtSlideData', () => {
 
         expect(data.btcPriceUsd).toBe(80_000);
         expect(data.population).toBe(334_914_895);
-        expect(data.taxReturns).toBeGreaterThan(100_000_000);
         expect(data.gdpUsd).toBe(29_184_900_000_000);
         expect(data.debtGdpNowPct).toBe(119.8);
         expect(data.debtGdpHistory).toEqual([
@@ -73,10 +118,21 @@ describe('getDebtSlideData', () => {
             { year: '1980', pct: 31.2 },
             { year: '2000', pct: 55.9 },
         ]);
-        expect(data.debtSource).toMatch(/Treasury/);
         expect(data.stale).toBe(false);
     });
 });
+
+function rtvFiscalContext() {
+    return {
+        success: true,
+        data: {
+            population: { value: 334_914_895, year: '2023' },
+            gdp: { value: 29_184_900_000_000, asOf: '2025-01-01' },
+            debtToGdp: { value: 119.8, asOf: '2025-01-01' },
+            stale: false,
+        },
+    };
+}
 
 function rtvBtc(price: string) {
     return { success: true, data: { price: { live_price: price } } };

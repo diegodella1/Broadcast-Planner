@@ -1,6 +1,8 @@
 /**
  * US debt clock data fetcher.
  * Source: rtv-proxy fiscal endpoints (Treasury MTS + total public debt outstanding).
+ * Official debt context (population, GDP, debt-to-GDP) is preferred from
+ * rtv-api `/api/fiscal/context`, with Census + FRED direct fetches as fallback.
  * Ported from backgroundclima/lib/debt.ts + app/api/debt/route.ts.
  */
 
@@ -326,13 +328,89 @@ async function getFederalSpendingAndDeficit(): Promise<{
     }
 }
 
-async function getOfficialDebtContext(): Promise<OfficialDebtContext> {
-    const now = Date.now();
+type RtvFiscalContextEnvelope = {
+    success?: boolean;
+    data?: RtvFiscalContextPayload;
+} & Partial<RtvFiscalContextPayload>;
 
-    if (officialContextCache && now - officialContextCache.timestamp < MTS_CACHE_DURATION_MS) {
-        return officialContextCache.data;
+type RtvFiscalContextPayload = {
+    population?: { value?: number; year?: string | number };
+    gdp?: { value?: number; asOf?: string };
+    debtToGdp?: { value?: number; asOf?: string };
+    stale?: boolean;
+};
+
+function mapRtvFiscalContext(payload: RtvFiscalContextPayload): OfficialDebtContext {
+    const populationValue = payload.population?.value;
+    const populationYear = payload.population?.year;
+    const gdpValue = payload.gdp?.value;
+    const gdpAsOf = payload.gdp?.asOf;
+    const debtToGdpValue = payload.debtToGdp?.value;
+    const debtToGdpAsOf = payload.debtToGdp?.asOf;
+
+    if (
+        typeof populationValue !== 'number' ||
+        !Number.isFinite(populationValue) ||
+        populationValue <= 0 ||
+        typeof gdpValue !== 'number' ||
+        !Number.isFinite(gdpValue) ||
+        gdpValue <= 0 ||
+        typeof debtToGdpValue !== 'number' ||
+        !Number.isFinite(debtToGdpValue) ||
+        typeof gdpAsOf !== 'string' ||
+        typeof debtToGdpAsOf !== 'string'
+    ) {
+        throw new Error('Invalid rtv-api fiscal/context payload');
+    }
+    const stale = Boolean(payload.stale);
+    const warnings: string[] = stale
+        ? ['rtv-api fiscal/context reports upstream data is stale']
+        : [];
+
+    return {
+        population: populationValue,
+        populationAsOf: String(populationYear ?? ''),
+        populationSource: 'U.S. Census Population Estimates API',
+        taxReturns: IRS_TAX_RETURNS_FALLBACK.taxReturns,
+        taxReturnsAsOf: IRS_TAX_RETURNS_FALLBACK.asOf,
+        taxReturnsSource: IRS_TAX_RETURNS_FALLBACK.source,
+        gdpUsd: gdpValue,
+        gdpAsOf,
+        gdpSource: 'FRED GDP',
+        debtGdpNowPct: debtToGdpValue,
+        debtGdpHistory: DEBT_GDP_FALLBACK.history,
+        debtGdpSource: 'FRED GFDEGDQ188S',
+        stale,
+        warnings,
+    };
+}
+
+async function fetchFromRtvApi(): Promise<OfficialDebtContext | null> {
+    const rtvApiUrl = (process.env.RTV_API_URL ?? 'https://api.roxom.tv').replace(/\/$/, '');
+    const rtvApiKey = process.env.RTV_API_KEY ?? process.env.NEXT_PUBLIC_RTV_API_KEY ?? '';
+    const headers: Record<string, string> = { Accept: 'application/json' };
+
+    if (rtvApiKey) {
+        headers['x-api-key'] = rtvApiKey;
     }
 
+    const response = await fetch(`${rtvApiUrl}/api/fiscal/context`, {
+        headers,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(OFFICIAL_CONTEXT_TIMEOUT_MS),
+    });
+
+    if (!response.ok) {
+        throw new Error(`rtv-api fiscal/context error: ${response.status}`);
+    }
+    const envelope = (await response.json()) as RtvFiscalContextEnvelope;
+    const payload: RtvFiscalContextPayload =
+        envelope.success && envelope.data ? envelope.data : envelope;
+
+    return mapRtvFiscalContext(payload);
+}
+
+async function fetchOfficialDebtContextFromUpstream(): Promise<OfficialDebtContext> {
     const warnings: string[] = [];
     const [population, gdp, debtGdp] = await Promise.all([
         fetchCensusPopulation().catch((error) => {
@@ -355,7 +433,7 @@ async function getOfficialDebtContext(): Promise<OfficialDebtContext> {
         }),
     ]);
 
-    const data: OfficialDebtContext = {
+    return {
         population: population.population,
         populationAsOf: population.asOf,
         populationSource: population.source,
@@ -371,6 +449,20 @@ async function getOfficialDebtContext(): Promise<OfficialDebtContext> {
         stale: Boolean(population.stale || gdp.stale || debtGdp.stale),
         warnings,
     };
+}
+
+async function getOfficialDebtContext(): Promise<OfficialDebtContext> {
+    const now = Date.now();
+
+    if (officialContextCache && now - officialContextCache.timestamp < MTS_CACHE_DURATION_MS) {
+        return officialContextCache.data;
+    }
+    const rtvApiData = await fetchFromRtvApi().catch((error) => {
+        console.warn('[lib/slides/data/debt.ts:fetchFromRtvApi]', error);
+
+        return null;
+    });
+    const data = rtvApiData ?? (await fetchOfficialDebtContextFromUpstream());
     officialContextCache = { data, timestamp: now };
 
     return data;
