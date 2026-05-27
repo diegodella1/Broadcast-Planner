@@ -3,7 +3,12 @@ import { redirect } from 'next/navigation';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { StatusPill } from '@/components/ui/status-pill';
 import { ButtonLink, EmptyState, Field, FormHeader, MetricTile } from '@/components/ui';
-import { getDays, getProgrammedSecondsByDate, getScheduleForDate } from '@/lib/data';
+import {
+    getDays,
+    getProgrammedSecondsByDate,
+    getScheduleForDate,
+    getSchedulesForDateRange,
+} from '@/lib/data';
 import { DAY_TEMPLATES } from '@/lib/scheduling/day-templates';
 import { createProgramDayFromTemplate, ensureProgramDay } from '@/lib/mutations';
 import { analyzeSchedule } from '@/lib/scheduling/schedule-health';
@@ -31,14 +36,15 @@ export default async function CalendarPage({
     const selectedMonthKey = monthKey(selectedMonth.year, selectedMonth.month);
     const daysInMonth = days.filter((day) => day.airDate.startsWith(selectedMonthKey));
     const programmedSecondsByDate = await getProgrammedSecondsByDate(daysInMonth);
-    const monthSchedules = await Promise.all(
-        daysInMonth.map(async (day) => {
-            const schedule = await getScheduleForDate(day.airDate);
+    const monthRange = monthDateRange(selectedMonth.year, selectedMonth.month);
+    const monthSchedulesByDate = await getSchedulesForDateRange(monthRange.start, monthRange.end);
+    const healthByDate = new Map(
+        daysInMonth.map((day) => {
+            const schedule = monthSchedulesByDate.get(day.airDate);
 
-            return [day.airDate, analyzeSchedule(schedule)] as const;
+            return [day.airDate, schedule ? analyzeSchedule(schedule) : null] as const;
         }),
     );
-    const healthByDate = new Map(monthSchedules);
     const todaySchedule = await getScheduleForDate(today);
     const todayNowSeconds = secondsSinceMidnightInTimezone(new Date(), PLAYOUT_TIMEZONE);
     const todayActive = todaySchedule.day
@@ -435,4 +441,14 @@ function monthLabel(year: number, month: number) {
         year: 'numeric',
         timeZone: 'UTC',
     }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+function monthDateRange(year: number, month: number) {
+    const start = new Date(Date.UTC(year, month - 1, 1));
+    const end = new Date(Date.UTC(year, month, 0));
+
+    return {
+        start: start.toISOString().slice(0, 10),
+        end: end.toISOString().slice(0, 10),
+    };
 }

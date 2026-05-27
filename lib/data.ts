@@ -107,6 +107,130 @@ export async function getScheduleForDate(date: string): Promise<ScheduleBundle> 
     }
 }
 
+export async function getSchedulesForDateRange(
+    startDate: string,
+    endDate: string,
+): Promise<Map<string, ScheduleBundle>> {
+    try {
+        const supabase = createServiceClient();
+        const [
+            { data: days, error: daysError },
+            { data: mediaAssets, error: mediaError },
+            { data: slideAssets, error: slideError },
+        ] = await Promise.all([
+            supabase
+                .from('program_days')
+                .select('*')
+                .gte('air_date', startDate)
+                .lte('air_date', endDate),
+            supabase.from('media_assets').select('*').order('title'),
+            supabase.from('slide_assets').select('*').order('title'),
+        ]);
+
+        if (daysError) {
+            throw daysError;
+        }
+
+        if (mediaError) {
+            throw mediaError;
+        }
+
+        if (slideError) {
+            throw slideError;
+        }
+        const dayRows = (days ?? []) as Row[];
+
+        if (!dayRows.length) {
+            return new Map();
+        }
+        const { blockRows, layerRows } = await fetchBlocksAndLayersForDays(supabase, dayRows);
+        const mappedMediaAssets = (mediaAssets ?? []).map((row) => mapMediaAsset(row));
+        const mappedSlideAssets = (slideAssets ?? []).map(mapSlide);
+
+        return assembleSchedulesByDate({
+            dayRows,
+            blockRows,
+            layerRows,
+            mediaAssets: mappedMediaAssets,
+            slideAssets: mappedSlideAssets,
+        });
+    } catch (error) {
+        return handleDataFailure(error, new Map<string, ScheduleBundle>());
+    }
+}
+
+async function fetchBlocksAndLayersForDays(
+    supabase: ReturnType<typeof createServiceClient>,
+    dayRows: Row[],
+): Promise<{ blockRows: Row[]; layerRows: Row[] }> {
+    const dayIds = dayRows.map((row) => text(row.id));
+    const { data: blocks, error: blocksError } = await supabase
+        .from('program_blocks')
+        .select('*')
+        .in('program_day_id', dayIds)
+        .order('start_time_seconds');
+
+    if (blocksError) {
+        throw blocksError;
+    }
+    const blockRows = (blocks ?? []) as Row[];
+    const blockIds = blockRows.map((row) => text(row.id));
+    const { data: layers, error: layersError } = blockIds.length
+        ? await supabase.from('scheduled_layers').select('*').in('program_block_id', blockIds)
+        : { data: [], error: null };
+
+    if (layersError) {
+        throw layersError;
+    }
+
+    return { blockRows, layerRows: (layers ?? []) as Row[] };
+}
+
+function assembleSchedulesByDate(input: {
+    dayRows: Row[];
+    blockRows: Row[];
+    layerRows: Row[];
+    mediaAssets: MediaAsset[];
+    slideAssets: SlideAsset[];
+}): Map<string, ScheduleBundle> {
+    const blocksByDayId = groupBy(input.blockRows, (row) => text(row.program_day_id));
+    const layersByBlockId = groupBy(input.layerRows, (row) => text(row.program_block_id));
+    const result = new Map<string, ScheduleBundle>();
+
+    for (const dayRow of input.dayRows) {
+        const dayId = text(dayRow.id);
+        const airDate = text(dayRow.air_date);
+        const dayBlocks = blocksByDayId.get(dayId) ?? [];
+        const dayLayers = dayBlocks.flatMap((block) => layersByBlockId.get(text(block.id)) ?? []);
+        result.set(airDate, {
+            day: mapDay(dayRow),
+            blocks: dayBlocks.map(mapBlock),
+            layers: dayLayers.map(mapLayer),
+            mediaAssets: input.mediaAssets,
+            slideAssets: input.slideAssets,
+        });
+    }
+
+    return result;
+}
+
+function groupBy<T>(rows: T[], keyFn: (row: T) => string): Map<string, T[]> {
+    const result = new Map<string, T[]>();
+
+    for (const row of rows) {
+        const key = keyFn(row);
+        const list = result.get(key);
+
+        if (list) {
+            list.push(row);
+        } else {
+            result.set(key, [row]);
+        }
+    }
+
+    return result;
+}
+
 export async function getProgrammedSecondsByDate(days: Pick<ProgramDay, 'id' | 'airDate'>[]) {
     if (!days.length) {
         return new Map<string, number>();
