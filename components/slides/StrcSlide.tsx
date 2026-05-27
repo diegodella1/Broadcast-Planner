@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { priceSlide } from '@/lib/slides/palette';
 import type { StrcData } from '@/lib/slides/types';
 
 export type StrcSlideProps = {
@@ -32,8 +33,8 @@ const StatCell = React.memo(({ stat, index }: { stat: StatItem; index: number })
             alignItems: 'center',
             textAlign: 'center',
             padding: '16px 12px',
-            borderRight: (index + 1) % 4 === 0 ? 'none' : '1px solid #1E293B',
-            borderBottom: index < 8 ? '1px solid #1E293B' : 'none',
+            borderRight: (index + 1) % 4 === 0 ? 'none' : `1px solid ${priceSlide.borderSubtle}`,
+            borderBottom: index < 8 ? `1px solid ${priceSlide.borderSubtle}` : 'none',
         }}
     >
         <div
@@ -43,7 +44,7 @@ const StatCell = React.memo(({ stat, index }: { stat: StatItem; index: number })
                 fontWeight: 600,
                 letterSpacing: 2,
                 textTransform: 'uppercase',
-                color: '#64748B',
+                color: priceSlide.textMuted,
                 marginBottom: 6,
             }}
         >
@@ -55,13 +56,25 @@ const StatCell = React.memo(({ stat, index }: { stat: StatItem; index: number })
                 fontSize: 34,
                 fontWeight: 700,
                 lineHeight: 1.2,
-                color: stat.c === 'gold' ? '#FBBF24' : stat.c === 'green' ? '#22C55E' : '#F8FAFC',
+                color:
+                    stat.c === 'gold'
+                        ? priceSlide.accentGold
+                        : stat.c === 'green'
+                          ? priceSlide.accentGreen
+                          : priceSlide.textPrimary,
             }}
         >
             {stat.v}
         </div>
         {stat.u && (
-            <div style={{ fontFamily: MONO, fontSize: 24, color: '#22C55E', marginTop: 2 }}>
+            <div
+                style={{
+                    fontFamily: MONO,
+                    fontSize: 24,
+                    color: priceSlide.accentGreen,
+                    marginTop: 2,
+                }}
+            >
                 {stat.u}
             </div>
         )}
@@ -76,7 +89,7 @@ const StatsGrid = React.memo(({ stats }: { stats: StatItem[] }) => (
             gridTemplateColumns: 'repeat(4, 1fr)',
             gridTemplateRows: '1fr 1fr 1fr',
             flexShrink: 0,
-            borderBottom: '1px solid #1E293B',
+            borderBottom: `1px solid ${priceSlide.borderSubtle}`,
         }}
     >
         {stats.map((st, i) => (
@@ -109,7 +122,7 @@ const TopBar = React.memo(
                 justifyContent: 'space-between',
                 padding: '0 40px',
                 height: 90,
-                borderBottom: '1px solid #1E293B',
+                borderBottom: `1px solid ${priceSlide.borderSubtle}`,
                 flexShrink: 0,
             }}
         >
@@ -120,12 +133,12 @@ const TopBar = React.memo(
                         fontSize: 44,
                         fontWeight: 700,
                         letterSpacing: 6,
-                        color: '#FBBF24',
+                        color: priceSlide.accentGold,
                     }}
                 >
                     STRC
                 </span>
-                <div style={{ width: 1, height: 40, background: '#1E293B' }} />
+                <div style={{ width: 1, height: 40, background: priceSlide.borderSubtle }} />
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
                     <span
                         style={{
@@ -134,10 +147,10 @@ const TopBar = React.memo(
                             fontWeight: 700,
                             color:
                                 flash === 'up'
-                                    ? '#22C55E'
+                                    ? priceSlide.accentGreen
                                     : flash === 'down'
-                                      ? '#EF4444'
-                                      : '#F8FAFC',
+                                      ? priceSlide.accentRed
+                                      : priceSlide.textPrimary,
                             transition: flash ? 'none' : 'color 1.5s',
                         }}
                     >
@@ -148,7 +161,7 @@ const TopBar = React.memo(
                             fontFamily: MONO,
                             fontSize: 48,
                             fontWeight: 600,
-                            color: '#22C55E',
+                            color: priceSlide.accentGreen,
                         }}
                     >
                         {priceUsd}
@@ -158,7 +171,7 @@ const TopBar = React.memo(
                             fontFamily: MONO,
                             fontSize: 32,
                             fontWeight: 600,
-                            color: isUp ? '#22C55E' : '#EF4444',
+                            color: isUp ? priceSlide.accentGreen : priceSlide.accentRed,
                         }}
                     >
                         {changeBtc}
@@ -166,10 +179,20 @@ const TopBar = React.memo(
                 </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <span style={{ fontFamily: MONO, fontSize: 36, color: '#64748B' }}>
-                    BTC <span style={{ color: '#CBD5E1', fontWeight: 600 }}>{btcPrice}</span>
+                <span style={{ fontFamily: MONO, fontSize: 36, color: priceSlide.textMuted }}>
+                    BTC{' '}
+                    <span style={{ color: priceSlide.textSubtle, fontWeight: 600 }}>
+                        {btcPrice}
+                    </span>
                 </span>
-                <div style={{ width: 8, height: 8, background: '#22C55E', borderRadius: '50%' }} />
+                <div
+                    style={{
+                        width: 8,
+                        height: 8,
+                        background: priceSlide.accentGreen,
+                        borderRadius: '50%',
+                    }}
+                />
             </div>
         </div>
     ),
@@ -195,7 +218,7 @@ const AtmSection = React.memo(
                 alignItems: 'center',
                 justifyContent: 'center',
                 flex: 1,
-                borderBottom: '1px solid #1E293B',
+                borderBottom: `1px solid ${priceSlide.borderSubtle}`,
                 minHeight: 0,
             }}
         >
@@ -205,7 +228,7 @@ const AtmSection = React.memo(
                     fontSize: 52,
                     fontWeight: 700,
                     letterSpacing: 8,
-                    color: '#FBBF24',
+                    color: priceSlide.accentGold,
                     marginBottom: 16,
                 }}
             >
@@ -220,7 +243,7 @@ const AtmSection = React.memo(
                     padding: '8px 32px',
                     borderRadius: 8,
                     marginBottom: 20,
-                    color: isActive ? '#22C55E' : '#FBBF24',
+                    color: isActive ? priceSlide.accentGreen : priceSlide.accentGold,
                     border: isActive
                         ? '1px solid rgba(34,197,94,0.4)'
                         : '1px solid rgba(251,191,36,0.3)',
@@ -235,23 +258,42 @@ const AtmSection = React.memo(
                         fontFamily: MONO,
                         fontSize: 110,
                         fontWeight: 700,
-                        color: '#FBBF24',
+                        color: priceSlide.accentGold,
                         lineHeight: 1,
                     }}
                 >
                     {atmBtc}
                 </span>
-                <span style={{ fontFamily: MONO, fontSize: 72, color: '#64748B', fontWeight: 300 }}>
+                <span
+                    style={{
+                        fontFamily: MONO,
+                        fontSize: 72,
+                        color: priceSlide.textMuted,
+                        fontWeight: 300,
+                    }}
+                >
                     /
                 </span>
                 <span
-                    style={{ fontFamily: MONO, fontSize: 110, fontWeight: 700, color: '#22C55E' }}
+                    style={{
+                        fontFamily: MONO,
+                        fontSize: 110,
+                        fontWeight: 700,
+                        color: priceSlide.accentGreen,
+                    }}
                 >
                     {atmUsd}
                 </span>
             </div>
             {nextLabel && (
-                <div style={{ fontFamily: MONO, fontSize: 26, color: '#64748B', marginTop: 16 }}>
+                <div
+                    style={{
+                        fontFamily: MONO,
+                        fontSize: 26,
+                        color: priceSlide.textMuted,
+                        marginTop: 16,
+                    }}
+                >
                     {nextLabel}
                 </div>
             )}
@@ -271,7 +313,9 @@ const SlideFooter = React.memo(({ time }: { time: string }) => (
             flexShrink: 0,
         }}
     >
-        <span style={{ fontFamily: MONO, fontSize: 11, color: '#64748B' }}>Updated {time}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: priceSlide.textMuted }}>
+            Updated {time}
+        </span>
     </div>
 ));
 SlideFooter.displayName = 'SlideFooter';
@@ -379,8 +423,8 @@ export function StrcSlide({
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
-                background: '#020617',
-                color: '#F8FAFC',
+                background: priceSlide.bgPrimary,
+                color: priceSlide.textPrimary,
                 fontFamily: SANS,
             }}
             initial={{ opacity: 0 }}

@@ -136,7 +136,7 @@ const TopBar = React.memo(
                 >
                     SATA
                 </span>
-                <div style={{ width: 1, height: 40, background: '#1E293B' }} />
+                <div style={{ width: 1, height: 40, background: priceSlide.borderSubtle }} />
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
                     <span
                         style={{
@@ -163,7 +163,7 @@ const TopBar = React.memo(
                             fontFamily: MONO,
                             fontSize: 32,
                             fontWeight: 600,
-                            color: isUp ? priceSlide.accentGreen : '#EF4444',
+                            color: isUp ? priceSlide.accentGreen : priceSlide.accentRed,
                         }}
                     >
                         {changeBtc}
@@ -172,7 +172,10 @@ const TopBar = React.memo(
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <span style={{ fontFamily: MONO, fontSize: 36, color: priceSlide.textMuted }}>
-                    BTC <span style={{ color: '#CBD5E1', fontWeight: 600 }}>{btcPrice}</span>
+                    BTC{' '}
+                    <span style={{ color: priceSlide.textSubtle, fontWeight: 600 }}>
+                        {btcPrice}
+                    </span>
                 </span>
                 <div
                     style={{
@@ -414,11 +417,11 @@ export function SataSlide({ data }: SataSlideProps) {
         return (
             <motion.div
                 className="w-full h-full flex items-center justify-center"
-                style={{ background: '#020617' }}
+                style={{ background: priceSlide.bgPrimary }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
             >
-                <div style={{ color: '#EF4444', fontSize: 20, fontFamily: MONO }}>
+                <div style={{ color: priceSlide.accentRed, fontSize: 20, fontFamily: MONO }}>
                     No SATA data available
                 </div>
             </motion.div>
@@ -433,7 +436,7 @@ export function SataSlide({ data }: SataSlideProps) {
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
-                background: '#020617',
+                background: priceSlide.bgPrimary,
                 color: priceSlide.textPrimary,
                 fontFamily: SANS,
             }}
