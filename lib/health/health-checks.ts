@@ -10,6 +10,20 @@ import {
 } from './smoke-status';
 import { createServiceClient } from '../supabase/server';
 
+type VimeoSettings = Awaited<ReturnType<typeof getVimeoSettings>>;
+type VimeoToken = Awaited<ReturnType<typeof getVimeoToken>>;
+type ReutersSettings = Awaited<ReturnType<typeof getReutersSettings>>;
+
+type SettingsResult<T> = { ok: true; value: T } | { ok: false; error: unknown };
+
+async function safeSettings<T>(loader: () => Promise<T>): Promise<SettingsResult<T>> {
+    try {
+        return { ok: true, value: await loader() };
+    } catch (error) {
+        return { ok: false, error };
+    }
+}
+
 export type OperatorHealthStatus = 'ok' | 'degraded' | 'fail';
 
 export type OperatorHealthCheck = {
@@ -57,13 +71,18 @@ export function sanitizeOperatorHealthReport(report: OperatorHealthReport): Oper
 }
 
 export async function collectOperatorHealth(): Promise<OperatorHealthReport> {
+    const [vimeoSettings, vimeoToken, reutersSettings] = await Promise.all([
+        safeSettings(getVimeoSettings),
+        safeSettings(getVimeoToken),
+        safeSettings(getReutersSettings),
+    ]);
     const [supabase, schema, storage, vimeo, reuters, output, migrations, smoke] =
         await Promise.all([
             checkSupabase(),
             checkSchema(),
             checkStorage(),
-            checkVimeo(),
-            checkReuters(),
+            checkVimeo(vimeoSettings, vimeoToken),
+            checkReuters(reutersSettings),
             checkOutput(),
             checkMigrations(),
             checkSmoke(),
@@ -191,42 +210,58 @@ async function checkStorage(): Promise<OperatorHealthCheck> {
     }
 }
 
-async function checkVimeo(): Promise<OperatorHealthCheck> {
-    try {
-        const [settings, token] = await Promise.all([getVimeoSettings(), getVimeoToken()]);
-
-        if (!token) {
-            return degraded('vimeo', 'Vimeo', 'Vimeo token not configured', '/admin/settings');
-        }
-
-        if (settings?.status === 'failed' || settings?.status === 'invalid') {
-            return degraded('vimeo', 'Vimeo', settings.lastError ?? `Status: ${settings.status}`);
-        }
-
-        return pass('vimeo', 'Vimeo', settings?.lastError ?? 'Vimeo token configured');
-    } catch (error) {
-        return degraded('vimeo', 'Vimeo', `Vimeo check failed: ${errorMessage(error)}`);
+async function checkVimeo(
+    settingsResult: SettingsResult<VimeoSettings>,
+    tokenResult: SettingsResult<VimeoToken>,
+): Promise<OperatorHealthCheck> {
+    if (!settingsResult.ok) {
+        return degraded(
+            'vimeo',
+            'Vimeo',
+            `Vimeo check failed: ${errorMessage(settingsResult.error)}`,
+        );
     }
+
+    if (!tokenResult.ok) {
+        return degraded('vimeo', 'Vimeo', `Vimeo check failed: ${errorMessage(tokenResult.error)}`);
+    }
+    const settings = settingsResult.value;
+    const token = tokenResult.value;
+
+    if (!token) {
+        return degraded('vimeo', 'Vimeo', 'Vimeo token not configured', '/admin/settings');
+    }
+
+    if (settings?.status === 'failed' || settings?.status === 'invalid') {
+        return degraded('vimeo', 'Vimeo', settings.lastError ?? `Status: ${settings.status}`);
+    }
+
+    return pass('vimeo', 'Vimeo', settings?.lastError ?? 'Vimeo token configured');
 }
 
-async function checkReuters(): Promise<OperatorHealthCheck> {
-    try {
-        const settings = await getReutersSettings();
-
-        if (settings?.lastError) {
-            return degraded('reuters', 'Reuters', settings.lastError);
-        }
-
-        return pass(
+async function checkReuters(
+    settingsResult: SettingsResult<ReutersSettings>,
+): Promise<OperatorHealthCheck> {
+    if (!settingsResult.ok) {
+        return degraded(
             'reuters',
             'Reuters',
-            settings?.hasSecret
-                ? 'Reuters credentials configured; dynamic stream URLs are per block or override'
-                : 'Manual Reuters HLS/RTMP endpoint entry is available',
+            `Reuters check failed: ${errorMessage(settingsResult.error)}`,
         );
-    } catch (error) {
-        return degraded('reuters', 'Reuters', `Reuters check failed: ${errorMessage(error)}`);
     }
+    const settings = settingsResult.value;
+
+    if (settings?.lastError) {
+        return degraded('reuters', 'Reuters', settings.lastError);
+    }
+
+    return pass(
+        'reuters',
+        'Reuters',
+        settings?.hasSecret
+            ? 'Reuters credentials configured; dynamic stream URLs are per block or override'
+            : 'Manual Reuters HLS/RTMP endpoint entry is available',
+    );
 }
 
 async function checkOutput(): Promise<OperatorHealthCheck> {

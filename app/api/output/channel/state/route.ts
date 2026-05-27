@@ -26,7 +26,9 @@ export async function GET(request: Request) {
             mediaAccessToken,
         });
 
-        return NextResponse.json(state, { headers: { 'Cache-Control': 'no-store' } });
+        return NextResponse.json(state, {
+            headers: { 'Cache-Control': 'public, max-age=1, stale-while-revalidate=2' },
+        });
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
 

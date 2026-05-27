@@ -324,6 +324,40 @@ export async function getAssets(): Promise<MediaAsset[]> {
     }
 }
 
+export type MediaAssetSummary = Pick<
+    MediaAsset,
+    'id' | 'title' | 'status' | 'assetType' | 'mediaKind' | 'durationSeconds' | 'createdAt'
+>;
+
+export async function getAssetSummaries(): Promise<MediaAssetSummary[]> {
+    try {
+        const supabase = createServiceClient();
+        const { data, error } = await supabase
+            .from('media_assets')
+            .select('id, title, status, asset_type, media_kind, duration_seconds, created_at')
+            .order('updated_at', { ascending: false });
+
+        if (error) {
+            throw error;
+        }
+
+        return (data ?? []).map(mapMediaAssetSummary);
+    } catch (error) {
+        return handleDataFailure(
+            error,
+            mockSchedule.mediaAssets.map((asset) => ({
+                id: asset.id,
+                title: asset.title,
+                status: asset.status,
+                assetType: asset.assetType,
+                mediaKind: asset.mediaKind,
+                durationSeconds: asset.durationSeconds ?? null,
+                createdAt: asset.createdAt,
+            })),
+        );
+    }
+}
+
 export async function getRunbookState(programDayId: string): Promise<RunbookCheckState[]> {
     try {
         const supabase = createServiceClient();
@@ -601,6 +635,18 @@ function isMissingRunbookTable(error: unknown) {
         message.includes('operator_runbook_checks') ||
         message.includes('Could not find the table')
     );
+}
+
+function mapMediaAssetSummary(row: Row): MediaAssetSummary {
+    return {
+        id: text(row.id),
+        title: text(row.title),
+        status: text(row.status) as MediaAsset['status'],
+        assetType: text(row.asset_type) as MediaAsset['assetType'],
+        mediaKind: text(row.media_kind) as MediaAsset['mediaKind'],
+        durationSeconds: nullableNumber(row.duration_seconds),
+        createdAt: text(row.created_at),
+    };
 }
 
 function mapMediaAsset(row: Row, scheduledAssetIds = new Set<string>()): MediaAsset {

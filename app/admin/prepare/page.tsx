@@ -3,12 +3,16 @@ import { CloudSun, DatabaseZap, Music, PackageOpen, Users, Video } from 'lucide-
 import { FlowCard, FlowGrid, FlowHero, FlowRail } from '@/components/admin/admin-flow';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { ButtonLink } from '@/components/ui';
-import { getAssets, getGuests, getSlides } from '@/lib/data';
+import { getAssetSummaries, getGuests, getSlides } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PreparePage() {
-    const [assets, slides, guests] = await Promise.all([getAssets(), getSlides(), getGuests()]);
+    const [assets, slides, guests] = await Promise.all([
+        getAssetSummaries(),
+        getSlides(),
+        getGuests(),
+    ]);
     const readyAssets = assets.filter((asset) => asset.status === 'ready');
     const reviewAssets = assets.filter((asset) => asset.status !== 'ready');
     const musicAssets = assets.filter((asset) => asset.assetType === 'music');

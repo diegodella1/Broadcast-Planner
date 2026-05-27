@@ -14,7 +14,7 @@ import { StatusPill } from '@/components/ui/status-pill';
 import { Timecode } from '@/components/ui/timecode';
 import { PlayoutTime } from '@/components/output/playout-time';
 import { ButtonLink, EmptyState, MetricTile, Notice, PrimaryActionPanel } from '@/components/ui';
-import { getAssets, getDays, getScheduleForDate } from '@/lib/data';
+import { getAssetSummaries, getDays, getScheduleForDate } from '@/lib/data';
 import { collectOperatorHealth } from '@/lib/health/health-checks';
 import { analyzeSchedule } from '@/lib/scheduling/schedule-health';
 import { findActiveSchedule } from '@/lib/scheduling/scheduler';
@@ -33,7 +33,7 @@ export default async function AdminDashboardPage() {
     const [days, schedule, assets] = await Promise.all([
         getDays(),
         getScheduleForDate(today),
-        getAssets(),
+        getAssetSummaries(),
     ]);
     const healthReport = await collectOperatorHealth();
     const blocks = [...schedule.blocks].sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);

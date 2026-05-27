@@ -2,7 +2,7 @@
 
 /* eslint-disable jsx-a11y/media-has-caption */
 
-import Hls from 'hls.js';
+import type Hls from 'hls.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 type MediaState =
@@ -98,6 +98,7 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
     const videoRef = useRef<HTMLVideoElement>(null);
     const musicRef = useRef<HTMLAudioElement>(null);
     const hlsRef = useRef<Hls | null>(null);
+    const inFlightRef = useRef<AbortController | null>(null);
     const [armed, setArmed] = useState(false);
     const [state, setState] = useState<OutputState | null>(null);
     const [mediaState, setMediaState] = useState<MediaState>('idle');
@@ -128,8 +129,21 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
         let timer: ReturnType<typeof setTimeout> | null = null;
 
         async function loadState() {
+            if (inFlightRef.current) {
+                if (!cancelled && !previewBlockId) {
+                    timer = setTimeout(loadState, 2000);
+                }
+
+                return;
+            }
+            const controller = new AbortController();
+            inFlightRef.current = controller;
+
             try {
-                const response = await fetch(stateUrl, { cache: 'no-store' });
+                const response = await fetch(stateUrl, {
+                    cache: 'no-store',
+                    signal: controller.signal,
+                });
 
                 if (!response.ok) {
                     throw new Error(`Output state returned ${response.status}`);
@@ -146,7 +160,7 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
                     setMediaState('syncing');
                 }
             } catch (loadError) {
-                if (cancelled) {
+                if (cancelled || controller.signal.aborted) {
                     return;
                 }
                 setError(
@@ -154,6 +168,10 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
                 );
                 setMediaState('errored');
             } finally {
+                if (inFlightRef.current === controller) {
+                    inFlightRef.current = null;
+                }
+
                 if (!cancelled && !previewBlockId) {
                     timer = setTimeout(loadState, 2000);
                 }
@@ -168,6 +186,8 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
             if (timer) {
                 clearTimeout(timer);
             }
+            inFlightRef.current?.abort();
+            inFlightRef.current = null;
         };
     }, [previewBlockId, state?.signature, stateUrl]);
 
@@ -217,23 +237,38 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
         video.addEventListener('error', onError);
         video.addEventListener('timeupdate', onTimeUpdate);
 
-        if (isHlsSource(state) && Hls.isSupported()) {
-            const hls = new Hls({ startPosition: offset, enableWorker: true });
-            hlsRef.current = hls;
-            hls.on(Hls.Events.ERROR, (_event, data) => {
-                if (data.fatal) {
-                    setError(data.details);
-                    setMediaState('errored');
+        let cancelled = false;
+
+        if (isHlsSource(state)) {
+            void (async () => {
+                const { default: Hls } = await import('hls.js');
+
+                if (cancelled || !Hls.isSupported()) {
+                    if (!cancelled && !Hls.isSupported()) {
+                        video.src = src;
+                        video.load();
+                    }
+
+                    return;
                 }
-            });
-            hls.loadSource(src);
-            hls.attachMedia(video);
+                const hls = new Hls({ startPosition: offset, enableWorker: true });
+                hlsRef.current = hls;
+                hls.on(Hls.Events.ERROR, (_event, data) => {
+                    if (data.fatal) {
+                        setError(data.details);
+                        setMediaState('errored');
+                    }
+                });
+                hls.loadSource(src);
+                hls.attachMedia(video);
+            })();
         } else {
             video.src = src;
             video.load();
         }
 
         return () => {
+            cancelled = true;
             video.removeEventListener('loadedmetadata', onLoadedMetadata);
             video.removeEventListener('playing', onPlaying);
             video.removeEventListener('waiting', onWaiting);
