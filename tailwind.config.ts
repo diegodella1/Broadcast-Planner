@@ -2,6 +2,11 @@ import defaultTheme from 'tailwindcss/defaultTheme';
 
 import type { Config } from 'tailwindcss';
 
+// NOTE: bespoke chyron-derived dark palette is intentional. Migration to the
+// @roxomtv/design-system Tailwind preset is deferred — to be picked up alongside
+// the on-air plates visual remodel workstream (see README "remodel the visual
+// design of on-air plates"). When that lands, replace the inline color tokens
+// below with the design-system preset import.
 const config: Config = {
     content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
     theme: {
