@@ -29,4 +29,17 @@
         "directory": ".open-next/assets",
         "binding": "ASSETS",
     },
+
+    // ─── Slide-data KV cache (Phase E1) ─────────────────────────────────────────
+    // Edge cache layer in front of /api/slide-data/* routes. Per-route TTLs
+    // (10–600 s) align with upstream rtv-api refresh cadence. The helper
+    // `lib/helpers/kv-cache.ts` reads through this binding on a hit and writes
+    // through on a miss; missing binding falls back to the upstream fetcher.
+    "kv_namespaces": [
+        {
+            "binding": "SLIDE_DATA_KV",
+            "id": "9f83185620c54181a75c0462fd906193",
+            "preview_id": "1592b3ff06a44ae9b3aee486420382eb",
+        },
+    ],
 }
