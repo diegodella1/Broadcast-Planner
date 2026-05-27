@@ -3,6 +3,32 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { __resetWeatherCacheForTests, getWeatherSlideData } from './weather';
 import type { SlideAsset } from '@/lib/types';
 
+const rtvWeatherPayload = {
+    available: true,
+    locationName: 'Buenos Aires',
+    temperatureC: 18,
+    feelsLikeC: 16,
+    humidityPct: 72,
+    windKph: 21.6,
+    condition: 'Clouds',
+    description: 'overcast clouds',
+    iconCode: '04d',
+    forecast: [
+        {
+            label: '15:00',
+            temperatureC: 17,
+            condition: 'Rain',
+            precipitationProbability: 45,
+        },
+    ],
+    updatedAt: '2026-05-27T11:01:00.000Z',
+};
+
+const rtvUnavailablePayload = {
+    available: false,
+    reason: 'weather_upstream_failed',
+};
+
 describe('getWeatherSlideData', () => {
     const originalEnv = process.env;
 
@@ -19,33 +45,114 @@ describe('getWeatherSlideData', () => {
         __resetWeatherCacheForTests();
     });
 
-    it('uses Open-Meteo when OpenWeather is not configured', async () => {
+    it('consumes rtv-api /api/weather when available', async () => {
+        process.env.WEATHER_LOCATION_NAME = 'Buenos Aires';
+        const fetchMock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValueOnce(jsonResponse(rtvWeatherPayload));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const data = await getWeatherSlideData();
+
+        expect(data.available).toBe(true);
+        expect(data.locationName).toBe('Buenos Aires');
+        expect(data.temperatureC).toBe(18);
+        expect(data.feelsLikeC).toBe(16);
+        expect(data.windKph).toBe(21.6);
+        expect(data.condition).toBe('Clouds');
+        expect(data.description).toBe('overcast clouds');
+        expect(data.iconCode).toBe('04d');
+        expect(data.forecast[0]).toMatchObject({
+            label: '15:00',
+            temperatureC: 17,
+            condition: 'Rain',
+            precipitationProbability: 45,
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        const firstCallUrl = String(fetchMock.mock.calls[0]?.[0] ?? '');
+        expect(firstCallUrl).toContain('/api/weather');
+        expect(firstCallUrl).toContain('lat=-34.6037');
+        expect(firstCallUrl).toContain('lon=-58.3816');
+    });
+
+    it('falls back to Open-Meteo when rtv-api returns available:false', async () => {
         delete process.env.OPENWEATHER_API_KEY;
         delete process.env.OPENWEATHERMAP_API_KEY;
         process.env.WEATHER_LOCATION_NAME = 'Buenos Aires';
-        const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(
-            jsonResponse({
-                current: {
-                    time: '2026-05-22T12:00',
-                    temperature_2m: 21.5,
-                    apparent_temperature: 22,
-                    relative_humidity_2m: 58,
-                    wind_speed_10m: 18,
-                    weather_code: 1,
-                },
-                hourly: {
-                    time: [
-                        '2026-05-22T11:00',
-                        '2026-05-22T12:00',
-                        '2026-05-22T13:00',
-                        '2026-05-22T14:00',
-                    ],
-                    temperature_2m: [20, 21.5, 22, 23],
-                    precipitation_probability: [5, 10, 20, 25],
-                    weather_code: [0, 1, 61, 63],
-                },
-            }),
-        );
+        const fetchMock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValueOnce(jsonResponse(rtvUnavailablePayload))
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    current: {
+                        time: '2026-05-22T12:00',
+                        temperature_2m: 21.5,
+                        apparent_temperature: 22,
+                        relative_humidity_2m: 58,
+                        wind_speed_10m: 18,
+                        weather_code: 1,
+                    },
+                    hourly: {
+                        time: [
+                            '2026-05-22T11:00',
+                            '2026-05-22T12:00',
+                            '2026-05-22T13:00',
+                            '2026-05-22T14:00',
+                        ],
+                        temperature_2m: [20, 21.5, 22, 23],
+                        precipitation_probability: [5, 10, 20, 25],
+                        weather_code: [0, 1, 61, 63],
+                    },
+                }),
+            );
+        vi.stubGlobal('fetch', fetchMock);
+
+        const data = await getWeatherSlideData();
+
+        expect(data.available).toBe(true);
+        expect(data.locationName).toBe('Buenos Aires');
+        expect(data.temperatureC).toBe(21.5);
+        expect(data.windKph).toBe(18);
+        expect(data.description).toBe('Partly Cloudy');
+        expect(data.forecast[0]).toMatchObject({
+            label: '12:00',
+            temperatureC: 21.5,
+            condition: 'Clouds',
+            precipitationProbability: 10,
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('uses Open-Meteo when OpenWeather is not configured and rtv-api fails', async () => {
+        delete process.env.OPENWEATHER_API_KEY;
+        delete process.env.OPENWEATHERMAP_API_KEY;
+        process.env.WEATHER_LOCATION_NAME = 'Buenos Aires';
+        const fetchMock = vi
+            .fn<typeof fetch>()
+            .mockResolvedValueOnce(new Response('upstream error', { status: 503 }))
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    current: {
+                        time: '2026-05-22T12:00',
+                        temperature_2m: 21.5,
+                        apparent_temperature: 22,
+                        relative_humidity_2m: 58,
+                        wind_speed_10m: 18,
+                        weather_code: 1,
+                    },
+                    hourly: {
+                        time: [
+                            '2026-05-22T11:00',
+                            '2026-05-22T12:00',
+                            '2026-05-22T13:00',
+                            '2026-05-22T14:00',
+                        ],
+                        temperature_2m: [20, 21.5, 22, 23],
+                        precipitation_probability: [5, 10, 20, 25],
+                        weather_code: [0, 1, 61, 63],
+                    },
+                }),
+            );
         vi.stubGlobal('fetch', fetchMock);
 
         const data = await getWeatherSlideData();
@@ -63,11 +170,12 @@ describe('getWeatherSlideData', () => {
         });
     });
 
-    it('maps OpenWeather current and forecast payloads', async () => {
+    it('maps OpenWeather current and forecast payloads when rtv-api is unavailable', async () => {
         process.env.OPENWEATHER_API_KEY = 'test-key';
         process.env.WEATHER_LOCATION_NAME = 'Buenos Aires';
         const fetchMock = vi
             .fn<typeof fetch>()
+            .mockResolvedValueOnce(new Response('upstream error', { status: 503 }))
             .mockResolvedValueOnce(
                 jsonResponse({
                     name: 'Buenos Aires',
@@ -112,32 +220,16 @@ describe('getWeatherSlideData', () => {
             .fn<typeof fetch>()
             .mockResolvedValueOnce(
                 jsonResponse({
-                    current: {
-                        time: '2026-05-22T12:00',
-                        temperature_2m: 20,
-                        apparent_temperature: 21,
-                        relative_humidity_2m: 60,
-                        wind_speed_10m: 10,
-                        weather_code: 0,
-                    },
-                    hourly: { time: ['2026-05-22T12:00'], temperature_2m: [20], weather_code: [0] },
+                    ...rtvWeatherPayload,
+                    locationName: 'Buenos Aires',
+                    temperatureC: 20,
                 }),
             )
             .mockResolvedValueOnce(
                 jsonResponse({
-                    current: {
-                        time: '2026-05-22T12:00',
-                        temperature_2m: 31,
-                        apparent_temperature: 32,
-                        relative_humidity_2m: 70,
-                        wind_speed_10m: 15,
-                        weather_code: 61,
-                    },
-                    hourly: {
-                        time: ['2026-05-22T12:00'],
-                        temperature_2m: [31],
-                        weather_code: [61],
-                    },
+                    ...rtvWeatherPayload,
+                    locationName: 'Miami',
+                    temperatureC: 31,
                 }),
             );
         vi.stubGlobal('fetch', fetchMock);

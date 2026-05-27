@@ -47,6 +47,28 @@ type OpenMeteoPayload = {
     };
 };
 
+type RtvWeatherForecastPoint = {
+    label?: string;
+    temperatureC?: number | null;
+    condition?: string;
+    precipitationProbability?: number | null;
+};
+
+type RtvWeatherEnvelope = {
+    available?: boolean;
+    locationName?: string;
+    temperatureC?: number | null;
+    feelsLikeC?: number | null;
+    humidityPct?: number | null;
+    windKph?: number | null;
+    condition?: string;
+    description?: string;
+    iconCode?: string | null;
+    forecast?: RtvWeatherForecastPoint[];
+    updatedAt?: string;
+    reason?: string;
+};
+
 const weatherCache = new Map<string, WeatherCacheEntry>();
 
 export async function getWeatherSlideData(input?: {
@@ -59,6 +81,17 @@ export async function getWeatherSlideData(input?: {
 
     if (cached && now - cached.timestamp < WEATHER_CACHE_DURATION_MS) {
         return cached.data;
+    }
+    const rtvApiData = await fetchWeatherFromRtvApi(config).catch((error) => {
+        console.warn('[lib/slides/data/weather.ts:fetchWeatherFromRtvApi]', error);
+
+        return null;
+    });
+
+    if (rtvApiData) {
+        weatherCache.set(cacheKey, { data: rtvApiData, timestamp: now });
+
+        return rtvApiData;
     }
 
     const apiKey = process.env.OPENWEATHER_API_KEY ?? process.env.OPENWEATHERMAP_API_KEY ?? '';
@@ -130,6 +163,70 @@ export async function getWeatherSlideData(input?: {
             config,
         );
     }
+}
+
+async function fetchWeatherFromRtvApi(
+    config: WeatherLocationConfig,
+): Promise<WeatherSlideData | null> {
+    const rtvApiUrl = (process.env.RTV_API_URL ?? 'https://api.roxom.tv').replace(/\/$/, '');
+    const rtvApiKey = process.env.RTV_API_KEY ?? process.env.NEXT_PUBLIC_RTV_API_KEY ?? '';
+    const headers: Record<string, string> = { Accept: 'application/json' };
+
+    if (rtvApiKey) {
+        headers['x-api-key'] = rtvApiKey;
+    }
+    const params = new URLSearchParams({
+        lat: String(config.lat),
+        lon: String(config.lon),
+    });
+    const response = await fetch(`${rtvApiUrl}/api/weather?${params.toString()}`, {
+        headers,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5_000),
+    });
+
+    if (!response.ok) {
+        throw new Error(`rtv-api weather error: ${response.status}`);
+    }
+    const envelope = (await response.json()) as RtvWeatherEnvelope;
+
+    if (envelope.available !== true) {
+        return null;
+    }
+
+    return mapRtvWeatherEnvelope(envelope, config);
+}
+
+function mapRtvWeatherEnvelope(
+    envelope: RtvWeatherEnvelope,
+    config: WeatherLocationConfig,
+): WeatherSlideData {
+    const forecast = Array.isArray(envelope.forecast) ? envelope.forecast : [];
+
+    return {
+        available: true,
+        locationName:
+            typeof envelope.locationName === 'string' && envelope.locationName.trim()
+                ? envelope.locationName
+                : config.locationName,
+        temperatureC: numberOrNull(envelope.temperatureC),
+        feelsLikeC: numberOrNull(envelope.feelsLikeC),
+        humidityPct: numberOrNull(envelope.humidityPct),
+        windKph: numberOrNull(envelope.windKph),
+        condition: envelope.condition || 'Weather',
+        description: envelope.description || envelope.condition || 'Current Conditions',
+        iconCode: typeof envelope.iconCode === 'string' ? envelope.iconCode : null,
+        forecast: forecast.slice(0, 4).map((point) => ({
+            label: typeof point.label === 'string' && point.label ? point.label : 'Next',
+            temperatureC: numberOrNull(point.temperatureC),
+            condition: point.condition || 'Weather',
+            precipitationProbability: numberOrNull(point.precipitationProbability),
+        })),
+        updatedAt:
+            typeof envelope.updatedAt === 'string' && envelope.updatedAt
+                ? envelope.updatedAt
+                : new Date().toISOString(),
+    };
 }
 
 async function fetchOpenMeteoWeather(
