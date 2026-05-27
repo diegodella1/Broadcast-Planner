@@ -72,6 +72,7 @@ export const navGroups: NavGroup[] = [
 
 export function AdminNav({ mobile = false }: { mobile?: boolean }) {
     const pathname = usePathname();
+    const activeHref = findActiveHref(pathname);
 
     const links = mobile ? navGroups.flatMap((group) => group.items) : null;
 
@@ -81,8 +82,8 @@ export function AdminNav({ mobile = false }: { mobile?: boolean }) {
                 className="mt-4 flex max-w-full flex-wrap gap-2 pb-1 md:hidden"
                 aria-label="Admin sections"
             >
-                {links!.map(({ label, href, icon: Icon, match, activePaths }) => {
-                    const active = isActivePath(pathname, href, match, activePaths);
+                {links!.map(({ label, href, icon: Icon }) => {
+                    const active = href === activeHref;
 
                     return (
                         <Link
@@ -113,8 +114,8 @@ export function AdminNav({ mobile = false }: { mobile?: boolean }) {
                         {group.label}
                     </p>
                     <div className="mt-2 grid gap-1">
-                        {group.items.map(({ label, href, icon: Icon, match, activePaths }) => {
-                            const active = isActivePath(pathname, href, match, activePaths);
+                        {group.items.map(({ label, href, icon: Icon }) => {
+                            const active = href === activeHref;
 
                             return (
                                 <Link
@@ -140,16 +141,39 @@ export function AdminNav({ mobile = false }: { mobile?: boolean }) {
     );
 }
 
-function isActivePath(pathname: string, href: string, match?: string, activePaths: string[] = []) {
-    const basePath = href.split('?')[0]!;
-
-    if (match === 'exact') {
-        return pathname === basePath;
+function findActiveHref(pathname: string): string | null {
+    for (const group of navGroups) {
+        for (const item of group.items) {
+            if (pathname === item.href.split('?')[0]) {
+                return item.href;
+            }
+        }
     }
 
-    if (activePaths.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
-        return true;
+    for (const group of navGroups) {
+        for (const item of group.items) {
+            if (
+                item.activePaths?.some(
+                    (path) => pathname === path || pathname.startsWith(`${path}/`),
+                )
+            ) {
+                return item.href;
+            }
+        }
     }
 
-    return pathname === basePath || pathname.startsWith(`${basePath}/`);
+    for (const group of navGroups) {
+        for (const item of group.items) {
+            if (item.match === 'exact') {
+                continue;
+            }
+            const basePath = item.href.split('?')[0]!;
+
+            if (pathname.startsWith(`${basePath}/`)) {
+                return item.href;
+            }
+        }
+    }
+
+    return null;
 }
