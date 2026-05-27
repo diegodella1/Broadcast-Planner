@@ -4,7 +4,7 @@ import { auditedMutation, recordAuditEvent } from '../audit/audit';
 import { getCurrentOperatorSession } from '../auth/auth';
 import { getMediaAssetById, getMediaAssetByVimeoUri } from '../data';
 import { maskStreamUrl, parseReutersStreamInput } from '../services/reuters-stream';
-import { err, ok, type Result } from '../result';
+import { err, extractError, ok, type Result } from '../result';
 import { getVimeoToken } from '../settings';
 import { createServiceClient } from '../supabase/server';
 import {
@@ -33,14 +33,6 @@ import type { MediaAsset } from '../types';
 const TZ = PLAYOUT_TIMEZONE;
 const DEFAULT_DURATION_SECONDS = 1800;
 const REUTERS_LIVE_DEFAULT_DURATION_SECONDS = 1800;
-
-function extractError(error: unknown): string {
-    if (error instanceof Error) {
-        return error.message;
-    }
-
-    return String(error);
-}
 
 export type ReutersOverrideInput = {
     programDayId: string;

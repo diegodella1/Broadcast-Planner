@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { auditedMutation } from '../audit/audit';
 import { getScheduleForDate } from '../data';
 import { buildTemplateBlocks, getDayTemplate } from '../scheduling/day-templates';
-import { err, ok, type Result } from '../result';
+import { err, extractError, ok, type Result } from '../result';
 import { buildBulkCardLoop, buildLongTestSchedule } from '../scheduling/schedule-builder';
 import { analyzeSchedule } from '../scheduling/schedule-health';
 import {
@@ -19,14 +19,6 @@ import { formatTimecode, parseTimecode, PLAYOUT_TIMEZONE } from '../helpers/time
 import type { BlockCategory, ProgramBlock, ProgramStatus } from '../types';
 
 type ConflictResolutionMode = 'none' | 'insert_shift' | 'archive_conflicts' | 'strict';
-
-function extractError(error: unknown): string {
-    if (error instanceof Error) {
-        return error.message;
-    }
-
-    return String(error);
-}
 
 export async function ensureProgramDay(date: string): Promise<Result<string>> {
     try {

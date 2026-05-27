@@ -1,20 +1,12 @@
 import { revalidatePath } from 'next/cache';
 
 import { auditedMutation } from '../audit/audit';
-import { err, ok, type Result } from '../result';
+import { err, extractError, ok, type Result } from '../result';
 import { createServiceClient } from '../supabase/server';
 
 import { createSlideAsset } from './assets';
 
 import type { GuestStatus } from '../types';
-
-function extractError(error: unknown): string {
-    if (error instanceof Error) {
-        return error.message;
-    }
-
-    return String(error);
-}
 
 function normalizeGuestStatus(status?: GuestStatus): GuestStatus {
     if (status === 'draft' || status === 'archived') {

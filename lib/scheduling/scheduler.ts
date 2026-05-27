@@ -104,7 +104,9 @@ function findFallbackAsset(bundle: ScheduleBundle): MediaAsset | null {
     return (
         dayFallback ??
         bundle.mediaAssets.find(
-            (asset) => asset.assetType === 'fallback' && asset.status === 'ready',
+            (asset) =>
+                (asset.assetType === 'fallback' || asset.metadata?.fallback_loop === true) &&
+                asset.status === 'ready',
         ) ??
         null
     );

@@ -2,21 +2,13 @@ import { revalidatePath } from 'next/cache';
 
 import { auditedMutation } from '../audit/audit';
 import type { FallbackCarouselCard } from '../fallback-carousel';
-import { err, ok, type Result } from '../result';
+import { err, extractError, ok, type Result } from '../result';
 import { createServiceClient } from '../supabase/server';
 import { parseTimecode } from '../helpers/time';
 
 import { createSlideAsset } from './assets';
 
 import type { RunbookSection } from '../types';
-
-function extractError(error: unknown): string {
-    if (error instanceof Error) {
-        return error.message;
-    }
-
-    return String(error);
-}
 
 type WeatherLocationInput = { locationName: string; lat: number; lon: number };
 

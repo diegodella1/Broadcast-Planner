@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { err, ok, resultToHttp, type Result } from './result';
+import { err, extractError, ok, resultToHttp, type Result } from './result';
 
 describe('ok', () => {
     it('produces a success result with the given data', () => {
@@ -32,6 +32,45 @@ describe('err', () => {
         if (!result.success) {
             expect(result.error).toBe(message);
         }
+    });
+});
+
+describe('extractError', () => {
+    it('returns the message of an Error instance', () => {
+        const error = new Error('database offline');
+        expect(extractError(error)).toBe('database offline');
+    });
+
+    it('returns the message field on a plain object (Postgres/Supabase error shape)', () => {
+        const pgError = {
+            code: '23505',
+            message: 'duplicate key value violates unique constraint',
+            details: 'Key (id)=(abc) already exists.',
+            hint: null,
+        };
+        expect(extractError(pgError)).toBe('duplicate key value violates unique constraint');
+    });
+
+    it('falls back to String(error) when message is missing', () => {
+        expect(extractError({ code: 'X' })).toBe('[object Object]');
+    });
+
+    it('falls back to String(error) when message is empty', () => {
+        expect(extractError({ message: '' })).toBe('[object Object]');
+    });
+
+    it('falls back to String(error) when message is non-string', () => {
+        expect(extractError({ message: 42 })).toBe('[object Object]');
+    });
+
+    it('handles primitive errors', () => {
+        expect(extractError('plain string error')).toBe('plain string error');
+        expect(extractError(404)).toBe('404');
+    });
+
+    it('handles null and undefined', () => {
+        expect(extractError(null)).toBe('null');
+        expect(extractError(undefined)).toBe('undefined');
     });
 });
 
