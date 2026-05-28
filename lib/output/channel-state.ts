@@ -4,6 +4,7 @@ import { getGlobalFallbackCarousel, selectFallbackCarouselSlide } from '@/lib/fa
 import { getLatestMusicPreference } from '@/lib/operator-preferences';
 import { getActiveOutputOverride } from '@/lib/output-overrides';
 import { recordedBugFromBlock } from '@/lib/recorded-bug';
+import { findPlayableFallback } from '@/lib/scheduling/fallback';
 import { findActiveLayers, findActiveSchedule } from '@/lib/scheduling/scheduler';
 import { getVimeoToken } from '@/lib/settings';
 import { PLAYOUT_TIMEZONE, secondsSinceMidnightInTimezone } from '@/lib/helpers/time';
@@ -485,15 +486,7 @@ async function fallbackVimeoLoopState(
 }
 
 function findFallbackLoopAsset(bundle: ScheduleBundle) {
-    return (
-        bundle.mediaAssets.find(
-            (asset) =>
-                asset.status === 'ready' &&
-                asset.mediaKind === 'video' &&
-                asset.metadata?.fallback_loop === true &&
-                Boolean(asset.url || asset.vimeoId),
-        ) ?? null
-    );
+    return findPlayableFallback(bundle.mediaAssets);
 }
 
 function loopOffset(serverSeconds: number, durationSeconds?: number | null) {

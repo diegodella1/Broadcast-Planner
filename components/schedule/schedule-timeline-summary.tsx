@@ -1,5 +1,6 @@
 'use client';
 
+import { isFallbackCandidate } from '@/lib/scheduling/fallback';
 import { findSameDayGaps } from '@/lib/scheduling/schedule-conflicts';
 import { analyzeSchedule } from '@/lib/scheduling/schedule-health';
 import { formatPlayoutTimeLabel, formatTimecode } from '@/lib/helpers/time';
@@ -46,9 +47,7 @@ export function TimelineSummary({ schedule, blocks, health }: TimelineSummaryPro
     );
     const gaps = schedule.day ? findSameDayGaps(blocks, schedule.day.id) : [];
     const nextGap = gaps.find((gap) => gap.durationSeconds >= CALENDAR_SNAP_SECONDS);
-    const hasReadyFallback = schedule.mediaAssets.some(
-        (asset) => asset.assetType === 'fallback' && asset.status === 'ready',
-    );
+    const hasReadyFallback = schedule.mediaAssets.some(isFallbackCandidate);
 
     return (
         <div className="grid gap-2 border-b border-line bg-panel-soft p-3 md:grid-cols-5">

@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react';
 import type { MouseEvent, PointerEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
+import { isFallbackCandidate } from '@/lib/scheduling/fallback';
 import { findSameDayGaps } from '@/lib/scheduling/schedule-conflicts';
 import { formatPlayoutTimeLabel } from '@/lib/helpers/time';
 import type { ProgramBlock, ScheduleBundle } from '@/lib/types';
@@ -58,9 +59,7 @@ export function CalendarScheduleView({
     const issueMap = new Map(
         issues.filter((issue) => issue.blockId).map((issue) => [issue.blockId, issue]),
     );
-    const hasReadyFallback = schedule.mediaAssets.some(
-        (asset) => asset.assetType === 'fallback' && asset.status === 'ready',
-    );
+    const hasReadyFallback = schedule.mediaAssets.some(isFallbackCandidate);
     const selection =
         dragStartSeconds !== null && dragCurrentSeconds !== null
             ? normalizeCalendarSelection(dragStartSeconds, dragCurrentSeconds)

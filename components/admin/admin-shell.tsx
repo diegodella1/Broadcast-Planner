@@ -8,6 +8,7 @@ import { requireAdmin, revokeCurrentOperatorSession, safeAdminReturnTo } from '@
 import { getLiveSchedule } from '@/lib/data';
 import { getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
 import { collectOperatorHealth } from '@/lib/health/health-checks';
+import { findFallbackCandidate } from '@/lib/scheduling/fallback';
 import { findActiveSchedule } from '@/lib/scheduling/scheduler';
 import {
     formatPlayoutTimeLabel,
@@ -130,13 +131,7 @@ async function loadBroadcastStatus() {
                 .filter((block) => block.status === 'ready' || block.status === 'active')
                 .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
                 .find((block) => block.startTimeSeconds > nowSeconds) ?? null;
-        const fallback =
-            bundle.mediaAssets.find(
-                (asset) =>
-                    asset.status === 'ready' &&
-                    asset.mediaKind === 'video' &&
-                    asset.metadata?.fallback_loop === true,
-            ) ?? null;
+        const fallback = findFallbackCandidate(bundle.mediaAssets);
 
         return {
             ok: true,

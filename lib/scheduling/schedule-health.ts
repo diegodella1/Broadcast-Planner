@@ -1,4 +1,5 @@
 import { formatTimecode } from '../helpers/time';
+import { isFallbackCandidate } from './fallback';
 
 import type {
     MediaAsset,
@@ -341,9 +342,7 @@ function buildHiddenLayerIssue(block: ProgramBlock, layer: ScheduledLayer): Sche
 }
 
 function detectFallbackIssues(schedule: ScheduleBundle): ScheduleIssue[] {
-    const readyFallback = schedule.mediaAssets.some(
-        (asset) => asset.assetType === 'fallback' && asset.status === 'ready',
-    );
+    const readyFallback = schedule.mediaAssets.some(isFallbackCandidate);
 
     if (readyFallback) {
         return [];

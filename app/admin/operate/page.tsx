@@ -13,6 +13,7 @@ import { ButtonLink } from '@/components/ui';
 import { getLiveSchedule } from '@/lib/data';
 import { getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
 import { collectOperatorHealth } from '@/lib/health/health-checks';
+import { findFallbackCandidate } from '@/lib/scheduling/fallback';
 import { findActiveSchedule } from '@/lib/scheduling/scheduler';
 import { liveOutputHref } from '@/lib/auth/output-auth';
 import {
@@ -37,12 +38,7 @@ export default async function OperatePage() {
             .filter((block) => block.status === 'ready' || block.status === 'active')
             .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
             .find((block) => block.startTimeSeconds > nowSeconds) ?? null;
-    const fallbackVideo = schedule.mediaAssets.find(
-        (asset) =>
-            asset.status === 'ready' &&
-            asset.mediaKind === 'video' &&
-            asset.metadata?.fallback_loop === true,
-    );
+    const fallbackVideo = findFallbackCandidate(schedule.mediaAssets);
     const fallbackLabel =
         fallbackVideo?.title ?? (fallbackCarousel?.enabled ? 'Slide carousel' : 'Missing');
     const fallbackTone = fallbackVideo || fallbackCarousel?.enabled ? 'ok' : 'warn';

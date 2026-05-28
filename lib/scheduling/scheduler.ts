@@ -6,6 +6,7 @@ import type {
     ScheduledLayer,
     SlideAsset,
 } from '../types';
+import { findFallbackCandidate } from './fallback';
 import { findScheduleConflicts } from './schedule-conflicts';
 
 export function findActiveSchedule(bundle: ScheduleBundle, secondsOfDay: number): ActiveSchedule {
@@ -101,13 +102,5 @@ function findFallbackAsset(bundle: ScheduleBundle): MediaAsset | null {
         ? findAsset(bundle.mediaAssets, bundle.day.fallbackAssetId)
         : null;
 
-    return (
-        dayFallback ??
-        bundle.mediaAssets.find(
-            (asset) =>
-                (asset.assetType === 'fallback' || asset.metadata?.fallback_loop === true) &&
-                asset.status === 'ready',
-        ) ??
-        null
-    );
+    return dayFallback ?? findFallbackCandidate(bundle.mediaAssets);
 }
