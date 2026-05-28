@@ -184,22 +184,24 @@ export async function syncVimeoCatalog(token: string, scopeUri?: string): Promis
     let failedCount = 0;
 
     if (rows.length) {
-        const { error } = await supabase
-            .from('media_assets')
-            .upsert(rows, { onConflict: 'vimeo_id' });
-
-        if (isMissingLifecycleStateError(error)) {
-            const { error: retryError } = await supabase
+        for (const batch of chunks(rows, 100)) {
+            const { error } = await supabase
                 .from('media_assets')
-                .upsert(rows.map(withoutLifecycleState), { onConflict: 'vimeo_id' });
+                .upsert(batch, { onConflict: 'vimeo_id' });
 
-            if (retryError) {
-                failedCount = rows.length;
-                throw retryError;
+            if (isMissingLifecycleStateError(error)) {
+                const { error: retryError } = await supabase
+                    .from('media_assets')
+                    .upsert(batch.map(withoutLifecycleState), { onConflict: 'vimeo_id' });
+
+                if (retryError) {
+                    failedCount += batch.length;
+                    throw retryError;
+                }
+            } else if (error) {
+                failedCount += batch.length;
+                throw error;
             }
-        } else if (error) {
-            failedCount = rows.length;
-            throw error;
         }
     }
 
