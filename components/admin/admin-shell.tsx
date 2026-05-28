@@ -4,17 +4,9 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { AdminNav } from '@/components/admin/admin-nav';
+import { getBroadcastStatus } from '@/lib/admin/broadcast-status';
 import { requireAdmin, revokeCurrentOperatorSession, safeAdminReturnTo } from '@/lib/auth/auth';
-import { getLiveSchedule } from '@/lib/data';
-import { getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
-import { collectOperatorHealth } from '@/lib/health/health-checks';
-import { findFallbackCandidate } from '@/lib/scheduling/fallback';
-import { findActiveSchedule } from '@/lib/scheduling/scheduler';
-import {
-    formatPlayoutTimeLabel,
-    PLAYOUT_TIMEZONE,
-    secondsSinceMidnightInTimezone,
-} from '@/lib/helpers/time';
+import { formatPlayoutTimeLabel } from '@/lib/helpers/time';
 
 import type { ReactNode } from 'react';
 
@@ -41,7 +33,7 @@ export async function AdminShell({
         }
         throw error;
     });
-    const status = await loadBroadcastStatus();
+    const status = await getBroadcastStatus();
 
     async function logout() {
         'use server';
@@ -116,51 +108,10 @@ export async function AdminShell({
     );
 }
 
-async function loadBroadcastStatus() {
-    try {
-        const [bundle, health, fallbackCarousel] = await Promise.all([
-            getLiveSchedule(),
-            collectOperatorHealth(),
-            getGlobalFallbackCarousel(),
-        ]);
-        const timezone = bundle.day?.timezone ?? PLAYOUT_TIMEZONE;
-        const nowSeconds = secondsSinceMidnightInTimezone(new Date(), timezone);
-        const active = findActiveSchedule(bundle, nowSeconds);
-        const next =
-            bundle.blocks
-                .filter((block) => block.status === 'ready' || block.status === 'active')
-                .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds)
-                .find((block) => block.startTimeSeconds > nowSeconds) ?? null;
-        const fallback = findFallbackCandidate(bundle.mediaAssets);
-
-        return {
-            ok: true,
-            health: health.status,
-            dayStatus: bundle.day?.status ?? 'draft',
-            nowSeconds,
-            activeTitle: active.block?.title ?? null,
-            nextTitle: next?.title ?? null,
-            nextSeconds: next?.startTimeSeconds ?? null,
-            fallbackTitle: fallback?.title ?? (fallbackCarousel?.enabled ? 'Slide carousel' : null),
-        };
-    } catch {
-        return {
-            ok: false,
-            health: 'fail' as const,
-            dayStatus: 'draft',
-            nowSeconds: null,
-            activeTitle: null,
-            nextTitle: null,
-            nextSeconds: null,
-            fallbackTitle: null,
-        };
-    }
-}
-
 function BroadcastStatusStrip({
     status,
 }: {
-    status: Awaited<ReturnType<typeof loadBroadcastStatus>>;
+    status: Awaited<ReturnType<typeof getBroadcastStatus>>;
 }) {
     const healthTone =
         status.health === 'ok'

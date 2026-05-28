@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 
 import { createClient } from '@supabase/supabase-js';
 
-const DEFAULT_FETCH_TIMEOUT_MS = 2000;
+const DEFAULT_FETCH_TIMEOUT_MS = 8000;
 
 export function createServiceClient() {
     const url = normalizeLocalSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
