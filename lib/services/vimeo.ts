@@ -423,7 +423,8 @@ async function selectExistingVimeoRows(supabase: ReturnType<typeof createService
     const withReadiness = await supabase
         .from('media_assets')
         .select('id,title,asset_type,status,vimeo_id,metadata,playback_readiness_status')
-        .eq('source_type', 'vimeo');
+        .eq('source_type', 'vimeo')
+        .range(0, 9999);
 
     if (!isMissingColumnError(withReadiness.error)) {
         if (withReadiness.error) {
@@ -436,7 +437,8 @@ async function selectExistingVimeoRows(supabase: ReturnType<typeof createService
     const withoutReadiness = await supabase
         .from('media_assets')
         .select('id,title,asset_type,status,vimeo_id,metadata')
-        .eq('source_type', 'vimeo');
+        .eq('source_type', 'vimeo')
+        .range(0, 9999);
 
     if (withoutReadiness.error) {
         throw withoutReadiness.error;
