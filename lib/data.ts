@@ -51,8 +51,8 @@ export const getScheduleForDate = cache(async (date: string): Promise<ScheduleBu
             { data: slideAssets, error: slideError },
         ] = await Promise.all([
             supabase.from('program_days').select('*').eq('air_date', date).maybeSingle(),
-            supabase.from('media_assets').select('*').order('title'),
-            supabase.from('slide_assets').select('*').order('title'),
+            supabase.from('media_assets').select('*').order('title').range(0, 9999),
+            supabase.from('slide_assets').select('*').order('title').range(0, 9999),
         ]);
 
         if (dayError) {
@@ -82,7 +82,8 @@ export const getScheduleForDate = cache(async (date: string): Promise<ScheduleBu
                 .from('program_blocks')
                 .select('*')
                 .eq('program_day_id', day.id)
-                .order('start_time_seconds'),
+                .order('start_time_seconds')
+                .range(0, 9999),
         ]);
 
         if (blocksError) {
@@ -124,9 +125,10 @@ export async function getSchedulesForDateRange(
                 .from('program_days')
                 .select('*')
                 .gte('air_date', startDate)
-                .lte('air_date', endDate),
-            supabase.from('media_assets').select('*').order('title'),
-            supabase.from('slide_assets').select('*').order('title'),
+                .lte('air_date', endDate)
+                .range(0, 9999),
+            supabase.from('media_assets').select('*').order('title').range(0, 9999),
+            supabase.from('slide_assets').select('*').order('title').range(0, 9999),
         ]);
 
         if (daysError) {
@@ -345,20 +347,22 @@ export const getPlaybackScheduleForDate = cache(async (date: string): Promise<Sc
             { data: referencedSlides, error: slidesError },
         ] = await Promise.all([
             mediaIds.length
-                ? supabase.from('media_assets').select('*').in('id', mediaIds)
+                ? supabase.from('media_assets').select('*').in('id', mediaIds).range(0, 9999)
                 : { data: [], error: null },
             supabase
                 .from('media_assets')
                 .select('*')
                 .eq('asset_type', 'fallback')
-                .eq('status', 'ready'),
+                .eq('status', 'ready')
+                .range(0, 9999),
             supabase
                 .from('media_assets')
                 .select('*')
                 .eq('asset_type', 'music')
-                .eq('status', 'ready'),
+                .eq('status', 'ready')
+                .range(0, 9999),
             slideIds.length
-                ? supabase.from('slide_assets').select('*').in('id', slideIds)
+                ? supabase.from('slide_assets').select('*').in('id', slideIds).range(0, 9999)
                 : { data: [], error: null },
         ]);
 
@@ -436,7 +440,11 @@ export const getAssets = cache(async (): Promise<MediaAsset[]> => {
     try {
         const supabase = createServiceClient();
         const [{ data, error }, usedAssetIds] = await Promise.all([
-            supabase.from('media_assets').select('*').order('updated_at', { ascending: false }),
+            supabase
+                .from('media_assets')
+                .select('*')
+                .order('updated_at', { ascending: false })
+                .range(0, 9999),
             getScheduledAssetIds(),
         ]);
 
@@ -461,7 +469,8 @@ export const getAssetSummaries = cache(async (): Promise<MediaAssetSummary[]> =>
         const { data, error } = await supabase
             .from('media_assets')
             .select('id, title, status, asset_type, media_kind, duration_seconds, created_at')
-            .order('updated_at', { ascending: false });
+            .order('updated_at', { ascending: false })
+            .range(0, 9999);
 
         if (error) {
             throw error;
@@ -512,8 +521,11 @@ async function getScheduledAssetIds() {
     const supabase = createServiceClient();
     const [{ data: blocks, error: blocksError }, { data: layers, error: layersError }] =
         await Promise.all([
-            supabase.from('program_blocks').select('asset_id, fallback_asset_id, status'),
-            supabase.from('scheduled_layers').select('asset_id, enabled'),
+            supabase
+                .from('program_blocks')
+                .select('asset_id, fallback_asset_id, status')
+                .range(0, 9999),
+            supabase.from('scheduled_layers').select('asset_id, enabled').range(0, 9999),
         ]);
 
     if (blocksError) {
