@@ -13,7 +13,11 @@ import {
 } from '../scheduling/schedule-planner';
 import { parseReutersStreamInput, maskStreamUrl } from '../services/reuters-stream';
 import { recordedBugMetadata, type RecordedBugPosition } from '../recorded-bug';
-import { buildLiveObjectMetadata, type LiveEndReason } from '../live-object';
+import {
+    buildLiveObjectMetadata,
+    LIVE_ESTIMATED_DURATION_SECONDS,
+    type LiveEndReason,
+} from '../live-object';
 import { createServiceClient } from '../supabase/server';
 import { formatTimecode, parseTimecode, PLAYOUT_TIMEZONE } from '../helpers/time';
 
@@ -197,6 +201,86 @@ export async function createProgramBlock(input: {
             },
         );
         revalidatePath(`/admin/schedule/${input.date}`);
+
+        return ok({
+            id: createdBlock.id,
+            startTimeSeconds: createdBlock.start_time_seconds,
+        });
+    } catch (error) {
+        return err(extractError(error));
+    }
+}
+
+export async function scheduleLiveObjectOverride(input: {
+    date: string;
+    title: string;
+    startTime: string;
+    liveSourceType: string;
+    liveUrl: string;
+}): Promise<Result<{ id: string; startTimeSeconds: number }>> {
+    try {
+        const dayResult = await ensureProgramDay(input.date);
+
+        if (!dayResult.success) {
+            return dayResult;
+        }
+        const dayId = dayResult.data;
+        const title = input.title.trim() || 'Live';
+        const liveMetadata = buildLiveObjectMetadata({
+            sourceType: input.liveSourceType,
+            url: input.liveUrl,
+            title,
+        });
+
+        if (!liveMetadata) {
+            return err('Live URL must be a YouTube video link or HLS .m3u8 URL');
+        }
+        const startTimeSeconds = parseTimecode(input.startTime);
+        const supabase = createServiceClient();
+        let createdBlock = { id: '', start_time_seconds: startTimeSeconds };
+
+        await auditedMutation(
+            {
+                action: 'live_object.override_created',
+                entityType: 'program_blocks',
+                metadata: { date: input.date, live_source_type: input.liveSourceType },
+                next: {
+                    title,
+                    start_time: input.startTime,
+                    duration_seconds: LIVE_ESTIMATED_DURATION_SECONDS,
+                },
+            },
+            async () => {
+                const { data, error } = await supabase
+                    .from('program_blocks')
+                    .insert({
+                        program_day_id: dayId,
+                        title,
+                        block_type: 'video',
+                        category: 'broadcast',
+                        asset_id: null,
+                        slide_id: null,
+                        start_time: input.startTime,
+                        start_time_seconds: startTimeSeconds,
+                        duration_seconds: LIVE_ESTIMATED_DURATION_SECONDS,
+                        status: 'ready',
+                        hide_overlays: true,
+                        fallback_asset_id: null,
+                        metadata: liveMetadata,
+                    })
+                    .select('id,start_time_seconds')
+                    .single();
+
+                if (error) {
+                    throw error;
+                }
+                createdBlock = data as { id: string; start_time_seconds: number };
+            },
+        );
+        revalidatePath(`/admin/schedule/${input.date}`);
+        revalidatePath('/admin/output');
+        revalidatePath('/live');
+        revalidatePath('/output/live');
 
         return ok({
             id: createdBlock.id,
