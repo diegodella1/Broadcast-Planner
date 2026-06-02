@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 
 import { requireAdmin } from '@/lib/auth/auth';
+import {
+    formatTimecode,
+    isoDateInTimezone,
+    PLAYOUT_TIMEZONE,
+    secondsSinceMidnightInTimezone,
+} from '@/lib/helpers/time';
 import { scheduleLiveObjectOverride } from '@/lib/mutations';
 
 export const dynamic = 'force-dynamic';
@@ -15,9 +21,14 @@ export async function POST(request: Request) {
             startTime?: string;
             liveSourceType?: string;
             liveUrl?: string;
+            timingMode?: string;
         };
-        const date = body.date?.trim();
-        const startTime = normalizeStartTime(body.startTime || '');
+        const now = new Date();
+        const sendNow = body.timingMode === 'now';
+        const date = sendNow ? isoDateInTimezone(now, PLAYOUT_TIMEZONE) : body.date?.trim();
+        const startTime = sendNow
+            ? formatTimecode(secondsSinceMidnightInTimezone(now))
+            : normalizeStartTime(body.startTime || '');
         const liveUrl = body.liveUrl?.trim();
 
         if (!date) {

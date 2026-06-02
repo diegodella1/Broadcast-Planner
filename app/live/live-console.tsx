@@ -58,24 +58,49 @@ export function LiveConsole() {
     }, [date, startTime, timingMode]);
 
     useEffect(() => {
+        if (
+            window.location.protocol === 'http:' &&
+            !['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ) {
+            window.location.replace(`https://${window.location.host}${window.location.pathname}`);
+        }
+    }, []);
+
+    useEffect(() => {
         let cancelled = false;
 
         async function load() {
-            const response = await fetch(statusUrl, { cache: 'no-store' });
-            const payload = (await response.json()) as LiveStatus & { error?: string };
+            try {
+                if (
+                    window.location.protocol === 'http:' &&
+                    !['localhost', '127.0.0.1'].includes(window.location.hostname)
+                ) {
+                    return;
+                }
+                const response = await fetch(statusUrl, { cache: 'no-store' });
+                const payload = (await response.json()) as LiveStatus & { error?: string };
 
-            if (cancelled) {
-                return;
+                if (cancelled) {
+                    return;
+                }
+
+                if (!response.ok) {
+                    setError(payload.error || 'Could not load live status');
+
+                    return;
+                }
+                setStatus(payload);
+                setDate((current) => current || payload.currentAirDate);
+                setStartTime((current) => current || payload.currentTime.slice(0, 5));
+            } catch (nextError) {
+                if (!cancelled) {
+                    setError(
+                        nextError instanceof Error
+                            ? nextError.message
+                            : 'Could not load live status',
+                    );
+                }
             }
-
-            if (!response.ok) {
-                setError(payload.error || 'Could not load live status');
-
-                return;
-            }
-            setStatus(payload);
-            setDate((current) => current || payload.currentAirDate);
-            setStartTime((current) => current || payload.currentTime.slice(0, 5));
         }
 
         void load();
@@ -94,17 +119,16 @@ export function LiveConsole() {
         setError('');
 
         try {
-            const scheduledDate = timingMode === 'now' ? status.currentAirDate : date;
-            const scheduledStartTime = timingMode === 'now' ? status.currentTime : startTime;
             const response = await fetch('/api/live/schedule', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    date: scheduledDate,
-                    startTime: scheduledStartTime,
+                    date,
+                    startTime,
                     title,
                     liveSourceType,
                     liveUrl,
+                    timingMode,
                 }),
             });
             const payload = (await response.json()) as { ok?: boolean; error?: string };
@@ -131,7 +155,7 @@ export function LiveConsole() {
             const response = await fetch('/api/live/cancel', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ blockId: status.active?.live ? status.active.blockId : '' }),
+                body: JSON.stringify({}),
             });
             const payload = (await response.json()) as { ok?: boolean; error?: string };
 
@@ -182,7 +206,7 @@ export function LiveConsole() {
                 </p>
                 <button
                     className="btn-danger mt-4"
-                    disabled={pending || !status.active?.live}
+                    disabled={pending}
                     type="button"
                     onClick={() => void cancelLive()}
                 >
