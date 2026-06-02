@@ -609,7 +609,19 @@ function VisualState({ state, mediaState }: { state: OutputState | null; mediaSt
 }
 
 function YouTubeLivePlayer({ state }: { state: Extract<OutputState, { kind: 'youtube_live' }> }) {
+    const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [revealed, setRevealed] = useState(false);
     const src = useMemo(() => youtubeFrameSrc(state.embedUrl), [state.embedUrl]);
+
+    useEffect(() => {
+        revealTimerRef.current = setTimeout(() => setRevealed(true), 4500);
+
+        return () => {
+            if (revealTimerRef.current) {
+                clearTimeout(revealTimerRef.current);
+            }
+        };
+    }, []);
 
     return (
         <div className="absolute inset-0 overflow-hidden bg-black">
@@ -618,8 +630,17 @@ function YouTubeLivePlayer({ state }: { state: Extract<OutputState, { kind: 'you
                 src={src}
                 allow="autoplay; encrypted-media; picture-in-picture"
                 referrerPolicy="strict-origin-when-cross-origin"
-                className="absolute inset-0 h-full w-full border-0 bg-black opacity-100 blur-0"
+                className={[
+                    'absolute inset-0 h-full w-full border-0 bg-black opacity-100 transition-[filter,transform] duration-[4500ms] ease-out',
+                    revealed ? 'scale-100 blur-0' : 'scale-[1.04] blur-xl',
+                ].join(' ')}
             />
+            {!revealed ? (
+                <div
+                    data-testid="youtube-live-start-mask"
+                    className="pointer-events-none absolute inset-0 bg-black/70 opacity-100 transition-opacity duration-[4500ms] ease-out"
+                />
+            ) : null}
         </div>
     );
 }
