@@ -79,9 +79,17 @@ function redirectPublicHttpToHttps(request: NextRequest) {
     if (!publicHttp) {
         return null;
     }
-    const url = request.nextUrl.clone();
+    const canonicalOrigin =
+        originFromEnv(process.env.NEXT_PUBLIC_APP_BASE_URL) ||
+        originFromEnv(process.env.APP_BASE_URL);
+    const url = canonicalOrigin
+        ? new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, canonicalOrigin)
+        : request.nextUrl.clone();
     url.protocol = 'https:';
-    url.host = host;
+
+    if (!canonicalOrigin) {
+        url.host = host.replace(/:3450$/, '');
+    }
 
     return withSecurityHeaders(NextResponse.redirect(url, 308));
 }
