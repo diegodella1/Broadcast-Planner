@@ -215,42 +215,29 @@ export function LiveConsole() {
             </section>
 
             <form
-                className="surface-panel grid gap-4 p-4"
+                className="surface-panel grid gap-4 overflow-hidden p-4"
                 onSubmit={(event) => void sendLive(event)}
             >
-                <label className="grid gap-1 text-sm font-semibold">
-                    Live URL
-                    <input
-                        required
-                        placeholder={
-                            liveSourceType === 'youtube'
-                                ? 'https://www.youtube.com/watch?v=...'
-                                : 'https://.../live.m3u8'
-                        }
-                        value={liveUrl}
-                        onChange={(event) => setLiveUrl(event.target.value)}
-                    />
-                </label>
-
-                <label className="grid gap-1 text-sm font-semibold">
-                    Title
-                    <input
-                        placeholder="Live"
-                        value={title}
-                        onChange={(event) => setTitle(event.target.value)}
-                    />
-                </label>
-
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-2 rounded-md border border-line bg-panel p-1">
                     <button
-                        className={timingMode === 'now' ? 'chip-active' : 'chip'}
+                        className={[
+                            'min-h-10 rounded px-3 text-sm font-semibold',
+                            timingMode === 'now'
+                                ? 'bg-accent-positive text-surface-elevated-1'
+                                : 'text-muted hover:bg-white/5 hover:text-white',
+                        ].join(' ')}
                         type="button"
                         onClick={() => setTimingMode('now')}
                     >
                         Send now
                     </button>
                     <button
-                        className={timingMode === 'future' ? 'chip-active' : 'chip'}
+                        className={[
+                            'min-h-10 rounded px-3 text-sm font-semibold',
+                            timingMode === 'future'
+                                ? 'bg-accent-positive text-surface-elevated-1'
+                                : 'text-muted hover:bg-white/5 hover:text-white',
+                        ].join(' ')}
                         type="button"
                         onClick={() => setTimingMode('future')}
                     >
@@ -258,10 +245,43 @@ export function LiveConsole() {
                     </button>
                 </div>
 
-                <div className={timingMode === 'future' ? 'grid gap-3 sm:grid-cols-3' : 'grid'}>
+                <div className="grid gap-4 rounded-md border border-line bg-panel/60 p-4">
+                    <label className="grid gap-1 text-sm font-semibold">
+                        Live URL
+                        <input
+                            className="border border-line px-3 py-2"
+                            required
+                            placeholder={
+                                liveSourceType === 'youtube'
+                                    ? 'https://www.youtube.com/watch?v=...'
+                                    : 'https://.../live.m3u8'
+                            }
+                            value={liveUrl}
+                            onChange={(event) => setLiveUrl(event.target.value)}
+                        />
+                    </label>
+
+                    <label className="grid gap-1 text-sm font-semibold">
+                        Title
+                        <input
+                            className="border border-line px-3 py-2"
+                            placeholder="Live"
+                            value={title}
+                            onChange={(event) => setTitle(event.target.value)}
+                        />
+                    </label>
+                </div>
+
+                <div
+                    className={[
+                        'rounded-md border border-line bg-panel/60 p-4',
+                        timingMode === 'future' ? 'grid gap-3 sm:grid-cols-3' : 'grid',
+                    ].join(' ')}
+                >
                     <label className="grid gap-1 text-sm font-semibold">
                         Type
                         <select
+                            className="border border-line px-3 py-2"
                             value={liveSourceType}
                             onChange={(event) =>
                                 setLiveSourceType(event.target.value === 'hls' ? 'hls' : 'youtube')
@@ -276,6 +296,7 @@ export function LiveConsole() {
                             <label className="grid gap-1 text-sm font-semibold">
                                 Day
                                 <input
+                                    className="border border-line px-3 py-2"
                                     required
                                     type="date"
                                     value={date}
@@ -285,6 +306,7 @@ export function LiveConsole() {
                             <label className="grid gap-1 text-sm font-semibold">
                                 Time
                                 <input
+                                    className="border border-line px-3 py-2"
                                     required
                                     type="time"
                                     value={startTime}
@@ -320,7 +342,7 @@ export function LiveConsole() {
                 ) : null}
 
                 <button className="btn-primary" disabled={pending} type="submit">
-                    {timingMode === 'now' ? 'Send now' : 'Schedule live'}
+                    {timingMode === 'now' ? 'Send live' : 'Schedule live'}
                 </button>
             </form>
         </main>
