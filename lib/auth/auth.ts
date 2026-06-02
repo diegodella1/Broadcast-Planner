@@ -65,7 +65,7 @@ export function safeAdminReturnTo(value: string | null | undefined) {
         return '/admin/calendar';
     }
 
-    if (!value.startsWith('/admin') || value.startsWith('/admin/login')) {
+    if (!isSafeAdminReturnPath(value)) {
         return '/admin/calendar';
     }
 
@@ -84,6 +84,14 @@ export function safeAdminReturnTo(value: string | null | undefined) {
     } catch {
         return '/admin/calendar';
     }
+}
+
+function isSafeAdminReturnPath(value: string) {
+    if (value.startsWith('/admin/login')) {
+        return false;
+    }
+
+    return value.startsWith('/admin') || value === '/live' || value.startsWith('/live?');
 }
 
 export async function requireRole(roles: OperatorRole[]) {
