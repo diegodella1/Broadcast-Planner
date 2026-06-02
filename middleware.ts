@@ -4,6 +4,11 @@ import { ADMIN_SESSION_COOKIE } from '@/lib/auth/auth-constants';
 import { CSRF_COOKIE, INTERNAL_CSRF_HEADER } from '@/lib/auth/csrf-constants';
 
 export function middleware(request: NextRequest) {
+    const httpsRedirect = redirectPublicHttpToHttps(request);
+
+    if (httpsRedirect) {
+        return httpsRedirect;
+    }
     const csrfResponse = rejectCrossSiteMutation(request);
 
     if (csrfResponse) {
@@ -60,6 +65,25 @@ export function middleware(request: NextRequest) {
 export const config = {
     matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
+
+function redirectPublicHttpToHttps(request: NextRequest) {
+    const host = request.headers.get('host') ?? request.nextUrl.host;
+    const forwardedProto = request.headers.get('x-forwarded-proto');
+    const publicHttp =
+        request.nextUrl.protocol === 'http:' &&
+        forwardedProto !== 'https' &&
+        !host.startsWith('localhost') &&
+        !host.startsWith('127.0.0.1') &&
+        !host.startsWith('0.0.0.0');
+
+    if (!publicHttp) {
+        return null;
+    }
+    const url = request.nextUrl.clone();
+    url.protocol = 'https:';
+
+    return withSecurityHeaders(NextResponse.redirect(url, 308));
+}
 
 function rejectCrossSiteMutation(request: NextRequest) {
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
