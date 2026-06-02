@@ -72,6 +72,39 @@ describe('GET /api/output/channel/state background music', () => {
         });
     });
 
+    it('renders youtube slides through the slide output iframe and disables music', async () => {
+        vi.mocked(getLiveSchedule).mockResolvedValue(
+            bundleWith({
+                blockType: 'slide',
+                slideId: 'slide-youtube-1',
+                extraSlideAssets: [
+                    {
+                        id: 'slide-youtube-1',
+                        title: 'YouTube promo',
+                        slideType: 'html' as const,
+                        content: 'YouTube video dQw4w9WgXcQ',
+                        status: 'ready' as const,
+                        metadata: {
+                            youtubeVideoId: 'dQw4w9WgXcQ',
+                            youtubeZoom: 1.25,
+                            youtubeMuted: true,
+                            youtubeLoop: true,
+                        },
+                        createdAt: '2026-05-25T00:00:00.000Z',
+                        updatedAt: '2026-05-25T00:00:00.000Z',
+                    },
+                ],
+            }),
+        );
+
+        const payload = await outputState();
+
+        expect(payload.kind).toBe('slide');
+        expect(payload.slideId).toBe('slide-youtube-1');
+        expect(payload.renderUrl).toContain('/output/slide/slide-youtube-1');
+        expect(payload.backgroundMusic).toBeNull();
+    });
+
     it('keeps the playlist but pauses it for video blocks', async () => {
         vi.mocked(getLiveSchedule).mockResolvedValue(
             bundleWith({ blockType: 'video', assetId: 'video-1' }),
@@ -156,7 +189,9 @@ describe('GET /api/output/channel/state background music', () => {
     it('plays a fallback carousel slide with music when no fallback loop video exists', async () => {
         vi.mocked(getGlobalFallbackCarousel).mockResolvedValue({
             enabled: true,
-            cards: [{ slideId: 'slide-1', durationSeconds: 30 }],
+            activeSetId: null,
+            sets: [],
+            cards: [slideFallbackCard('slide-1', 30)],
             updatedAt: '2026-05-25T00:00:00.000Z',
         });
         vi.mocked(getLiveSchedule).mockResolvedValue(bundleWith({ blocks: [] }));
@@ -196,6 +231,94 @@ describe('GET /api/output/channel/state background music', () => {
         expect(payload.backgroundMusic).toBeNull();
     });
 
+    it('uses an active fallback carousel before fallback loop videos', async () => {
+        vi.mocked(getGlobalFallbackCarousel).mockResolvedValue({
+            enabled: true,
+            activeSetId: 'set-1',
+            sets: [
+                {
+                    id: 'set-1',
+                    name: 'Market break',
+                    cards: [slideFallbackCard('slide-1', 30)],
+                    createdAt: '2026-05-25T00:00:00.000Z',
+                    updatedAt: '2026-05-25T00:00:00.000Z',
+                },
+            ],
+            cards: [slideFallbackCard('slide-1', 30)],
+            updatedAt: '2026-05-25T00:00:00.000Z',
+        });
+        vi.mocked(getLiveSchedule).mockResolvedValue(
+            bundleWith({
+                blocks: [],
+                extraMediaAssets: [
+                    {
+                        id: 'fallback-video',
+                        title: 'Fallback loop',
+                        sourceType: 'remote_mp4',
+                        mediaKind: 'video',
+                        assetType: 'fallback',
+                        url: 'https://example.com/fallback.mp4',
+                        durationSeconds: 60,
+                        status: 'ready',
+                        metadata: { fallback_loop: true },
+                        createdAt: '2026-05-25T00:00:00.000Z',
+                        updatedAt: '2026-05-25T00:00:00.000Z',
+                    },
+                ],
+            }),
+        );
+
+        const payload = await outputState();
+
+        expect(payload.kind).toBe('slide');
+        expect(payload.signature).toContain('fallback-carousel:slide-1');
+        expect(payload.backgroundMusic).toMatchObject({ enabled: true });
+    });
+
+    it('plays promo videos inside the active fallback carousel', async () => {
+        vi.mocked(getGlobalFallbackCarousel).mockResolvedValue({
+            enabled: true,
+            activeSetId: 'set-1',
+            sets: [
+                {
+                    id: 'set-1',
+                    name: 'Promos',
+                    cards: [assetFallbackCard('promo-video', 15)],
+                    createdAt: '2026-05-25T00:00:00.000Z',
+                    updatedAt: '2026-05-25T00:00:00.000Z',
+                },
+            ],
+            cards: [assetFallbackCard('promo-video', 15)],
+            updatedAt: '2026-05-25T00:00:00.000Z',
+        });
+        vi.mocked(getLiveSchedule).mockResolvedValue(
+            bundleWith({
+                blocks: [],
+                extraMediaAssets: [
+                    {
+                        id: 'promo-video',
+                        title: 'Promo spot',
+                        sourceType: 'remote_mp4',
+                        mediaKind: 'video',
+                        assetType: 'promo',
+                        url: 'https://example.com/promo.mp4',
+                        durationSeconds: 15,
+                        status: 'ready',
+                        createdAt: '2026-05-25T00:00:00.000Z',
+                        updatedAt: '2026-05-25T00:00:00.000Z',
+                    },
+                ],
+            }),
+        );
+
+        const payload = await outputState();
+
+        expect(payload.kind).toBe('mp4');
+        expect(payload.signature).toContain('fallback-carousel:promo-video');
+        expect(payload.url).toBe('https://example.com/promo.mp4');
+        expect(payload.backgroundMusic).toBeNull();
+    });
+
     it('returns null music when no ready tracks exist', async () => {
         vi.mocked(getLiveSchedule).mockResolvedValue(
             bundleWith({ blockType: 'slide', slideId: 'slide-1', includeMusic: false }),
@@ -217,6 +340,24 @@ async function outputState() {
     return response.json();
 }
 
+function slideFallbackCard(slideId: string, durationSeconds: number) {
+    return {
+        kind: 'slide' as const,
+        id: slideId,
+        slideId,
+        durationSeconds,
+    };
+}
+
+function assetFallbackCard(assetId: string, durationSeconds: number) {
+    return {
+        kind: 'asset' as const,
+        id: assetId,
+        assetId,
+        durationSeconds,
+    };
+}
+
 function bundleWith(input: {
     blockType?: string;
     assetId?: string;
@@ -224,6 +365,7 @@ function bundleWith(input: {
     blocks?: ProgramBlock[];
     includeMusic?: boolean;
     extraMediaAssets?: MediaAsset[];
+    extraSlideAssets?: ScheduleBundle['slideAssets'];
     metadata?: Record<string, unknown> | null;
 }): ScheduleBundle {
     const blocks =
@@ -298,13 +440,15 @@ function bundleWith(input: {
             {
                 id: 'slide-1',
                 title: 'Slide',
-                slideType: 'html' as const,
+                slideType: 'template' as const,
+                templateId: 'weather',
                 content: 'Slide content',
                 status: 'ready' as const,
                 metadata: null,
                 createdAt: '2026-05-25T00:00:00.000Z',
                 updatedAt: '2026-05-25T00:00:00.000Z',
             },
+            ...(input.extraSlideAssets ?? []),
         ],
     };
 }

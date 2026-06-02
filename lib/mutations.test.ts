@@ -39,6 +39,9 @@ function makeSupabaseMock() {
         gte: vi.fn().mockReturnThis(),
         lt: vi.fn().mockReturnThis(),
         in: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockImplementation(function () {
+            return Promise.resolve(_result);
+        }),
         single: vi.fn().mockImplementation(function () {
             return Promise.resolve(_result);
         }),
@@ -175,9 +178,13 @@ import {
     updateProgramDayStatus,
     updateProgramBlock,
     createBulkCardLoop,
+    activateFallbackCarouselSet,
+    deleteFallbackCarouselSet,
+    saveFallbackCarouselSet,
     saveGlobalFallbackCarouselFromSlides,
     createLongTestSchedule,
     createWeatherPlate,
+    createYouTubeSlide,
     updateWeatherPlate,
     reorderProgramBlocks,
     resizeProgramBlock,
@@ -217,6 +224,9 @@ function resetMocks() {
     (supabaseMock.gte as ReturnType<typeof vi.fn>).mockReturnThis();
     (supabaseMock.lt as ReturnType<typeof vi.fn>).mockReturnThis();
     (supabaseMock.in as ReturnType<typeof vi.fn>).mockReturnThis();
+    (supabaseMock.maybeSingle as ReturnType<typeof vi.fn>).mockImplementation(() =>
+        Promise.resolve(supabaseMock._result),
+    );
     (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() =>
         Promise.resolve(supabaseMock._result),
     );
@@ -229,6 +239,15 @@ function resetMocks() {
     analyzeScheduleMock.mockReturnValue(healthClean);
     buildBulkCardLoopMock.mockReturnValue(fakeGeneratedCardBlocks);
     buildLongTestScheduleMock.mockReturnValue(fakeGeneratedBlocks);
+}
+
+function slideFallbackCard(slideId: string, durationSeconds: number) {
+    return {
+        kind: 'slide',
+        id: slideId,
+        slideId,
+        durationSeconds,
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -1333,13 +1352,20 @@ describe('saveGlobalFallbackCarouselFromSlides', () => {
         expect(supabaseMock.upsert).toHaveBeenCalledWith(
             expect.objectContaining({
                 provider: 'fallback_carousel',
-                public_config: {
-                    enabled: true,
-                    cards: [
-                        { slideId: 'slide-1', durationSeconds: 12 },
-                        { slideId: 'slide-2', durationSeconds: 18 },
+                public_config: expect.objectContaining({
+                    activeSetId: expect.any(String),
+                    sets: [
+                        expect.objectContaining({
+                            name: 'Loop Builder fallback',
+                            cards: [
+                                slideFallbackCard('slide-1', 12),
+                                slideFallbackCard('slide-2', 18),
+                            ],
+                        }),
                     ],
-                },
+                    enabled: true,
+                    cards: [slideFallbackCard('slide-1', 12), slideFallbackCard('slide-2', 18)],
+                }),
                 status: 'connected',
             }),
             { onConflict: 'provider' },
@@ -1356,6 +1382,130 @@ describe('saveGlobalFallbackCarouselFromSlides', () => {
     });
 });
 
+describe('fallback carousel set mutations', () => {
+    beforeEach(async () => {
+        await resetMocks();
+    });
+
+    it('saves and activates a named fallback set', async () => {
+        const result = await saveFallbackCarouselSet({
+            name: 'Market break',
+            cards: [
+                { slideId: 'slide-1', durationSeconds: 30 },
+                { slideId: 'slide-2', durationSeconds: 45 },
+            ],
+        });
+
+        expect(result).toEqual({ success: true, data: undefined });
+        expect(supabaseMock.upsert).toHaveBeenCalledWith(
+            expect.objectContaining({
+                provider: 'fallback_carousel',
+                public_config: expect.objectContaining({
+                    enabled: true,
+                    activeSetId: expect.any(String),
+                    sets: [
+                        expect.objectContaining({
+                            name: 'Market break',
+                            cards: [
+                                slideFallbackCard('slide-1', 30),
+                                slideFallbackCard('slide-2', 45),
+                            ],
+                        }),
+                    ],
+                    cards: [slideFallbackCard('slide-1', 30), slideFallbackCard('slide-2', 45)],
+                }),
+            }),
+            { onConflict: 'provider' },
+        );
+    });
+
+    it('activates an existing set and copies its cards to the legacy active cards field', async () => {
+        supabaseMock.setResult({
+            data: {
+                public_config: {
+                    enabled: true,
+                    activeSetId: 'set-1',
+                    cards: [{ slideId: 'slide-1', durationSeconds: 30 }],
+                    sets: [
+                        {
+                            id: 'set-1',
+                            name: 'Primary',
+                            cards: [{ slideId: 'slide-1', durationSeconds: 30 }],
+                            createdAt: '2026-05-25T00:00:00.000Z',
+                            updatedAt: '2026-05-25T00:00:00.000Z',
+                        },
+                        {
+                            id: 'set-2',
+                            name: 'Markets',
+                            cards: [{ slideId: 'slide-2', durationSeconds: 20 }],
+                            createdAt: '2026-05-25T00:00:00.000Z',
+                            updatedAt: '2026-05-25T00:00:00.000Z',
+                        },
+                    ],
+                },
+                updated_at: '2026-05-25T00:00:00.000Z',
+            },
+            error: null,
+        });
+
+        const result = await activateFallbackCarouselSet('set-2');
+
+        expect(result).toEqual({ success: true, data: undefined });
+        expect(supabaseMock.upsert).toHaveBeenCalledWith(
+            expect.objectContaining({
+                public_config: expect.objectContaining({
+                    activeSetId: 'set-2',
+                    cards: [slideFallbackCard('slide-2', 20)],
+                }),
+            }),
+            { onConflict: 'provider' },
+        );
+    });
+
+    it('deletes the active set and promotes the next set', async () => {
+        supabaseMock.setResult({
+            data: {
+                public_config: {
+                    enabled: true,
+                    activeSetId: 'set-1',
+                    cards: [{ slideId: 'slide-1', durationSeconds: 30 }],
+                    sets: [
+                        {
+                            id: 'set-1',
+                            name: 'Primary',
+                            cards: [{ slideId: 'slide-1', durationSeconds: 30 }],
+                            createdAt: '2026-05-25T00:00:00.000Z',
+                            updatedAt: '2026-05-25T00:00:00.000Z',
+                        },
+                        {
+                            id: 'set-2',
+                            name: 'Markets',
+                            cards: [{ slideId: 'slide-2', durationSeconds: 20 }],
+                            createdAt: '2026-05-25T00:00:00.000Z',
+                            updatedAt: '2026-05-25T00:00:00.000Z',
+                        },
+                    ],
+                },
+                updated_at: '2026-05-25T00:00:00.000Z',
+            },
+            error: null,
+        });
+
+        const result = await deleteFallbackCarouselSet('set-1');
+
+        expect(result).toEqual({ success: true, data: undefined });
+        expect(supabaseMock.upsert).toHaveBeenCalledWith(
+            expect.objectContaining({
+                public_config: expect.objectContaining({
+                    activeSetId: 'set-2',
+                    cards: [slideFallbackCard('slide-2', 20)],
+                }),
+            }),
+            { onConflict: 'provider' },
+        );
+    });
+});
+
 // ---------------------------------------------------------------------------
 // createSlideAsset
 // ---------------------------------------------------------------------------
@@ -1366,9 +1516,10 @@ describe('createSlideAsset', () => {
 
     it('happy path: inserts slide_assets and revalidates /admin/slides', async () => {
         const result = await createSlideAsset({
-            title: 'Breaking News',
-            slideType: 'html',
-            htmlContent: '<p>test</p>',
+            title: 'Weather Plate',
+            slideType: 'template',
+            templateId: 'weather',
+            content: 'Weather plate',
             defaultDurationSeconds: 15,
             status: 'ready',
         });
@@ -1376,9 +1527,10 @@ describe('createSlideAsset', () => {
         expect(result).toEqual({ success: true, data: undefined });
         expect(supabaseMock.insert).toHaveBeenCalledWith(
             expect.objectContaining({
-                title: 'Breaking News',
-                slide_type: 'html',
-                html_content: '<p>test</p>',
+                title: 'Weather Plate',
+                slide_type: 'template',
+                template_id: 'weather',
+                content: 'Weather plate',
                 default_duration_seconds: 15,
             }),
         );
@@ -1393,9 +1545,78 @@ describe('createSlideAsset', () => {
                 ),
         );
 
-        const result = await createSlideAsset({ title: 'Bad Slide', slideType: 'html' });
+        const result = await createSlideAsset({ title: 'Bad Slide', slideType: 'template' });
 
         expect(result).toEqual({ success: false, error: 'Slide insert failed' });
+    });
+
+    it('accepts html slide types for special embeds', async () => {
+        const result = await createSlideAsset({
+            title: 'Embedded Slide',
+            slideType: 'html',
+            content: 'Embedded content',
+        });
+
+        expect(result).toEqual({ success: true, data: undefined });
+        expect(supabaseMock.insert).toHaveBeenCalledWith(
+            expect.objectContaining({
+                title: 'Embedded Slide',
+                slide_type: 'html',
+                content: 'Embedded content',
+            }),
+        );
+    });
+
+    it('rejects unsupported slide types before inserting', async () => {
+        const result = await createSlideAsset({ title: 'Bad Slide', slideType: 'bogus' });
+
+        expect(result).toEqual({ success: false, error: 'Unsupported slide type' });
+        expect(supabaseMock.insert).not.toHaveBeenCalled();
+    });
+});
+
+describe('youtube slide mutations', () => {
+    beforeEach(async () => {
+        await resetMocks();
+    });
+
+    it('creates youtube slides as html slides with parsed metadata', async () => {
+        const result = await createYouTubeSlide({
+            title: 'Promo YouTube',
+            url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            zoom: '1.25',
+            muted: true,
+            loop: true,
+            startSeconds: 12,
+            defaultDurationSeconds: 45,
+            status: 'ready',
+        });
+
+        expect(result).toEqual({ success: true, data: undefined });
+        expect(supabaseMock.insert).toHaveBeenCalledWith(
+            expect.objectContaining({
+                title: 'Promo YouTube',
+                slide_type: 'html',
+                default_duration_seconds: 45,
+                metadata: expect.objectContaining({
+                    youtubeVideoId: 'dQw4w9WgXcQ',
+                    youtubeZoom: 1.25,
+                    youtubeMuted: true,
+                    youtubeLoop: true,
+                    youtubeStartSeconds: 12,
+                }),
+            }),
+        );
+    });
+
+    it('rejects invalid youtube urls', async () => {
+        const result = await createYouTubeSlide({
+            title: 'Broken YouTube',
+            url: 'https://example.com/not-youtube',
+        });
+
+        expect(result).toEqual({ success: false, error: 'YouTube URL is invalid' });
+        expect(supabaseMock.insert).not.toHaveBeenCalled();
     });
 });
 

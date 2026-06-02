@@ -1,9 +1,6 @@
 'use client';
 
-import { CalendarSlide, type CalendarSlideProps } from './CalendarSlide';
 import { DebtSlide, type DebtSlideProps } from './DebtSlide';
-import { EventSlide, type EventSlideProps } from './EventSlide';
-import { EventSlideModern, type EventSlideModernProps } from './EventSlideModern';
 import { FxSlide, type FxSlideProps } from './FxSlide';
 import { GoldSlide, type GoldSlideProps } from './GoldSlide';
 import { GuestLineupSlide, type GuestLineupSlideProps } from './GuestLineupSlide';
@@ -31,14 +28,8 @@ export type SlideTemplateRendererProps = {
 
 export function SlideTemplateRenderer({ templateId, data }: SlideTemplateRendererProps) {
     switch (templateId) {
-        case 'calendar':
-            return <CalendarSlide {...(data as CalendarSlideProps)} />;
         case 'debt':
             return <DebtSlide {...(data as DebtSlideProps)} />;
-        case 'event':
-            return <EventSlide {...(data as EventSlideProps)} />;
-        case 'event-modern':
-            return <EventSlideModern {...(data as EventSlideModernProps)} />;
         case 'fx':
             return <FxSlide {...(data as FxSlideProps)} />;
         case 'gold':

@@ -10,8 +10,8 @@ export type FxSlideProps = {
     data: MarketsSatsData;
 };
 
-const headerFont = { fontSize: 'clamp(27px, 2vw, 39px)', lineHeight: '1', fontWeight: 900 };
-const valueFont = { fontSize: 'clamp(32px, 3vw, 56px)', lineHeight: '1', fontWeight: 900 };
+const headerFont = { fontSize: 'clamp(24px, 1.75vw, 34px)', lineHeight: '1', fontWeight: 900 };
+const valueFont = { fontSize: 'clamp(28px, 2.45vw, 46px)', lineHeight: '1', fontWeight: 900 };
 const headerBg = 'bg-red-500/80';
 const contentBg = 'bg-zinc-900/80';
 
@@ -219,12 +219,15 @@ export function FxSlide({ data }: FxSlideProps) {
                 </svg>
             </div>
 
-            <div className="relative z-10 w-full h-full flex flex-col gap-6 justify-center">
-                <div className="grid grid-cols-2 gap-6 w-full">
+            <div className="relative z-10 flex h-full w-full flex-col justify-center">
+                <div className="grid h-full max-h-[calc(100vh-4rem)] w-full grid-cols-2 grid-rows-2 gap-5">
                     {currencies.map((currency) => (
-                        <div key={currency.code} className="flex flex-col shadow-xl">
+                        <div
+                            key={currency.code}
+                            className="flex min-h-0 flex-col overflow-hidden shadow-xl"
+                        >
                             <div
-                                className={`${headerBg} flex items-center justify-center px-4 py-4 h-32`}
+                                className={`${headerBg} flex h-24 shrink-0 items-center justify-center px-4 py-3`}
                             >
                                 <h2
                                     className="text-white text-center tracking-wider uppercase"
@@ -234,11 +237,11 @@ export function FxSlide({ data }: FxSlideProps) {
                                 </h2>
                             </div>
                             <div
-                                className={`flex items-center justify-center flex-1 ${contentBg} px-6 py-10`}
+                                className={`flex min-h-0 flex-1 items-center justify-center ${contentBg} px-5 py-6`}
                             >
                                 {currency.satsPerUnit > 0 ? (
                                     <div
-                                        className="text-white tabular-nums flex items-center gap-2 whitespace-nowrap justify-center"
+                                        className="flex min-w-0 items-center justify-center gap-2 whitespace-nowrap text-white tabular-nums"
                                         style={valueFont}
                                     >
                                         <FlagIcon country={currency.code} />

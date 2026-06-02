@@ -429,13 +429,10 @@
       "titleField": "Titulo",
       "imageUrl": "URL imagen",
       "visibleText": "Texto visible",
-      "optionalHtml": "HTML opcional",
       "submit": "Crear slide"
     },
     "type": {
-      "html": "HTML",
       "image": "Imagen",
-      "markdown": "Markdown",
       "template": "Template"
     },
     "status": {
@@ -454,21 +451,9 @@
     },
     "add": "Agregar slide",
     "template": {
-      "calendar": {
-        "label": "Calendario",
-        "description": "Lista de próximos eventos"
-      },
       "debt": {
         "label": "Reloj de deuda",
         "description": "Deuda nacional EE.UU. en vivo"
-      },
-      "event": {
-        "label": "Destacado de evento",
-        "description": "Foco en un evento"
-      },
-      "event-modern": {
-        "label": "Destacado de evento (moderno)",
-        "description": "Foco en un evento, estilo moderno"
       },
       "fx": {
         "label": "Tipos de cambio",

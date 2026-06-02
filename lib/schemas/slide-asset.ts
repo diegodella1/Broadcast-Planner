@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const slideTypeEnum = z.enum(['image', 'html', 'template', 'markdown']);
+const slideTypeEnum = z.enum(['image', 'html', 'markdown', 'template']);
 const slideStatusEnum = z.enum(['draft', 'ready', 'archived']);
 
 const optionalString = (max = 10000) =>
@@ -23,7 +23,6 @@ export const createSlideAssetSchema = z.object({
     slideType: slideTypeEnum,
     content: optionalString(10000),
     imageUrl: optionalString(2000),
-    htmlContent: optionalString(50000),
     defaultDurationSeconds: optionalDuration,
     status: slideStatusEnum.default('ready'),
 });

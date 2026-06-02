@@ -1,17 +1,24 @@
-import { Archive, CheckCircle2, CirclePlus, Eye, Library, Sparkles } from 'lucide-react';
+import { Archive, CheckCircle2, CirclePlus, Eye, Library, Sparkles, Youtube } from 'lucide-react';
 
 import { AdminShell } from '@/components/admin/admin-shell';
+import { FallbackSetsPanel } from '@/components/slides/fallback-sets-panel';
 import { StatusPill } from '@/components/ui/status-pill';
 import { EmptyState, FormHeader } from '@/components/ui';
-import { getSlides } from '@/lib/data';
+import { getAssets, getSlides } from '@/lib/data';
+import { getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
 import {
+    activateFallbackCarouselSet,
     archiveSlideAsset,
     createSlideAsset,
     createWeatherPlate,
+    createYouTubeSlide,
+    deleteFallbackCarouselSet,
+    saveFallbackCarouselSet,
     updateWeatherPlate,
 } from '@/lib/mutations';
 import { slidePreviewHref } from '@/lib/helpers/slide-preview';
 import { SLIDE_TEMPLATES, type SlideTemplateEntry } from '@/lib/slides/registry';
+import { getYouTubeSlideConfig, isYouTubeSlide } from '@/lib/slides/youtube';
 import { createServiceClient } from '@/lib/supabase/server';
 import type { SlideAsset } from '@/lib/types';
 
@@ -45,11 +52,6 @@ const TEMPLATE_GROUPS: ReadonlyArray<{
         detail: 'BTC-relative markets, metals, oil and FX surfaces.',
         ids: ['metals', 'gold', 'silver', 'oil', 'fx'],
     },
-    {
-        title: 'Event plates',
-        detail: 'Calendar/event boards backed by the events table.',
-        ids: ['calendar', 'event', 'event-modern'],
-    },
 ];
 
 const SYSTEM_SLIDE_PRESETS = SLIDE_TEMPLATES.map((template) => ({
@@ -59,7 +61,11 @@ const SYSTEM_SLIDE_PRESETS = SLIDE_TEMPLATES.map((template) => ({
 }));
 
 export default async function SlidesPage() {
-    const slides = await getSlides();
+    const [slides, assets, fallbackCarousel] = await Promise.all([
+        getSlides(),
+        getAssets(),
+        getGlobalFallbackCarousel(),
+    ]);
     const activeSlides = slides.filter((slide) => slide.status !== 'archived');
     const archivedSlides = slides.filter((slide) => slide.status === 'archived');
     const currentTemplateIds = new Set(SLIDE_TEMPLATES.map((template) => template.id));
@@ -73,8 +79,12 @@ export default async function SlidesPage() {
     );
     const legacySlides = activeSlides.filter((slide) => isLegacySlide(slide, currentTemplateIds));
     const weatherPlates = activeSlides.filter((slide) => slide.templateId === 'weather');
+    const youtubeSlides = activeSlides.filter(isYouTubeSlide);
     const customSlides = activeSlides.filter(
-        (slide) => !slide.templateId && !isLegacySlide(slide, currentTemplateIds),
+        (slide) =>
+            !slide.templateId &&
+            !isYouTubeSlide(slide) &&
+            !isLegacySlide(slide, currentTemplateIds),
     );
     const scheduledSlideIds = await getScheduledSlideIds();
 
@@ -90,7 +100,6 @@ export default async function SlidesPage() {
             slideType,
             content: String(formData.get('content') || ''),
             imageUrl: String(formData.get('image_url') || ''),
-            htmlContent: String(formData.get('html_content') || ''),
             ...(defaultDurationSeconds !== undefined ? { defaultDurationSeconds } : {}),
             ...(templateId !== undefined && templateId !== '' ? { templateId } : {}),
             status: String(formData.get('status') || 'ready'),
@@ -179,6 +188,24 @@ export default async function SlidesPage() {
         }
     }
 
+    async function addYouTubeSlide(formData: FormData) {
+        'use server';
+        const result = await createYouTubeSlide({
+            title: String(formData.get('title') || ''),
+            url: String(formData.get('youtube_url') || ''),
+            zoom: String(formData.get('zoom') || '1'),
+            muted: formData.get('muted') === 'on',
+            loop: formData.get('loop') === 'on',
+            startSeconds: Number(formData.get('start_seconds') || 0),
+            defaultDurationSeconds: Number(formData.get('default_duration_seconds') || 30),
+            status: String(formData.get('status') || 'ready'),
+        });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+    }
+
     async function updateWeatherPlateAction(formData: FormData) {
         'use server';
         const result = await updateWeatherPlate({
@@ -217,6 +244,45 @@ export default async function SlidesPage() {
         }
     }
 
+    async function saveFallbackSet(formData: FormData) {
+        'use server';
+        const result = await saveFallbackCarouselSet({
+            setId: String(formData.get('set_id') || '') || undefined,
+            name: String(formData.get('name') || ''),
+            cards: formData.getAll('item_ids').map((itemId, index) => {
+                const kind = String(formData.getAll('item_kinds')[index] || 'slide');
+
+                return {
+                    id: String(itemId),
+                    kind,
+                    durationSeconds: Number(formData.getAll('durations')[index] || 30),
+                };
+            }),
+        });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+    }
+
+    async function activateFallbackSet(formData: FormData) {
+        'use server';
+        const result = await activateFallbackCarouselSet(String(formData.get('set_id') || ''));
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+    }
+
+    async function deleteFallbackSet(formData: FormData) {
+        'use server';
+        const result = await deleteFallbackCarouselSet(String(formData.get('set_id') || ''));
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+    }
+
     return (
         <AdminShell
             title="Graphics"
@@ -236,6 +302,15 @@ export default async function SlidesPage() {
                 <MetricCard icon={CirclePlus} label="Missing" value={missingPresets.length} />
                 <MetricCard icon={Archive} label="Legacy active" value={legacySlides.length} />
             </section>
+
+            <FallbackSetsPanel
+                slides={activeSlides}
+                assets={assets}
+                carousel={fallbackCarousel}
+                saveSet={saveFallbackSet}
+                activateSet={activateFallbackSet}
+                deleteSet={deleteFallbackSet}
+            />
 
             <section className="surface-panel mb-5 p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -363,6 +438,84 @@ export default async function SlidesPage() {
                 ) : null}
             </section>
 
+            <section className="surface-panel mb-5 overflow-hidden">
+                <div className="border-b border-line p-4">
+                    <FormHeader
+                        title="YouTube video slides"
+                        detail="Create fullscreen YouTube slides for fallback loops, promos or scheduled blocks. Playback uses a clean embed with controls hidden."
+                    />
+                </div>
+                <form
+                    action={addYouTubeSlide}
+                    className="grid gap-3 border-b border-line p-4 lg:grid-cols-[1fr_1.6fr_120px_120px_110px_120px]"
+                >
+                    <input
+                        name="title"
+                        required
+                        placeholder="Slide title"
+                        className="border border-line px-3 py-2 text-sm"
+                    />
+                    <input
+                        name="youtube_url"
+                        required
+                        placeholder="YouTube URL or video ID"
+                        className="border border-line px-3 py-2 text-sm"
+                    />
+                    <select name="zoom" className="border border-line px-3 py-2 text-sm">
+                        <option value="1">Fullscreen</option>
+                        <option value="1.25">Zoom 1.25x</option>
+                    </select>
+                    <input
+                        name="default_duration_seconds"
+                        type="number"
+                        min="1"
+                        defaultValue="30"
+                        className="border border-line px-3 py-2 text-sm"
+                        aria-label="Duration seconds"
+                    />
+                    <input
+                        name="start_seconds"
+                        type="number"
+                        min="0"
+                        defaultValue="0"
+                        className="border border-line px-3 py-2 text-sm"
+                        aria-label="Start seconds"
+                    />
+                    <select name="status" className="border border-line px-3 py-2 text-sm">
+                        <option value="ready">Ready</option>
+                        <option value="draft">Draft</option>
+                    </select>
+                    <label className="inline-flex items-center gap-2 text-sm text-muted">
+                        <input name="muted" type="checkbox" defaultChecked />
+                        Muted autoplay
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-sm text-muted">
+                        <input name="loop" type="checkbox" defaultChecked />
+                        Loop video
+                    </label>
+                    <button className="btn-primary gap-2 lg:col-span-4">
+                        <Youtube size={16} aria-hidden="true" />
+                        Create YouTube slide
+                    </button>
+                </form>
+                {youtubeSlides.map((slide) => (
+                    <SlideRow
+                        key={slide.id}
+                        slide={slide}
+                        archiveSlide={archiveSlide}
+                        scheduled={scheduledSlideIds.has(slide.id)}
+                    />
+                ))}
+                {youtubeSlides.length === 0 ? (
+                    <div className="p-4">
+                        <EmptyState title="No YouTube video slides">
+                            Add a YouTube link, choose fullscreen or 1.25x zoom, then add it to a
+                            fallback set like any other slide.
+                        </EmptyState>
+                    </div>
+                ) : null}
+            </section>
+
             {legacySlides.length > 0 && (
                 <section className="surface-panel mb-5 p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -402,8 +555,6 @@ export default async function SlidesPage() {
                     <select name="slide_type" className="border border-line px-3 py-2 text-sm">
                         <option value="template">Template</option>
                         <option value="image">Image</option>
-                        <option value="html">HTML</option>
-                        <option value="markdown">Markdown</option>
                     </select>
                     <input
                         name="default_duration_seconds"
@@ -437,11 +588,6 @@ export default async function SlidesPage() {
                         name="content"
                         placeholder="Visible text"
                         className="min-h-24 border border-line px-3 py-2 text-sm lg:col-span-2"
-                    />
-                    <textarea
-                        name="html_content"
-                        placeholder="Optional controlled HTML"
-                        className="min-h-24 border border-line px-3 py-2 text-sm lg:col-span-4"
                     />
                     <button className="btn-primary lg:col-span-4">Create custom graphic</button>
                 </form>
@@ -649,21 +795,24 @@ function SlideRow({
     muted?: boolean;
     scheduled?: boolean;
 }) {
+    const youtube = getYouTubeSlideConfig(slide);
+
     return (
         <div className="grid gap-3 border-b border-line p-4 last:border-b-0 md:grid-cols-[1fr_120px_120px_180px] md:items-center">
             <div className={muted ? 'opacity-60' : ''}>
                 <p className="font-semibold">{slide.title}</p>
                 <p className="text-sm text-muted">
-                    {slide.slideType}
+                    {youtube ? 'youtube' : slide.slideType}
                     {slide.templateId ? `/${slide.templateId}` : ''} ·{' '}
                     {slide.defaultDurationSeconds
                         ? `${slide.defaultDurationSeconds}s`
                         : 'No duration'}
+                    {youtube ? ` · ${youtube.zoom === 1.25 ? 'zoom 1.25x' : 'fullscreen'}` : ''}
                 </p>
                 {slide.content && (
                     <p className="mt-1 line-clamp-1 text-sm text-muted">{slide.content}</p>
                 )}
-                {scheduled && !slide.templateId ? (
+                {scheduled && !slide.templateId && !youtube ? (
                     <p className="mt-2 rounded-md border border-warn-line bg-warn-soft px-2 py-1 text-xs font-semibold text-warn-strong">
                         Static custom slide is scheduled. Replace with a current template before
                         archiving.
@@ -671,7 +820,7 @@ function SlideRow({
                 ) : null}
             </div>
             <span className="text-sm text-muted">
-                {slide.imageUrl ? 'Image' : slide.htmlContent ? 'HTML' : 'Text'}
+                {youtube ? 'YouTube' : slide.imageUrl ? 'Image' : 'Text'}
             </span>
             <StatusPill status={slide.status} />
             <div className="flex flex-wrap gap-2 md:justify-end">

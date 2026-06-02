@@ -62,4 +62,19 @@ describe('SataSlide', () => {
         render(<SataSlide data={baseData} />);
         expect(screen.getByText('STANDBY')).toBeInTheDocument();
     });
+
+    it('uses the STRC metric grid structure', () => {
+        render(<SataSlide data={baseData} />);
+
+        for (const label of ['Par Value', 'Eff. Yield', 'Monthly Div', 'Annual Div']) {
+            expect(screen.getByText(label)).toBeInTheDocument();
+        }
+
+        for (const label of ['MSTR', 'Sharpe', 'Ann. Vol', 'VWAP 1M', 'Corr']) {
+            expect(screen.getByText(label)).toBeInTheDocument();
+        }
+
+        expect(screen.queryByText('52W Range')).not.toBeInTheDocument();
+        expect(screen.queryByText('Avg Vol 30D')).not.toBeInTheDocument();
+    });
 });

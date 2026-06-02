@@ -16,7 +16,7 @@ import {
     Notice,
 } from '@/components/ui';
 import { getAssets, getSlides } from '@/lib/data';
-import { getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
+import { fallbackCarouselDisplayName, getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
 import { createMediaAsset, deleteMediaAsset, updateMediaAsset } from '@/lib/mutations';
 import { slidePreviewHref } from '@/lib/helpers/slide-preview';
 import { isoDateInTimezone, PLAYOUT_TIMEZONE } from '@/lib/helpers/time';
@@ -196,7 +196,7 @@ export default async function AssetsPage({
     const attentionCount = libraryItems.filter(libraryItemNeedsAttention).length;
     const fallbackLoopAsset = assets.find(fallbackLoopEnabled) ?? null;
     const fallbackTitle =
-        fallbackLoopAsset?.title ?? (fallbackCarousel?.enabled ? 'Slide carousel' : null);
+        fallbackCarouselDisplayName(fallbackCarousel) ?? fallbackLoopAsset?.title ?? null;
     async function addAsset(formData: FormData) {
         'use server';
         const durationSeconds = Number(formData.get('duration_seconds') || 0) || undefined;

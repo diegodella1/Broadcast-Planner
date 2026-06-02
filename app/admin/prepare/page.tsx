@@ -19,7 +19,7 @@ export default async function PreparePage() {
     const weatherPlates = slides.filter((slide) => slide.templateId === 'weather');
     const guestPlates = slides.filter((slide) => slide.templateId === 'guest-lineup');
     const dataPlates = slides.filter((slide) =>
-        ['btc-open', 'debt', 'events-calendar', 'metals', 'us-market-open'].includes(
+        ['debt', 'metals', 'gold', 'silver', 'oil', 'fx', 'us-market-open'].includes(
             slide.templateId ?? '',
         ),
     );

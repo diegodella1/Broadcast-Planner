@@ -24,6 +24,8 @@ const PYTH_FEED_IDS = {
 const MARKETS_CACHE_DURATION_MS = 30 * 1000;
 const FX_CACHE_DURATION_MS = 30 * 1000;
 const FX_FALLBACK_URL = 'https://open.er-api.com/v6/latest/USD';
+const EIA_BRENT_DAILY_URL = 'https://www.eia.gov/dnav/pet/hist/rbrted.htm';
+const EIA_WTI_DAILY_URL = 'https://www.eia.gov/dnav/pet/hist/rwtcd.htm';
 
 type PythPriceData = {
     price: string;
@@ -173,6 +175,44 @@ async function fetchPyth(): Promise<{
         };
     } catch (error) {
         console.error('[lib/slides/data/markets.ts:fetchPyth]', error);
+
+        return fallback;
+    }
+}
+
+async function fetchOilFromEia(): Promise<{
+    brent: CommodityRaw;
+    wti: CommodityRaw;
+}> {
+    const fallback = {
+        brent: { usd: 0, change24hPct: null },
+        wti: { usd: 0, change24hPct: null },
+    };
+
+    try {
+        const [brentResponse, wtiResponse] = await Promise.all([
+            fetch(EIA_BRENT_DAILY_URL, {
+                cache: 'no-store',
+                signal: AbortSignal.timeout(15_000),
+                headers: { Accept: 'text/html,text/plain,*/*' },
+            }),
+            fetch(EIA_WTI_DAILY_URL, {
+                cache: 'no-store',
+                signal: AbortSignal.timeout(15_000),
+                headers: { Accept: 'text/html,text/plain,*/*' },
+            }),
+        ]);
+
+        if (!brentResponse.ok || !wtiResponse.ok) {
+            throw new Error(`EIA oil error: ${brentResponse.status}/${wtiResponse.status}`);
+        }
+
+        return {
+            brent: parseEiaOilText(await brentResponse.text()),
+            wti: parseEiaOilText(await wtiResponse.text()),
+        };
+    } catch (error) {
+        console.error('[lib/slides/data/markets.ts:fetchOilFromEia]', error);
 
         return fallback;
     }
@@ -456,11 +496,12 @@ export async function getMarketsSatsData(): Promise<MarketsSatsData> {
         return emptyMarketsSats();
     }
 
-    const [pythRes, fxRes, copperRes, rtvMetalsRes] = await Promise.allSettled([
+    const [pythRes, fxRes, copperRes, rtvMetalsRes, eiaOilRes] = await Promise.allSettled([
         fetchPyth(),
         fetchFx(),
         fetchCopperFromRtvApi(),
         fetchMetalsFromRtvApi(),
+        fetchOilFromEia(),
     ]);
 
     const pyth =
@@ -485,8 +526,17 @@ export async function getMarketsSatsData(): Promise<MarketsSatsData> {
                   gold: { usd: 0, change24hPct: null },
                   silver: { usd: 0, change24hPct: null },
               };
+    const eiaOil =
+        eiaOilRes.status === 'fulfilled'
+            ? eiaOilRes.value
+            : {
+                  wti: { usd: 0, change24hPct: null },
+                  brent: { usd: 0, change24hPct: null },
+              };
     const gold = rtvMetals.gold.usd > 0 ? rtvMetals.gold : pyth.gold;
     const silver = rtvMetals.silver.usd > 0 ? rtvMetals.silver : pyth.silver;
+    const wti = eiaOil.wti.usd > 0 ? eiaOil.wti : pyth.wti;
+    const brent = eiaOil.brent.usd > 0 ? eiaOil.brent : pyth.brent;
 
     const result: MarketsSatsData = {
         btcUsd,
@@ -505,14 +555,14 @@ export async function getMarketsSatsData(): Promise<MarketsSatsData> {
         },
         oil: {
             wti: {
-                usd: pyth.wti.usd,
-                sats: pyth.wti.usd > 0 ? usdToSats(pyth.wti.usd, btcUsd) : 0,
-                change24hPct: pyth.wti.change24hPct,
+                usd: wti.usd,
+                sats: wti.usd > 0 ? usdToSats(wti.usd, btcUsd) : 0,
+                change24hPct: wti.change24hPct,
             },
             brent: {
-                usd: pyth.brent.usd,
-                sats: pyth.brent.usd > 0 ? usdToSats(pyth.brent.usd, btcUsd) : 0,
-                change24hPct: pyth.brent.change24hPct,
+                usd: brent.usd,
+                sats: brent.usd > 0 ? usdToSats(brent.usd, btcUsd) : 0,
+                change24hPct: brent.change24hPct,
             },
         },
         copper: {
@@ -542,8 +592,39 @@ export async function getMarketsSatsData(): Promise<MarketsSatsData> {
     return result;
 }
 
+function parseEiaOilText(text: string): CommodityRaw {
+    const rowRegex = /^\s*\d{4}\s+[A-Za-z]{3}-\s*\d+\s+to\s+[A-Za-z]{3}-\s*\d+\s+(.+)$/gm;
+    const rows: number[][] = [];
+
+    for (const match of text.matchAll(rowRegex)) {
+        const tail = match[1]?.trim() ?? '';
+        const values = tail
+            .match(/\d+\.\d+/g)
+            ?.map((value) => Number.parseFloat(value))
+            .filter(Number.isFinite);
+
+        if (values?.length) {
+            rows.push(values);
+        }
+    }
+
+    if (!rows.length) {
+        return { usd: 0, change24hPct: null };
+    }
+
+    const latestRow = rows.at(-1) ?? [];
+    const previousRow = rows.at(-2) ?? [];
+    const latest = latestRow.at(-1) ?? 0;
+    const previous = latestRow.length > 1 ? (latestRow.at(-2) ?? 0) : (previousRow.at(-1) ?? 0);
+
+    return {
+        usd: latest,
+        change24hPct: previous > 0 && latest > 0 ? ((latest - previous) / previous) * 100 : null,
+    };
+}
+
 /** Internal helpers exposed for unit tests. */
-export const __internals = { emptyMarketsSats, usdToSats };
+export const __internals = { emptyMarketsSats, usdToSats, parseEiaOilText };
 
 /** Test-only helper. */
 export function __resetMarketsCachesForTests() {
