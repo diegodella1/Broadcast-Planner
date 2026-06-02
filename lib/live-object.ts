@@ -151,7 +151,6 @@ export function youtubeLiveEmbedUrl(videoId: string) {
         autoplay: '1',
         controls: '0',
         disablekb: '1',
-        enablejsapi: '1',
         fs: '0',
         iv_load_policy: '3',
         modestbranding: '1',

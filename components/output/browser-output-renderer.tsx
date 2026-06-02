@@ -3,7 +3,7 @@
 /* eslint-disable jsx-a11y/media-has-caption */
 
 import type Hls from 'hls.js';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type MediaState =
     | 'idle'
@@ -487,20 +487,7 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
                 </div>
             </div>
             <audio ref={musicRef} />
-            <VisualState
-                state={state}
-                mediaState={mediaState}
-                armed={armed}
-                onYouTubeReady={() => {
-                    deadSinceRef.current = null;
-                    setMediaState('playing');
-                }}
-                onYouTubeEnded={(nextState) => void reportLiveEnded(nextState, 'youtube-ended')}
-                onYouTubeError={(nextState) => {
-                    markLiveDeadSignal(nextState, 'youtube-error');
-                    setMediaState('errored');
-                }}
-            />
+            <VisualState state={state} mediaState={mediaState} />
             <RecordedBugOverlay state={state} />
             {!armed ? (
                 <button
@@ -576,17 +563,9 @@ function recordedBugClassName(position: RecordedBug['position']) {
 function VisualState({
     state,
     mediaState,
-    armed,
-    onYouTubeReady,
-    onYouTubeEnded,
-    onYouTubeError,
 }: {
     state: OutputState | null;
     mediaState: MediaState;
-    armed: boolean;
-    onYouTubeReady: () => void;
-    onYouTubeEnded: (state: Extract<OutputState, { kind: 'youtube_live' }>) => void;
-    onYouTubeError: (state: Extract<OutputState, { kind: 'youtube_live' }>) => void;
 }) {
     if (!state) {
         return <EmergencySlate title="Loading output" detail="Resolving active schedule." />;
@@ -621,16 +600,7 @@ function VisualState({
     }
 
     if (state.kind === 'youtube_live') {
-        return (
-            <YouTubeLivePlayer
-                key={state.signature}
-                state={state}
-                armed={armed}
-                onReady={onYouTubeReady}
-                onEnded={onYouTubeEnded}
-                onError={onYouTubeError}
-            />
-        );
+        return <YouTubeLivePlayer key={state.signature} state={state} />;
     }
 
     if (mediaState === 'syncing') {
@@ -644,145 +614,31 @@ function VisualState({
     return null;
 }
 
-type YouTubePlayer = {
-    playVideo: () => void;
-    destroy: () => void;
-};
-
-type YouTubeApi = {
-    Player: new (
-        element: HTMLElement,
-        options: {
-            videoId: string;
-            playerVars: Record<string, string | number>;
-            events: {
-                onReady: () => void;
-                onStateChange: (event: { data: number }) => void;
-                onError: () => void;
-            };
-        },
-    ) => YouTubePlayer;
-    PlayerState: { ENDED: number; PLAYING: number; BUFFERING: number };
-};
-
-declare global {
-    interface Window {
-        YT?: YouTubeApi;
-        onYouTubeIframeAPIReady?: () => void;
-    }
-}
-
-function YouTubeLivePlayer({
-    state,
-    armed,
-    onReady,
-    onEnded,
-    onError,
-}: {
-    state: Extract<OutputState, { kind: 'youtube_live' }>;
-    armed: boolean;
-    onReady: () => void;
-    onEnded: (state: Extract<OutputState, { kind: 'youtube_live' }>) => void;
-    onError: (state: Extract<OutputState, { kind: 'youtube_live' }>) => void;
-}) {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const playerRef = useRef<YouTubePlayer | null>(null);
+function YouTubeLivePlayer({ state }: { state: Extract<OutputState, { kind: 'youtube_live' }> }) {
     const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [revealed, setRevealed] = useState(false);
-    const revealYouTubeLive = useCallback(() => {
-        if (revealTimerRef.current) {
-            clearTimeout(revealTimerRef.current);
-            revealTimerRef.current = null;
-        }
-
-        revealTimerRef.current = setTimeout(() => {
-            setRevealed(true);
-            revealTimerRef.current = null;
-        }, 4500);
-    }, []);
-    const clearRevealTimer = useCallback(() => {
-        if (!revealTimerRef.current) {
-            return;
-        }
-
-        clearTimeout(revealTimerRef.current);
-        revealTimerRef.current = null;
-    }, []);
 
     useEffect(() => {
-        if (armed) {
-            playerRef.current?.playVideo();
-            revealYouTubeLive();
-        }
-    }, [armed, revealYouTubeLive]);
-
-    useEffect(() => {
-        revealYouTubeLive();
-
-        return clearRevealTimer;
-    }, [clearRevealTimer, revealYouTubeLive]);
-
-    useEffect(() => {
-        let cancelled = false;
-
-        void loadYouTubeApi().then((YT) => {
-            if (cancelled || !containerRef.current) {
-                return;
-            }
-            playerRef.current?.destroy();
-            playerRef.current = new YT.Player(containerRef.current, {
-                videoId: state.youtubeVideoId,
-                playerVars: {
-                    autoplay: 1,
-                    cc_load_policy: 0,
-                    controls: 0,
-                    disablekb: 1,
-                    fs: 0,
-                    iv_load_policy: 3,
-                    modestbranding: 1,
-                    playsinline: 1,
-                    rel: 0,
-                },
-                events: {
-                    onReady: () => {
-                        onReady();
-
-                        if (armed) {
-                            playerRef.current?.playVideo();
-                            revealYouTubeLive();
-                        }
-                    },
-                    onStateChange: (event) => {
-                        if (event.data === YT.PlayerState.ENDED) {
-                            onEnded(state);
-                        }
-
-                        if (event.data === YT.PlayerState.PLAYING) {
-                            onReady();
-                            revealYouTubeLive();
-                        }
-                    },
-                    onError: () => onError(state),
-                },
-            });
-        });
+        revealTimerRef.current = setTimeout(() => setRevealed(true), 4500);
 
         return () => {
-            cancelled = true;
-
-            clearRevealTimer();
-
-            playerRef.current?.destroy();
-            playerRef.current = null;
+            if (revealTimerRef.current) {
+                clearTimeout(revealTimerRef.current);
+            }
         };
-    }, [armed, clearRevealTimer, revealYouTubeLive, state.signature, state.youtubeVideoId]);
+    }, []);
+
+    const src = useMemo(() => youtubeFrameSrc(state.embedUrl), [state.embedUrl]);
 
     return (
         <div className="absolute inset-0 overflow-hidden bg-black">
-            <div
-                ref={containerRef}
+            <iframe
+                title="Live video"
+                src={src}
+                allow="autoplay; encrypted-media; picture-in-picture"
+                referrerPolicy="strict-origin-when-cross-origin"
                 className={[
-                    'absolute inset-0 h-full w-full bg-black transition-[filter,opacity,transform] duration-700',
+                    'absolute inset-0 h-full w-full border-0 bg-black transition-[filter,opacity,transform] duration-700',
                     revealed ? 'scale-100 opacity-100 blur-0' : 'scale-[1.04] opacity-80 blur-xl',
                 ].join(' ')}
             />
@@ -793,28 +649,15 @@ function YouTubeLivePlayer({
     );
 }
 
-function loadYouTubeApi(): Promise<YouTubeApi> {
-    if (window.YT?.Player) {
-        return Promise.resolve(window.YT);
+function youtubeFrameSrc(value: string) {
+    try {
+        const url = new URL(value);
+        url.searchParams.set('origin', window.location.origin);
+
+        return url.toString();
+    } catch {
+        return value;
     }
-
-    return new Promise((resolve) => {
-        const previous = window.onYouTubeIframeAPIReady;
-
-        window.onYouTubeIframeAPIReady = () => {
-            previous?.();
-
-            if (window.YT) {
-                resolve(window.YT);
-            }
-        };
-
-        if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
-            const script = document.createElement('script');
-            script.src = 'https://www.youtube.com/iframe_api';
-            document.head.appendChild(script);
-        }
-    });
 }
 
 function EmergencySlate({ title, detail }: { title: string; detail: string }) {
