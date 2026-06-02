@@ -6,14 +6,24 @@ import type {
     ScheduledLayer,
     SlideAsset,
 } from '../types';
+import { isLiveObjectBlock, isLiveObjectEnded } from '../live-object';
 import { findFallbackCandidate } from './fallback';
 import { findScheduleConflicts } from './schedule-conflicts';
 
 export function findActiveSchedule(bundle: ScheduleBundle, secondsOfDay: number): ActiveSchedule {
+    const liveBlock = findActiveLiveBlock(bundle.blocks, secondsOfDay);
+
+    if (liveBlock) {
+        return activeScheduleForBlock(bundle, liveBlock, secondsOfDay);
+    }
     let block: ProgramBlock | null = null;
 
     for (const candidate of bundle.blocks) {
         if (candidate.status !== 'ready' && candidate.status !== 'active') {
+            continue;
+        }
+
+        if (isLiveObjectBlock(candidate) && isLiveObjectEnded(candidate)) {
             continue;
         }
         const end = candidate.startTimeSeconds + candidate.durationSeconds;
@@ -36,7 +46,25 @@ export function findActiveSchedule(bundle: ScheduleBundle, secondsOfDay: number)
         };
     }
 
-    const elapsedInBlock = secondsOfDay - block.startTimeSeconds;
+    return activeScheduleForBlock(bundle, block, secondsOfDay);
+}
+
+function findActiveLiveBlock(blocks: ProgramBlock[], secondsOfDay: number): ProgramBlock | null {
+    return (
+        blocks
+            .filter((candidate) => candidate.status === 'ready' || candidate.status === 'active')
+            .filter((candidate) => isLiveObjectBlock(candidate) && !isLiveObjectEnded(candidate))
+            .filter((candidate) => secondsOfDay >= candidate.startTimeSeconds)
+            .sort((a, b) => b.startTimeSeconds - a.startTimeSeconds)[0] ?? null
+    );
+}
+
+function activeScheduleForBlock(
+    bundle: ScheduleBundle,
+    block: ProgramBlock,
+    secondsOfDay: number,
+): ActiveSchedule {
+    const elapsedInBlock = Math.max(0, secondsOfDay - block.startTimeSeconds);
     const activeLayers = findActiveLayers(bundle.layers, block.id, elapsedInBlock);
     const asset = block.assetId ? findAsset(bundle.mediaAssets, block.assetId) : null;
     const slide = block.slideId ? findSlide(bundle.slideAssets, block.slideId) : null;

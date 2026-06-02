@@ -9,6 +9,7 @@ export {
     duplicateProgramBlock,
     ensureProgramDay,
     fillProgramBlockContent,
+    markLiveObjectEnded,
     moveProgramBlock,
     reorderProgramBlocks,
     resizeProgramBlock,

@@ -36,9 +36,12 @@ import {
     BlockEditActions,
     ConflictResolutionPanel,
     ContentPicker,
+    LiveObjectFields,
     PreviouslyRecordedFields,
     ReutersStreamFields,
 } from './schedule-drawer-fields';
+
+type BlockKind = BlockType | 'live';
 
 type BlockDrawerProps = {
     mode: DrawerMode;
@@ -80,8 +83,10 @@ export function BlockDrawer({
     const initialOption =
         options.find((option) => option.value === requestedContentValue) ??
         (mode === 'add' ? (options[0] ?? null) : null);
-    const [kind, setKind] = useState<BlockType>(
+    const blockIsLive = block?.metadata?.live_object === true;
+    const [kind, setKind] = useState<BlockKind>(
         (initialFilters?.kind as BlockType | undefined) ??
+            (blockIsLive ? 'live' : undefined) ??
             (contentKind(initialOption) as BlockType | undefined) ??
             block?.blockType ??
             'video',
@@ -112,6 +117,10 @@ export function BlockDrawer({
     const [reutersStreamExpiresAt, setReutersStreamExpiresAt] = useState(
         metadataTextFromBlock(block, 'reuters_stream_expires_at'),
     );
+    const [liveSourceType, setLiveSourceType] = useState(
+        metadataTextFromBlock(block, 'live_source_type') || 'youtube',
+    );
+    const [liveUrl, setLiveUrl] = useState(metadataTextFromBlock(block, 'live_url'));
     const [previouslyRecordedEnabled, setPreviouslyRecordedEnabled] = useState(
         block?.metadata?.previously_recorded_enabled === true,
     );
@@ -130,7 +139,7 @@ export function BlockDrawer({
     const filteredOptions = useMemo(
         () =>
             options.filter((option) => {
-                if (contentKind(option) !== kind) {
+                if (kind === 'live' || contentKind(option) !== kind) {
                     return false;
                 }
 
@@ -148,18 +157,25 @@ export function BlockDrawer({
     );
 
     const selected = options.find((option) => option.value === contentValue) ?? null;
-    const hiddenBlockType = selected?.blockType ?? block?.blockType ?? kind;
-    const hiddenAssetId = selected?.assetId ?? (mode === 'edit' ? (block?.assetId ?? '') : '');
-    const hiddenSlideId = selected?.slideId ?? (mode === 'edit' ? (block?.slideId ?? '') : '');
-    const hasReutersStream = Boolean(reutersStreamUrl.trim());
-    const canConfigureRecordedBug = hiddenBlockType === 'video' && !hasReutersStream;
+    const isLiveKind = kind === 'live';
+    const hiddenBlockType = isLiveKind
+        ? 'video'
+        : (selected?.blockType ?? block?.blockType ?? kind);
+    const hiddenAssetId = isLiveKind
+        ? ''
+        : (selected?.assetId ?? (mode === 'edit' ? (block?.assetId ?? '') : ''));
+    const hiddenSlideId = isLiveKind
+        ? ''
+        : (selected?.slideId ?? (mode === 'edit' ? (block?.slideId ?? '') : ''));
+    const hasReutersStream = !isLiveKind && Boolean(reutersStreamUrl.trim());
+    const canConfigureRecordedBug = hiddenBlockType === 'video' && !hasReutersStream && !isLiveKind;
     const durationSeconds = parseHumanDuration(duration);
     const startSeconds = parseTimeInput(startTime);
     const endSeconds = Math.min(DAY_SECONDS, startSeconds + durationSeconds);
     const exceedsDay = startSeconds + durationSeconds > DAY_SECONDS;
     const adTooLong = hiddenBlockType === 'ad' && durationSeconds > 300;
     const conflict =
-        selected && schedule.day && !exceedsDay
+        (selected || isLiveKind) && schedule.day && !exceedsDay
             ? findScheduleConflicts(blocks, {
                   id: block?.id ?? 'new',
                   programDayId: schedule.day.id,
@@ -182,16 +198,28 @@ export function BlockDrawer({
               })
             : null;
     const canSave =
-        Boolean(selected || mode === 'edit' || hasReutersStream) &&
+        Boolean(
+            selected || mode === 'edit' || hasReutersStream || (isLiveKind && liveUrl.trim()),
+        ) &&
         !exceedsDay &&
         !adTooLong &&
         (!conflict?.hasConflict || conflictResolution !== 'strict');
 
-    function chooseKind(value: BlockType) {
+    function chooseKind(value: BlockKind) {
         setKind(value);
 
         if (value !== 'video') {
             setShowName('');
+        }
+
+        if (value === 'live') {
+            setContentValue('');
+            setTitle((current) => current || 'Live');
+            setDuration((current) =>
+                current === formatDurationInput(DEFAULT_MANUAL_DURATION) ? '01:00:00' : current,
+            );
+
+            return;
         }
         const next = options.find((option) => contentKind(option) === value);
 
@@ -276,35 +304,50 @@ export function BlockDrawer({
 
                 <p className="text-[10px] font-bold uppercase text-muted">What plays</p>
                 <div className="grid grid-cols-3 gap-2">
-                    {(['video', 'slide', 'image', 'ad', 'promo', 'fallback'] as BlockType[]).map(
-                        (item) => (
-                            <button
-                                key={item}
-                                type="button"
-                                className={
-                                    kind === item
-                                        ? 'chip-active justify-center'
-                                        : 'chip justify-center'
-                                }
-                                onClick={() => chooseKind(item)}
-                            >
-                                {typeLabel(item)}
-                            </button>
-                        ),
-                    )}
+                    {(
+                        [
+                            'video',
+                            'live',
+                            'slide',
+                            'image',
+                            'ad',
+                            'promo',
+                            'fallback',
+                        ] as BlockKind[]
+                    ).map((item) => (
+                        <button
+                            key={item}
+                            type="button"
+                            className={
+                                kind === item ? 'chip-active justify-center' : 'chip justify-center'
+                            }
+                            onClick={() => chooseKind(item)}
+                        >
+                            {item === 'live' ? 'Live' : typeLabel(item)}
+                        </button>
+                    ))}
                 </div>
 
-                <ContentPicker
-                    kind={kind}
-                    query={query}
-                    showName={showName}
-                    availableShows={availableShows}
-                    filteredOptions={filteredOptions}
-                    selectedValue={contentValue}
-                    onQueryChange={setQuery}
-                    onShowChange={setShowName}
-                    onChooseContent={chooseContent}
-                />
+                {isLiveKind ? (
+                    <LiveObjectFields
+                        liveSourceType={liveSourceType}
+                        liveUrl={liveUrl}
+                        onSourceTypeChange={setLiveSourceType}
+                        onUrlChange={setLiveUrl}
+                    />
+                ) : (
+                    <ContentPicker
+                        kind={kind}
+                        query={query}
+                        showName={showName}
+                        availableShows={availableShows}
+                        filteredOptions={filteredOptions}
+                        selectedValue={contentValue}
+                        onQueryChange={setQuery}
+                        onShowChange={setShowName}
+                        onChooseContent={chooseContent}
+                    />
+                )}
 
                 <label className="grid gap-1 text-xs font-semibold text-muted">
                     Block name
@@ -427,6 +470,12 @@ export function BlockDrawer({
                 <input type="hidden" name="block_type" value={hiddenBlockType} />
                 <input type="hidden" name="asset_id" value={hiddenAssetId} />
                 <input type="hidden" name="slide_id" value={hiddenSlideId} />
+                <input
+                    type="hidden"
+                    name="live_source_type"
+                    value={isLiveKind ? liveSourceType : ''}
+                />
+                <input type="hidden" name="live_url" value={isLiveKind ? liveUrl : ''} />
 
                 {selected?.slideId ? (
                     <a

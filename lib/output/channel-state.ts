@@ -4,6 +4,7 @@ import { getGlobalFallbackCarousel, selectFallbackCarouselSlide } from '@/lib/fa
 import { getLatestMusicPreference } from '@/lib/operator-preferences';
 import { getActiveOutputOverride } from '@/lib/output-overrides';
 import { recordedBugFromBlock } from '@/lib/recorded-bug';
+import { getLiveObjectConfig, youtubeLiveEmbedUrl } from '@/lib/live-object';
 import { findPlayableFallback } from '@/lib/scheduling/fallback';
 import { findActiveLayers, findActiveSchedule } from '@/lib/scheduling/scheduler';
 import { getVimeoToken } from '@/lib/settings';
@@ -82,6 +83,11 @@ async function resolveChannelState(args: ResolveChannelStateArgs) {
     }
     const startOffsetSeconds = Math.max(0, Math.floor(active.elapsedInBlock));
     const reutersUrl = metadataText(active.block.metadata, 'reuters_stream_url');
+    const liveConfig = getLiveObjectConfig(active.block);
+
+    if (liveConfig) {
+        return liveBlockState(active.block, liveConfig, base, music);
+    }
 
     if (reutersUrl) {
         return reutersBlockState(active.block, reutersUrl, base, music);
@@ -174,6 +180,49 @@ function reutersBlockState(
         streamProtocol: metadataText(block.metadata, 'reuters_stream_protocol') || 'hls',
         backgroundMusic: suppressBackgroundMusic(music),
     };
+}
+
+function liveBlockState(
+    block: NonNullable<ActiveSchedule['block']>,
+    live: NonNullable<ReturnType<typeof getLiveObjectConfig>>,
+    base: ChannelStateBase,
+    music: BackgroundMusic,
+) {
+    const common = {
+        ...base,
+        blockId: block.id,
+        title: live.title || block.title,
+        startOffsetSeconds: 0,
+        durationSeconds: null,
+        live: true,
+        liveSourceType: live.sourceType,
+        liveStatus: live.status,
+        backgroundMusic: suppressBackgroundMusic(music),
+    };
+
+    if (live.sourceType === 'youtube' && live.youtubeVideoId) {
+        return {
+            ...common,
+            kind: 'youtube_live' as const,
+            signature: `youtube-live:${block.id}:${live.youtubeVideoId}:${live.status}`,
+            youtubeVideoId: live.youtubeVideoId,
+            youtubeUrl: live.url,
+            embedUrl: youtubeLiveEmbedUrl(live.youtubeVideoId),
+        };
+    }
+
+    if (live.sourceType === 'hls' && live.hlsUrl) {
+        return {
+            ...common,
+            kind: 'hls' as const,
+            signature: `hls-live:${block.id}:${live.hlsUrl}:${live.status}`,
+            hlsUrl: live.hlsUrl,
+            sourceType: 'live' as const,
+            streamProtocol: 'hls' as const,
+        };
+    }
+
+    return fallbackState('invalid-live-object', base, suppressBackgroundMusic(music));
 }
 
 type ActiveBlockStateArgs = {
