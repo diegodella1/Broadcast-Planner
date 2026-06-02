@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { useState, useTransition } from 'react';
 import { useActiveBlock } from '@/app/hooks/use-active-block';
 import { BlockBadge } from '@/components/schedule/block-badge';
 import { formatTimecode } from '@/lib/helpers/time';
@@ -8,6 +9,8 @@ import { formatTimecode } from '@/lib/helpers/time';
 export function OperationsPanelOnAir() {
     const t = useTranslations();
     const { data } = useActiveBlock();
+    const [error, setError] = useState<string | null>(null);
+    const [isPending, startTransition] = useTransition();
     const active = data?.active ?? null;
 
     if (!active) {
@@ -50,6 +53,45 @@ export function OperationsPanelOnAir() {
                 <span>{formatTimecode(active.elapsedInBlock)}</span>
                 <span>{formatTimecode(active.durationSeconds)}</span>
             </div>
+            {active.live ? (
+                <div className="rounded-sm border border-white/10 bg-white/[0.03] p-2 text-[10px] text-white/60">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold uppercase text-accent-positive">
+                            Live {active.live.sourceType}
+                        </span>
+                        <button
+                            type="button"
+                            className="rounded-sm border border-danger-line bg-danger-soft px-2 py-1 font-semibold text-danger-strong disabled:opacity-60"
+                            disabled={isPending}
+                            onClick={() => {
+                                setError(null);
+                                startTransition(async () => {
+                                    const response = await fetch('/api/output/live/end', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            blockId: active.blockId,
+                                            reason: 'manual',
+                                        }),
+                                    });
+
+                                    if (!response.ok) {
+                                        setError(`End live failed (${response.status})`);
+                                    }
+                                });
+                            }}
+                        >
+                            End live now
+                        </button>
+                    </div>
+                    <p className="mt-1 truncate">{active.live.url}</p>
+                    <p className="mt-1">
+                        Auto-end is conservative for third-party YouTube. End manually if the live
+                        rolls into prerecorded playback.
+                    </p>
+                    {error ? <p className="mt-1 text-danger-strong">{error}</p> : null}
+                </div>
+            ) : null}
         </div>
     );
 }

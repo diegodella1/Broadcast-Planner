@@ -74,6 +74,8 @@ export default async function ScheduleDatePage({
             reutersStreamUrl: String(formData.get('reuters_stream_url') || ''),
             reutersStreamLabel: String(formData.get('reuters_stream_label') || ''),
             reutersStreamExpiresAt: String(formData.get('reuters_stream_expires_at') || ''),
+            liveSourceType: String(formData.get('live_source_type') || ''),
+            liveUrl: String(formData.get('live_url') || ''),
             previouslyRecordedEnabled: formData.get('previously_recorded_enabled') === 'on',
             previouslyRecordedPosition: String(formData.get('previously_recorded_position') || ''),
         });
@@ -105,6 +107,8 @@ export default async function ScheduleDatePage({
             reutersStreamUrl: String(formData.get('reuters_stream_url') || ''),
             reutersStreamLabel: String(formData.get('reuters_stream_label') || ''),
             reutersStreamExpiresAt: String(formData.get('reuters_stream_expires_at') || ''),
+            liveSourceType: String(formData.get('live_source_type') || ''),
+            liveUrl: String(formData.get('live_url') || ''),
             previouslyRecordedEnabled: formData.get('previously_recorded_enabled') === 'on',
             previouslyRecordedPosition: String(formData.get('previously_recorded_position') || ''),
         });

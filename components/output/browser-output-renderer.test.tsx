@@ -125,6 +125,25 @@ describe('BrowserOutputRenderer', () => {
         expect(bug).toHaveAttribute('data-position', 'bottom_right');
     });
 
+    it('masks youtube live with blur for 4.5 seconds before revealing it', async () => {
+        global.fetch = vi.fn(async () => jsonResponse(youtubeLiveState()));
+
+        render(<BrowserOutputRenderer token="token" />);
+
+        const iframe = await screen.findByTitle('Live video');
+        expect(iframe).toHaveClass('blur-xl');
+        expect(iframe).toHaveClass('scale-[1.04]');
+        expect(screen.getByTestId('youtube-live-start-mask')).toHaveClass('bg-black/70');
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(4500);
+        });
+
+        expect(iframe).toHaveClass('blur-0');
+        expect(iframe).toHaveClass('scale-100');
+        expect(screen.queryByTestId('youtube-live-start-mask')).not.toBeInTheDocument();
+    });
+
     it('does not show a technical syncing slate during video source changes', async () => {
         const states = [videoState('a', 'First'), videoState('b', 'Second')];
         global.fetch = vi.fn(async () => jsonResponse(states.shift() ?? videoState('b', 'Second')));
@@ -235,6 +254,24 @@ function backgroundMusic(enabled: boolean) {
         volume: 50,
         fade: 'short' as const,
         tracks: [{ id: 'music-1', title: 'Music', url: 'https://example.com/music.mp3' }],
+    };
+}
+
+function youtubeLiveState() {
+    return {
+        kind: 'youtube_live',
+        signature: 'youtube-live:block-live:dQw4w9WgXcQ:scheduled',
+        blockId: 'block-live',
+        title: 'Live',
+        youtubeVideoId: 'dQw4w9WgXcQ',
+        youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        embedUrl: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&controls=0',
+        live: true,
+        liveSourceType: 'youtube',
+        liveStatus: 'scheduled',
+        serverSeconds: 0,
+        generatedAt: new Date().toISOString(),
+        backgroundMusic: null,
     };
 }
 

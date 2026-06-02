@@ -166,7 +166,13 @@ function contentSecurityPolicy() {
     const imgSrc = ["'self'", 'data:', 'blob:', 'https:'];
     const mediaSrc = ["'self'", 'blob:', 'https:'];
     const connectSrc = ["'self'", 'https:', 'wss:'];
-    const scriptSrc = ["'self'", "'unsafe-inline'", 'https://static.cloudflareinsights.com'];
+    const frameSrc = ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com'];
+    const scriptSrc = [
+        "'self'",
+        "'unsafe-inline'",
+        'https://static.cloudflareinsights.com',
+        'https://www.youtube.com',
+    ];
 
     if (!production) {
         imgSrc.push('http:');
@@ -184,6 +190,7 @@ function contentSecurityPolicy() {
         `img-src ${imgSrc.join(' ')}`,
         `media-src ${mediaSrc.join(' ')}`,
         `connect-src ${connectSrc.join(' ')}`,
+        `frame-src ${frameSrc.join(' ')}`,
         `script-src ${scriptSrc.join(' ')}`,
         "style-src 'self' 'unsafe-inline'",
         ...(production ? ['upgrade-insecure-requests'] : []),

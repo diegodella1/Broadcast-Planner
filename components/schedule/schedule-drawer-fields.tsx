@@ -9,6 +9,56 @@ import type { ContentOption } from './helpers';
 import type { ProgramBlock } from '@/lib/types';
 import type { ScheduleConflictResult } from '@/lib/scheduling/schedule-conflicts';
 
+// ─── LiveObjectFields ─────────────────────────────────────────────────────────
+
+export type LiveObjectFieldsProps = {
+    liveSourceType: string;
+    liveUrl: string;
+    onSourceTypeChange: (value: string) => void;
+    onUrlChange: (value: string) => void;
+};
+
+export function LiveObjectFields({
+    liveSourceType,
+    liveUrl,
+    onSourceTypeChange,
+    onUrlChange,
+}: LiveObjectFieldsProps) {
+    return (
+        <div className="grid gap-3 rounded-md border border-info-line bg-info-soft p-3">
+            <p className="text-xs font-semibold text-info-strong">Live source</p>
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+                Source
+                <select
+                    value={liveSourceType}
+                    onChange={(event) => onSourceTypeChange(event.target.value)}
+                    className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                >
+                    <option value="youtube">YouTube</option>
+                    <option value="hls">HLS</option>
+                </select>
+            </label>
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+                Live URL
+                <input
+                    value={liveUrl}
+                    onChange={(event) => onUrlChange(event.target.value)}
+                    placeholder={
+                        liveSourceType === 'hls'
+                            ? 'https://example.com/live.m3u8'
+                            : 'https://www.youtube.com/watch?v=...'
+                    }
+                    className="border border-line px-3 py-2 text-sm font-normal text-ink"
+                />
+            </label>
+            <p className="text-xs text-info-strong">
+                Estimated duration is for planning only. Output stays on this live until auto-end or
+                an operator ends it.
+            </p>
+        </div>
+    );
+}
+
 // ─── ReutersStreamFields ──────────────────────────────────────────────────────
 
 export type ReutersStreamFieldsProps = {
