@@ -691,19 +691,36 @@ function YouTubeLivePlayer({
     const [revealed, setRevealed] = useState(false);
     const revealYouTubeLive = useCallback(() => {
         if (revealTimerRef.current) {
-            return;
+            clearTimeout(revealTimerRef.current);
+            revealTimerRef.current = null;
         }
+
         revealTimerRef.current = setTimeout(() => {
             setRevealed(true);
             revealTimerRef.current = null;
-        }, 5500);
+        }, 4500);
+    }, []);
+    const clearRevealTimer = useCallback(() => {
+        if (!revealTimerRef.current) {
+            return;
+        }
+
+        clearTimeout(revealTimerRef.current);
+        revealTimerRef.current = null;
     }, []);
 
     useEffect(() => {
         if (armed) {
             playerRef.current?.playVideo();
+            revealYouTubeLive();
         }
-    }, [armed]);
+    }, [armed, revealYouTubeLive]);
+
+    useEffect(() => {
+        revealYouTubeLive();
+
+        return clearRevealTimer;
+    }, [clearRevealTimer, revealYouTubeLive]);
 
     useEffect(() => {
         let cancelled = false;
@@ -732,6 +749,7 @@ function YouTubeLivePlayer({
 
                         if (armed) {
                             playerRef.current?.playVideo();
+                            revealYouTubeLive();
                         }
                     },
                     onStateChange: (event) => {
@@ -752,15 +770,12 @@ function YouTubeLivePlayer({
         return () => {
             cancelled = true;
 
-            if (revealTimerRef.current) {
-                clearTimeout(revealTimerRef.current);
-                revealTimerRef.current = null;
-            }
+            clearRevealTimer();
 
             playerRef.current?.destroy();
             playerRef.current = null;
         };
-    }, [armed, revealYouTubeLive, state.signature, state.youtubeVideoId]);
+    }, [armed, clearRevealTimer, revealYouTubeLive, state.signature, state.youtubeVideoId]);
 
     return (
         <div className="absolute inset-0 overflow-hidden bg-black">
