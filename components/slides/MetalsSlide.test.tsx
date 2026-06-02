@@ -42,6 +42,7 @@ describe('MetalsSlide', () => {
         expect(screen.getByText(/SILVER \(XAG\)/i)).toBeInTheDocument();
         expect(screen.getByText(/OIL \(WTI\)/i)).toBeInTheDocument();
         expect(screen.getByText(/ISHARES COPPER/i)).toBeInTheDocument();
+        expect(screen.getAllByLabelText('sats')).toHaveLength(4);
     });
 
     it('renders em-dash placeholders when all commodity values are zero', () => {

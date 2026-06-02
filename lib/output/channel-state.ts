@@ -9,8 +9,9 @@ import { findActiveLayers, findActiveSchedule } from '@/lib/scheduling/scheduler
 import { getVimeoToken } from '@/lib/settings';
 import { PLAYOUT_TIMEZONE, secondsSinceMidnightInTimezone } from '@/lib/helpers/time';
 import { getVimeoPlayback } from '@/lib/services/vimeo';
+import { isYouTubeSlide } from '@/lib/slides/youtube';
 
-import type { MediaAsset, OutputOverride, ScheduleBundle } from '@/lib/types';
+import type { MediaAsset, OutputOverride, ScheduleBundle, SlideAsset } from '@/lib/types';
 
 export type ChannelStateInputs = {
     now: Date;
@@ -204,14 +205,14 @@ function slideBlockState(args: ActiveBlockStateArgs) {
         title: active.slide.title,
         slideId: active.slide.id,
         templateId: active.slide.templateId,
-        ...(active.slide.templateId ? { renderUrl: renderUrl.toString() } : {}),
+        ...(shouldRenderSlideInIframe(active.slide) ? { renderUrl: renderUrl.toString() } : {}),
         ...(active.slide.imageUrl ? { imageUrl: active.slide.imageUrl } : {}),
         ...(active.slide.content || active.slide.htmlContent
             ? { content: active.slide.content ?? active.slide.htmlContent ?? '' }
             : {}),
         startOffsetSeconds,
         durationSeconds: active.block.durationSeconds,
-        backgroundMusic: music,
+        backgroundMusic: slideBackgroundMusic(active.slide, music),
     };
 }
 
@@ -355,23 +356,26 @@ async function fallbackStateForBundle(
     mediaAccessToken = '',
     backgroundMusic: BackgroundMusic = null,
 ) {
+    const carouselState = await fallbackCarouselState(
+        bundle,
+        reason,
+        base,
+        mediaAccessToken,
+        backgroundMusic,
+    );
+
+    if (carouselState) {
+        return carouselState;
+    }
+
     const fallbackAsset = findFallbackLoopAsset(bundle);
 
     if (!fallbackAsset) {
-        return (
-            (await fallbackCarouselState(
-                bundle,
-                reason,
-                base,
-                mediaAccessToken,
-                backgroundMusic,
-            )) ?? fallbackState(reason, base, backgroundMusic)
-        );
+        return fallbackState(reason, base, backgroundMusic);
     }
 
     return (
         (await fallbackVideoState(fallbackAsset, reason, base, mediaAccessToken)) ??
-        (await fallbackCarouselState(bundle, reason, base, mediaAccessToken, backgroundMusic)) ??
         fallbackState(reason, base, backgroundMusic)
     );
 }
@@ -392,6 +396,20 @@ async function fallbackCarouselState(
     if (!selection) {
         return null;
     }
+
+    if (selection.kind === 'asset' && selection.asset) {
+        return fallbackCarouselAssetState(
+            selection.asset,
+            selection,
+            reason,
+            base,
+            mediaAccessToken,
+        );
+    }
+
+    if (!selection.slide) {
+        return null;
+    }
     const renderUrl = appUrl(`/output/slide/${selection.slide.id}`);
 
     if (mediaAccessToken) {
@@ -407,15 +425,83 @@ async function fallbackCarouselState(
         title: selection.slide.title,
         slideId: selection.slide.id,
         templateId: selection.slide.templateId,
-        ...(selection.slide.templateId ? { renderUrl: renderUrl.toString() } : {}),
+        ...(shouldRenderSlideInIframe(selection.slide) ? { renderUrl: renderUrl.toString() } : {}),
         ...(selection.slide.imageUrl ? { imageUrl: selection.slide.imageUrl } : {}),
         ...(selection.slide.content || selection.slide.htmlContent
             ? { content: selection.slide.content ?? selection.slide.htmlContent ?? '' }
             : {}),
         startOffsetSeconds: selection.elapsedSeconds,
         durationSeconds: selection.card.durationSeconds,
-        backgroundMusic: enableBackgroundMusic(backgroundMusic),
+        backgroundMusic: slideBackgroundMusic(
+            selection.slide,
+            enableBackgroundMusic(backgroundMusic),
+        ),
     };
+}
+
+function shouldRenderSlideInIframe(slide: SlideAsset) {
+    return Boolean(slide.templateId) || isYouTubeSlide(slide);
+}
+
+function slideBackgroundMusic(slide: SlideAsset, music: BackgroundMusic) {
+    return isYouTubeSlide(slide) ? null : music;
+}
+
+async function fallbackCarouselAssetState(
+    asset: MediaAsset,
+    selection: NonNullable<ReturnType<typeof selectFallbackCarouselSlide>>,
+    reason: string,
+    base: ChannelStateBase,
+    mediaAccessToken = '',
+) {
+    const common = {
+        ...base,
+        signature: `fallback-carousel:${asset.id}:${selection.index}:${asset.updatedAt}:${selection.carouselUpdatedAt}`,
+        reason,
+        blockId: null,
+        assetId: asset.id,
+        title: asset.title,
+        startOffsetSeconds: selection.elapsedSeconds,
+        durationSeconds: selection.card.durationSeconds,
+        muted: false,
+        loop: false,
+        ...videoPresentation(asset),
+        backgroundMusic: null,
+    };
+
+    if (asset.sourceType === 'remote_mp4' && asset.url) {
+        return {
+            ...common,
+            kind: 'mp4' as const,
+            url: withMediaAccessToken(asset.url, mediaAccessToken),
+        };
+    }
+
+    if (asset.sourceType === 'hls' && asset.url) {
+        return {
+            ...common,
+            kind: 'hls' as const,
+            hlsUrl: withMediaAccessToken(asset.url, mediaAccessToken),
+        };
+    }
+
+    if (asset.sourceType === 'vimeo' && asset.vimeoId) {
+        const vimeoToken = await getVimeoToken();
+
+        if (!vimeoToken) {
+            return null;
+        }
+        const playback = await getVimeoPlayback(vimeoToken, asset.vimeoId);
+
+        return {
+            ...common,
+            kind: 'vimeo' as const,
+            title: playback.title || asset.title,
+            hlsUrl: playback.hlsUrl,
+        };
+    }
+
+    return null;
 }
 
 async function fallbackVideoState(

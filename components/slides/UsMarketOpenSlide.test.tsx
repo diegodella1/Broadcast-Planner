@@ -15,8 +15,8 @@ const baseData: UsMarketOpenSlideProps['data'] = {
     mode: 'live',
     phase: 'pre-market',
     marketName: 'US Market',
-    regionLabel: 'US index futures / ETF proxy',
-    previewLabel: 'US index board preview',
+    regionLabel: '',
+    previewLabel: '',
     nextBellAt: '2026-05-22T13:30:00Z',
     nextBellLabel: 'Opening bell',
     marketTimezone: 'America/New_York',
@@ -78,7 +78,7 @@ const baseData: UsMarketOpenSlideProps['data'] = {
 describe('UsMarketOpenSlide', () => {
     it('renders the market open countdown board', () => {
         vi.stubGlobal('fetch', vi.fn());
-        render(<UsMarketOpenSlide data={baseData} />);
+        const { container } = render(<UsMarketOpenSlide data={baseData} />);
 
         expect(screen.getByText('US MARKET PRE-OPEN')).toBeInTheDocument();
         expect(screen.getByText('Opening bell')).toBeInTheDocument();
@@ -86,7 +86,10 @@ describe('UsMarketOpenSlide', () => {
         expect(screen.getByText('Nasdaq 100')).toBeInTheDocument();
         expect(screen.getByText('Dow')).toBeInTheDocument();
         expect(screen.getByText('Russell 2000')).toBeInTheDocument();
-        expect(screen.getByText('Live · cached 30s · RTV API')).toBeInTheDocument();
+        expect(screen.queryByText(/cached 30s/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/ETF proxy/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/index board/i)).not.toBeInTheDocument();
+        expect(container.querySelectorAll('linearGradient')).toHaveLength(4);
     });
 
     it('shows unavailable state for missing symbols', () => {
@@ -105,7 +108,14 @@ describe('UsMarketOpenSlide', () => {
         );
 
         expect(screen.getByText('Demo data - not live')).toBeInTheDocument();
-        expect(screen.getByText('Demo board · not live')).toBeInTheDocument();
         expect(screen.queryByText(/cached 30s/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/index board/i)).not.toBeInTheDocument();
+    });
+
+    it('only shows delayed status when market data is stale', () => {
+        vi.stubGlobal('fetch', vi.fn());
+        render(<UsMarketOpenSlide data={{ ...baseData, stale: true }} />);
+
+        expect(screen.getByText('Delayed')).toBeInTheDocument();
     });
 });

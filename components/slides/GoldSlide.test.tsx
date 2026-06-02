@@ -44,6 +44,7 @@ describe('GoldSlide', () => {
     it('renders gold price data when usd is greater than zero', () => {
         render(<GoldSlide data={baseData} />);
         expect(screen.getByText(/2,300\.00/)).toBeInTheDocument();
+        expect(screen.getByLabelText('sats')).toBeInTheDocument();
     });
 
     it('renders DATA UNAVAILABLE when gold usd is zero', () => {

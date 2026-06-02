@@ -44,6 +44,7 @@ describe('SilverSlide', () => {
     it('renders silver USD price when data is present', () => {
         render(<SilverSlide data={baseData} />);
         expect(screen.getByText(/28\.75/)).toBeInTheDocument();
+        expect(screen.getByLabelText('sats')).toBeInTheDocument();
     });
 
     it('renders DATA UNAVAILABLE when silver usd is zero', () => {

@@ -1,8 +1,5 @@
 export type SlideTemplateId =
-    | 'calendar'
     | 'debt'
-    | 'event'
-    | 'event-modern'
     | 'fx'
     | 'gold'
     | 'guest-lineup'
@@ -27,28 +24,10 @@ export type SlideTemplateEntry = {
 
 export const SLIDE_TEMPLATES: ReadonlyArray<SlideTemplateEntry> = [
     {
-        id: 'calendar',
-        label: 'Calendar',
-        description: 'Upcoming events list from the events table',
-        dataEndpoint: '/api/slide-data/calendar',
-    },
-    {
         id: 'debt',
         label: 'US Debt',
         description: 'Live US national debt clock in BTC terms',
         dataEndpoint: '/api/slide-data/debt',
-    },
-    {
-        id: 'event',
-        label: 'Event',
-        description: 'Featured event card(s) with image, date and timezone times',
-        dataEndpoint: '/api/slide-data/calendar',
-    },
-    {
-        id: 'event-modern',
-        label: 'Event Modern',
-        description: 'Retro-bordered event grid with month/year header',
-        dataEndpoint: '/api/slide-data/calendar',
     },
     {
         id: 'fx',

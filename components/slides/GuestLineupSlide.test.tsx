@@ -63,7 +63,7 @@ describe('GuestLineupSlide', () => {
         expect(screen.getByText('Market Strategist')).toBeInTheDocument();
         expect(screen.getByText('RTV Research')).toBeInTheDocument();
         expect(screen.getByText('John Smith')).toBeInTheDocument();
-        expect(screen.getByText(/Supabase guests.*cache 30s/i)).toBeInTheDocument();
+        expect(screen.queryByText(/Supabase guests.*cache 30s/i)).not.toBeInTheDocument();
     });
 
     it('marks demo mode clearly', () => {

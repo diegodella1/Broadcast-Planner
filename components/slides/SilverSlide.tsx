@@ -10,14 +10,14 @@ export type SilverSlideProps = {
 };
 
 const headerFont = {
-    fontSize: 'clamp(39px, 4vw, 59px)',
+    fontSize: 'clamp(34px, 3.4vw, 52px)',
     lineHeight: '1',
     fontWeight: 900,
     textShadow:
         '-1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black, 0 -1px 0 black, 0 1px 0 black, -1px 0 0 black, 1px 0 0 black',
 };
-const valueFont = { fontSize: 'clamp(36px, 4vw, 64px)', lineHeight: '1', fontWeight: 900 };
-const changeFont = { fontSize: 'clamp(24px, 2.5vw, 40px)', lineHeight: '1', fontWeight: 900 };
+const valueFont = { fontSize: 'clamp(32px, 3.3vw, 54px)', lineHeight: '1', fontWeight: 900 };
+const changeFont = { fontSize: 'clamp(22px, 2.1vw, 36px)', lineHeight: '1', fontWeight: 900 };
 
 export function SilverSlide({ data }: SilverSlideProps) {
     const liveData = useSlidePollingData(data, '/api/slide-data/metals');
@@ -36,8 +36,8 @@ export function SilverSlide({ data }: SilverSlideProps) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
         >
-            <div className="relative w-full max-w-5xl bg-zinc-900/90 shadow-2xl overflow-hidden">
-                <div className="bg-amber-500 px-6 py-5">
+            <div className="relative w-full max-w-6xl overflow-hidden bg-zinc-900/90 shadow-2xl">
+                <div className="bg-amber-500 px-6 py-4">
                     <h2
                         className="text-white text-center tracking-wider uppercase"
                         style={headerFont}
@@ -46,31 +46,39 @@ export function SilverSlide({ data }: SilverSlideProps) {
                     </h2>
                 </div>
                 <div className="h-px bg-zinc-800" />
-                <div className="bg-white px-8 py-10">
+                <div className="bg-white px-8 py-8">
                     {hasData ? (
-                        <div className="flex flex-col gap-4 items-center">
-                            <div className="flex items-center gap-3 justify-center">
+                        <div className="flex min-w-0 flex-col items-center gap-4">
+                            <div className="grid min-w-0 grid-cols-[1fr_auto_1fr_auto_minmax(0,0.8fr)] items-center gap-4">
                                 <div
-                                    className="text-black tabular-nums flex items-center gap-3"
+                                    className="flex items-center justify-self-end whitespace-nowrap text-black tabular-nums"
                                     style={valueFont}
                                 >
                                     <span>
                                         {formatSats(silver.sats).number}{' '}
-                                        <i className="fak fa-regular" />
-                                    </span>
-                                    <span className="text-black">|</span>
-                                    <span className="text-black whitespace-nowrap">
-                                        USD $
-                                        {silver.usd.toLocaleString('en-US', {
-                                            maximumFractionDigits: 2,
-                                            minimumFractionDigits: 2,
-                                        })}
+                                        <i
+                                            className="fak fa-regular"
+                                            aria-label="sats"
+                                            title="sats"
+                                        />
                                     </span>
                                 </div>
+                                <span className="text-black" style={valueFont}>
+                                    |
+                                </span>
+                                <span className="whitespace-nowrap text-black" style={valueFont}>
+                                    USD $
+                                    {silver.usd.toLocaleString('en-US', {
+                                        maximumFractionDigits: 2,
+                                        minimumFractionDigits: 2,
+                                    })}
+                                </span>
                                 {silver.change24hPct !== null && (
                                     <>
-                                        <span className="text-black">|</span>
-                                        <div className="flex items-center gap-2">
+                                        <span className="text-black" style={valueFont}>
+                                            |
+                                        </span>
+                                        <div className="flex min-w-0 items-center gap-2">
                                             {silver.change24hPct < 0 ? (
                                                 <svg
                                                     className="w-6 h-6 text-red-600"

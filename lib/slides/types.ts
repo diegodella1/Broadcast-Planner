@@ -4,39 +4,6 @@
  * the 14 slide renderers actually consume.
  */
 
-export type EventTextSize = 'small' | 'medium' | 'large' | 'xlarge';
-export type LayoutOrientation = 'horizontal' | 'vertical';
-export type EventSlideStyle = 'classic' | 'modern';
-
-export type ScheduleTime = {
-    timezone: string;
-    time: string;
-};
-
-export type CalendarEvent = {
-    id: string;
-    title: string;
-    description: string | null;
-    image_url: string | null;
-    start_date: string;
-    end_date: string | null;
-    start_time: string | null;
-    end_time: string | null;
-    is_active: boolean;
-    order_index: number;
-    color: string;
-    title_font: string | null;
-    title_size: EventTextSize | null;
-    title_color: string | null;
-    text_color: string | null;
-    overlay_opacity: number | null;
-    show_date_badge: boolean;
-    location: string | null;
-    schedule_times: ScheduleTime[] | null;
-    created_at: string;
-    updated_at: string;
-};
-
 export type MarketCommodity = {
     usd: number;
     sats: number;

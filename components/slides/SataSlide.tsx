@@ -21,7 +21,19 @@ interface StatItem {
     l: string;
     v: string;
     u?: string | undefined;
-    c?: string | undefined;
+    c?: 'positive' | 'negative' | undefined;
+}
+
+function valueColor(tone: StatItem['c']) {
+    if (tone === 'positive') {
+        return priceSlide.accentGreen;
+    }
+
+    if (tone === 'negative') {
+        return priceSlide.accentRed;
+    }
+
+    return priceSlide.textPrimary;
 }
 
 const StatCell = React.memo(({ stat, index }: { stat: StatItem; index: number }) => (
@@ -32,7 +44,7 @@ const StatCell = React.memo(({ stat, index }: { stat: StatItem; index: number })
             justifyContent: 'center',
             alignItems: 'center',
             textAlign: 'center',
-            padding: '16px 12px',
+            padding: '10px 12px',
             borderRight: (index + 1) % 4 === 0 ? 'none' : `1px solid ${priceSlide.borderSubtle}`,
             borderBottom: index < 8 ? `1px solid ${priceSlide.borderSubtle}` : 'none',
         }}
@@ -40,12 +52,12 @@ const StatCell = React.memo(({ stat, index }: { stat: StatItem; index: number })
         <div
             style={{
                 fontFamily: SANS,
-                fontSize: 16,
+                fontSize: 13,
                 fontWeight: 600,
                 letterSpacing: 2,
                 textTransform: 'uppercase',
                 color: priceSlide.textMuted,
-                marginBottom: 6,
+                marginBottom: 4,
             }}
         >
             {stat.l}
@@ -53,15 +65,10 @@ const StatCell = React.memo(({ stat, index }: { stat: StatItem; index: number })
         <div
             style={{
                 fontFamily: MONO,
-                fontSize: 34,
+                fontSize: 28,
                 fontWeight: 700,
                 lineHeight: 1.2,
-                color:
-                    stat.c === 'gold'
-                        ? priceSlide.accentGold
-                        : stat.c === 'green'
-                          ? priceSlide.accentGreen
-                          : priceSlide.textPrimary,
+                color: valueColor(stat.c),
             }}
         >
             {stat.v}
@@ -70,8 +77,8 @@ const StatCell = React.memo(({ stat, index }: { stat: StatItem; index: number })
             <div
                 style={{
                     fontFamily: MONO,
-                    fontSize: 24,
-                    color: priceSlide.accentGreen,
+                    fontSize: 19,
+                    color: valueColor(stat.c),
                     marginTop: 2,
                 }}
             >
@@ -88,7 +95,7 @@ const StatsGrid = React.memo(({ stats }: { stats: StatItem[] }) => (
             display: 'grid',
             gridTemplateColumns: 'repeat(4, 1fr)',
             gridTemplateRows: '1fr 1fr 1fr',
-            flexShrink: 0,
+            flex: '0 0 300px',
             borderBottom: `1px solid ${priceSlide.borderSubtle}`,
         }}
     >
@@ -119,7 +126,7 @@ const TopBar = React.memo(
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '0 40px',
-                height: 90,
+                height: 84,
                 borderBottom: `1px solid ${priceSlide.borderSubtle}`,
                 flexShrink: 0,
             }}
@@ -128,7 +135,7 @@ const TopBar = React.memo(
                 <span
                     style={{
                         fontFamily: MONO,
-                        fontSize: 44,
+                        fontSize: 42,
                         fontWeight: 700,
                         letterSpacing: 6,
                         color: priceSlide.accentGold,
@@ -141,7 +148,7 @@ const TopBar = React.memo(
                     <span
                         style={{
                             fontFamily: MONO,
-                            fontSize: 48,
+                            fontSize: 42,
                             fontWeight: 700,
                             color: priceSlide.textPrimary,
                         }}
@@ -151,9 +158,9 @@ const TopBar = React.memo(
                     <span
                         style={{
                             fontFamily: MONO,
-                            fontSize: 48,
+                            fontSize: 42,
                             fontWeight: 600,
-                            color: priceSlide.accentGreen,
+                            color: priceSlide.textPrimary,
                         }}
                     >
                         {priceUsd}
@@ -161,7 +168,7 @@ const TopBar = React.memo(
                     <span
                         style={{
                             fontFamily: MONO,
-                            fontSize: 32,
+                            fontSize: 28,
                             fontWeight: 600,
                             color: isUp ? priceSlide.accentGreen : priceSlide.accentRed,
                         }}
@@ -171,11 +178,22 @@ const TopBar = React.memo(
                 </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <span style={{ fontFamily: MONO, fontSize: 36, color: priceSlide.textMuted }}>
+                <span style={{ fontFamily: MONO, fontSize: 24, color: priceSlide.textMuted }}>
                     BTC{' '}
                     <span style={{ color: priceSlide.textSubtle, fontWeight: 600 }}>
                         {btcPrice}
                     </span>
+                </span>
+                <span
+                    style={{
+                        fontFamily: SANS,
+                        fontSize: 12,
+                        fontWeight: 800,
+                        letterSpacing: 3,
+                        color: priceSlide.textMuted,
+                    }}
+                >
+                    ROXOM TV SYSTEM
                 </span>
                 <div
                     style={{
@@ -217,11 +235,11 @@ const AtmSection = React.memo(
             <div
                 style={{
                     fontFamily: MONO,
-                    fontSize: 52,
+                    fontSize: 42,
                     fontWeight: 700,
                     letterSpacing: 8,
                     color: priceSlide.accentGold,
-                    marginBottom: 16,
+                    marginBottom: 10,
                 }}
             >
                 TODAY&apos;S ATM
@@ -229,12 +247,12 @@ const AtmSection = React.memo(
             <div
                 style={{
                     fontFamily: MONO,
-                    fontSize: 38,
+                    fontSize: 30,
                     fontWeight: 700,
                     letterSpacing: 4,
                     padding: '8px 32px',
                     borderRadius: 8,
-                    marginBottom: 20,
+                    marginBottom: 14,
                     color: isActive ? priceSlide.accentGreen : priceSlide.accentGold,
                     border: isActive
                         ? '1px solid rgba(34,197,94,0.4)'
@@ -248,9 +266,9 @@ const AtmSection = React.memo(
                 <span
                     style={{
                         fontFamily: MONO,
-                        fontSize: 110,
+                        fontSize: 86,
                         fontWeight: 700,
-                        color: priceSlide.accentGold,
+                        color: priceSlide.textPrimary,
                         lineHeight: 1,
                     }}
                 >
@@ -259,7 +277,7 @@ const AtmSection = React.memo(
                 <span
                     style={{
                         fontFamily: MONO,
-                        fontSize: 72,
+                        fontSize: 54,
                         color: priceSlide.textMuted,
                         fontWeight: 300,
                     }}
@@ -269,9 +287,9 @@ const AtmSection = React.memo(
                 <span
                     style={{
                         fontFamily: MONO,
-                        fontSize: 110,
+                        fontSize: 86,
                         fontWeight: 700,
-                        color: priceSlide.accentGreen,
+                        color: priceSlide.textPrimary,
                     }}
                 >
                     {atmUsd}
@@ -281,7 +299,7 @@ const AtmSection = React.memo(
                 <div
                     style={{
                         fontFamily: MONO,
-                        fontSize: 26,
+                        fontSize: 21,
                         color: priceSlide.textMuted,
                         marginTop: 16,
                     }}
@@ -294,30 +312,12 @@ const AtmSection = React.memo(
 );
 AtmSection.displayName = 'AtmSection';
 
-const SlideFooter = React.memo(({ time }: { time: string }) => (
-    <div
-        style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            padding: '0 56px',
-            height: 24,
-            flexShrink: 0,
-        }}
-    >
-        <span style={{ fontFamily: MONO, fontSize: 11, color: priceSlide.textMuted }}>
-            Updated {time}
-        </span>
-    </div>
-));
-SlideFooter.displayName = 'SlideFooter';
-
 export function SataSlide({ data }: SataSlideProps) {
     const display = useMemo(() => {
         if (!data.preferred) {
             return null;
         }
-        const { preferred: p, btc, metrics, lastUpdate } = data;
+        const { preferred: p, btc, metrics } = data;
         const b = btc.price;
         const s = p.price != null ? toBtc(p.price, b) : null;
         const ps = p.previousClose != null ? toBtc(p.previousClose, b) : null;
@@ -344,26 +344,28 @@ export function SataSlide({ data }: SataSlideProps) {
 
         const stats: StatItem[] = [
             {
+                l: 'Par Value',
+                v: '—',
+            },
+            {
                 l: 'Eff. Yield',
                 v: metrics.effYield != null ? metrics.effYield.toFixed(2) + '%' : '—',
-                c: 'green',
+                c:
+                    metrics.effYield == null
+                        ? undefined
+                        : metrics.effYield >= 0
+                          ? 'positive'
+                          : 'negative',
             },
             {
                 l: 'Monthly Div',
                 v: BTC_FMT(metrics.monthlyDivBtc ?? toBtc(metrics.monthlyDiv, b)),
                 u: USD_FMT(metrics.monthlyDiv, 4),
-                c: 'gold',
             },
             {
                 l: 'Annual Div',
                 v: BTC_FMT(metrics.annualDivBtc ?? toBtc(metrics.annualDiv, b)),
                 u: USD_FMT(metrics.annualDiv, 2),
-                c: 'gold',
-            },
-            {
-                l: 'Prev Close',
-                v: p.previousClose != null ? BTC_FMT(toBtc(p.previousClose, b)) : '—',
-                u: p.previousClose != null ? USD_FMT(p.previousClose) : undefined,
             },
             {
                 l: 'Market Cap',
@@ -377,26 +379,12 @@ export function SataSlide({ data }: SataSlideProps) {
                     ? (metrics.sharesOutstanding / 1e6).toFixed(2) + 'M'
                     : '—',
             },
-            {
-                l: '52W Range',
-                v:
-                    metrics.yearHigh != null && metrics.yearLow != null
-                        ? `${USD_FMT(metrics.yearLow)} – ${USD_FMT(metrics.yearHigh)}`
-                        : '—',
-            },
-            { l: 'Next Payout', v: metrics.nextPayoutDate ?? '—' },
-            { l: 'Next Record', v: metrics.nextRecordDate ?? '—' },
-            { l: 'Ticker', v: p.ticker },
-            {
-                l: 'Avg Vol 30D',
-                v:
-                    metrics.avgVolume30D != null
-                        ? Math.round(metrics.avgVolume30D).toLocaleString('en-US')
-                        : '—',
-            },
+            { l: 'MSTR', v: '—' },
+            { l: 'Sharpe', v: '—' },
+            { l: 'Ann. Vol', v: '—' },
+            { l: 'VWAP 1M', v: '—' },
+            { l: 'Corr', v: '—' },
         ];
-
-        const ts = new Date(lastUpdate);
 
         return {
             priceBtc: s != null ? BTC_FMT(s) : '—',
@@ -409,7 +397,6 @@ export function SataSlide({ data }: SataSlideProps) {
             atmUsd: USD_FMT(atmUsdVal, 4),
             nextLabel,
             stats,
-            time: ts.toLocaleTimeString('en-US', { hour12: false }),
         };
     }, [data]);
 
@@ -417,7 +404,7 @@ export function SataSlide({ data }: SataSlideProps) {
         return (
             <motion.div
                 className="w-full h-full flex items-center justify-center"
-                style={{ background: priceSlide.bgPrimary }}
+                style={{ background: '#000000' }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
             >
@@ -436,7 +423,7 @@ export function SataSlide({ data }: SataSlideProps) {
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
-                background: priceSlide.bgPrimary,
+                background: '#000000',
                 color: priceSlide.textPrimary,
                 fontFamily: SANS,
             }}
@@ -458,7 +445,6 @@ export function SataSlide({ data }: SataSlideProps) {
                 nextLabel={display.nextLabel}
             />
             <StatsGrid stats={display.stats} />
-            <SlideFooter time={display.time} />
         </motion.div>
     );
 }

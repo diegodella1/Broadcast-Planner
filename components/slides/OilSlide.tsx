@@ -10,9 +10,9 @@ export type OilSlideProps = {
     data: MarketsSatsData;
 };
 
-const headerFont = { fontSize: 'clamp(27px, 2vw, 39px)', lineHeight: '1', fontWeight: 900 };
-const valueFont = { fontSize: 'clamp(32px, 3vw, 56px)', lineHeight: '1', fontWeight: 900 };
-const changeFont = { fontSize: 'clamp(20px, 2vw, 32px)', lineHeight: '1', fontWeight: 900 };
+const headerFont = { fontSize: 'clamp(25px, 1.8vw, 36px)', lineHeight: '1', fontWeight: 900 };
+const valueFont = { fontSize: 'clamp(30px, 2.65vw, 50px)', lineHeight: '1', fontWeight: 900 };
+const changeFont = { fontSize: 'clamp(19px, 1.75vw, 30px)', lineHeight: '1', fontWeight: 900 };
 
 type CommodityRow = {
     label: string;
@@ -25,23 +25,24 @@ function OilCard({ label, usd, sats, change24hPct }: CommodityRow) {
     const hasData = usd > 0;
 
     return (
-        <div className="flex flex-col shadow-xl">
-            <div className="bg-red-500/80 flex items-center justify-center px-4 py-4 h-32">
+        <div className="flex min-h-0 flex-col overflow-hidden shadow-xl">
+            <div className="flex h-24 shrink-0 items-center justify-center bg-red-500/80 px-4 py-3">
                 <h2 className="text-white text-center tracking-wider uppercase" style={headerFont}>
                     {label}
                 </h2>
             </div>
-            <div className="flex items-center justify-center flex-1 bg-zinc-900/80 px-6 py-10">
+            <div className="flex min-h-0 flex-1 items-center justify-center bg-zinc-900/80 px-6 py-6">
                 {hasData ? (
                     <div
-                        className="text-white tabular-nums flex items-center gap-3 whitespace-nowrap justify-center"
+                        className="grid w-full min-w-0 grid-cols-[1fr_auto_1fr_auto_minmax(0,0.8fr)] items-center gap-4 text-white tabular-nums"
                         style={valueFont}
                     >
-                        <span>
-                            {formatSats(sats).number} <i className="fak fa-regular" />
+                        <span className="justify-self-end whitespace-nowrap">
+                            {formatSats(sats).number}{' '}
+                            <i className="fak fa-regular" aria-label="sats" title="sats" />
                         </span>
                         <span className="text-white/60">|</span>
-                        <span className="text-white whitespace-nowrap">
+                        <span className="whitespace-nowrap text-white">
                             USD $
                             {usd.toLocaleString('en-US', {
                                 maximumFractionDigits: 2,
@@ -51,7 +52,7 @@ function OilCard({ label, usd, sats, change24hPct }: CommodityRow) {
                         {change24hPct !== null && (
                             <>
                                 <span className="text-white/60">|</span>
-                                <div className="flex items-center gap-2">
+                                <div className="flex min-w-0 items-center gap-2">
                                     {change24hPct < 0 ? (
                                         <svg
                                             className="w-5 h-5 text-red-400"
@@ -270,7 +271,7 @@ export function OilSlide({ data }: OilSlideProps) {
                 </svg>
             </div>
 
-            <div className="relative z-10 w-full max-w-4xl flex flex-col gap-6 justify-center">
+            <div className="relative z-10 flex h-full max-h-[calc(100vh-4rem)] w-full max-w-5xl flex-col justify-center gap-5">
                 <OilCard
                     label="WTI CRUDE OIL - SATS PER BARREL"
                     usd={wti.usd}

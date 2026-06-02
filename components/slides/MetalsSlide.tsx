@@ -25,25 +25,25 @@ function CommodityCard({
     change24hPct: number | null;
 }) {
     const headerFont = {
-        fontSize: 'clamp(calc(1.25rem - 3px), 1.8vw, calc(2.75rem - 3px))',
+        fontSize: 'clamp(1.05rem, 1.45vw, 2.1rem)',
         lineHeight: '1.1',
         fontWeight: 900,
     };
     const lineFont = {
-        fontSize: 'clamp(calc(1.5rem + 10px), 2.6vw, calc(4rem + 15px))',
+        fontSize: 'clamp(2rem, 2.15vw, 3.6rem)',
         lineHeight: '1.1',
         fontWeight: 700,
     };
     const line24hFont = {
-        fontSize: 'clamp(calc(1.25rem + 10px), 2vw, calc(3.5rem + 15px))',
+        fontSize: 'clamp(1.65rem, 1.75vw, 3rem)',
         lineHeight: '1.1',
         fontWeight: 700,
     };
 
     return (
-        <div className="flex flex-col shadow-xl overflow-hidden border border-white/10 w-full">
+        <div className="flex min-h-0 w-full flex-col overflow-hidden border border-white/10 shadow-xl">
             <div
-                className={`${headerBg} flex items-center justify-center shrink-0 min-h-[5rem] px-[1.25rem] py-[1rem]`}
+                className={`${headerBg} flex min-h-[4.25rem] shrink-0 items-center justify-center px-[1.25rem] py-[0.75rem]`}
             >
                 <h2
                     className="text-white text-center tracking-wider uppercase truncate"
@@ -53,12 +53,12 @@ function CommodityCard({
                 </h2>
             </div>
             <div
-                className={`flex flex-col items-center justify-center w-full ${contentBg} px-[1.25rem] py-[1.5rem]`}
+                className={`flex min-h-0 w-full flex-1 flex-col items-center justify-center ${contentBg} px-[1.25rem] py-[1rem]`}
             >
                 {usd > 0 ? (
                     <div
-                        className="flex flex-col items-center w-full py-2"
-                        style={{ gap: '2.5rem' }}
+                        className="flex w-full flex-col items-center py-1"
+                        style={{ gap: '1.15rem' }}
                     >
                         <div className="w-full flex justify-center">
                             <span
@@ -70,13 +70,17 @@ function CommodityCard({
                                     transform: 'translateX(-13px)',
                                 }}
                             >
-                                <i className="fak fa-regular shrink-0" aria-hidden />
                                 <span>{formatSats(sats).number}</span>
+                                <i
+                                    className="fak fa-regular shrink-0"
+                                    aria-label="sats"
+                                    title="sats"
+                                />
                             </span>
                         </div>
                         <div className="w-full flex justify-center">
                             <span
-                                className="inline-block text-white tabular-nums whitespace-nowrap"
+                                className="inline-block whitespace-nowrap text-white tabular-nums"
                                 style={lineFont}
                             >
                                 USD $
@@ -138,10 +142,7 @@ export function MetalsSlide({ data }: MetalsSlideProps) {
             >
                 <source src="/stock-bg.mp4" type="video/mp4" />
             </video>
-            <div
-                className="relative z-10 w-full max-w-none grid grid-cols-2 gap-[4rem] items-start px-[2rem] -translate-x-[5px]"
-                style={{ gridAutoRows: 'minmax(0, auto)' }}
-            >
+            <div className="relative z-10 grid h-full max-h-[calc(100vh-4rem)] w-full grid-cols-2 grid-rows-2 gap-5 px-[2rem]">
                 <CommodityCard
                     title="GOLD (XAU) – SATS/TROY OZ"
                     usd={gold.usd}

@@ -92,8 +92,9 @@ export const mockSchedule: ScheduleBundle = {
         {
             id: 'slide-market-open',
             title: 'Market Open',
-            slideType: 'html',
-            htmlContent: '<strong>Market Open</strong><span>Daily agenda</span>',
+            slideType: 'template',
+            templateId: 'us-market-open',
+            content: 'Market Open',
             defaultDurationSeconds: 30,
             status: 'ready',
             createdAt: now,

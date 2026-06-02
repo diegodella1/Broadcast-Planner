@@ -35,8 +35,12 @@ export {
 } from './mutations/guests';
 
 export {
+    activateFallbackCarouselSet,
+    deleteFallbackCarouselSet,
     createScheduledLayer,
     createWeatherPlate,
+    createYouTubeSlide,
+    saveFallbackCarouselSet,
     saveGlobalFallbackCarouselFromSlides,
     setScheduledLayerEnabled,
     updateRunbookCheck,
