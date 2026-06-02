@@ -23,10 +23,12 @@ export async function GET(request: Request) {
         const currentSeconds = secondsSinceMidnightInTimezone(now);
         const url = new URL(request.url);
         const date = url.searchParams.get('date') || currentAirDate;
-        const startTime = normalizeStartTime(url.searchParams.get('startTime') || '');
+        const startTime =
+            normalizeStartTime(url.searchParams.get('startTime') || '') ||
+            formatTimecode(currentSeconds);
         const liveBundle = await getLiveSchedule(now);
         const active = findActiveSchedule(liveBundle, currentSeconds);
-        const preview = startTime ? await buildPreview(date, startTime) : null;
+        const preview = await buildPreview(date, startTime);
 
         return NextResponse.json(
             {

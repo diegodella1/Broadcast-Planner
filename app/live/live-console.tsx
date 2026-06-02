@@ -34,6 +34,7 @@ const emptyStatus: LiveStatus = {
 
 export function LiveConsole() {
     const [status, setStatus] = useState<LiveStatus>(emptyStatus);
+    const [timingMode, setTimingMode] = useState<'now' | 'future'>('now');
     const [date, setDate] = useState('');
     const [startTime, setStartTime] = useState('');
     const [title, setTitle] = useState('');
@@ -45,16 +46,16 @@ export function LiveConsole() {
     const statusUrl = useMemo(() => {
         const params = new URLSearchParams();
 
-        if (date) {
+        if (timingMode === 'future' && date) {
             params.set('date', date);
         }
 
-        if (startTime) {
+        if (timingMode === 'future' && startTime) {
             params.set('startTime', startTime);
         }
 
         return `/api/live/status${params.size ? `?${params.toString()}` : ''}`;
-    }, [date, startTime]);
+    }, [date, startTime, timingMode]);
 
     useEffect(() => {
         let cancelled = false;
@@ -93,10 +94,18 @@ export function LiveConsole() {
         setError('');
 
         try {
+            const scheduledDate = timingMode === 'now' ? status.currentAirDate : date;
+            const scheduledStartTime = timingMode === 'now' ? status.currentTime : startTime;
             const response = await fetch('/api/live/schedule', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date, startTime, title, liveSourceType, liveUrl }),
+                body: JSON.stringify({
+                    date: scheduledDate,
+                    startTime: scheduledStartTime,
+                    title,
+                    liveSourceType,
+                    liveUrl,
+                }),
             });
             const payload = (await response.json()) as { ok?: boolean; error?: string };
 
@@ -148,6 +157,10 @@ export function LiveConsole() {
     }
 
     const affected = status.preview?.affected ?? [];
+    const scheduledLabel =
+        timingMode === 'now'
+            ? `ahora (${status.currentTime || '--:--:--'})`
+            : `${date || '---- -- --'} ${startTime || '--:--'}`;
 
     return (
         <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-5 px-5 py-8">
@@ -203,7 +216,24 @@ export function LiveConsole() {
                     />
                 </label>
 
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                        className={timingMode === 'now' ? 'chip-active' : 'chip'}
+                        type="button"
+                        onClick={() => setTimingMode('now')}
+                    >
+                        Mandar ahora
+                    </button>
+                    <button
+                        className={timingMode === 'future' ? 'chip-active' : 'chip'}
+                        type="button"
+                        onClick={() => setTimingMode('future')}
+                    >
+                        Programar futuro
+                    </button>
+                </div>
+
+                <div className={timingMode === 'future' ? 'grid gap-3 sm:grid-cols-3' : 'grid'}>
                     <label className="grid gap-1 text-sm font-semibold">
                         Tipo
                         <select
@@ -216,30 +246,34 @@ export function LiveConsole() {
                             <option value="hls">HLS</option>
                         </select>
                     </label>
-                    <label className="grid gap-1 text-sm font-semibold">
-                        Dia
-                        <input
-                            required
-                            type="date"
-                            value={date}
-                            onChange={(event) => setDate(event.target.value)}
-                        />
-                    </label>
-                    <label className="grid gap-1 text-sm font-semibold">
-                        Hora
-                        <input
-                            required
-                            type="time"
-                            value={startTime}
-                            onChange={(event) => setStartTime(event.target.value)}
-                        />
-                    </label>
+                    {timingMode === 'future' ? (
+                        <>
+                            <label className="grid gap-1 text-sm font-semibold">
+                                Dia
+                                <input
+                                    required
+                                    type="date"
+                                    value={date}
+                                    onChange={(event) => setDate(event.target.value)}
+                                />
+                            </label>
+                            <label className="grid gap-1 text-sm font-semibold">
+                                Hora
+                                <input
+                                    required
+                                    type="time"
+                                    value={startTime}
+                                    onChange={(event) => setStartTime(event.target.value)}
+                                />
+                            </label>
+                        </>
+                    ) : null}
                 </div>
 
                 {affected.length ? (
                     <div className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
                         <p className="font-semibold">
-                            Este live pisa programacion desde {startTime || '--:--'} hasta cancelar.
+                            Este live pisa programacion desde {scheduledLabel} hasta cancelar.
                         </p>
                         <ul className="mt-2 grid gap-1 text-amber-100/80">
                             {affected.slice(0, 4).map((block) => (
@@ -261,7 +295,7 @@ export function LiveConsole() {
                 ) : null}
 
                 <button className="btn-primary" disabled={pending} type="submit">
-                    Send
+                    {timingMode === 'now' ? 'Mandar ahora' : 'Programar live'}
                 </button>
             </form>
         </main>
