@@ -20,10 +20,7 @@ export function middleware(request: NextRequest) {
         return withCsrfCookie(request, withSecurityHeaders(NextResponse.redirect(url, 308)));
     }
 
-    if (
-        !request.nextUrl.pathname.startsWith('/admin') ||
-        request.nextUrl.pathname === '/admin/login'
-    ) {
+    if (!isAdminProtectedPath(request.nextUrl.pathname)) {
         return withSecurityHeaders(nextWithCsrfHeader(request));
     }
     const expected = process.env.ADMIN_BOOTSTRAP_TOKEN;
@@ -97,6 +94,14 @@ function rejectCrossSiteMutation(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid request origin' }, { status: 403 });
 }
 
+function isAdminProtectedPath(pathname: string) {
+    if (pathname === '/admin/login') {
+        return false;
+    }
+
+    return pathname.startsWith('/admin') || pathname === '/live';
+}
+
 function withSecurityHeaders(response: NextResponse) {
     response.headers.set('Content-Security-Policy', contentSecurityPolicy());
     response.headers.set('X-Content-Type-Options', 'nosniff');
@@ -166,7 +171,13 @@ function contentSecurityPolicy() {
     const imgSrc = ["'self'", 'data:', 'blob:', 'https:'];
     const mediaSrc = ["'self'", 'blob:', 'https:'];
     const connectSrc = ["'self'", 'https:', 'wss:'];
-    const scriptSrc = ["'self'", "'unsafe-inline'", 'https://static.cloudflareinsights.com'];
+    const frameSrc = ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com'];
+    const scriptSrc = [
+        "'self'",
+        "'unsafe-inline'",
+        'https://static.cloudflareinsights.com',
+        'https://www.youtube.com',
+    ];
 
     if (!production) {
         imgSrc.push('http:');
@@ -184,6 +195,7 @@ function contentSecurityPolicy() {
         `img-src ${imgSrc.join(' ')}`,
         `media-src ${mediaSrc.join(' ')}`,
         `connect-src ${connectSrc.join(' ')}`,
+        `frame-src ${frameSrc.join(' ')}`,
         `script-src ${scriptSrc.join(' ')}`,
         "style-src 'self' 'unsafe-inline'",
         ...(production ? ['upgrade-insecure-requests'] : []),

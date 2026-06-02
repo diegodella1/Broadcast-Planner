@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 
 import { usMarketOpenSlide } from '@/lib/slides/palette';
 import type { MarketIndex, MarketOpenData, MarketOpenPhase } from '@/lib/slides/types';
@@ -33,7 +33,6 @@ export function MarketOpenSlide({ data, endpoint }: MarketOpenSlideProps) {
 
     const remaining = Math.max(0, new Date(liveData.nextBellAt).getTime() - now);
     const marketTone = liveData.phase === 'open' ? 'text-emerald-300' : 'text-amber-200';
-    const updated = formatMarketTime(liveData.updatedAt, liveData.marketTimezone);
     const isDemo = liveData.mode === 'demo';
     const isUnavailable = liveData.mode === 'unavailable';
 
@@ -49,6 +48,11 @@ export function MarketOpenSlide({ data, endpoint }: MarketOpenSlideProps) {
             <div className="absolute left-0 top-0 h-full w-[10px] bg-red-500" />
 
             <div className="relative z-10 flex h-full flex-col px-8 py-6">
+                {liveData.stale ? (
+                    <div className="absolute right-8 top-6 z-20 border border-amber-300/45 bg-amber-300/14 px-4 py-2 text-xs font-black uppercase tracking-[0.24em] text-amber-100">
+                        Delayed
+                    </div>
+                ) : null}
                 {isDemo && (
                     <div className="mb-5 flex items-center justify-center border border-amber-300/45 bg-amber-300/14 px-5 py-3 text-center text-sm font-black uppercase tracking-[0.34em] text-amber-100">
                         Demo data - not live
@@ -60,12 +64,20 @@ export function MarketOpenSlide({ data, endpoint }: MarketOpenSlideProps) {
                     </div>
                 )}
 
-                <header className="flex items-start justify-between gap-6">
+                <header className="flex shrink-0 items-start justify-between gap-6 pr-32">
                     <div className="min-w-0 flex-1">
-                        <p className="text-xs font-black uppercase tracking-[0.34em] text-white/45">
-                            {isDemo ? liveData.previewLabel : liveData.regionLabel}
-                        </p>
-                        <h1 className="mt-2 text-[clamp(34px,5vw,78px)] font-black leading-none tracking-normal">
+                        {isDemo ? (
+                            liveData.previewLabel ? (
+                                <p className="text-xs font-black uppercase tracking-[0.34em] text-white/45">
+                                    {liveData.previewLabel}
+                                </p>
+                            ) : null
+                        ) : liveData.regionLabel ? (
+                            <p className="text-xs font-black uppercase tracking-[0.34em] text-white/45">
+                                {liveData.regionLabel}
+                            </p>
+                        ) : null}
+                        <h1 className="text-[clamp(34px,5vw,78px)] font-black leading-none tracking-normal">
                             {liveData.marketName.toUpperCase()} {phaseSuffixes[liveData.phase]}
                         </h1>
                     </div>
@@ -89,26 +101,9 @@ export function MarketOpenSlide({ data, endpoint }: MarketOpenSlideProps) {
                         <IndexCard key={instrument.id} instrument={instrument} />
                     ))}
                 </section>
-
-                <footer className="mt-4 flex items-center justify-between gap-6 border-t border-white/10 pt-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">
-                    <span>Updated {updated} local</span>
-                    <span className="text-right">{footerStatus(liveData)}</span>
-                </footer>
             </div>
         </motion.div>
     );
-}
-
-function footerStatus(data: MarketOpenData) {
-    if (data.mode === 'demo') {
-        return 'Demo board · not live';
-    }
-
-    if (data.mode === 'unavailable') {
-        return `${data.source} · unavailable`;
-    }
-
-    return `${data.stale ? 'Stale · ' : 'Live · '}cached ${data.cacheSeconds}s · ${data.source}`;
 }
 
 function IndexCard({ instrument }: { instrument: MarketIndex }) {
@@ -117,11 +112,11 @@ function IndexCard({ instrument }: { instrument: MarketIndex }) {
 
     return (
         <article className="flex min-h-0 min-w-0 flex-col justify-between overflow-hidden border border-white/12 bg-white/[0.055] p-4 shadow-2xl">
-            <div>
+            <div className="min-h-0">
                 <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
                         <h2
-                            className="text-[clamp(24px,2.25vw,40px)] font-black leading-[0.95]"
+                            className="text-[clamp(22px,2vw,36px)] font-black leading-[0.98]"
                             style={{
                                 display: '-webkit-box',
                                 WebkitBoxOrient: 'vertical',
@@ -148,7 +143,7 @@ function IndexCard({ instrument }: { instrument: MarketIndex }) {
 
                 <div className="mt-4">
                     {instrument.price ? (
-                        <p className="font-mono text-[clamp(36px,4vw,66px)] font-black leading-none tabular-nums">
+                        <p className="font-mono text-[clamp(32px,3.4vw,58px)] font-black leading-none tabular-nums">
                             {formatPrice(instrument.price)}
                         </p>
                     ) : (
@@ -157,7 +152,7 @@ function IndexCard({ instrument }: { instrument: MarketIndex }) {
                         </p>
                     )}
                     <p
-                        className={`mt-3 font-mono text-[clamp(21px,2.15vw,34px)] font-black tabular-nums ${directionClass}`}
+                        className={`mt-3 font-mono text-[clamp(18px,1.85vw,30px)] font-black tabular-nums ${directionClass}`}
                     >
                         {formatSigned(instrument.change)} ·{' '}
                         {formatPercent(instrument.changePercent)}
@@ -165,15 +160,12 @@ function IndexCard({ instrument }: { instrument: MarketIndex }) {
                 </div>
             </div>
 
-            <div className="mt-3">
+            <div className="mt-3 shrink-0">
                 <Sparkline
                     points={instrument.points}
                     direction={direction}
                     hasValue={Boolean(instrument.price)}
                 />
-                <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                    {instrument.source}
-                </p>
             </div>
         </article>
     );
@@ -188,8 +180,9 @@ function Sparkline({
     direction: 'up' | 'down';
     hasValue: boolean;
 }) {
-    const path = useMemo(
-        () => sparklinePath(points, direction, hasValue),
+    const gradientId = useId().replace(/:/g, '');
+    const geometry = useMemo(
+        () => sparklineGeometry(points, direction, hasValue),
         [points, direction, hasValue],
     );
     const stroke =
@@ -198,60 +191,99 @@ function Sparkline({
     return (
         <svg
             viewBox="0 0 240 72"
-            className="block h-[54px] w-full min-w-0 overflow-visible"
+            className="block h-[62px] w-full min-w-0 overflow-visible"
             preserveAspectRatio="none"
             role="img"
             aria-label="Recent movement"
         >
+            <defs>
+                <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor={stroke} stopOpacity="0.55" />
+                    <stop offset="100%" stopColor={stroke} stopOpacity="0" />
+                </linearGradient>
+            </defs>
             <path
-                d="M0 58 L240 58"
+                d="M0 62 L240 62"
                 stroke="rgba(255,255,255,0.12)"
                 strokeWidth="2"
                 vectorEffect="non-scaling-stroke"
             />
-            {path ? (
-                <path
-                    d={path}
-                    fill="none"
-                    stroke={stroke}
-                    strokeWidth="5"
-                    strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                />
-            ) : (
-                <path
-                    d="M0 42 L240 42"
-                    fill="none"
-                    stroke="rgba(255,255,255,0.18)"
-                    strokeWidth="5"
-                    vectorEffect="non-scaling-stroke"
-                />
-            )}
+            <path d={geometry.areaPath} fill={`url(#${gradientId})`} />
+            <path
+                d={geometry.linePath}
+                fill="none"
+                stroke={geometry.hasSignal ? stroke : 'rgba(255,255,255,0.18)'}
+                strokeWidth="5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+            />
         </svg>
     );
 }
 
-function sparklinePath(points: MarketIndex['points'], direction: 'up' | 'down', hasValue: boolean) {
+function sparklineGeometry(
+    points: MarketIndex['points'],
+    direction: 'up' | 'down',
+    hasValue: boolean,
+) {
     if (!hasValue) {
-        return '';
+        return {
+            linePath: 'M0 34 L240 34',
+            areaPath: 'M0 34 L240 34 L240 72 L0 72 Z',
+            hasSignal: false,
+        };
     }
 
     if (points.length < 2) {
-        return direction === 'up' ? 'M0 48 L240 30' : 'M0 30 L240 48';
+        const linePath = direction === 'up' ? 'M0 44 L240 20' : 'M0 20 L240 44';
+
+        return {
+            linePath,
+            areaPath: `${linePath} L240 72 L0 72 Z`,
+            hasSignal: true,
+        };
     }
-    const prices = points.map((point) => point.price);
+    const chartPoints = densifySparklinePoints(points);
+    const prices = chartPoints.map((point) => point.price);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
     const spread = max - min || 1;
-
-    return points
+    const commands = chartPoints
         .map((point, index) => {
-            const x = (index / (points.length - 1)) * 240;
-            const y = 62 - ((point.price - min) / spread) * 52;
+            const x = (index / (chartPoints.length - 1)) * 240;
+            const y = 50 - ((point.price - min) / spread) * 38;
 
             return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
         })
         .join(' ');
+
+    return {
+        linePath: commands,
+        areaPath: `${commands} L240 72 L0 72 Z`,
+        hasSignal: true,
+    };
+}
+
+function densifySparklinePoints(points: MarketIndex['points']) {
+    const maxSegments = 3;
+
+    return points.flatMap((point, index) => {
+        const next = points[index + 1];
+
+        if (!next) {
+            return [point];
+        }
+
+        return Array.from({ length: maxSegments }, (_, segmentIndex) => {
+            const t = segmentIndex / maxSegments;
+
+            return {
+                timestamp: point.timestamp,
+                price: point.price + (next.price - point.price) * t,
+            };
+        });
+    });
 }
 
 function formatDuration(ms: number) {
@@ -286,22 +318,6 @@ function formatPercent(value: number | null) {
     const sign = value >= 0 ? '+' : '';
 
     return `${sign}${value.toFixed(2)}%`;
-}
-
-function formatMarketTime(value: string, timeZone: string) {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return 'unknown';
-    }
-
-    return new Intl.DateTimeFormat('en-US', {
-        timeZone,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-    }).format(date);
 }
 
 export type UsMarketOpenSlideProps = {

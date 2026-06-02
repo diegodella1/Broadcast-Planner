@@ -1,4 +1,5 @@
 import { formatTimecode } from '../helpers/time';
+import { isLiveObjectBlock } from '../live-object';
 import { isFallbackCandidate } from './fallback';
 
 import type {
@@ -196,6 +197,9 @@ function buildMissingBlockAsset(
     asset: MediaAsset | null,
     slide: SlideAsset | null,
 ): ScheduleIssue | null {
+    if (isLiveObjectBlock(block)) {
+        return null;
+    }
     const expectsSlide = block.blockType === 'slide';
     const missing = expectsSlide ? !slide : !asset;
 

@@ -9,13 +9,20 @@ export async function createSlideAsset(input: {
     slideType: string;
     content?: string | undefined;
     imageUrl?: string | undefined;
-    htmlContent?: string | undefined;
     templateId?: string | undefined;
     defaultDurationSeconds?: number | undefined;
     status?: string | undefined;
     metadata?: Record<string, unknown> | undefined;
 }): Promise<Result<void>> {
     try {
+        if (
+            input.slideType !== 'image' &&
+            input.slideType !== 'html' &&
+            input.slideType !== 'markdown' &&
+            input.slideType !== 'template'
+        ) {
+            return err('Unsupported slide type');
+        }
         const supabase = createServiceClient();
         await auditedMutation(
             {
@@ -33,7 +40,6 @@ export async function createSlideAsset(input: {
                     slide_type: input.slideType,
                     content: input.content || null,
                     image_url: input.imageUrl || null,
-                    html_content: input.htmlContent || null,
                     template_id: input.templateId || null,
                     default_duration_seconds: input.defaultDurationSeconds || null,
                     metadata: input.metadata ?? {},

@@ -429,13 +429,10 @@
       "titleField": "Title",
       "imageUrl": "Image URL",
       "visibleText": "Visible text",
-      "optionalHtml": "Optional HTML",
       "submit": "Create slide"
     },
     "type": {
-      "html": "HTML",
       "image": "Image",
-      "markdown": "Markdown",
       "template": "Template"
     },
     "status": {
@@ -454,21 +451,9 @@
     },
     "add": "Add slide",
     "template": {
-      "calendar": {
-        "label": "Calendar",
-        "description": "Upcoming events list"
-      },
       "debt": {
         "label": "Debt clock",
         "description": "Live US national debt"
-      },
-      "event": {
-        "label": "Event highlight",
-        "description": "Single event spotlight"
-      },
-      "event-modern": {
-        "label": "Event highlight (modern)",
-        "description": "Single event modern"
       },
       "fx": {
         "label": "FX rates",

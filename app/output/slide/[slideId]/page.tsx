@@ -1,9 +1,11 @@
 import { EmergencyOutputStub } from '@/components/output/output-stub';
 import { SlideTemplateRenderer } from '@/components/slides';
+import { YouTubeVideoSlide } from '@/components/slides/YouTubeVideoSlide';
 import { getSlides } from '@/lib/data';
 import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/auth/output-auth';
 import { SLIDE_TEMPLATES, type SlideTemplateId } from '@/lib/slides/registry';
 import { getSlideRenderData } from '@/lib/slides/render-data';
+import { isYouTubeSlide } from '@/lib/slides/youtube';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +24,14 @@ export default async function OutputSlidePage({
 
     const { slideId } = await params;
     const slide = (await getSlides()).find((candidate) => candidate.id === slideId);
+
+    if (isYouTubeSlide(slide)) {
+        return (
+            <main className="h-screen w-screen overflow-hidden bg-black text-white">
+                <YouTubeVideoSlide slide={slide!} />
+            </main>
+        );
+    }
     const templateId = slide?.templateId;
 
     if (!slide || slide.slideType !== 'template' || !isSlideTemplateId(templateId)) {

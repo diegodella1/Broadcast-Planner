@@ -70,14 +70,14 @@ export function GuestLineupSlide({ data }: GuestLineupSlideProps) {
             />
             <div className="guest-lineup-shimmer" aria-hidden="true" />
 
-            <section className="relative h-[64.8%] overflow-hidden">
+            <section className="relative h-[66%] overflow-hidden">
                 <div className="absolute left-0 top-0 z-10 h-full w-[35.5%] overflow-hidden bg-[#0e0e0e]">
                     <GuestMedia guest={activeGuest} size="hero" />
                     <div className="absolute inset-y-0 right-0 w-[47%] bg-gradient-to-r from-transparent to-[#060606]" />
                     <div className="absolute inset-x-0 bottom-0 h-[31%] bg-gradient-to-t from-[#060606] to-transparent" />
                 </div>
 
-                <div className="absolute inset-y-0 left-[29.2%] right-0 z-20 flex flex-col justify-between overflow-hidden px-[5.2%] py-[5.2%] pl-[9.4%]">
+                <div className="absolute inset-y-0 left-[29.2%] right-0 z-20 flex flex-col justify-between overflow-hidden px-[5.2%] py-[4.2%] pl-[9.4%]">
                     {liveData.mode !== 'live' ? (
                         <div className="guest-reveal-down w-fit border border-amber-300/45 bg-amber-300/14 px-4 py-2 text-sm font-black uppercase tracking-[0.3em] text-amber-100">
                             {liveData.mode === 'demo' ? 'Demo guests' : 'Guests unavailable'}
@@ -93,7 +93,7 @@ export function GuestLineupSlide({ data }: GuestLineupSlideProps) {
                         </div>
                     )}
 
-                    <div className="guest-reveal-up flex flex-1 flex-col justify-center py-4">
+                    <div className="guest-reveal-up flex min-h-0 flex-1 flex-col justify-center py-3">
                         <div
                             className="mb-5 inline-flex w-fit items-center gap-2 px-4 py-2 text-[clamp(12px,0.8vw,15px)] font-black uppercase tracking-[0.2em]"
                             style={{ color: accent, backgroundColor: `${accent}18` }}
@@ -102,14 +102,14 @@ export function GuestLineupSlide({ data }: GuestLineupSlideProps) {
                             {activeCategory}
                         </div>
 
-                        <h1 className="guest-reveal-name max-w-[1120px] text-[clamp(64px,5.75vw,110px)] font-black uppercase leading-[0.88] tracking-normal text-white">
+                        <h1 className="guest-reveal-name max-w-[1120px] text-[clamp(56px,5.2vw,96px)] font-black uppercase leading-[0.9] tracking-normal text-white">
                             {activeGuest.name}
                         </h1>
-                        <p className="guest-reveal-host mt-6 text-[clamp(24px,1.8vw,34px)] font-black uppercase italic tracking-[0.12em]">
+                        <p className="guest-reveal-host mt-5 text-[clamp(22px,1.65vw,31px)] font-black uppercase italic tracking-[0.12em]">
                             <span className="mr-2 text-white/28">with</span>
                             <span style={{ color: ROXOM_GREEN }}>{activeGuest.host ?? 'RTV'}</span>
                         </p>
-                        <p className="guest-reveal-role mt-8 text-[clamp(22px,1.7vw,32px)] font-semibold text-white/62">
+                        <p className="guest-reveal-role mt-6 text-[clamp(20px,1.5vw,29px)] font-semibold text-white/62">
                             {activeGuest.role || 'Guest'}
                         </p>
                         <p className="guest-reveal-company mt-2 text-[clamp(18px,1.35vw,26px)] font-medium text-white/32">
@@ -117,11 +117,11 @@ export function GuestLineupSlide({ data }: GuestLineupSlideProps) {
                         </p>
                     </div>
 
-                    <div className="flex items-end justify-between gap-8">
-                        <p className="guest-reveal-date text-[clamp(36px,3.4vw,64px)] font-black uppercase leading-none tracking-normal text-white/28">
+                    <div className="flex shrink-0 items-end justify-between gap-8">
+                        <p className="guest-reveal-date text-[clamp(32px,3vw,56px)] font-black uppercase leading-none tracking-normal text-white/28">
                             {heroDate.weekday}
                         </p>
-                        <p className="guest-reveal-date-main whitespace-nowrap text-[clamp(84px,8.35vw,160px)] font-black uppercase leading-[0.85] tracking-normal text-[#1ae784]">
+                        <p className="guest-reveal-date-main whitespace-nowrap text-[clamp(72px,7.1vw,136px)] font-black uppercase leading-[0.86] tracking-normal text-[#1ae784]">
                             {heroDate.month} <span>{heroDate.day}</span>
                         </p>
                     </div>
@@ -132,7 +132,7 @@ export function GuestLineupSlide({ data }: GuestLineupSlideProps) {
                 </div>
             </section>
 
-            <section className="relative h-[35.2%] border-t border-white/[0.07] bg-[#070707]">
+            <section className="relative h-[34%] border-t border-white/[0.07] bg-[#070707]">
                 <header className="flex h-[21%] items-center justify-between border-b border-white/[0.05] bg-white/[0.015] px-[2.9%]">
                     <span className="text-[clamp(18px,1.25vw,24px)] font-black uppercase tracking-[0.16em] text-white/25">
                         Upcoming Guests
@@ -153,11 +153,6 @@ export function GuestLineupSlide({ data }: GuestLineupSlideProps) {
                     ) : null}
                 </div>
             </section>
-
-            <div className="absolute bottom-3 right-5 z-40 text-[10px] font-bold uppercase tracking-[0.18em] text-white/24">
-                {liveData.source} · cache {liveData.cacheSeconds}s · updated{' '}
-                {formatTime(liveData.updatedAt)}
-            </div>
         </motion.div>
     );
 }
@@ -473,21 +468,6 @@ function parseDate(value: string | null) {
     const date = new Date(value);
 
     return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatTime(value: string) {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return 'unknown';
-    }
-
-    return new Intl.DateTimeFormat('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-    }).format(date);
 }
 
 function safeColor(value: string | null | undefined, fallback = DEFAULT_ACCENT) {

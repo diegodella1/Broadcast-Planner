@@ -1,10 +1,15 @@
 import { revalidatePath } from 'next/cache';
 
 import { auditedMutation } from '../audit/audit';
-import type { FallbackCarouselCard } from '../fallback-carousel';
+import {
+    parseFallbackCarousel,
+    type FallbackCarouselCard,
+    type FallbackCarouselSet,
+} from '../fallback-carousel';
 import { err, extractError, ok, type Result } from '../result';
 import { createServiceClient } from '../supabase/server';
 import { parseTimecode } from '../helpers/time';
+import { youtubeSlideMetadata } from '../slides/youtube';
 
 import { createSlideAsset } from './assets';
 
@@ -49,14 +54,31 @@ function normalizeWeatherStatus(status: string | undefined): 'draft' | 'archived
 }
 
 function normalizeFallbackCards(
-    cards: Array<{ slideId: string; durationSeconds: number }>,
+    cards: Array<{
+        id?: string | undefined;
+        slideId?: string | undefined;
+        assetId?: string | undefined;
+        kind?: string | undefined;
+        durationSeconds: number;
+    }>,
 ): FallbackCarouselCard[] {
     return cards
-        .map((card) => ({
-            slideId: String(card.slideId || ''),
-            durationSeconds: Math.max(1, Math.round(Number(card.durationSeconds || 30))),
-        }))
-        .filter((card): card is FallbackCarouselCard => Boolean(card.slideId));
+        .map((card) => {
+            const kind: FallbackCarouselCard['kind'] = card.kind === 'asset' ? 'asset' : 'slide';
+            const id = String(
+                kind === 'asset' ? card.assetId || card.id || '' : card.slideId || card.id || '',
+            );
+
+            const next: FallbackCarouselCard = {
+                kind,
+                id,
+                ...(kind === 'asset' ? { assetId: id } : { slideId: id }),
+                durationSeconds: Math.max(1, Math.round(Number(card.durationSeconds || 30))),
+            };
+
+            return next;
+        })
+        .filter((card): card is FallbackCarouselCard => Boolean(card.id));
 }
 
 export type RunbookCheckInput = {
@@ -69,7 +91,18 @@ export type RunbookCheckInput = {
 };
 
 export type FallbackCarouselInput = {
-    cards: Array<{ slideId: string; durationSeconds: number }>;
+    cards: Array<{
+        id?: string | undefined;
+        slideId?: string | undefined;
+        assetId?: string | undefined;
+        kind?: string | undefined;
+        durationSeconds: number;
+    }>;
+};
+
+export type SaveFallbackCarouselSetInput = FallbackCarouselInput & {
+    name: string;
+    setId?: string | undefined;
 };
 
 export type WeatherPlateBaseInput = {
@@ -77,6 +110,17 @@ export type WeatherPlateBaseInput = {
     locationName: string;
     lat: number;
     lon: number;
+    defaultDurationSeconds?: number | undefined;
+    status?: string | undefined;
+};
+
+export type YouTubeSlideInput = {
+    title: string;
+    url: string;
+    zoom?: number | string | undefined;
+    muted?: boolean | string | undefined;
+    loop?: boolean | string | undefined;
+    startSeconds?: number | string | undefined;
     defaultDurationSeconds?: number | undefined;
     status?: string | undefined;
 };
@@ -143,45 +187,171 @@ export async function updateRunbookCheck(input: RunbookCheckInput): Promise<Resu
 export async function saveGlobalFallbackCarouselFromSlides(
     input: FallbackCarouselInput,
 ): Promise<Result<void>> {
+    return saveFallbackCarouselSet({
+        name: 'Loop Builder fallback',
+        cards: input.cards,
+    });
+}
+
+export async function saveFallbackCarouselSet(
+    input: SaveFallbackCarouselSetInput,
+): Promise<Result<void>> {
     try {
         const supabase = createServiceClient();
+        const name = input.name.trim();
         const cards = normalizeFallbackCards(input.cards);
+
+        if (!name) {
+            return err('Fallback name is required');
+        }
 
         if (!cards.length) {
             return err('Selecciona al menos una card para fallback');
         }
 
-        await auditedMutation(
-            {
-                action: 'fallback_carousel.updated',
-                entityType: 'integration_settings',
-                entityId: 'fallback_carousel',
-                next: { enabled: true, cards: cards.length },
-            },
-            async () => {
-                const { error } = await supabase.from('integration_settings').upsert(
-                    {
-                        provider: 'fallback_carousel',
-                        public_config: { enabled: true, cards },
-                        status: 'connected',
-                        updated_at: new Date().toISOString(),
-                    },
-                    { onConflict: 'provider' },
-                );
+        const existing = await readFallbackCarouselConfig(supabase);
+        const now = new Date().toISOString();
+        const setId = input.setId || crypto.randomUUID();
+        const previousSet = existing.sets.find((set) => set.id === setId);
+        const nextSet: FallbackCarouselSet = {
+            id: setId,
+            name,
+            cards,
+            createdAt: previousSet?.createdAt ?? now,
+            updatedAt: now,
+        };
+        const sets = [nextSet, ...existing.sets.filter((set) => set.id !== setId)];
 
-                if (error) {
-                    throw error;
-                }
-            },
-        );
-        revalidatePath('/admin/schedule');
-        revalidatePath('/admin/assets');
-        revalidatePath('/admin/output');
+        await writeFallbackCarouselConfig(supabase, {
+            activeSetId: setId,
+            sets,
+            cards,
+            action: 'fallback_carousel.set_saved',
+            next: { activeSetId: setId, name, cards: cards.length, sets: sets.length },
+        });
 
         return ok(undefined);
     } catch (error) {
         return err(extractError(error));
     }
+}
+
+export async function activateFallbackCarouselSet(setId: string): Promise<Result<void>> {
+    try {
+        const supabase = createServiceClient();
+        const existing = await readFallbackCarouselConfig(supabase);
+        const set = existing.sets.find((item) => item.id === setId);
+
+        if (!set) {
+            return err('Fallback set not found');
+        }
+
+        await writeFallbackCarouselConfig(supabase, {
+            activeSetId: set.id,
+            sets: existing.sets,
+            cards: set.cards,
+            action: 'fallback_carousel.set_activated',
+            next: { activeSetId: set.id, name: set.name, cards: set.cards.length },
+        });
+
+        return ok(undefined);
+    } catch (error) {
+        return err(extractError(error));
+    }
+}
+
+export async function deleteFallbackCarouselSet(setId: string): Promise<Result<void>> {
+    try {
+        const supabase = createServiceClient();
+        const existing = await readFallbackCarouselConfig(supabase);
+        const sets = existing.sets.filter((set) => set.id !== setId);
+        const activeSet =
+            existing.activeSetId === setId
+                ? (sets[0] ?? null)
+                : (sets.find((set) => set.id === existing.activeSetId) ?? null);
+
+        await writeFallbackCarouselConfig(supabase, {
+            activeSetId: activeSet?.id ?? null,
+            sets,
+            cards: activeSet?.cards ?? [],
+            enabled: Boolean(activeSet),
+            action: 'fallback_carousel.set_deleted',
+            next: {
+                deletedSetId: setId,
+                activeSetId: activeSet?.id ?? null,
+                sets: sets.length,
+            },
+        });
+
+        return ok(undefined);
+    } catch (error) {
+        return err(extractError(error));
+    }
+}
+
+async function readFallbackCarouselConfig(supabase: ReturnType<typeof createServiceClient>) {
+    const { data, error } = await supabase
+        .from('integration_settings')
+        .select('public_config, updated_at')
+        .eq('provider', 'fallback_carousel')
+        .maybeSingle();
+
+    if (error) {
+        throw error;
+    }
+
+    const parsed = parseFallbackCarousel(data?.public_config, data?.updated_at);
+
+    return {
+        activeSetId: parsed?.activeSetId ?? null,
+        sets: parsed?.sets ?? [],
+        cards: parsed?.cards ?? [],
+    };
+}
+
+async function writeFallbackCarouselConfig(
+    supabase: ReturnType<typeof createServiceClient>,
+    input: {
+        activeSetId: string | null;
+        sets: FallbackCarouselSet[];
+        cards: FallbackCarouselCard[];
+        action: string;
+        next: Record<string, unknown>;
+        enabled?: boolean | undefined;
+    },
+) {
+    await auditedMutation(
+        {
+            action: input.action,
+            entityType: 'integration_settings',
+            entityId: 'fallback_carousel',
+            next: input.next,
+        },
+        async () => {
+            const { error } = await supabase.from('integration_settings').upsert(
+                {
+                    provider: 'fallback_carousel',
+                    public_config: {
+                        enabled: input.enabled ?? true,
+                        activeSetId: input.activeSetId,
+                        sets: input.sets,
+                        cards: input.cards,
+                    },
+                    status: input.enabled === false ? 'disabled' : 'connected',
+                    updated_at: new Date().toISOString(),
+                },
+                { onConflict: 'provider' },
+            );
+
+            if (error) {
+                throw error;
+            }
+        },
+    );
+    revalidatePath('/admin/slides');
+    revalidatePath('/admin/schedule');
+    revalidatePath('/admin/assets');
+    revalidatePath('/admin/output');
 }
 
 export async function createWeatherPlate(input: WeatherPlateBaseInput): Promise<Result<void>> {
@@ -249,6 +419,47 @@ export async function updateWeatherPlate(
                 }
             },
         );
+        revalidatePath('/admin/slides');
+        revalidatePath('/admin/schedule');
+        revalidatePath('/admin/output');
+
+        return ok(undefined);
+    } catch (error) {
+        return err(extractError(error));
+    }
+}
+
+export async function createYouTubeSlide(input: YouTubeSlideInput): Promise<Result<void>> {
+    try {
+        const title = input.title.trim();
+        const metadata = youtubeSlideMetadata({
+            url: input.url,
+            zoom: input.zoom,
+            muted: input.muted,
+            loop: input.loop,
+            startSeconds: input.startSeconds,
+        });
+
+        if (!title) {
+            return err('Title is required');
+        }
+
+        if (!metadata) {
+            return err('YouTube URL is invalid');
+        }
+
+        const result = await createSlideAsset({
+            title,
+            slideType: 'html',
+            content: `YouTube video ${metadata.youtubeVideoId}`,
+            defaultDurationSeconds: input.defaultDurationSeconds ?? 30,
+            status: input.status || 'ready',
+            metadata,
+        });
+
+        if (!result.success) {
+            return result;
+        }
         revalidatePath('/admin/slides');
         revalidatePath('/admin/schedule');
         revalidatePath('/admin/output');

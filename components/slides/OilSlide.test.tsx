@@ -46,6 +46,7 @@ describe('OilSlide', () => {
         render(<OilSlide data={baseData} />);
         expect(screen.getByText(/75\.50/)).toBeInTheDocument();
         expect(screen.getByText(/80\.20/)).toBeInTheDocument();
+        expect(screen.getAllByLabelText('sats')).toHaveLength(2);
     });
 
     it('renders DATA UNAVAILABLE for both when usd values are zero', () => {

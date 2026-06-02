@@ -272,14 +272,6 @@ export function DebtSlide({ data }: DebtSlideProps) {
                             ))}
                         </div>
                     </div>
-
-                    <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-white/50">
-                        <span>Estimated live from latest Treasury data</span>
-                        <span>
-                            BTC {formatUsd(btcPrice)} · {data.btcPriceSource ?? 'fallback'}
-                            {data.stale ? ' · stale' : ''}
-                        </span>
-                    </div>
                 </div>
             </div>
         </motion.div>
@@ -303,13 +295,5 @@ function formatCompactNumber(value: number) {
     return new Intl.NumberFormat('en-US', {
         notation: 'compact',
         maximumFractionDigits: 1,
-    }).format(value);
-}
-
-function formatUsd(value: number) {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        maximumFractionDigits: 0,
     }).format(value);
 }

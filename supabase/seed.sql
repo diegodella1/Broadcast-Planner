@@ -6,9 +6,9 @@ values
   ('00000000-0000-0000-0000-000000000104', 'Reuters Live Feed', 'reuters', 'video', 'video', 'https://example.com/reuters/live', null, 'ready', null, null)
 on conflict (id) do nothing;
 
-insert into slide_assets (id, title, slide_type, html_content, default_duration_seconds, status)
+insert into slide_assets (id, title, slide_type, content, template_id, default_duration_seconds, status)
 values
-  ('00000000-0000-0000-0000-000000000201', 'Market Open', 'html', '<strong>Market Open</strong><span>Agenda del dia</span>', 30, 'ready')
+  ('00000000-0000-0000-0000-000000000201', 'Market Open', 'template', 'Market Open', 'us-market-open', 30, 'ready')
 on conflict (id) do nothing;
 
 insert into program_days (id, air_date, timezone, status, title, fallback_asset_id)

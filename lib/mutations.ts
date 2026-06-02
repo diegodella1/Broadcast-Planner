@@ -9,9 +9,11 @@ export {
     duplicateProgramBlock,
     ensureProgramDay,
     fillProgramBlockContent,
+    markLiveObjectEnded,
     moveProgramBlock,
     reorderProgramBlocks,
     resizeProgramBlock,
+    scheduleLiveObjectOverride,
     updateProgramBlock,
     updateProgramDayStatus,
 } from './mutations/blocks';
@@ -35,8 +37,12 @@ export {
 } from './mutations/guests';
 
 export {
+    activateFallbackCarouselSet,
+    deleteFallbackCarouselSet,
     createScheduledLayer,
     createWeatherPlate,
+    createYouTubeSlide,
+    saveFallbackCarouselSet,
     saveGlobalFallbackCarouselFromSlides,
     setScheduledLayerEnabled,
     updateRunbookCheck,

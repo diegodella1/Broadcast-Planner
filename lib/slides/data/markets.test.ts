@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { __resetMarketsCachesForTests, getMarketsSatsData } from './markets';
+import { __internals, __resetMarketsCachesForTests, getMarketsSatsData } from './markets';
 
 vi.mock('./btc-cache', () => ({
     getBtcPriceUsd: vi.fn().mockResolvedValue(100_000),
@@ -59,6 +59,16 @@ const rtvFxPayload = {
     timestamp: 1_748_340_000,
 };
 
+const eiaBrentText = `
+  2026 May-18 to May-22 116.73 114.64 108.93 105.84 106.90
+  2026 May-25 to May-29 102.75
+`;
+
+const eiaWtiText = `
+  2026 May-18 to May-22 112.25 112.09 101.69 100.20 100.35
+  2026 May-25 to May-29 97.63
+`;
+
 describe('getMarketsSatsData', () => {
     beforeEach(() => {
         vi.useFakeTimers();
@@ -82,7 +92,9 @@ describe('getMarketsSatsData', () => {
                 .mockResolvedValueOnce(jsonResponse(pythPayload))
                 .mockResolvedValueOnce(jsonResponse(rtvFxPayload))
                 .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
-                .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload)),
+                .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
+                .mockResolvedValueOnce(new Response(eiaBrentText))
+                .mockResolvedValueOnce(new Response(eiaWtiText)),
         );
 
         const data = await getMarketsSatsData();
@@ -101,6 +113,8 @@ describe('getMarketsSatsData', () => {
                 .mockResolvedValueOnce(new Response('upstream error', { status: 503 }))
                 .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
                 .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
+                .mockResolvedValueOnce(new Response(eiaBrentText))
+                .mockResolvedValueOnce(new Response(eiaWtiText))
                 .mockResolvedValueOnce(
                     jsonResponse({ result: 'success', rates: { EUR: 0.92, JPY: 156, GBP: 0.79 } }),
                 ),
@@ -119,14 +133,16 @@ describe('getMarketsSatsData', () => {
             .mockResolvedValueOnce(jsonResponse(pythPayload))
             .mockResolvedValueOnce(jsonResponse(rtvFxPayload))
             .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
-            .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload));
+            .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
+            .mockResolvedValueOnce(new Response(eiaBrentText))
+            .mockResolvedValueOnce(new Response(eiaWtiText));
         vi.stubGlobal('fetch', fetchMock);
 
         await getMarketsSatsData();
         vi.setSystemTime(new Date('2026-05-22T12:00:20Z'));
         await getMarketsSatsData();
 
-        expect(fetchMock).toHaveBeenCalledTimes(4);
+        expect(fetchMock).toHaveBeenCalledTimes(6);
     });
 
     it('prefers Roxom metals API for gold and silver', async () => {
@@ -137,7 +153,9 @@ describe('getMarketsSatsData', () => {
                 .mockResolvedValueOnce(jsonResponse(pythPayload))
                 .mockResolvedValueOnce(jsonResponse(rtvFxPayload))
                 .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
-                .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload)),
+                .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
+                .mockResolvedValueOnce(new Response(eiaBrentText))
+                .mockResolvedValueOnce(new Response(eiaWtiText)),
         );
 
         const data = await getMarketsSatsData();
@@ -148,5 +166,33 @@ describe('getMarketsSatsData', () => {
         expect(data.metals.silver.usd).toBe(31);
         expect(data.metals.silver.sats).toBe(31_000);
         expect(data.metals.silver.change24hPct).toBe(-0.5);
+    });
+
+    it('prefers public EIA daily spot prices for oil over the hardcoded Pyth feeds', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi
+                .fn<typeof fetch>()
+                .mockResolvedValueOnce(jsonResponse(pythPayload))
+                .mockResolvedValueOnce(jsonResponse(rtvFxPayload))
+                .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
+                .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
+                .mockResolvedValueOnce(new Response(eiaBrentText))
+                .mockResolvedValueOnce(new Response(eiaWtiText)),
+        );
+
+        const data = await getMarketsSatsData();
+
+        expect(data.oil.brent.usd).toBe(102.75);
+        expect(data.oil.wti.usd).toBe(97.63);
+    });
+});
+
+describe('parseEiaOilText', () => {
+    it('uses the latest available price, even on partial weeks', () => {
+        expect(__internals.parseEiaOilText(eiaBrentText)).toEqual({
+            usd: 102.75,
+            change24hPct: expect.any(Number),
+        });
     });
 });

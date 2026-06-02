@@ -79,7 +79,7 @@ export type MediaAsset = {
 export type SlideAsset = {
     id: string;
     title: string;
-    slideType: 'image' | 'html' | 'template' | 'markdown';
+    slideType: 'image' | 'html' | 'markdown' | 'template';
     content?: string | null;
     imageUrl?: string | null;
     htmlContent?: string | null;

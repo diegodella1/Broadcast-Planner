@@ -5,6 +5,7 @@ import { getLiveSchedule } from '@/lib/data';
 import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/auth/output-auth';
 import { findActiveSchedule } from '@/lib/scheduling/scheduler';
 import { secondsSinceMidnightInTimezone } from '@/lib/helpers/time';
+import { getLiveObjectConfig } from '@/lib/live-object';
 import type { ProgramStatus, BlockCategory } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +17,11 @@ type ActiveBlockPayload = {
     startsAt: number;
     durationSeconds: number;
     elapsedInBlock: number;
+    live?: {
+        sourceType: string;
+        status: string;
+        url: string;
+    };
 };
 
 type ActiveBlockResponse = {
@@ -43,10 +49,8 @@ export async function GET(request: Request) {
                       blockCategory: active.block.category,
                       startsAt: active.block.startTimeSeconds,
                       durationSeconds: active.block.durationSeconds,
-                      elapsedInBlock: Math.max(
-                          0,
-                          Math.min(active.elapsedInBlock, active.block.durationSeconds),
-                      ),
+                      elapsedInBlock: Math.max(0, active.elapsedInBlock),
+                      ...(livePayload(active.block) ? { live: livePayload(active.block)! } : {}),
                   },
                   dayStatus,
               }
@@ -61,6 +65,20 @@ export async function GET(request: Request) {
 
         return NextResponse.json({ error: message }, { status: 500 });
     }
+}
+
+function livePayload(block: NonNullable<ReturnType<typeof findActiveSchedule>['block']>) {
+    const live = getLiveObjectConfig(block);
+
+    if (!live) {
+        return null;
+    }
+
+    return {
+        sourceType: live.sourceType,
+        status: live.status,
+        url: live.url,
+    };
 }
 
 async function isActiveBlockRequestAllowed(request: Request) {

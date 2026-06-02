@@ -13,6 +13,11 @@ import {
 } from '../scheduling/schedule-planner';
 import { parseReutersStreamInput, maskStreamUrl } from '../services/reuters-stream';
 import { recordedBugMetadata, type RecordedBugPosition } from '../recorded-bug';
+import {
+    buildLiveObjectMetadata,
+    LIVE_ESTIMATED_DURATION_SECONDS,
+    type LiveEndReason,
+} from '../live-object';
 import { createServiceClient } from '../supabase/server';
 import { formatTimecode, parseTimecode, PLAYOUT_TIMEZONE } from '../helpers/time';
 
@@ -65,6 +70,8 @@ export async function createProgramBlock(input: {
     reutersStreamUrl?: string;
     reutersStreamLabel?: string;
     reutersStreamExpiresAt?: string;
+    liveSourceType?: string;
+    liveUrl?: string;
     previouslyRecordedEnabled?: boolean;
     previouslyRecordedPosition?: RecordedBugPosition | string;
 }): Promise<Result<{ id: string; startTimeSeconds: number }>> {
@@ -85,13 +92,26 @@ export async function createProgramBlock(input: {
             ...(input.reutersStreamLabel ? { label: input.reutersStreamLabel } : {}),
             ...(input.reutersStreamExpiresAt ? { expiresAt: input.reutersStreamExpiresAt } : {}),
         });
-        const metadata = reutersStream
-            ? reutersBlockMetadata(reutersStream)
-            : recordedBugMetadata({
-                  blockType: input.blockType as ProgramBlock['blockType'],
-                  enabled: input.previouslyRecordedEnabled,
-                  position: input.previouslyRecordedPosition,
-              });
+        const liveMetadata = input.liveUrl
+            ? buildLiveObjectMetadata({
+                  sourceType: input.liveSourceType || 'youtube',
+                  url: input.liveUrl,
+                  title: input.title,
+              })
+            : null;
+
+        if (input.liveUrl && !liveMetadata) {
+            return err('Live URL must be a YouTube video link or HLS .m3u8 URL');
+        }
+        const metadata = liveMetadata
+            ? liveMetadata
+            : reutersStream
+              ? reutersBlockMetadata(reutersStream)
+              : recordedBugMetadata({
+                    blockType: input.blockType as ProgramBlock['blockType'],
+                    enabled: input.previouslyRecordedEnabled,
+                    position: input.previouslyRecordedPosition,
+                });
         const minimumDuration = contentDuration
             ? contentDuration + preRollSeconds + postRollSeconds
             : 1;
@@ -156,7 +176,11 @@ export async function createProgramBlock(input: {
                         program_day_id: dayId,
                         title: input.title,
                         block_type: input.blockType,
-                        category: reutersStream ? 'reuters' : (input.category ?? 'mercados'),
+                        category: liveMetadata
+                            ? 'broadcast'
+                            : reutersStream
+                              ? 'reuters'
+                              : (input.category ?? 'mercados'),
                         asset_id: input.assetId || null,
                         slide_id: input.slideId || null,
                         start_time: input.startTime,
@@ -177,6 +201,86 @@ export async function createProgramBlock(input: {
             },
         );
         revalidatePath(`/admin/schedule/${input.date}`);
+
+        return ok({
+            id: createdBlock.id,
+            startTimeSeconds: createdBlock.start_time_seconds,
+        });
+    } catch (error) {
+        return err(extractError(error));
+    }
+}
+
+export async function scheduleLiveObjectOverride(input: {
+    date: string;
+    title: string;
+    startTime: string;
+    liveSourceType: string;
+    liveUrl: string;
+}): Promise<Result<{ id: string; startTimeSeconds: number }>> {
+    try {
+        const dayResult = await ensureProgramDay(input.date);
+
+        if (!dayResult.success) {
+            return dayResult;
+        }
+        const dayId = dayResult.data;
+        const title = input.title.trim() || 'Live';
+        const liveMetadata = buildLiveObjectMetadata({
+            sourceType: input.liveSourceType,
+            url: input.liveUrl,
+            title,
+        });
+
+        if (!liveMetadata) {
+            return err('Live URL must be a YouTube video link or HLS .m3u8 URL');
+        }
+        const startTimeSeconds = parseTimecode(input.startTime);
+        const supabase = createServiceClient();
+        let createdBlock = { id: '', start_time_seconds: startTimeSeconds };
+
+        await auditedMutation(
+            {
+                action: 'live_object.override_created',
+                entityType: 'program_blocks',
+                metadata: { date: input.date, live_source_type: input.liveSourceType },
+                next: {
+                    title,
+                    start_time: input.startTime,
+                    duration_seconds: LIVE_ESTIMATED_DURATION_SECONDS,
+                },
+            },
+            async () => {
+                const { data, error } = await supabase
+                    .from('program_blocks')
+                    .insert({
+                        program_day_id: dayId,
+                        title,
+                        block_type: 'video',
+                        category: 'broadcast',
+                        asset_id: null,
+                        slide_id: null,
+                        start_time: input.startTime,
+                        start_time_seconds: startTimeSeconds,
+                        duration_seconds: LIVE_ESTIMATED_DURATION_SECONDS,
+                        status: 'ready',
+                        hide_overlays: true,
+                        fallback_asset_id: null,
+                        metadata: liveMetadata,
+                    })
+                    .select('id,start_time_seconds')
+                    .single();
+
+                if (error) {
+                    throw error;
+                }
+                createdBlock = data as { id: string; start_time_seconds: number };
+            },
+        );
+        revalidatePath(`/admin/schedule/${input.date}`);
+        revalidatePath('/admin/output');
+        revalidatePath('/live');
+        revalidatePath('/output/live');
 
         return ok({
             id: createdBlock.id,
@@ -483,6 +587,8 @@ export async function updateProgramBlock(input: {
     reutersStreamUrl?: string;
     reutersStreamLabel?: string;
     reutersStreamExpiresAt?: string;
+    liveSourceType?: string;
+    liveUrl?: string;
     previouslyRecordedEnabled?: boolean;
     previouslyRecordedPosition?: RecordedBugPosition | string;
 }): Promise<Result<void>> {
@@ -506,14 +612,34 @@ export async function updateProgramBlock(input: {
             ...(input.reutersStreamLabel ? { label: input.reutersStreamLabel } : {}),
             ...(input.reutersStreamExpiresAt ? { expiresAt: input.reutersStreamExpiresAt } : {}),
         });
-        const metadata = reutersStream
-            ? reutersBlockMetadata(reutersStream)
-            : recordedBugMetadata({
-                  metadata: block.metadata,
-                  blockType: input.blockType as ProgramBlock['blockType'],
-                  enabled: input.previouslyRecordedEnabled,
-                  position: input.previouslyRecordedPosition,
-              });
+        const liveMetadata = input.liveUrl
+            ? buildLiveObjectMetadata({
+                  sourceType: input.liveSourceType || 'youtube',
+                  url: input.liveUrl,
+                  title: input.title,
+              })
+            : null;
+
+        if (input.liveUrl && !liveMetadata) {
+            return err('Live URL must be a YouTube video link or HLS .m3u8 URL');
+        }
+        const metadata = liveMetadata
+            ? {
+                  ...liveMetadata,
+                  live_status:
+                      block.metadata?.live_status === 'ended' ||
+                      block.metadata?.live_status === 'failed'
+                          ? 'scheduled'
+                          : (block.metadata?.live_status ?? 'scheduled'),
+              }
+            : reutersStream
+              ? reutersBlockMetadata(reutersStream)
+              : recordedBugMetadata({
+                    metadata: block.metadata,
+                    blockType: input.blockType as ProgramBlock['blockType'],
+                    enabled: input.previouslyRecordedEnabled,
+                    position: input.previouslyRecordedPosition,
+                });
         const contentDuration = getKnownContentDuration(schedule, input.assetId, input.slideId);
         const durationSeconds = Math.max(
             1,
@@ -573,7 +699,11 @@ export async function updateProgramBlock(input: {
                     .update({
                         title: input.title,
                         block_type: input.blockType,
-                        category: reutersStream ? 'reuters' : (input.category ?? block.category),
+                        category: liveMetadata
+                            ? 'broadcast'
+                            : reutersStream
+                              ? 'reuters'
+                              : (input.category ?? block.category),
                         asset_id: input.assetId || null,
                         slide_id: input.slideId || null,
                         start_time: input.startTime,
@@ -596,6 +726,74 @@ export async function updateProgramBlock(input: {
         );
         revalidatePath(`/admin/schedule/${input.date}`);
         revalidatePath(`/admin/schedule/${input.date}/blocks/${input.blockId}`);
+
+        return ok(undefined);
+    } catch (error) {
+        return err(extractError(error));
+    }
+}
+
+export async function markLiveObjectEnded(input: {
+    blockId: string;
+    reason: LiveEndReason | string;
+    failed?: boolean;
+}): Promise<Result<void>> {
+    try {
+        const supabase = createServiceClient();
+        const { data, error } = await supabase
+            .from('program_blocks')
+            .select('id,title,metadata,program_day_id')
+            .eq('id', input.blockId)
+            .maybeSingle();
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data?.id) {
+            return err('Live block not found');
+        }
+        const metadata =
+            typeof data.metadata === 'object' && data.metadata !== null
+                ? (data.metadata as Record<string, unknown>)
+                : {};
+
+        if (metadata.live_object !== true) {
+            return err('Block is not a live object');
+        }
+
+        if (metadata.live_status === 'ended' || metadata.live_status === 'failed') {
+            return ok(undefined);
+        }
+        const now = new Date().toISOString();
+        const nextMetadata = {
+            ...metadata,
+            live_status: input.failed ? 'failed' : 'ended',
+            live_ended_at: now,
+            live_end_reason: input.reason,
+        };
+        await auditedMutation(
+            {
+                action: input.failed ? 'live_object.failed' : 'live_object.ended',
+                entityType: 'program_blocks',
+                entityId: String(data.id),
+                metadata: { reason: input.reason },
+                previous: { live_status: metadata.live_status ?? 'scheduled' },
+                next: { live_status: nextMetadata.live_status, live_ended_at: now },
+            },
+            async () => {
+                const { error: updateError } = await supabase
+                    .from('program_blocks')
+                    .update({ metadata: nextMetadata, updated_at: now })
+                    .eq('id', String(data.id));
+
+                if (updateError) {
+                    throw updateError;
+                }
+            },
+        );
+        revalidatePath('/admin/output');
+        revalidatePath('/output/live');
 
         return ok(undefined);
     } catch (error) {

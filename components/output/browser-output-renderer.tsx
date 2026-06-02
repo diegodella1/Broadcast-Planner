@@ -46,6 +46,26 @@ type OutputState =
           presentation?: 'fit' | 'vertical_blur';
           background?: 'black' | 'blur';
           recordedBug?: RecordedBug;
+          live?: true;
+          liveSourceType?: 'hls';
+          liveStatus?: string;
+          backgroundMusic: BackgroundMusic;
+      }
+    | {
+          kind: 'youtube_live';
+          signature: string;
+          blockId: string;
+          title: string;
+          youtubeVideoId: string;
+          youtubeUrl: string;
+          embedUrl: string;
+          startOffsetSeconds: number;
+          durationSeconds: null;
+          serverSeconds: number;
+          generatedAt: string;
+          live: true;
+          liveSourceType: 'youtube';
+          liveStatus: string;
           backgroundMusic: BackgroundMusic;
       }
     | {
@@ -99,6 +119,9 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
     const musicRef = useRef<HTMLAudioElement>(null);
     const hlsRef = useRef<Hls | null>(null);
     const inFlightRef = useRef<AbortController | null>(null);
+    const liveEndRef = useRef<string | null>(null);
+    const deadSinceRef = useRef<number | null>(null);
+    const deadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [armed, setArmed] = useState(false);
     const [state, setState] = useState<OutputState | null>(null);
     const [mediaState, setMediaState] = useState<MediaState>('idle');
@@ -123,6 +146,15 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
 
         return `/api/output/channel/state${query ? `?${query}` : ''}`;
     }, [previewBlockId, startAt, token]);
+
+    useEffect(
+        () => () => {
+            if (deadTimerRef.current) {
+                clearTimeout(deadTimerRef.current);
+            }
+        },
+        [],
+    );
 
     useEffect(() => {
         let cancelled = false;
@@ -221,12 +253,29 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
                 void playVideo(video);
             }
         };
-        const onPlaying = () => setMediaState('playing');
+        const onPlaying = () => {
+            deadSinceRef.current = null;
+
+            if (deadTimerRef.current) {
+                clearTimeout(deadTimerRef.current);
+                deadTimerRef.current = null;
+            }
+            setMediaState('playing');
+        };
         const onWaiting = () => setMediaState('waiting');
-        const onStalled = () => setMediaState('stalled');
+        const onStalled = () => {
+            markLiveDeadSignal(state, 'stalled');
+            setMediaState('stalled');
+        };
         const onError = () => {
+            markLiveDeadSignal(state, 'error');
             setError(video.error?.message || 'Media playback failed');
             setMediaState('errored');
+        };
+        const onEnded = () => {
+            if (isLiveState(state)) {
+                void reportLiveEnded(state, 'hls-ended');
+            }
         };
         const onTimeUpdate = () => setCurrentTime(video.currentTime);
 
@@ -235,6 +284,7 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
         video.addEventListener('waiting', onWaiting);
         video.addEventListener('stalled', onStalled);
         video.addEventListener('error', onError);
+        video.addEventListener('ended', onEnded);
         video.addEventListener('timeupdate', onTimeUpdate);
 
         let cancelled = false;
@@ -254,6 +304,10 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
                 const hls = new Hls({ startPosition: offset, enableWorker: true });
                 hlsRef.current = hls;
                 hls.on(Hls.Events.ERROR, (_event, data) => {
+                    if (isLiveState(state)) {
+                        markLiveDeadSignal(state, data.details || 'hls-error');
+                    }
+
                     if (data.fatal) {
                         setError(data.details);
                         setMediaState('errored');
@@ -274,6 +328,7 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
             video.removeEventListener('waiting', onWaiting);
             video.removeEventListener('stalled', onStalled);
             video.removeEventListener('error', onError);
+            video.removeEventListener('ended', onEnded);
             video.removeEventListener('timeupdate', onTimeUpdate);
         };
         // Media source setup must only rerun when the active output item changes.
@@ -339,6 +394,51 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
 
         if (musicRef.current && state?.backgroundMusic?.enabled) {
             await musicRef.current.play().catch(() => undefined);
+        }
+    }
+
+    async function reportLiveEnded(stateToEnd: OutputState, reason: string) {
+        if (!isLiveState(stateToEnd) || liveEndRef.current === stateToEnd.signature) {
+            return;
+        }
+        liveEndRef.current = stateToEnd.signature;
+        const params = new URLSearchParams();
+
+        if (token) {
+            params.set('token', token);
+        }
+
+        await fetch(`/api/output/live/end${params.size ? `?${params.toString()}` : ''}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                blockId: stateToEnd.blockId,
+                reason,
+                sourceType: stateToEnd.kind === 'youtube_live' ? 'youtube' : 'hls',
+            }),
+        }).catch(() => undefined);
+    }
+
+    function markLiveDeadSignal(stateToCheck: OutputState, signal: string) {
+        if (!isLiveState(stateToCheck)) {
+            return;
+        }
+        const now = Date.now();
+
+        if (!deadSinceRef.current) {
+            deadSinceRef.current = now;
+        }
+
+        if (!deadTimerRef.current) {
+            deadTimerRef.current = setTimeout(() => {
+                if (deadSinceRef.current) {
+                    void reportLiveEnded(stateToCheck, 'dead-timeout');
+                }
+            }, LIVE_DEAD_TIMEOUT_MS);
+        }
+
+        if (now - deadSinceRef.current >= LIVE_DEAD_TIMEOUT_MS) {
+            void reportLiveEnded(stateToCheck, signal === 'manual' ? 'manual' : 'dead-timeout');
         }
     }
 
@@ -429,6 +529,8 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
     );
 }
 
+const LIVE_DEAD_TIMEOUT_MS = 60_000;
+
 function RecordedBugOverlay({ state }: { state: OutputState | null }) {
     if (!state || !isVideoState(state) || !state.recordedBug) {
         return null;
@@ -491,6 +593,10 @@ function VisualState({ state, mediaState }: { state: OutputState | null; mediaSt
         return <img src={state.imageUrl} alt="" className="h-full w-full object-cover" />;
     }
 
+    if (state.kind === 'youtube_live') {
+        return <YouTubeLivePlayer key={state.signature} state={state} />;
+    }
+
     if (mediaState === 'syncing') {
         return null;
     }
@@ -500,6 +606,54 @@ function VisualState({ state, mediaState }: { state: OutputState | null; mediaSt
     }
 
     return null;
+}
+
+function YouTubeLivePlayer({ state }: { state: Extract<OutputState, { kind: 'youtube_live' }> }) {
+    const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [revealed, setRevealed] = useState(false);
+    const src = useMemo(() => youtubeFrameSrc(state.embedUrl), [state.embedUrl]);
+
+    useEffect(() => {
+        revealTimerRef.current = setTimeout(() => setRevealed(true), 4500);
+
+        return () => {
+            if (revealTimerRef.current) {
+                clearTimeout(revealTimerRef.current);
+            }
+        };
+    }, []);
+
+    return (
+        <div className="absolute inset-0 overflow-hidden bg-black">
+            <iframe
+                title="Live video"
+                src={src}
+                allow="autoplay; encrypted-media; picture-in-picture"
+                referrerPolicy="strict-origin-when-cross-origin"
+                className={[
+                    'absolute inset-0 h-full w-full border-0 bg-black opacity-100 transition-[filter,transform] duration-[4500ms] ease-out',
+                    revealed ? 'scale-100 blur-0' : 'scale-[1.04] blur-xl',
+                ].join(' ')}
+            />
+            {!revealed ? (
+                <div
+                    data-testid="youtube-live-start-mask"
+                    className="pointer-events-none absolute inset-0 bg-black/70 opacity-100 transition-opacity duration-[4500ms] ease-out"
+                />
+            ) : null}
+        </div>
+    );
+}
+
+function youtubeFrameSrc(value: string) {
+    try {
+        const url = new URL(value);
+        url.searchParams.set('origin', window.location.origin);
+
+        return url.toString();
+    } catch {
+        return value;
+    }
 }
 
 function EmergencySlate({ title, detail }: { title: string; detail: string }) {
@@ -535,6 +689,12 @@ function isVideoState(
     state: OutputState,
 ): state is Extract<OutputState, { kind: 'vimeo' | 'hls' | 'mp4' }> {
     return state.kind === 'vimeo' || state.kind === 'hls' || state.kind === 'mp4';
+}
+
+function isLiveState(
+    state: OutputState,
+): state is Extract<OutputState, { kind: 'youtube_live' | 'hls' }> & { live?: true } {
+    return state.kind === 'youtube_live' || (state.kind === 'hls' && state.live === true);
 }
 
 function isHlsSource(state: Extract<OutputState, { kind: 'vimeo' | 'hls' | 'mp4' }>) {

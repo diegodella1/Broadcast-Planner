@@ -3,7 +3,6 @@ import { demoData as mockGuestLineupData, getGuestLineupData } from './data/gues
 import { getWeatherSlideData } from './data/weather';
 import type { SlideAsset } from '@/lib/types';
 import type {
-    CalendarEvent,
     DebtData,
     GuestLineupData,
     MarketsSatsData,
@@ -55,26 +54,6 @@ async function fetchSlideData(endpoint: string) {
 }
 
 function adaptSlideData(templateId: SlideTemplateId, raw: unknown): unknown {
-    if (templateId === 'calendar') {
-        return { events: pickEvents(raw) };
-    }
-
-    if (templateId === 'event') {
-        const events = pickEvents(raw);
-
-        return { selectedEventIds: events.slice(0, 2).map((event) => event.id), events };
-    }
-
-    if (templateId === 'event-modern') {
-        const events = pickEvents(raw);
-
-        return {
-            selectedEventIds: events.slice(0, 4).map((event) => event.id),
-            events,
-            eventSlideTitle: 'Upcoming',
-        };
-    }
-
     if (templateId === 'strc') {
         return { data: pickNested(raw, 'strc') ?? mockStrcData() };
     }
@@ -100,18 +79,6 @@ function adaptSlideData(templateId: SlideTemplateId, raw: unknown): unknown {
     }
 
     return { data: isObject(raw) ? raw : mockMarketsData() };
-}
-
-function pickEvents(raw: unknown): CalendarEvent[] {
-    if (Array.isArray(raw)) {
-        return raw as CalendarEvent[];
-    }
-
-    if (isObject(raw) && Array.isArray(raw.events)) {
-        return raw.events as CalendarEvent[];
-    }
-
-    return mockEvents();
 }
 
 function pickNested(raw: unknown, key: string) {
@@ -224,8 +191,8 @@ function marketPreset(templateId: SlideTemplateId) {
     if (templateId === 'japan-market-open') {
         return {
             marketName: 'Japan Market',
-            regionLabel: 'Japan index board / ETF proxy',
-            previewLabel: 'Japan index board preview',
+            regionLabel: '',
+            previewLabel: '',
             timezone: 'Asia/Tokyo',
             instruments: [
                 ['nikkei225', 'Nikkei 225', 'N225', '1321', 39280.5, 184.2, 0.47],
@@ -239,8 +206,8 @@ function marketPreset(templateId: SlideTemplateId) {
     if (templateId === 'uk-market-open') {
         return {
             marketName: 'UK Market',
-            regionLabel: 'London index board / ETF proxy',
-            previewLabel: 'London index board preview',
+            regionLabel: '',
+            previewLabel: '',
             timezone: 'Europe/London',
             instruments: [
                 ['ftse100', 'FTSE 100', 'UKX', 'ISF', 8342.2, 28.4, 0.34],
@@ -254,8 +221,8 @@ function marketPreset(templateId: SlideTemplateId) {
     if (templateId === 'china-market-open') {
         return {
             marketName: 'China Market',
-            regionLabel: 'China/HK index board / ETF proxy',
-            previewLabel: 'China index board preview',
+            regionLabel: '',
+            previewLabel: '',
             timezone: 'Asia/Shanghai',
             instruments: [
                 ['shanghai', 'Shanghai Composite', 'SHCOMP', 'ASHR', 3148.6, 13.8, 0.44],
@@ -269,8 +236,8 @@ function marketPreset(templateId: SlideTemplateId) {
     if (templateId === 'saudi-market-open') {
         return {
             marketName: 'Saudi Market',
-            regionLabel: 'Tadawul index board / ETF proxy',
-            previewLabel: 'Saudi Tadawul board preview',
+            regionLabel: '',
+            previewLabel: '',
             timezone: 'Asia/Riyadh',
             instruments: [
                 ['tasi', 'Tadawul TASI', 'TASI', 'KSA', 12184.2, 54.6, 0.45],
@@ -283,8 +250,8 @@ function marketPreset(templateId: SlideTemplateId) {
 
     return {
         marketName: 'US Market',
-        regionLabel: 'US index futures / ETF proxy',
-        previewLabel: 'US index board preview',
+        regionLabel: '',
+        previewLabel: '',
         timezone: 'America/New_York',
         instruments: [
             ['sp500', 'S&P 500', 'ES', 'SPY', 6280.25, 12.4, 0.2],
@@ -407,32 +374,4 @@ function unavailableWeatherData(): WeatherSlideData {
         updatedAt: new Date().toISOString(),
         reason: 'weather endpoint unavailable',
     };
-}
-
-function mockEvents(): CalendarEvent[] {
-    return [
-        {
-            id: 'mock-event-1',
-            title: 'Market Open',
-            description: 'Daily coverage and market context',
-            image_url: null,
-            start_date: new Date().toISOString().slice(0, 10),
-            end_date: null,
-            start_time: '07:40',
-            end_time: '08:40',
-            is_active: true,
-            order_index: 1,
-            color: '#22c55e',
-            title_font: null,
-            title_size: 'large',
-            title_color: null,
-            text_color: null,
-            overlay_opacity: null,
-            show_date_badge: true,
-            location: 'RTV',
-            schedule_times: [{ timezone: 'SF', time: '07:40' }],
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-        },
-    ];
 }

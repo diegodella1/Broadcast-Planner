@@ -11,7 +11,7 @@ import { FlowCard, FlowGrid, FlowHero, FlowRail } from '@/components/admin/admin
 import { AdminShell } from '@/components/admin/admin-shell';
 import { ButtonLink } from '@/components/ui';
 import { getLiveSchedule } from '@/lib/data';
-import { getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
+import { fallbackCarouselDisplayName, getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
 import { collectOperatorHealth } from '@/lib/health/health-checks';
 import { findFallbackCandidate } from '@/lib/scheduling/fallback';
 import { findActiveSchedule } from '@/lib/scheduling/scheduler';
@@ -40,7 +40,7 @@ export default async function OperatePage() {
             .find((block) => block.startTimeSeconds > nowSeconds) ?? null;
     const fallbackVideo = findFallbackCandidate(schedule.mediaAssets);
     const fallbackLabel =
-        fallbackVideo?.title ?? (fallbackCarousel?.enabled ? 'Slide carousel' : 'Missing');
+        fallbackCarouselDisplayName(fallbackCarousel) ?? fallbackVideo?.title ?? 'Missing';
     const fallbackTone = fallbackVideo || fallbackCarousel?.enabled ? 'ok' : 'warn';
 
     return (

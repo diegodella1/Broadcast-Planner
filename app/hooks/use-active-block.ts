@@ -14,6 +14,11 @@ export type ActiveBlockSnapshot = {
         startsAt: number;
         durationSeconds: number;
         elapsedInBlock: number;
+        live?: {
+            sourceType: string;
+            status: string;
+            url: string;
+        };
     } | null;
     dayStatus: ProgramStatus;
 };

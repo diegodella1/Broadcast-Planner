@@ -74,10 +74,13 @@ describe('DebtSlide', () => {
         expect(screen.getByText('2 BTC')).toBeInTheDocument();
     });
 
-    it('shows debt source and BTC source metadata', () => {
-        render(<DebtSlide data={baseData} />);
+    it('does not show source metadata footer', () => {
+        render(<DebtSlide data={{ ...baseData, stale: true }} />);
 
-        expect(screen.getByText(/Estimated live from latest Treasury data/i)).toBeInTheDocument();
-        expect(screen.getByText(/Coinbase spot BTC-USD/i)).toBeInTheDocument();
+        expect(
+            screen.queryByText(/Estimated live from latest Treasury data/i),
+        ).not.toBeInTheDocument();
+        expect(screen.queryByText(/Coinbase spot BTC-USD/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/stale/i)).not.toBeInTheDocument();
     });
 });

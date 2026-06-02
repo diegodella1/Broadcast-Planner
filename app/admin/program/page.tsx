@@ -4,7 +4,7 @@ import { FlowCard, FlowGrid, FlowHero, FlowRail } from '@/components/admin/admin
 import { AdminShell } from '@/components/admin/admin-shell';
 import { ButtonLink } from '@/components/ui';
 import { getDays, getScheduleForDate } from '@/lib/data';
-import { getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
+import { fallbackCarouselDisplayName, getGlobalFallbackCarousel } from '@/lib/fallback-carousel';
 import { findFallbackCandidate } from '@/lib/scheduling/fallback';
 import { analyzeSchedule } from '@/lib/scheduling/schedule-health';
 import { isoDateInTimezone, PLAYOUT_TIMEZONE } from '@/lib/helpers/time';
@@ -22,7 +22,7 @@ export default async function ProgramPage() {
     const health = analyzeSchedule(schedule, blocks);
     const fallbackVideo = findFallbackCandidate(schedule.mediaAssets);
     const fallbackLabel =
-        fallbackVideo?.title ?? (fallbackCarousel?.enabled ? 'Slide carousel' : 'Missing');
+        fallbackCarouselDisplayName(fallbackCarousel) ?? fallbackVideo?.title ?? 'Missing';
     const fallbackTone = fallbackVideo || fallbackCarousel?.enabled ? 'ok' : 'warn';
 
     return (

@@ -152,8 +152,9 @@ function schedule({ withConflict = false }: { withConflict?: boolean } = {}): Sc
             {
                 id: 'slide-1',
                 title: 'Manual slide',
-                slideType: 'html',
-                htmlContent: '<p>Slide</p>',
+                slideType: 'template',
+                templateId: 'weather',
+                content: 'Slide',
                 defaultDurationSeconds: null,
                 status: 'ready',
                 createdAt: '',

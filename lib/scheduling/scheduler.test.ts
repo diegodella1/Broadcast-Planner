@@ -35,6 +35,69 @@ describe('scheduler', () => {
         expect(active.fallbackAsset?.assetType).toBe('fallback');
     });
 
+    it('keeps an unended live block active after its estimated duration', () => {
+        const liveBlock: ProgramBlock = {
+            ...(mockSchedule.blocks[0] as ProgramBlock),
+            id: 'block-live',
+            title: 'Third-party live',
+            startTimeSeconds: 100,
+            durationSeconds: 600,
+            assetId: null,
+            metadata: {
+                live_object: true,
+                live_source_type: 'youtube',
+                live_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                youtube_video_id: 'dQw4w9WgXcQ',
+                live_status: 'scheduled',
+            },
+        };
+        const laterBlock: ProgramBlock = {
+            ...(mockSchedule.blocks[0] as ProgramBlock),
+            id: 'block-later',
+            title: 'Later show',
+            startTimeSeconds: 800,
+            durationSeconds: 300,
+        };
+        const active = findActiveSchedule(
+            { ...mockSchedule, blocks: [liveBlock, laterBlock] },
+            900,
+        );
+
+        expect(active.block?.id).toBe('block-live');
+        expect(active.elapsedInBlock).toBe(800);
+    });
+
+    it('resumes wall-clock programming after a live block is ended', () => {
+        const liveBlock: ProgramBlock = {
+            ...(mockSchedule.blocks[0] as ProgramBlock),
+            id: 'block-live',
+            title: 'Third-party live',
+            startTimeSeconds: 100,
+            durationSeconds: 600,
+            assetId: null,
+            metadata: {
+                live_object: true,
+                live_source_type: 'youtube',
+                live_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                youtube_video_id: 'dQw4w9WgXcQ',
+                live_status: 'ended',
+            },
+        };
+        const laterBlock: ProgramBlock = {
+            ...(mockSchedule.blocks[0] as ProgramBlock),
+            id: 'block-later',
+            title: 'Later show',
+            startTimeSeconds: 800,
+            durationSeconds: 300,
+        };
+        const active = findActiveSchedule(
+            { ...mockSchedule, blocks: [liveBlock, laterBlock] },
+            900,
+        );
+
+        expect(active.block?.id).toBe('block-later');
+    });
+
     it('selects a fallback asset flagged via metadata.fallback_loop when no assetType fallback exists', () => {
         const timestamp = new Date().toISOString();
         const fallbackByMetadata: MediaAsset = {

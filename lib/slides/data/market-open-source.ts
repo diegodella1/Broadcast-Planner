@@ -1,7 +1,7 @@
 import type { MarketIndex, MarketIndexPoint, MarketOpenData } from '@/lib/slides/types';
 
 const MARKET_CACHE_DURATION_MS = 30_000;
-const MAX_POINTS = 48;
+const MAX_POINTS = 120;
 
 type MarketItem = Record<string, unknown>;
 type MarketProviderResult = {
@@ -545,7 +545,7 @@ function pushPoint(
     const points = [...(pointHistory.get(id) ?? [])];
     const last = points.at(-1);
 
-    if (!last || last.price !== point.price) {
+    if (!last || last.price !== point.price || last.timestamp !== point.timestamp) {
         points.push(point);
     }
     const limited = points.slice(-MAX_POINTS);
