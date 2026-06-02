@@ -3,7 +3,7 @@
 /* eslint-disable jsx-a11y/media-has-caption */
 
 import type Hls from 'hls.js';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type MediaState =
     | 'idle'
@@ -623,6 +623,7 @@ function VisualState({
     if (state.kind === 'youtube_live') {
         return (
             <YouTubeLivePlayer
+                key={state.signature}
                 state={state}
                 armed={armed}
                 onReady={onYouTubeReady}
@@ -686,6 +687,17 @@ function YouTubeLivePlayer({
 }) {
     const containerRef = useRef<HTMLDivElement>(null);
     const playerRef = useRef<YouTubePlayer | null>(null);
+    const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [revealed, setRevealed] = useState(false);
+    const revealYouTubeLive = useCallback(() => {
+        if (revealTimerRef.current) {
+            return;
+        }
+        revealTimerRef.current = setTimeout(() => {
+            setRevealed(true);
+            revealTimerRef.current = null;
+        }, 5500);
+    }, []);
 
     useEffect(() => {
         if (armed) {
@@ -705,6 +717,7 @@ function YouTubeLivePlayer({
                 videoId: state.youtubeVideoId,
                 playerVars: {
                     autoplay: 1,
+                    cc_load_policy: 0,
                     controls: 0,
                     disablekb: 1,
                     fs: 0,
@@ -728,6 +741,7 @@ function YouTubeLivePlayer({
 
                         if (event.data === YT.PlayerState.PLAYING) {
                             onReady();
+                            revealYouTubeLive();
                         }
                     },
                     onError: () => onError(state),
@@ -737,12 +751,31 @@ function YouTubeLivePlayer({
 
         return () => {
             cancelled = true;
+
+            if (revealTimerRef.current) {
+                clearTimeout(revealTimerRef.current);
+                revealTimerRef.current = null;
+            }
+
             playerRef.current?.destroy();
             playerRef.current = null;
         };
-    }, [armed, state.signature, state.youtubeVideoId]);
+    }, [armed, revealYouTubeLive, state.signature, state.youtubeVideoId]);
 
-    return <div ref={containerRef} className="absolute inset-0 h-full w-full bg-black" />;
+    return (
+        <div className="absolute inset-0 overflow-hidden bg-black">
+            <div
+                ref={containerRef}
+                className={[
+                    'absolute inset-0 h-full w-full bg-black transition-[filter,opacity,transform] duration-700',
+                    revealed ? 'scale-100 opacity-100 blur-0' : 'scale-[1.04] opacity-80 blur-xl',
+                ].join(' ')}
+            />
+            {!revealed ? (
+                <div className="pointer-events-none absolute inset-0 bg-black/45 transition-opacity duration-700" />
+            ) : null}
+        </div>
+    );
 }
 
 function loadYouTubeApi(): Promise<YouTubeApi> {
