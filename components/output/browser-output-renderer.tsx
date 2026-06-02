@@ -560,13 +560,7 @@ function recordedBugClassName(position: RecordedBug['position']) {
     return `${base} ${positions[position]}`;
 }
 
-function VisualState({
-    state,
-    mediaState,
-}: {
-    state: OutputState | null;
-    mediaState: MediaState;
-}) {
+function VisualState({ state, mediaState }: { state: OutputState | null; mediaState: MediaState }) {
     if (!state) {
         return <EmergencySlate title="Loading output" detail="Resolving active schedule." />;
     }
@@ -615,19 +609,6 @@ function VisualState({
 }
 
 function YouTubeLivePlayer({ state }: { state: Extract<OutputState, { kind: 'youtube_live' }> }) {
-    const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [revealed, setRevealed] = useState(false);
-
-    useEffect(() => {
-        revealTimerRef.current = setTimeout(() => setRevealed(true), 4500);
-
-        return () => {
-            if (revealTimerRef.current) {
-                clearTimeout(revealTimerRef.current);
-            }
-        };
-    }, []);
-
     const src = useMemo(() => youtubeFrameSrc(state.embedUrl), [state.embedUrl]);
 
     return (
@@ -637,14 +618,8 @@ function YouTubeLivePlayer({ state }: { state: Extract<OutputState, { kind: 'you
                 src={src}
                 allow="autoplay; encrypted-media; picture-in-picture"
                 referrerPolicy="strict-origin-when-cross-origin"
-                className={[
-                    'absolute inset-0 h-full w-full border-0 bg-black transition-[filter,opacity,transform] duration-700',
-                    revealed ? 'scale-100 opacity-100 blur-0' : 'scale-[1.04] opacity-80 blur-xl',
-                ].join(' ')}
+                className="absolute inset-0 h-full w-full border-0 bg-black opacity-100 blur-0"
             />
-            {!revealed ? (
-                <div className="pointer-events-none absolute inset-0 bg-black/45 transition-opacity duration-700" />
-            ) : null}
         </div>
     );
 }
