@@ -81,6 +81,7 @@ function redirectPublicHttpToHttps(request: NextRequest) {
     }
     const url = request.nextUrl.clone();
     url.protocol = 'https:';
+    url.host = host;
 
     return withSecurityHeaders(NextResponse.redirect(url, 308));
 }
