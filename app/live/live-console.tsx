@@ -69,7 +69,7 @@ export function LiveConsole() {
             }
 
             if (!response.ok) {
-                setError(payload.error || 'No se pudo leer live status');
+                setError(payload.error || 'Could not load live status');
 
                 return;
             }
@@ -110,13 +110,13 @@ export function LiveConsole() {
             const payload = (await response.json()) as { ok?: boolean; error?: string };
 
             if (!response.ok) {
-                throw new Error(payload.error || 'No se pudo mandar live');
+                throw new Error(payload.error || 'Could not send live');
             }
-            setMessage('Live enviado');
+            setMessage('Live sent');
             setLiveUrl('');
             await refreshStatus();
         } catch (nextError) {
-            setError(nextError instanceof Error ? nextError.message : 'No se pudo mandar live');
+            setError(nextError instanceof Error ? nextError.message : 'Could not send live');
         } finally {
             setPending(false);
         }
@@ -136,12 +136,12 @@ export function LiveConsole() {
             const payload = (await response.json()) as { ok?: boolean; error?: string };
 
             if (!response.ok) {
-                throw new Error(payload.error || 'No se pudo cancelar live');
+                throw new Error(payload.error || 'Could not cancel live');
             }
-            setMessage('Live cancelado');
+            setMessage('Live cancelled');
             await refreshStatus();
         } catch (nextError) {
-            setError(nextError instanceof Error ? nextError.message : 'No se pudo cancelar live');
+            setError(nextError instanceof Error ? nextError.message : 'Could not cancel live');
         } finally {
             setPending(false);
         }
@@ -159,25 +159,26 @@ export function LiveConsole() {
     const affected = status.preview?.affected ?? [];
     const scheduledLabel =
         timingMode === 'now'
-            ? `ahora (${status.currentTime || '--:--:--'})`
+            ? `now (${status.currentTime || '--:--:--'})`
             : `${date || '---- -- --'} ${startTime || '--:--'}`;
 
     return (
         <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-5 px-5 py-8">
             <header>
                 <p className="eyebrow text-signal">Live override</p>
-                <h1 className="mt-2 text-3xl font-semibold">Mandar live</h1>
+                <h1 className="mt-2 text-3xl font-semibold">Send live</h1>
                 <p className="mt-2 text-sm text-muted">
-                    Hora actual {status.currentTime || '--:--:--'} · {status.timezone || 'playout'}
+                    Current playout time {status.currentTime || '--:--:--'} ·{' '}
+                    {status.timezone || 'playout'}
                 </p>
             </header>
 
             <section className="surface-panel p-4">
-                <p className="text-sm font-semibold">Ahora</p>
+                <p className="text-sm font-semibold">On air now</p>
                 <p className="mt-1 text-lg">
                     {status.active
                         ? `${status.active.live ? 'LIVE: ' : ''}${status.active.title}`
-                        : 'Fallback / sin bloque activo'}
+                        : 'Fallback / no active block'}
                 </p>
                 <button
                     className="btn-danger mt-4"
@@ -185,7 +186,7 @@ export function LiveConsole() {
                     type="button"
                     onClick={() => void cancelLive()}
                 >
-                    Cancelar live
+                    Cancel live
                 </button>
             </section>
 
@@ -194,7 +195,7 @@ export function LiveConsole() {
                 onSubmit={(event) => void sendLive(event)}
             >
                 <label className="grid gap-1 text-sm font-semibold">
-                    URL live
+                    Live URL
                     <input
                         required
                         placeholder={
@@ -208,7 +209,7 @@ export function LiveConsole() {
                 </label>
 
                 <label className="grid gap-1 text-sm font-semibold">
-                    Titulo
+                    Title
                     <input
                         placeholder="Live"
                         value={title}
@@ -222,20 +223,20 @@ export function LiveConsole() {
                         type="button"
                         onClick={() => setTimingMode('now')}
                     >
-                        Mandar ahora
+                        Send now
                     </button>
                     <button
                         className={timingMode === 'future' ? 'chip-active' : 'chip'}
                         type="button"
                         onClick={() => setTimingMode('future')}
                     >
-                        Programar futuro
+                        Schedule future
                     </button>
                 </div>
 
                 <div className={timingMode === 'future' ? 'grid gap-3 sm:grid-cols-3' : 'grid'}>
                     <label className="grid gap-1 text-sm font-semibold">
-                        Tipo
+                        Type
                         <select
                             value={liveSourceType}
                             onChange={(event) =>
@@ -249,7 +250,7 @@ export function LiveConsole() {
                     {timingMode === 'future' ? (
                         <>
                             <label className="grid gap-1 text-sm font-semibold">
-                                Dia
+                                Day
                                 <input
                                     required
                                     type="date"
@@ -258,7 +259,7 @@ export function LiveConsole() {
                                 />
                             </label>
                             <label className="grid gap-1 text-sm font-semibold">
-                                Hora
+                                Time
                                 <input
                                     required
                                     type="time"
@@ -273,7 +274,7 @@ export function LiveConsole() {
                 {affected.length ? (
                     <div className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
                         <p className="font-semibold">
-                            Este live pisa programacion desde {scheduledLabel} hasta cancelar.
+                            This live overrides programming from {scheduledLabel} until cancelled.
                         </p>
                         <ul className="mt-2 grid gap-1 text-amber-100/80">
                             {affected.slice(0, 4).map((block) => (
@@ -285,7 +286,7 @@ export function LiveConsole() {
                     </div>
                 ) : (
                     <div className="rounded-md border border-emerald-400/25 bg-emerald-400/10 p-3 text-sm text-emerald-100">
-                        No pisa bloques programados conocidos.
+                        No known scheduled blocks will be overridden.
                     </div>
                 )}
 
@@ -295,7 +296,7 @@ export function LiveConsole() {
                 ) : null}
 
                 <button className="btn-primary" disabled={pending} type="submit">
-                    {timingMode === 'now' ? 'Mandar ahora' : 'Programar live'}
+                    {timingMode === 'now' ? 'Send now' : 'Schedule live'}
                 </button>
             </form>
         </main>
