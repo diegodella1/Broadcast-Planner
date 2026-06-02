@@ -35,8 +35,10 @@ describe('admin page shell guard', () => {
 });
 
 describe('admin return_to safety', () => {
-    it('accepts only local admin destinations outside the login page', () => {
+    it('accepts only local admin/live destinations outside the login page', () => {
         expect(safeAdminReturnTo('/admin/output?debug=1')).toBe('/admin/output?debug=1');
+        expect(safeAdminReturnTo('/live')).toBe('/live');
+        expect(safeAdminReturnTo('/live?mode=now')).toBe('/live?mode=now');
         expect(safeAdminReturnTo('/admin/login?return_to=/admin/output')).toBe('/admin/calendar');
         expect(safeAdminReturnTo('/manual')).toBe('/admin/calendar');
         expect(safeAdminReturnTo('https://evil.example/admin')).toBe('/admin/calendar');

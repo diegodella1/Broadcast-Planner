@@ -20,10 +20,7 @@ export function middleware(request: NextRequest) {
         return withCsrfCookie(request, withSecurityHeaders(NextResponse.redirect(url, 308)));
     }
 
-    if (
-        !request.nextUrl.pathname.startsWith('/admin') ||
-        request.nextUrl.pathname === '/admin/login'
-    ) {
+    if (!isAdminProtectedPath(request.nextUrl.pathname)) {
         return withSecurityHeaders(nextWithCsrfHeader(request));
     }
     const expected = process.env.ADMIN_BOOTSTRAP_TOKEN;
@@ -95,6 +92,14 @@ function rejectCrossSiteMutation(request: NextRequest) {
     }
 
     return NextResponse.json({ ok: false, error: 'Invalid request origin' }, { status: 403 });
+}
+
+function isAdminProtectedPath(pathname: string) {
+    if (pathname === '/admin/login') {
+        return false;
+    }
+
+    return pathname.startsWith('/admin') || pathname === '/live';
 }
 
 function withSecurityHeaders(response: NextResponse) {
