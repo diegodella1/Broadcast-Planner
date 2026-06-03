@@ -582,7 +582,7 @@ function LiveLowerThirdOverlay({ state }: { state: OutputState | null }) {
                 draggable={false}
             />
             {lowerThird.text ? (
-                <div className="absolute bottom-[2.6%] left-[14.9%] right-[5%] flex h-[8.8%] items-center overflow-hidden">
+                <div className="absolute bottom-[2.6%] left-[14.9%] right-[5%] flex h-[8.8%] translate-y-[10px] items-center overflow-hidden">
                     <p className="truncate text-[clamp(2rem,4.1vw,4.9rem)] font-black leading-none text-black">
                         {lowerThird.text}
                     </p>
