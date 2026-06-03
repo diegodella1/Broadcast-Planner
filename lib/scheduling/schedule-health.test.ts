@@ -21,6 +21,30 @@ describe('schedule health', () => {
         expect(health.criticalCount).toBeGreaterThan(0);
     });
 
+    it('does not flag live overrides as schedule overlaps', () => {
+        const schedule = {
+            ...mockSchedule,
+            blocks: [
+                firstBlock,
+                {
+                    ...secondBlock,
+                    id: 'live-override',
+                    startTimeSeconds: 30,
+                    startTime: '00:00:30',
+                    metadata: {
+                        live_object: true,
+                        live_source_type: 'youtube',
+                        live_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                        youtube_video_id: 'dQw4w9WgXcQ',
+                    },
+                },
+            ],
+        };
+        const health = analyzeSchedule(schedule);
+
+        expect(health.overlaps).toHaveLength(0);
+    });
+
     it('detects missing block assets', () => {
         const schedule = {
             ...mockSchedule,

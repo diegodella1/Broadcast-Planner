@@ -186,7 +186,7 @@ export async function createProgramBlock(input: {
                         start_time: input.startTime,
                         start_time_seconds: startTimeSeconds,
                         duration_seconds: durationSeconds,
-                        status: 'ready',
+                        status: 'archived',
                         hide_overlays: input.hideOverlays,
                         metadata,
                     })
@@ -275,6 +275,14 @@ export async function scheduleLiveObjectOverride(input: {
                     throw error;
                 }
                 createdBlock = data as { id: string; start_time_seconds: number };
+                const { error: statusError } = await supabase
+                    .from('program_blocks')
+                    .update({ status: 'ready', updated_at: new Date().toISOString() })
+                    .eq('id', createdBlock.id);
+
+                if (statusError) {
+                    throw statusError;
+                }
             },
         );
         revalidatePath(`/admin/schedule/${input.date}`);

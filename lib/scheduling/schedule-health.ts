@@ -79,7 +79,8 @@ export function analyzeSchedule(
     inputBlocks = schedule.blocks,
 ): ScheduleHealth {
     const blocks = [...inputBlocks].sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
-    const { gaps, overlaps } = detectAdjacencyIssues(blocks);
+    const baseBlocks = blocks.filter((block) => !isLiveObjectBlock(block));
+    const { gaps, overlaps } = detectAdjacencyIssues(baseBlocks);
     const blockIssues = collectBlockIssues(schedule, blocks);
     const fallbackIssues = detectFallbackIssues(schedule);
 

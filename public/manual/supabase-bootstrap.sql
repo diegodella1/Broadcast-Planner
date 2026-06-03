@@ -273,7 +273,7 @@ returns trigger
 language plpgsql
 as $$
 begin
-  if new.status = 'archived' then
+  if new.status = 'archived' or new.metadata ->> 'live_object' = 'true' then
     return new;
   end if;
 
@@ -283,6 +283,7 @@ begin
     where existing.program_day_id = new.program_day_id
       and existing.id <> new.id
       and existing.status <> 'archived'
+      and coalesce(existing.metadata ->> 'live_object', 'false') <> 'true'
       and new.start_time_seconds < existing.start_time_seconds + existing.duration_seconds
       and new.start_time_seconds + new.duration_seconds > existing.start_time_seconds
   ) then
