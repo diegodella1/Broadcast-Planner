@@ -14,9 +14,17 @@ export type LiveObjectConfig = {
     startedAt?: string | null;
     endedAt?: string | null;
     endReason?: string | null;
+    lowerThird: LiveLowerThirdConfig;
+};
+
+export type LiveLowerThirdConfig = {
+    visible: boolean;
+    text: string;
+    assetUrl: string;
 };
 
 export const LIVE_ESTIMATED_DURATION_SECONDS = 3600;
+export const LIVE_LOWER_THIRD_ASSET_URL = '/l3/l32026full.png';
 
 export function isLiveObjectBlock(block: ProgramBlock | null | undefined) {
     return block?.metadata?.live_object === true;
@@ -63,6 +71,7 @@ export function getLiveObjectConfig(
             : {}),
         ...(youtubeVideoId ? { youtubeVideoId } : {}),
         ...(hlsUrl ? { hlsUrl } : {}),
+        lowerThird: liveLowerThirdConfig(metadata),
     };
 }
 
@@ -190,4 +199,14 @@ function safeVideoId(value: string) {
 
 function stringMetadata(value: unknown) {
     return typeof value === 'string' ? value.trim() : '';
+}
+
+export function liveLowerThirdConfig(
+    metadata: Record<string, unknown> | null | undefined,
+): LiveLowerThirdConfig {
+    return {
+        visible: metadata?.lower_third_visible === true,
+        text: stringMetadata(metadata?.lower_third_text),
+        assetUrl: LIVE_LOWER_THIRD_ASSET_URL,
+    };
 }

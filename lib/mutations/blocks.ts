@@ -801,6 +801,75 @@ export async function markLiveObjectEnded(input: {
     }
 }
 
+export async function updateLiveObjectLowerThird(input: {
+    blockId: string;
+    visible: boolean;
+    text: string;
+}): Promise<Result<void>> {
+    try {
+        const supabase = createServiceClient();
+        const { data, error } = await supabase
+            .from('program_blocks')
+            .select('id,metadata,program_day_id')
+            .eq('id', input.blockId)
+            .maybeSingle();
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data?.id) {
+            return err('Live block not found');
+        }
+        const metadata =
+            typeof data.metadata === 'object' && data.metadata !== null
+                ? (data.metadata as Record<string, unknown>)
+                : {};
+
+        if (metadata.live_object !== true) {
+            return err('Block is not a live object');
+        }
+        const now = new Date().toISOString();
+        const nextMetadata = {
+            ...metadata,
+            lower_third_visible: input.visible,
+            lower_third_text: input.text.trim(),
+        };
+
+        await auditedMutation(
+            {
+                action: 'live_object.lower_third_updated',
+                entityType: 'program_blocks',
+                entityId: String(data.id),
+                previous: {
+                    lower_third_visible: metadata.lower_third_visible === true,
+                    lower_third_text: metadata.lower_third_text ?? '',
+                },
+                next: {
+                    lower_third_visible: nextMetadata.lower_third_visible,
+                    lower_third_text: nextMetadata.lower_third_text,
+                },
+            },
+            async () => {
+                const { error: updateError } = await supabase
+                    .from('program_blocks')
+                    .update({ metadata: nextMetadata, updated_at: now })
+                    .eq('id', String(data.id));
+
+                if (updateError) {
+                    throw updateError;
+                }
+            },
+        );
+        revalidatePath('/live');
+        revalidatePath('/output/live');
+
+        return ok(undefined);
+    } catch (error) {
+        return err(extractError(error));
+    }
+}
+
 export async function reorderProgramBlocks(input: {
     date: string;
     orderedBlockIds: string[];
