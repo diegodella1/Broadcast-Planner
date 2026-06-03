@@ -67,11 +67,13 @@ export const config = {
 };
 
 function redirectPublicHttpToHttps(request: NextRequest) {
+    if (!['GET', 'HEAD'].includes(request.method)) {
+        return null;
+    }
     const host = request.headers.get('host') ?? request.nextUrl.host;
-    const forwardedProto = request.headers.get('x-forwarded-proto');
+    const isHttps = requestIsHttps(request);
     const publicHttp =
-        request.nextUrl.protocol === 'http:' &&
-        forwardedProto !== 'https' &&
+        !isHttps &&
         !host.startsWith('localhost') &&
         !host.startsWith('127.0.0.1') &&
         !host.startsWith('0.0.0.0');
@@ -92,6 +94,34 @@ function redirectPublicHttpToHttps(request: NextRequest) {
     }
 
     return withSecurityHeaders(NextResponse.redirect(url, 308));
+}
+
+function requestIsHttps(request: NextRequest) {
+    if (request.nextUrl.protocol === 'https:') {
+        return true;
+    }
+
+    if (request.headers.get('x-forwarded-proto') === 'https') {
+        return true;
+    }
+
+    return cfVisitorScheme(request) === 'https';
+}
+
+function cfVisitorScheme(request: NextRequest) {
+    const cfVisitor = request.headers.get('cf-visitor');
+
+    if (!cfVisitor) {
+        return undefined;
+    }
+
+    try {
+        const parsed = JSON.parse(cfVisitor) as { scheme?: string };
+
+        return parsed.scheme;
+    } catch {
+        return undefined;
+    }
 }
 
 function rejectCrossSiteMutation(request: NextRequest) {
