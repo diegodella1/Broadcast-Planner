@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Clock, Eye, EyeOff, Radio, Send, Square, Type } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type LiveStatus = {
     currentAirDate: string;
@@ -38,6 +39,7 @@ const emptyStatus: LiveStatus = {
 };
 
 export function LiveConsole() {
+    const activeBlockRef = useRef<string | null>(null);
     const [status, setStatus] = useState<LiveStatus>(emptyStatus);
     const [timingMode, setTimingMode] = useState<'now' | 'future'>('now');
     const [date, setDate] = useState('');
@@ -96,7 +98,12 @@ export function LiveConsole() {
                     return;
                 }
                 setStatus(payload);
-                setLowerThirdText((current) => current || payload.active?.lowerThird.text || '');
+
+                if (activeBlockRef.current !== payload.active?.blockId) {
+                    activeBlockRef.current = payload.active?.blockId ?? null;
+                    setLowerThirdText(payload.active?.lowerThird.text || '');
+                }
+
                 setDate((current) => current || payload.currentAirDate);
                 setStartTime((current) => current || payload.currentTime.slice(0, 5));
             } catch (nextError) {
@@ -178,7 +185,7 @@ export function LiveConsole() {
         }
     }
 
-    async function setLowerThirdVisible(visible: boolean) {
+    async function updateLowerThird(visible: boolean) {
         setPending(true);
         setMessage('');
         setError('');
@@ -194,7 +201,7 @@ export function LiveConsole() {
             if (!response.ok) {
                 throw new Error(payload.error || 'Could not update lower third');
             }
-            setMessage(visible ? 'Lower third shown' : 'Lower third hidden');
+            setMessage(visible ? 'Lower third updated' : 'Lower third hidden');
             await refreshStatus();
         } catch (nextError) {
             setError(
@@ -221,98 +228,110 @@ export function LiveConsole() {
             : `${date || '---- -- --'} ${startTime || '--:--'}`;
     const activeLive = status.active?.live ? status.active : null;
     const lowerThirdVisible = activeLive?.lowerThird.visible === true;
+    const isBusy = pending;
+    const submitLabel = timingMode === 'now' ? 'Send live now' : 'Schedule live';
 
     return (
-        <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-5 px-5 py-8">
-            <header>
-                <p className="eyebrow text-signal">Live override</p>
-                <h1 className="mt-2 text-3xl font-semibold">Send live</h1>
-                <p className="mt-2 text-sm text-muted">
-                    Current playout time {status.currentTime || '--:--:--'} ·{' '}
-                    {status.timezone || 'playout'}
-                </p>
+        <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-5 px-5 py-6">
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <p className="eyebrow text-signal">Live control</p>
+                    <h1 className="mt-2 text-3xl font-semibold">Live output</h1>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+                    <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-white/10 bg-surface-elevated-2 px-3">
+                        <Clock size={16} />
+                        {status.currentTime || '--:--:--'}
+                    </span>
+                    <span className="inline-flex min-h-9 items-center rounded-md border border-white/10 bg-surface-elevated-2 px-3">
+                        {status.timezone || 'playout'}
+                    </span>
+                </div>
             </header>
 
-            <section className="surface-panel p-4">
-                <p className="text-sm font-semibold">On air now</p>
-                <p className="mt-1 text-lg">
-                    {status.active
-                        ? `${status.active.live ? 'LIVE: ' : ''}${status.active.title}`
-                        : 'Fallback / no active block'}
-                </p>
-                <button
-                    className="btn-danger mt-4"
-                    disabled={pending || !activeLive}
-                    type="button"
-                    onClick={() => void cancelLive()}
+            {error || message ? (
+                <div
+                    className={[
+                        'rounded-md border px-4 py-3 text-sm font-semibold',
+                        error
+                            ? 'border-red-400/30 bg-red-400/10 text-red-200'
+                            : 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200',
+                    ].join(' ')}
                 >
-                    Cancel live
-                </button>
+                    {error || message}
+                </div>
+            ) : null}
+
+            <section className="surface-panel grid gap-4 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                        <p className="text-sm font-semibold">On air</p>
+                        <p className="mt-1 truncate text-2xl font-semibold">
+                            {status.active?.title || 'Fallback'}
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span
+                            className={[
+                                'inline-flex min-h-9 items-center gap-2 rounded-md border px-3 text-sm font-bold',
+                                activeLive
+                                    ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200'
+                                    : 'border-white/10 bg-white/5 text-muted',
+                            ].join(' ')}
+                        >
+                            <Radio size={16} />
+                            {activeLive ? 'Live' : 'Program'}
+                        </span>
+                        <button
+                            className="btn-danger"
+                            disabled={isBusy || !activeLive}
+                            type="button"
+                            onClick={() => void cancelLive()}
+                        >
+                            <Square size={16} />
+                            End live
+                        </button>
+                    </div>
+                </div>
             </section>
 
-            <section className="surface-panel grid gap-3 p-4">
-                <div>
-                    <p className="text-sm font-semibold">Lower third</p>
-                    <p className="mt-1 text-sm text-muted">
-                        {activeLive
-                            ? lowerThirdVisible
-                                ? 'Visible on live output'
-                                : 'Hidden on live output'
-                            : 'No active live on air'}
-                    </p>
-                </div>
-                <label className="grid gap-1 text-sm font-semibold">
-                    Lower third text
-                    <input
-                        className="border border-line px-3 py-2"
-                        disabled={!activeLive || pending}
-                        placeholder="Text to show over the lower third"
-                        value={lowerThirdText}
-                        onChange={(event) => setLowerThirdText(event.target.value)}
-                    />
-                </label>
-                <button
-                    className={lowerThirdVisible ? 'btn-danger' : 'btn-primary'}
-                    disabled={!activeLive || pending}
-                    type="button"
-                    onClick={() => void setLowerThirdVisible(!lowerThirdVisible)}
+            <div className="grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
+                <form
+                    className="surface-panel grid gap-4 p-4"
+                    onSubmit={(event) => void sendLive(event)}
                 >
-                    {lowerThirdVisible ? 'Hide lower third' : 'Show lower third'}
-                </button>
-            </section>
+                    <div className="flex items-center gap-2">
+                        <Send size={18} className="text-accent-positive" />
+                        <h2 className="text-lg font-semibold">Send live</h2>
+                    </div>
 
-            <form
-                className="surface-panel grid gap-4 overflow-hidden p-4"
-                onSubmit={(event) => void sendLive(event)}
-            >
-                <div className="grid grid-cols-2 rounded-md border border-line bg-panel p-1">
-                    <button
-                        className={[
-                            'min-h-10 rounded px-3 text-sm font-semibold',
-                            timingMode === 'now'
-                                ? 'bg-accent-positive text-surface-elevated-1'
-                                : 'text-muted hover:bg-white/5 hover:text-white',
-                        ].join(' ')}
-                        type="button"
-                        onClick={() => setTimingMode('now')}
-                    >
-                        Send now
-                    </button>
-                    <button
-                        className={[
-                            'min-h-10 rounded px-3 text-sm font-semibold',
-                            timingMode === 'future'
-                                ? 'bg-accent-positive text-surface-elevated-1'
-                                : 'text-muted hover:bg-white/5 hover:text-white',
-                        ].join(' ')}
-                        type="button"
-                        onClick={() => setTimingMode('future')}
-                    >
-                        Schedule future
-                    </button>
-                </div>
+                    <div className="grid grid-cols-2 rounded-md border border-line bg-panel p-1">
+                        <button
+                            className={[
+                                'min-h-10 rounded px-3 text-sm font-semibold',
+                                timingMode === 'now'
+                                    ? 'bg-accent-positive text-surface-elevated-1'
+                                    : 'text-muted hover:bg-white/5 hover:text-white',
+                            ].join(' ')}
+                            type="button"
+                            onClick={() => setTimingMode('now')}
+                        >
+                            Now
+                        </button>
+                        <button
+                            className={[
+                                'min-h-10 rounded px-3 text-sm font-semibold',
+                                timingMode === 'future'
+                                    ? 'bg-accent-positive text-surface-elevated-1'
+                                    : 'text-muted hover:bg-white/5 hover:text-white',
+                            ].join(' ')}
+                            type="button"
+                            onClick={() => setTimingMode('future')}
+                        >
+                            Later
+                        </button>
+                    </div>
 
-                <div className="grid gap-4 rounded-md border border-line bg-panel/60 p-4">
                     <label className="grid gap-1 text-sm font-semibold">
                         Live URL
                         <input
@@ -328,40 +347,38 @@ export function LiveConsole() {
                         />
                     </label>
 
-                    <label className="grid gap-1 text-sm font-semibold">
-                        Title
-                        <input
-                            className="border border-line px-3 py-2"
-                            placeholder="Live"
-                            value={title}
-                            onChange={(event) => setTitle(event.target.value)}
-                        />
-                    </label>
-                </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="grid gap-1 text-sm font-semibold">
+                            Title
+                            <input
+                                className="border border-line px-3 py-2"
+                                placeholder="Live"
+                                value={title}
+                                onChange={(event) => setTitle(event.target.value)}
+                            />
+                        </label>
 
-                <div
-                    className={[
-                        'rounded-md border border-line bg-panel/60 p-4',
-                        timingMode === 'future' ? 'grid gap-3 sm:grid-cols-3' : 'grid',
-                    ].join(' ')}
-                >
-                    <label className="grid gap-1 text-sm font-semibold">
-                        Type
-                        <select
-                            className="border border-line px-3 py-2"
-                            value={liveSourceType}
-                            onChange={(event) =>
-                                setLiveSourceType(event.target.value === 'hls' ? 'hls' : 'youtube')
-                            }
-                        >
-                            <option value="youtube">YouTube</option>
-                            <option value="hls">HLS</option>
-                        </select>
-                    </label>
+                        <label className="grid gap-1 text-sm font-semibold">
+                            Source
+                            <select
+                                className="border border-line px-3 py-2"
+                                value={liveSourceType}
+                                onChange={(event) =>
+                                    setLiveSourceType(
+                                        event.target.value === 'hls' ? 'hls' : 'youtube',
+                                    )
+                                }
+                            >
+                                <option value="youtube">YouTube</option>
+                                <option value="hls">HLS</option>
+                            </select>
+                        </label>
+                    </div>
+
                     {timingMode === 'future' ? (
-                        <>
+                        <div className="grid gap-3 sm:grid-cols-2">
                             <label className="grid gap-1 text-sm font-semibold">
-                                Day
+                                Date
                                 <input
                                     className="border border-line px-3 py-2"
                                     required
@@ -380,38 +397,84 @@ export function LiveConsole() {
                                     onChange={(event) => setStartTime(event.target.value)}
                                 />
                             </label>
-                        </>
+                        </div>
                     ) : null}
-                </div>
 
-                {affected.length ? (
-                    <div className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
-                        <p className="font-semibold">
-                            This live overrides programming from {scheduledLabel} until cancelled.
+                    {affected.length ? (
+                        <div className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+                            <p className="flex items-center gap-2 font-semibold">
+                                <AlertTriangle size={16} />
+                                Overrides programming from {scheduledLabel}
+                            </p>
+                            <p className="mt-1 text-amber-100/75">
+                                {affected.length} block{affected.length === 1 ? '' : 's'} affected
+                            </p>
+                        </div>
+                    ) : null}
+
+                    <button className="btn-primary min-h-12" disabled={isBusy} type="submit">
+                        <Send size={16} />
+                        {submitLabel}
+                    </button>
+                </form>
+
+                <section className="surface-panel grid content-start gap-4 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                            <Type size={18} className="text-accent-positive" />
+                            <h2 className="text-lg font-semibold">Lower third</h2>
+                        </div>
+                        <span
+                            className={[
+                                'rounded-md border px-2.5 py-1 text-xs font-bold',
+                                lowerThirdVisible
+                                    ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200'
+                                    : 'border-white/10 bg-white/5 text-muted',
+                            ].join(' ')}
+                        >
+                            {lowerThirdVisible ? 'On' : 'Off'}
+                        </span>
+                    </div>
+
+                    <label className="grid gap-1 text-sm font-semibold">
+                        Text
+                        <input
+                            className="border border-line px-3 py-2"
+                            disabled={!activeLive || isBusy}
+                            placeholder="Lower third text"
+                            value={lowerThirdText}
+                            onChange={(event) => setLowerThirdText(event.target.value)}
+                        />
+                    </label>
+
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                        <button
+                            className="btn-secondary"
+                            disabled={!activeLive || isBusy}
+                            type="button"
+                            onClick={() => void updateLowerThird(true)}
+                        >
+                            <Type size={16} />
+                            Apply text
+                        </button>
+                        <button
+                            className={lowerThirdVisible ? 'btn-danger' : 'btn-primary'}
+                            disabled={!activeLive || isBusy}
+                            type="button"
+                            onClick={() => void updateLowerThird(!lowerThirdVisible)}
+                        >
+                            {lowerThirdVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                            {lowerThirdVisible ? 'Hide lower third' : 'Show lower third'}
+                        </button>
+                    </div>
+
+                    {!activeLive ? (
+                        <p className="text-sm text-muted">
+                            Lower third controls unlock during live.
                         </p>
-                        <ul className="mt-2 grid gap-1 text-amber-100/80">
-                            {affected.slice(0, 4).map((block) => (
-                                <li key={block.id}>
-                                    {block.startTime}-{block.endTime} · {block.title}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                ) : (
-                    <div className="rounded-md border border-emerald-400/25 bg-emerald-400/10 p-3 text-sm text-emerald-100">
-                        No known scheduled blocks will be overridden.
-                    </div>
-                )}
-
-                {error ? <p className="text-sm font-semibold text-red-300">{error}</p> : null}
-                {message ? (
-                    <p className="text-sm font-semibold text-emerald-300">{message}</p>
-                ) : null}
-
-                <button className="btn-primary" disabled={pending} type="submit">
-                    {timingMode === 'now' ? 'Send live' : 'Schedule live'}
-                </button>
-            </form>
+                    ) : null}
+                </section>
+            </div>
         </main>
     );
 }
