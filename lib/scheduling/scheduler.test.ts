@@ -165,4 +165,37 @@ describe('scheduler', () => {
         };
         expect(hasBaseBlockConflict(mockSchedule.blocks, candidate)).toBe(true);
     });
+
+    it('live block overlapping a scheduled block at the same window resolves to live', () => {
+        const scheduledBlock: ProgramBlock = {
+            ...(mockSchedule.blocks[0] as ProgramBlock),
+            id: 'block-scheduled',
+            title: 'Scheduled Show',
+            startTimeSeconds: 3600,
+            durationSeconds: 1800,
+            status: 'ready',
+            metadata: null,
+        };
+        const liveBlock: ProgramBlock = {
+            ...(mockSchedule.blocks[0] as ProgramBlock),
+            id: 'block-live-override',
+            title: 'Breaking Live',
+            startTimeSeconds: 3600,
+            durationSeconds: 3600,
+            status: 'ready',
+            metadata: {
+                live_object: true,
+                live_source_type: 'youtube',
+                live_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                youtube_video_id: 'dQw4w9WgXcQ',
+                live_status: 'scheduled',
+            },
+        };
+        const active = findActiveSchedule(
+            { ...mockSchedule, blocks: [scheduledBlock, liveBlock] },
+            3700,
+        );
+
+        expect(active.block?.id).toBe('block-live-override');
+    });
 });

@@ -243,7 +243,10 @@ export async function scheduleLiveObjectOverride(input: {
             {
                 action: 'live_object.override_created',
                 entityType: 'program_blocks',
-                metadata: { date: input.date, live_source_type: input.liveSourceType },
+                metadata: {
+                    date: input.date,
+                    live_source_type: input.liveSourceType,
+                },
                 next: {
                     title,
                     start_time: input.startTime,

@@ -406,6 +406,16 @@ async function fallbackStateForBundle(
     mediaAccessToken = '',
     backgroundMusic: BackgroundMusic = null,
 ) {
+    const fallbackAsset = findFallbackLoopAsset(bundle);
+
+    if (fallbackAsset) {
+        const loopState = await fallbackVideoState(fallbackAsset, reason, base, mediaAccessToken);
+
+        if (loopState) {
+            return loopState;
+        }
+    }
+
     const carouselState = await fallbackCarouselState(
         bundle,
         reason,
@@ -418,16 +428,7 @@ async function fallbackStateForBundle(
         return carouselState;
     }
 
-    const fallbackAsset = findFallbackLoopAsset(bundle);
-
-    if (!fallbackAsset) {
-        return fallbackState(reason, base, backgroundMusic);
-    }
-
-    return (
-        (await fallbackVideoState(fallbackAsset, reason, base, mediaAccessToken)) ??
-        fallbackState(reason, base, backgroundMusic)
-    );
+    return fallbackState(reason, base, backgroundMusic);
 }
 
 async function fallbackCarouselState(

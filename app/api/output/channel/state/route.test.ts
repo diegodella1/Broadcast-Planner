@@ -258,7 +258,7 @@ describe('GET /api/output/channel/state background music', () => {
         expect(payload.backgroundMusic).toBeNull();
     });
 
-    it('uses an active fallback carousel before fallback loop videos', async () => {
+    it('uses the fallback loop video before an active fallback carousel', async () => {
         vi.mocked(getGlobalFallbackCarousel).mockResolvedValue({
             enabled: true,
             activeSetId: 'set-1',
@@ -297,9 +297,11 @@ describe('GET /api/output/channel/state background music', () => {
 
         const payload = await outputState();
 
-        expect(payload.kind).toBe('slide');
-        expect(payload.signature).toContain('fallback-carousel:slide-1');
-        expect(payload.backgroundMusic).toMatchObject({ enabled: true });
+        expect(payload.kind).toBe('mp4');
+        expect(payload.signature).toContain('fallback-loop:fallback-video');
+        expect((payload as { muted?: boolean }).muted).toBe(true);
+        expect((payload as { loop?: boolean }).loop).toBe(true);
+        expect(payload.backgroundMusic).toBeNull();
     });
 
     it('plays promo videos inside the active fallback carousel', async () => {
