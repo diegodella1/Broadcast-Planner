@@ -62,6 +62,8 @@ describe('live object helpers', () => {
                 live_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
                 youtube_video_id: 'dQw4w9WgXcQ',
                 live_status: 'scheduled',
+                lower_third_visible: true,
+                lower_third_text: 'Breaking markets',
             },
             createdAt: '',
             updatedAt: '',
@@ -71,6 +73,11 @@ describe('live object helpers', () => {
             sourceType: 'youtube',
             youtubeVideoId: 'dQw4w9WgXcQ',
             status: 'scheduled',
+            lowerThird: {
+                visible: true,
+                text: 'Breaking markets',
+                assetUrl: '/l3/l32026full.png',
+            },
         });
     });
 });

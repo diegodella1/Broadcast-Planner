@@ -9,7 +9,11 @@ import {
     PLAYOUT_TIMEZONE,
     secondsSinceMidnightInTimezone,
 } from '@/lib/helpers/time';
-import { isLiveObjectEnded } from '@/lib/live-object';
+import {
+    getLiveObjectConfig,
+    isLiveObjectEnded,
+    LIVE_LOWER_THIRD_ASSET_URL,
+} from '@/lib/live-object';
 import { findActiveSchedule } from '@/lib/scheduling/scheduler';
 
 export const dynamic = 'force-dynamic';
@@ -28,6 +32,7 @@ export async function GET(request: Request) {
             formatTimecode(currentSeconds);
         const liveBundle = await getLiveSchedule(now);
         const active = findActiveSchedule(liveBundle, currentSeconds);
+        const activeLive = getLiveObjectConfig(active.block);
         const preview = await buildPreview(date, startTime);
 
         return NextResponse.json(
@@ -41,6 +46,11 @@ export async function GET(request: Request) {
                           title: active.block.title,
                           startTime: active.block.startTime,
                           live: active.block.metadata?.live_object === true,
+                          lowerThird: activeLive?.lowerThird ?? {
+                              visible: false,
+                              text: '',
+                              assetUrl: LIVE_LOWER_THIRD_ASSET_URL,
+                          },
                       }
                     : null,
                 preview,

@@ -144,6 +144,64 @@ describe('BrowserOutputRenderer', () => {
         expect(screen.queryByTestId('youtube-live-start-mask')).not.toBeInTheDocument();
     });
 
+    it('renders the live lower third overlay and text when requested', async () => {
+        global.fetch = vi.fn(async () =>
+            jsonResponse({
+                ...youtubeLiveState(),
+                lowerThird: {
+                    visible: true,
+                    text: 'Markets live',
+                    assetUrl: '/l3/l32026full.png',
+                },
+            }),
+        );
+
+        render(<BrowserOutputRenderer token="token" />);
+
+        const overlay = await screen.findByTestId('live-lower-third');
+        await waitFor(() => expect(overlay).toHaveAttribute('data-visible', 'true'));
+        expect(screen.getByText('Markets live')).toBeInTheDocument();
+        expect(overlay.querySelector('img')).toHaveAttribute('src', '/l3/l32026full.png');
+    });
+
+    it('hides the live lower third with transition state when requested', async () => {
+        const states = [
+            {
+                ...youtubeLiveState(),
+                lowerThird: {
+                    visible: true,
+                    text: 'Markets live',
+                    assetUrl: '/l3/l32026full.png',
+                },
+            },
+            {
+                ...youtubeLiveState(),
+                lowerThird: {
+                    visible: true,
+                    text: 'Markets live',
+                    assetUrl: '/l3/l32026full.png',
+                },
+            },
+            youtubeLiveState(),
+        ];
+        global.fetch = vi.fn(async () => jsonResponse(states.shift() ?? youtubeLiveState()));
+
+        render(<BrowserOutputRenderer token="token" />);
+
+        await waitFor(() =>
+            expect(screen.getByTestId('live-lower-third')).toHaveAttribute('data-visible', 'true'),
+        );
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(2000);
+        });
+
+        const overlay = screen.getByTestId('live-lower-third');
+        expect(overlay).toHaveAttribute('data-visible', 'false');
+
+        expect(overlay).toHaveStyle({ opacity: '0' });
+    });
+
     it('does not show a technical syncing slate during video source changes', async () => {
         const states = [videoState('a', 'First'), videoState('b', 'Second')];
         global.fetch = vi.fn(async () => jsonResponse(states.shift() ?? videoState('b', 'Second')));
@@ -269,6 +327,11 @@ function youtubeLiveState() {
         live: true,
         liveSourceType: 'youtube',
         liveStatus: 'scheduled',
+        lowerThird: {
+            visible: false,
+            text: '',
+            assetUrl: '/l3/l32026full.png',
+        },
         serverSeconds: 0,
         generatedAt: new Date().toISOString(),
         backgroundMusic: null,

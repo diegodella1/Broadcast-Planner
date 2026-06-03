@@ -14,6 +14,7 @@ export {
     reorderProgramBlocks,
     resizeProgramBlock,
     scheduleLiveObjectOverride,
+    updateLiveObjectLowerThird,
     updateProgramBlock,
     updateProgramDayStatus,
 } from './mutations/blocks';

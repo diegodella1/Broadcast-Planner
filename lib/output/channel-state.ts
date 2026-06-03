@@ -197,6 +197,7 @@ function liveBlockState(
         live: true,
         liveSourceType: live.sourceType,
         liveStatus: live.status,
+        lowerThird: live.lowerThird,
         backgroundMusic: suppressBackgroundMusic(music),
     };
 

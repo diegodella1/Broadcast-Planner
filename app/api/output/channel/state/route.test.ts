@@ -107,6 +107,33 @@ describe('GET /api/output/channel/state background music', () => {
         });
     });
 
+    it('returns lower-third state for live blocks without adding it to the media signature', async () => {
+        vi.mocked(getLiveSchedule).mockResolvedValue(
+            bundleWith({
+                blockType: 'video',
+                metadata: {
+                    live_object: true,
+                    live_source_type: 'youtube',
+                    live_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                    youtube_video_id: 'dQw4w9WgXcQ',
+                    live_status: 'scheduled',
+                    lower_third_visible: true,
+                    lower_third_text: 'Markets live',
+                },
+            }),
+        );
+
+        const payload = await outputState();
+
+        expect(payload.kind).toBe('youtube_live');
+        expect(payload.signature).toBe('youtube-live:block-1:dQw4w9WgXcQ:scheduled');
+        expect(payload.lowerThird).toEqual({
+            visible: true,
+            text: 'Markets live',
+            assetUrl: '/l3/l32026full.png',
+        });
+    });
+
     it('does not return the previously recorded bug for Reuters streams', async () => {
         vi.mocked(getLiveSchedule).mockResolvedValue(
             bundleWith({

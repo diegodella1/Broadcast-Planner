@@ -11,6 +11,11 @@ type LiveStatus = {
         title: string;
         startTime: string;
         live: boolean;
+        lowerThird: {
+            visible: boolean;
+            text: string;
+            assetUrl: string;
+        };
     };
     preview: null | {
         willOverride: boolean;
@@ -40,6 +45,7 @@ export function LiveConsole() {
     const [title, setTitle] = useState('');
     const [liveSourceType, setLiveSourceType] = useState<'youtube' | 'hls'>('youtube');
     const [liveUrl, setLiveUrl] = useState('');
+    const [lowerThirdText, setLowerThirdText] = useState('');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [pending, setPending] = useState(false);
@@ -90,6 +96,7 @@ export function LiveConsole() {
                     return;
                 }
                 setStatus(payload);
+                setLowerThirdText((current) => current || payload.active?.lowerThird.text || '');
                 setDate((current) => current || payload.currentAirDate);
                 setStartTime((current) => current || payload.currentTime.slice(0, 5));
             } catch (nextError) {
@@ -171,6 +178,33 @@ export function LiveConsole() {
         }
     }
 
+    async function setLowerThirdVisible(visible: boolean) {
+        setPending(true);
+        setMessage('');
+        setError('');
+
+        try {
+            const response = await fetch('/api/live/lower-third', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ visible, text: lowerThirdText }),
+            });
+            const payload = (await response.json()) as { ok?: boolean; error?: string };
+
+            if (!response.ok) {
+                throw new Error(payload.error || 'Could not update lower third');
+            }
+            setMessage(visible ? 'Lower third shown' : 'Lower third hidden');
+            await refreshStatus();
+        } catch (nextError) {
+            setError(
+                nextError instanceof Error ? nextError.message : 'Could not update lower third',
+            );
+        } finally {
+            setPending(false);
+        }
+    }
+
     async function refreshStatus() {
         const response = await fetch(statusUrl, { cache: 'no-store' });
         const payload = (await response.json()) as LiveStatus;
@@ -185,6 +219,8 @@ export function LiveConsole() {
         timingMode === 'now'
             ? `now (${status.currentTime || '--:--:--'})`
             : `${date || '---- -- --'} ${startTime || '--:--'}`;
+    const activeLive = status.active?.live ? status.active : null;
+    const lowerThirdVisible = activeLive?.lowerThird.visible === true;
 
     return (
         <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-5 px-5 py-8">
@@ -206,11 +242,42 @@ export function LiveConsole() {
                 </p>
                 <button
                     className="btn-danger mt-4"
-                    disabled={pending}
+                    disabled={pending || !activeLive}
                     type="button"
                     onClick={() => void cancelLive()}
                 >
                     Cancel live
+                </button>
+            </section>
+
+            <section className="surface-panel grid gap-3 p-4">
+                <div>
+                    <p className="text-sm font-semibold">Lower third</p>
+                    <p className="mt-1 text-sm text-muted">
+                        {activeLive
+                            ? lowerThirdVisible
+                                ? 'Visible on live output'
+                                : 'Hidden on live output'
+                            : 'No active live on air'}
+                    </p>
+                </div>
+                <label className="grid gap-1 text-sm font-semibold">
+                    Lower third text
+                    <input
+                        className="border border-line px-3 py-2"
+                        disabled={!activeLive || pending}
+                        placeholder="Text to show over the lower third"
+                        value={lowerThirdText}
+                        onChange={(event) => setLowerThirdText(event.target.value)}
+                    />
+                </label>
+                <button
+                    className={lowerThirdVisible ? 'btn-danger' : 'btn-primary'}
+                    disabled={!activeLive || pending}
+                    type="button"
+                    onClick={() => void setLowerThirdVisible(!lowerThirdVisible)}
+                >
+                    {lowerThirdVisible ? 'Hide lower third' : 'Show lower third'}
                 </button>
             </section>
 

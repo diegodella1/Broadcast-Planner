@@ -27,6 +27,12 @@ type RecordedBug = {
     position: 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right';
 };
 
+type LiveLowerThird = {
+    visible: boolean;
+    text: string;
+    assetUrl: string;
+};
+
 type OutputState =
     | {
           kind: 'vimeo' | 'hls' | 'mp4';
@@ -49,6 +55,7 @@ type OutputState =
           live?: true;
           liveSourceType?: 'hls';
           liveStatus?: string;
+          lowerThird?: LiveLowerThird;
           backgroundMusic: BackgroundMusic;
       }
     | {
@@ -66,6 +73,7 @@ type OutputState =
           live: true;
           liveSourceType: 'youtube';
           liveStatus: string;
+          lowerThird: LiveLowerThird;
           backgroundMusic: BackgroundMusic;
       }
     | {
@@ -489,6 +497,7 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
             <audio ref={musicRef} />
             <VisualState state={state} mediaState={mediaState} />
             <RecordedBugOverlay state={state} />
+            <LiveLowerThirdOverlay state={state} />
             {!armed ? (
                 <button
                     type="button"
@@ -543,6 +552,42 @@ function RecordedBugOverlay({ state }: { state: OutputState | null }) {
             data-position={state.recordedBug.position}
         >
             {state.recordedBug.label}
+        </div>
+    );
+}
+
+function LiveLowerThirdOverlay({ state }: { state: OutputState | null }) {
+    const lowerThird = state && isLiveState(state) ? state.lowerThird : null;
+    const visible = lowerThird?.visible === true;
+
+    if (!lowerThird) {
+        return null;
+    }
+
+    return (
+        <div
+            className="pointer-events-none absolute inset-0 z-[25] overflow-hidden"
+            data-testid="live-lower-third"
+            data-visible={visible ? 'true' : 'false'}
+            style={{
+                clipPath: visible ? 'inset(0 0 0 0)' : 'inset(0 100% 0 0)',
+                opacity: visible ? 1 : 0,
+                transition: 'clip-path 600ms ease-out, opacity 600ms ease-out',
+            }}
+        >
+            <img
+                src={lowerThird.assetUrl}
+                alt=""
+                className="absolute inset-0 h-full w-full object-fill"
+                draggable={false}
+            />
+            {lowerThird.text ? (
+                <div className="absolute bottom-[2.6%] left-[14.9%] right-[5%] flex h-[8.8%] items-center overflow-hidden">
+                    <p className="truncate text-[clamp(2rem,4.1vw,4.9rem)] font-black leading-none text-black">
+                        {lowerThird.text}
+                    </p>
+                </div>
+            ) : null}
         </div>
     );
 }
