@@ -1,17 +1,18 @@
 import { NextResponse } from 'next/server';
+import { eq } from 'drizzle-orm';
 
 import { requireAdmin } from '@/lib/auth/auth';
 import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/auth/output-auth';
 import { assertRateLimit, rateLimitErrorResponse } from '@/lib/auth/rate-limit';
 import { SMALL_MEDIA_BUCKET } from '@/lib/helpers/media-upload-constants';
-import { createServiceClient } from '@/lib/supabase/server';
+import { getDb } from '@/lib/db/client';
+import { mediaAssets } from '@/lib/db/schema';
+import { getMediaBucket } from '@/lib/storage/r2';
 
 export const dynamic = 'force-dynamic';
 
 const MEDIA_ASSET_ID_PATTERN =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const STORAGE_FETCH_TIMEOUT_MS = 15_000;
-const SIMPLE_RANGE_PATTERN = /^bytes=[0-9]*-[0-9]*$/;
 
 type RouteContext = {
     params: Promise<{ assetId: string }>;
@@ -48,42 +49,84 @@ export async function GET(request: Request, { params }: RouteContext) {
         throw error;
     }
 
-    const supabase = createServiceClient();
-    const { data: asset, error } = await supabase
-        .from('media_assets')
-        .select('id,status,storage_bucket,storage_path,metadata')
-        .eq('id', assetId)
-        .single();
+    const db = await getDb();
+    const [asset] = await db
+        .select({
+            id: mediaAssets.id,
+            status: mediaAssets.status,
+            storageBucket: mediaAssets.storageBucket,
+            storagePath: mediaAssets.storagePath,
+            metadata: mediaAssets.metadata,
+        })
+        .from(mediaAssets)
+        .where(eq(mediaAssets.id, assetId))
+        .limit(1);
 
-    if (error || !asset) {
+    if (!asset) {
         return NextResponse.json({ error: 'Media not found' }, { status: 404 });
     }
 
-    if (asset.status !== 'ready' || !asset.storage_bucket || !asset.storage_path) {
+    if (asset.status !== 'ready' || !asset.storageBucket || !asset.storagePath) {
         return NextResponse.json({ error: 'Media unavailable' }, { status: 404 });
     }
 
-    if (!isAllowedStorageObject(String(asset.storage_bucket), String(asset.storage_path))) {
+    if (!isAllowedStorageObject(asset.storageBucket, asset.storagePath)) {
         return NextResponse.json({ error: 'Media unavailable' }, { status: 404 });
     }
 
-    const upstream = await fetchStorageObject({
-        bucket: String(asset.storage_bucket),
-        path: String(asset.storage_path),
-        range: validRangeHeader(request.headers.get('range')),
-    });
+    const bucket = await getMediaBucket();
+    const rangeOption = parseRangeHeader(request.headers.get('range'));
+    const obj = await bucket.get(
+        asset.storagePath,
+        rangeOption ? { range: rangeOption } : undefined,
+    );
 
-    if (upstream.status === 404) {
+    if (!obj) {
         return NextResponse.json({ error: 'Media not found' }, { status: 404 });
     }
 
-    if (!upstream.ok && upstream.status !== 206) {
-        return NextResponse.json({ error: 'Media unavailable' }, { status: upstream.status });
+    const headers = r2ResponseHeaders(obj.httpMetadata?.contentType, obj.httpEtag, asset.metadata);
+
+    if (obj.range) {
+        const { offset, length } = obj.range;
+        const end = offset + length - 1;
+        headers.set('content-range', `bytes ${offset}-${end}/${obj.size}`);
+        headers.set('content-length', String(length));
+
+        return new Response(obj.body, { status: 206, headers });
+    }
+    headers.set('content-length', String(obj.size));
+
+    return new Response(obj.body, { status: 200, headers });
+}
+
+function parseRangeHeader(
+    value: string | null,
+): { offset?: number; length?: number; suffix?: number } | null {
+    if (!value) {
+        return null;
+    }
+    const match = /^bytes=(\d*)-(\d*)$/.exec(value.trim());
+
+    if (!match) {
+        return null;
+    }
+    const [, startRaw, endRaw] = match;
+
+    if (startRaw === '' && endRaw === '') {
+        return null;
     }
 
-    const headers = responseHeaders(upstream.headers, asset.metadata);
+    if (startRaw === '') {
+        return { suffix: Number(endRaw) };
+    }
+    const offset = Number(startRaw);
 
-    return new Response(upstream.body, { status: upstream.status, headers });
+    if (endRaw === '') {
+        return { offset };
+    }
+
+    return { offset, length: Number(endRaw) - offset + 1 };
 }
 
 export async function HEAD(request: Request, context: RouteContext) {
@@ -104,74 +147,22 @@ async function isMediaRequestAllowed(request: Request) {
     }
 }
 
-async function fetchStorageObject({
-    bucket,
-    path,
-    range,
-}: {
-    bucket: string;
-    path: string;
-    range: string | null;
-}) {
-    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!baseUrl || !key) {
-        throw new Error('Missing Supabase service environment');
-    }
-    const url = new URL(
-        `/storage/v1/object/${encodeURIComponent(bucket)}/${encodeStoragePath(path)}`,
-        baseUrl,
-    );
-    const headers: Record<string, string> = {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-    };
-
-    if (range) {
-        headers.Range = range;
-    }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), STORAGE_FETCH_TIMEOUT_MS);
-
-    try {
-        return await fetch(url, { headers, cache: 'no-store', signal: controller.signal });
-    } finally {
-        clearTimeout(timeout);
-    }
-}
-
-function responseHeaders(upstream: Headers, metadata: unknown) {
+function r2ResponseHeaders(
+    contentType: string | undefined,
+    etag: string,
+    metadata: unknown,
+): Headers {
     const headers = new Headers();
-    copyHeader(upstream, headers, 'content-type');
-    copyHeader(upstream, headers, 'content-length');
-    copyHeader(upstream, headers, 'content-range');
-    copyHeader(upstream, headers, 'accept-ranges');
-    copyHeader(upstream, headers, 'etag');
-    copyHeader(upstream, headers, 'last-modified');
+    const resolvedContentType = contentType ?? metadataValue(metadata, 'mime_type');
 
-    if (!headers.has('content-type')) {
-        const mimeType = metadataValue(metadata, 'mime_type');
-
-        if (mimeType) {
-            headers.set('content-type', mimeType);
-        }
+    if (resolvedContentType) {
+        headers.set('content-type', resolvedContentType);
     }
-
-    if (!headers.has('accept-ranges')) {
-        headers.set('accept-ranges', 'bytes');
-    }
+    headers.set('etag', etag);
+    headers.set('accept-ranges', 'bytes');
     headers.set('cache-control', 'private, max-age=3600');
 
     return headers;
-}
-
-function copyHeader(from: Headers, to: Headers, name: string) {
-    const value = from.get(name);
-
-    if (value) {
-        to.set(name, value);
-    }
 }
 
 function metadataValue(metadata: unknown, key: string) {
@@ -183,23 +174,6 @@ function metadataValue(metadata: unknown, key: string) {
     return typeof value === 'string' ? value : '';
 }
 
-function encodeStoragePath(path: string) {
-    return path
-        .split('/')
-        .filter(Boolean)
-        .map((part) => encodeURIComponent(part))
-        .join('/');
-}
-
 function isAllowedStorageObject(bucket: string, path: string) {
     return bucket === SMALL_MEDIA_BUCKET && Boolean(path) && !path.includes('..');
-}
-
-function validRangeHeader(range: string | null) {
-    if (!range) {
-        return null;
-    }
-    const normalized = range.trim();
-
-    return SIMPLE_RANGE_PATTERN.test(normalized) ? normalized : null;
 }

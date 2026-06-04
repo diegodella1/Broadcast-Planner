@@ -1,10 +1,31 @@
 import { cache } from 'react';
 
-import { mockSchedule } from './mock-data';
-import { mapAuditEvent, type AuditEvent } from './audit/audit';
-import { createServiceClient } from './supabase/server';
-import { isoDateInTimezone, PLAYOUT_TIMEZONE } from './helpers/time';
+import { and, asc, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 
+import { mapAuditEvent, type AuditEvent } from './audit/audit';
+import { getDb } from './db/client';
+import {
+    auditLog,
+    guests,
+    mediaAssets,
+    operatorRunbookChecks,
+    programBlocks,
+    programDays,
+    scheduledLayers,
+    slideAssets,
+    type AuditLogRow,
+    type GuestRow,
+    type MediaAssetRow,
+    type OperatorRunbookCheckRow,
+    type ProgramBlockRow,
+    type ProgramDayRow,
+    type ScheduledLayerRow,
+    type SlideAssetRow,
+} from './db/schema';
+import { isoDateInTimezone, PLAYOUT_TIMEZONE } from './helpers/time';
+import { mockSchedule } from './mock-data';
+
+import type { DrizzleD1Client } from './db/client';
 import type {
     Guest,
     MediaAsset,
@@ -15,8 +36,6 @@ import type {
     ScheduledLayer,
     SlideAsset,
 } from './types';
-
-type Row = Record<string, unknown>;
 
 export function shouldUseDemoData() {
     if (isProductionLikeRuntime() && process.env.ALLOW_DEMO_DATA === 'true') {
@@ -44,66 +63,45 @@ function isProductionLikeRuntime() {
 
 export const getScheduleForDate = cache(async (date: string): Promise<ScheduleBundle> => {
     try {
-        const supabase = createServiceClient();
-        const [
-            { data: day, error: dayError },
-            { data: mediaAssets, error: mediaError },
-            { data: slideAssets, error: slideError },
-        ] = await Promise.all([
-            supabase.from('program_days').select('*').eq('air_date', date).maybeSingle(),
-            supabase.from('media_assets').select('*').order('title').range(0, 9999),
-            supabase.from('slide_assets').select('*').order('title').range(0, 9999),
+        const db = await getDb();
+        const [dayRows, allMedia, allSlides] = await Promise.all([
+            db.select().from(programDays).where(eq(programDays.airDate, date)).limit(1),
+            db.select().from(mediaAssets).orderBy(asc(mediaAssets.title)),
+            db.select().from(slideAssets).orderBy(asc(slideAssets.title)),
         ]);
 
-        if (dayError) {
-            throw dayError;
-        }
-
-        if (mediaError) {
-            throw mediaError;
-        }
-
-        if (slideError) {
-            throw slideError;
-        }
+        const day = dayRows[0] ?? null;
 
         if (!day) {
             return {
                 day: null,
                 blocks: [],
                 layers: [],
-                mediaAssets: (mediaAssets ?? []).map((row) => mapMediaAsset(row)),
-                slideAssets: (slideAssets ?? []).map(mapSlide),
+                mediaAssets: allMedia.map((row) => mapMediaAsset(row)),
+                slideAssets: allSlides.map(mapSlide),
             };
         }
 
-        const [{ data: blocks, error: blocksError }] = await Promise.all([
-            supabase
-                .from('program_blocks')
-                .select('*')
-                .eq('program_day_id', day.id)
-                .order('start_time_seconds')
-                .range(0, 9999),
-        ]);
+        const blockRows = await db
+            .select()
+            .from(programBlocks)
+            .where(eq(programBlocks.programDayId, day.id))
+            .orderBy(asc(programBlocks.startTimeSeconds));
 
-        if (blocksError) {
-            throw blocksError;
-        }
-        const blockIds = (blocks ?? []).map((row) => text(row.id));
-        const { data: layers, error: layersError } = blockIds.length
-            ? await supabase.from('scheduled_layers').select('*').in('program_block_id', blockIds)
-            : { data: [], error: null };
-
-        if (layersError) {
-            throw layersError;
-        }
+        const blockIds = blockRows.map((row) => row.id);
+        const layerRows = blockIds.length
+            ? await db
+                  .select()
+                  .from(scheduledLayers)
+                  .where(inArray(scheduledLayers.programBlockId, blockIds))
+            : [];
 
         return {
             day: mapDay(day),
-            blocks: (blocks ?? []).map(mapBlock),
-            layers: (layers ?? []).map(mapLayer),
-            mediaAssets: (mediaAssets ?? []).map((row) => mapMediaAsset(row)),
-            slideAssets: (slideAssets ?? []).map(mapSlide),
+            blocks: blockRows.map(mapBlock),
+            layers: layerRows.map(mapLayer),
+            mediaAssets: allMedia.map((row) => mapMediaAsset(row)),
+            slideAssets: allSlides.map(mapSlide),
         };
     } catch (error) {
         return handleDataFailure(error, mockSchedule);
@@ -115,41 +113,23 @@ export async function getSchedulesForDateRange(
     endDate: string,
 ): Promise<Map<string, ScheduleBundle>> {
     try {
-        const supabase = createServiceClient();
-        const [
-            { data: days, error: daysError },
-            { data: mediaAssets, error: mediaError },
-            { data: slideAssets, error: slideError },
-        ] = await Promise.all([
-            supabase
-                .from('program_days')
-                .select('*')
-                .gte('air_date', startDate)
-                .lte('air_date', endDate)
-                .range(0, 9999),
-            supabase.from('media_assets').select('*').order('title').range(0, 9999),
-            supabase.from('slide_assets').select('*').order('title').range(0, 9999),
+        const db = await getDb();
+        const [dayRows, allMedia, allSlides] = await Promise.all([
+            db
+                .select()
+                .from(programDays)
+                .where(and(gte(programDays.airDate, startDate), lte(programDays.airDate, endDate))),
+            db.select().from(mediaAssets).orderBy(asc(mediaAssets.title)),
+            db.select().from(slideAssets).orderBy(asc(slideAssets.title)),
         ]);
-
-        if (daysError) {
-            throw daysError;
-        }
-
-        if (mediaError) {
-            throw mediaError;
-        }
-
-        if (slideError) {
-            throw slideError;
-        }
-        const dayRows = (days ?? []) as Row[];
 
         if (!dayRows.length) {
             return new Map();
         }
-        const { blockRows, layerRows } = await fetchBlocksAndLayersForDays(supabase, dayRows);
-        const mappedMediaAssets = (mediaAssets ?? []).map((row) => mapMediaAsset(row));
-        const mappedSlideAssets = (slideAssets ?? []).map(mapSlide);
+
+        const { blockRows, layerRows } = await fetchBlocksAndLayersForDays(db, dayRows);
+        const mappedMediaAssets = allMedia.map((row) => mapMediaAsset(row));
+        const mappedSlideAssets = allSlides.map(mapSlide);
 
         return assembleSchedulesByDate({
             dayRows,
@@ -164,49 +144,42 @@ export async function getSchedulesForDateRange(
 }
 
 async function fetchBlocksAndLayersForDays(
-    supabase: ReturnType<typeof createServiceClient>,
-    dayRows: Row[],
-): Promise<{ blockRows: Row[]; layerRows: Row[] }> {
-    const dayIds = dayRows.map((row) => text(row.id));
-    const { data: blocks, error: blocksError } = await supabase
-        .from('program_blocks')
-        .select('*')
-        .in('program_day_id', dayIds)
-        .order('start_time_seconds');
+    db: DrizzleD1Client,
+    dayRows: ProgramDayRow[],
+): Promise<{ blockRows: ProgramBlockRow[]; layerRows: ScheduledLayerRow[] }> {
+    const dayIds = dayRows.map((row) => row.id);
+    const blockRows = await db
+        .select()
+        .from(programBlocks)
+        .where(inArray(programBlocks.programDayId, dayIds))
+        .orderBy(asc(programBlocks.startTimeSeconds));
 
-    if (blocksError) {
-        throw blocksError;
-    }
-    const blockRows = (blocks ?? []) as Row[];
-    const blockIds = blockRows.map((row) => text(row.id));
-    const { data: layers, error: layersError } = blockIds.length
-        ? await supabase.from('scheduled_layers').select('*').in('program_block_id', blockIds)
-        : { data: [], error: null };
+    const blockIds = blockRows.map((row) => row.id);
+    const layerRows = blockIds.length
+        ? await db
+              .select()
+              .from(scheduledLayers)
+              .where(inArray(scheduledLayers.programBlockId, blockIds))
+        : [];
 
-    if (layersError) {
-        throw layersError;
-    }
-
-    return { blockRows, layerRows: (layers ?? []) as Row[] };
+    return { blockRows, layerRows };
 }
 
 function assembleSchedulesByDate(input: {
-    dayRows: Row[];
-    blockRows: Row[];
-    layerRows: Row[];
+    dayRows: ProgramDayRow[];
+    blockRows: ProgramBlockRow[];
+    layerRows: ScheduledLayerRow[];
     mediaAssets: MediaAsset[];
     slideAssets: SlideAsset[];
 }): Map<string, ScheduleBundle> {
-    const blocksByDayId = groupBy(input.blockRows, (row) => text(row.program_day_id));
-    const layersByBlockId = groupBy(input.layerRows, (row) => text(row.program_block_id));
+    const blocksByDayId = groupBy(input.blockRows, (row) => row.programDayId);
+    const layersByBlockId = groupBy(input.layerRows, (row) => row.programBlockId);
     const result = new Map<string, ScheduleBundle>();
 
     for (const dayRow of input.dayRows) {
-        const dayId = text(dayRow.id);
-        const airDate = text(dayRow.air_date);
-        const dayBlocks = blocksByDayId.get(dayId) ?? [];
-        const dayLayers = dayBlocks.flatMap((block) => layersByBlockId.get(text(block.id)) ?? []);
-        result.set(airDate, {
+        const dayBlocks = blocksByDayId.get(dayRow.id) ?? [];
+        const dayLayers = dayBlocks.flatMap((block) => layersByBlockId.get(block.id) ?? []);
+        result.set(dayRow.airDate, {
             day: mapDay(dayRow),
             blocks: dayBlocks.map(mapBlock),
             layers: dayLayers.map(mapLayer),
@@ -241,32 +214,34 @@ export async function getProgrammedSecondsByDate(days: Pick<ProgramDay, 'id' | '
     }
 
     try {
-        const supabase = createServiceClient();
+        const db = await getDb();
         const dayIdToDate = new Map(days.map((day) => [day.id, day.airDate]));
-        const { data, error } = await supabase
-            .from('program_blocks')
-            .select('program_day_id,duration_seconds,status')
-            .in(
-                'program_day_id',
-                days.map((day) => day.id),
+        const rows = await db
+            .select({
+                programDayId: programBlocks.programDayId,
+                durationSeconds: programBlocks.durationSeconds,
+                status: programBlocks.status,
+            })
+            .from(programBlocks)
+            .where(
+                inArray(
+                    programBlocks.programDayId,
+                    days.map((day) => day.id),
+                ),
             );
-
-        if (error) {
-            throw error;
-        }
 
         const totals = new Map<string, number>();
 
-        for (const row of data ?? []) {
-            if (text(row.status) === 'archived') {
+        for (const row of rows) {
+            if (row.status === 'archived') {
                 continue;
             }
-            const date = dayIdToDate.get(text(row.program_day_id));
+            const date = dayIdToDate.get(row.programDayId);
 
             if (!date) {
                 continue;
             }
-            totals.set(date, (totals.get(date) ?? 0) + number(row.duration_seconds));
+            totals.set(date, (totals.get(date) ?? 0) + row.durationSeconds);
         }
 
         return totals;
@@ -277,121 +252,79 @@ export async function getProgrammedSecondsByDate(days: Pick<ProgramDay, 'id' | '
 
 export const getPlaybackScheduleForDate = cache(async (date: string): Promise<ScheduleBundle> => {
     try {
-        const supabase = createServiceClient();
-        const { data: day, error: dayError } = await supabase
-            .from('program_days')
-            .select('*')
-            .eq('air_date', date)
-            .maybeSingle();
-
-        if (dayError) {
-            throw dayError;
-        }
+        const db = await getDb();
+        const dayRows = await db
+            .select()
+            .from(programDays)
+            .where(eq(programDays.airDate, date))
+            .limit(1);
+        const day = dayRows[0] ?? null;
 
         if (!day) {
-            const { data: fallbackMedia, error: fallbackError } = await supabase
-                .from('media_assets')
-                .select('*')
-                .eq('asset_type', 'fallback')
-                .eq('status', 'ready');
-
-            if (fallbackError) {
-                throw fallbackError;
-            }
+            const fallbackMedia = await db
+                .select()
+                .from(mediaAssets)
+                .where(and(eq(mediaAssets.assetType, 'fallback'), eq(mediaAssets.status, 'ready')));
 
             return {
                 day: null,
                 blocks: [],
                 layers: [],
-                mediaAssets: (fallbackMedia ?? []).map((row) => mapMediaAsset(row)),
+                mediaAssets: fallbackMedia.map((row) => mapMediaAsset(row)),
                 slideAssets: [],
             };
         }
 
-        const { data: blocks, error: blocksError } = await supabase
-            .from('program_blocks')
-            .select('*')
-            .eq('program_day_id', day.id)
-            .order('start_time_seconds');
+        const blockRows = await db
+            .select()
+            .from(programBlocks)
+            .where(eq(programBlocks.programDayId, day.id))
+            .orderBy(asc(programBlocks.startTimeSeconds));
 
-        if (blocksError) {
-            throw blocksError;
-        }
+        const blockIds = blockRows.map((row) => row.id);
+        const layerRows = blockIds.length
+            ? await db
+                  .select()
+                  .from(scheduledLayers)
+                  .where(inArray(scheduledLayers.programBlockId, blockIds))
+            : [];
 
-        const blockRows = blocks ?? [];
-        const blockIds = blockRows.map((row) => text(row.id));
-        const { data: layers, error: layersError } = blockIds.length
-            ? await supabase.from('scheduled_layers').select('*').in('program_block_id', blockIds)
-            : { data: [], error: null };
-
-        if (layersError) {
-            throw layersError;
-        }
-
-        const layerRows = layers ?? [];
         const mediaIds = uniqueIds([
-            nullableText(day.fallback_asset_id),
-            ...blockRows.map((row) => nullableText(row.asset_id)),
-            ...blockRows.map((row) => nullableText(row.fallback_asset_id)),
-            ...layerRows.map((row) => nullableText(row.asset_id)),
+            day.fallbackAssetId,
+            ...blockRows.map((row) => row.assetId),
+            ...blockRows.map((row) => row.fallbackAssetId),
+            ...layerRows.map((row) => row.assetId),
         ]);
         const slideIds = uniqueIds([
-            ...blockRows.map((row) => nullableText(row.slide_id)),
-            ...layerRows.map((row) => nullableText(row.slide_id)),
+            ...blockRows.map((row) => row.slideId),
+            ...layerRows.map((row) => row.slideId),
         ]);
 
-        const [
-            { data: referencedMedia, error: mediaError },
-            { data: fallbackMedia, error: fallbackError },
-            { data: musicMedia, error: musicError },
-            { data: referencedSlides, error: slidesError },
-        ] = await Promise.all([
+        const [referencedMedia, fallbackMedia, musicMedia, referencedSlides] = await Promise.all([
             mediaIds.length
-                ? supabase.from('media_assets').select('*').in('id', mediaIds).range(0, 9999)
-                : { data: [], error: null },
-            supabase
-                .from('media_assets')
-                .select('*')
-                .eq('asset_type', 'fallback')
-                .eq('status', 'ready')
-                .range(0, 9999),
-            supabase
-                .from('media_assets')
-                .select('*')
-                .eq('asset_type', 'music')
-                .eq('status', 'ready')
-                .range(0, 9999),
+                ? db.select().from(mediaAssets).where(inArray(mediaAssets.id, mediaIds))
+                : Promise.resolve([] as MediaAssetRow[]),
+            db
+                .select()
+                .from(mediaAssets)
+                .where(and(eq(mediaAssets.assetType, 'fallback'), eq(mediaAssets.status, 'ready'))),
+            db
+                .select()
+                .from(mediaAssets)
+                .where(and(eq(mediaAssets.assetType, 'music'), eq(mediaAssets.status, 'ready'))),
             slideIds.length
-                ? supabase.from('slide_assets').select('*').in('id', slideIds).range(0, 9999)
-                : { data: [], error: null },
+                ? db.select().from(slideAssets).where(inArray(slideAssets.id, slideIds))
+                : Promise.resolve([] as SlideAssetRow[]),
         ]);
-
-        if (mediaError) {
-            throw mediaError;
-        }
-
-        if (fallbackError) {
-            throw fallbackError;
-        }
-
-        if (musicError) {
-            throw musicError;
-        }
-
-        if (slidesError) {
-            throw slidesError;
-        }
 
         return {
             day: mapDay(day),
             blocks: blockRows.map(mapBlock),
             layers: layerRows.map(mapLayer),
-            mediaAssets: uniqueRows([
-                ...(referencedMedia ?? []),
-                ...(fallbackMedia ?? []),
-                ...(musicMedia ?? []),
-            ]).map((row) => mapMediaAsset(row)),
-            slideAssets: (referencedSlides ?? []).map(mapSlide),
+            mediaAssets: uniqueMediaRows([...referencedMedia, ...fallbackMedia, ...musicMedia]).map(
+                (row) => mapMediaAsset(row),
+            ),
+            slideAssets: referencedSlides.map(mapSlide),
         };
     } catch (error) {
         return handleDataFailure(error, mockSchedule);
@@ -400,23 +333,15 @@ export const getPlaybackScheduleForDate = cache(async (date: string): Promise<Sc
 
 export async function getPlaybackScheduleForBlock(blockId: string): Promise<ScheduleBundle> {
     try {
-        const supabase = createServiceClient();
-        const { data: block, error } = await supabase
-            .from('program_blocks')
-            .select('program_days(air_date)')
-            .eq('id', blockId)
-            .single();
+        const db = await getDb();
+        const rows = await db
+            .select({ airDate: programDays.airDate })
+            .from(programBlocks)
+            .innerJoin(programDays, eq(programBlocks.programDayId, programDays.id))
+            .where(eq(programBlocks.id, blockId))
+            .limit(1);
 
-        if (error) {
-            throw error;
-        }
-        const programDay = Array.isArray(block.program_days)
-            ? block.program_days[0]
-            : block.program_days;
-        const date =
-            typeof programDay === 'object' && programDay !== null
-                ? text((programDay as Row).air_date)
-                : '';
+        const date = rows[0]?.airDate ?? '';
 
         if (!date) {
             throw new Error('Block has no program day');
@@ -438,21 +363,13 @@ export async function getLivePlaybackSchedule(now = new Date(), timezone = PLAYO
 
 export const getAssets = cache(async (): Promise<MediaAsset[]> => {
     try {
-        const supabase = createServiceClient();
-        const [{ data, error }, usedAssetIds] = await Promise.all([
-            supabase
-                .from('media_assets')
-                .select('*')
-                .order('updated_at', { ascending: false })
-                .range(0, 9999),
+        const db = await getDb();
+        const [rows, usedAssetIds] = await Promise.all([
+            db.select().from(mediaAssets).orderBy(desc(mediaAssets.updatedAt)),
             getScheduledAssetIds(),
         ]);
 
-        if (error) {
-            throw error;
-        }
-
-        return (data ?? []).map((row) => mapMediaAsset(row, usedAssetIds));
+        return rows.map((row) => mapMediaAsset(row, usedAssetIds));
     } catch (error) {
         return handleDataFailure(error, mockSchedule.mediaAssets);
     }
@@ -465,18 +382,21 @@ export type MediaAssetSummary = Pick<
 
 export const getAssetSummaries = cache(async (): Promise<MediaAssetSummary[]> => {
     try {
-        const supabase = createServiceClient();
-        const { data, error } = await supabase
-            .from('media_assets')
-            .select('id, title, status, asset_type, media_kind, duration_seconds, created_at')
-            .order('updated_at', { ascending: false })
-            .range(0, 9999);
+        const db = await getDb();
+        const rows = await db
+            .select({
+                id: mediaAssets.id,
+                title: mediaAssets.title,
+                status: mediaAssets.status,
+                assetType: mediaAssets.assetType,
+                mediaKind: mediaAssets.mediaKind,
+                durationSeconds: mediaAssets.durationSeconds,
+                createdAt: mediaAssets.createdAt,
+            })
+            .from(mediaAssets)
+            .orderBy(desc(mediaAssets.updatedAt));
 
-        if (error) {
-            throw error;
-        }
-
-        return (data ?? []).map(mapMediaAssetSummary);
+        return rows.map(mapMediaAssetSummary);
     } catch (error) {
         return handleDataFailure(
             error,
@@ -495,19 +415,14 @@ export const getAssetSummaries = cache(async (): Promise<MediaAssetSummary[]> =>
 
 export const getRunbookState = cache(async (programDayId: string): Promise<RunbookCheckState[]> => {
     try {
-        const supabase = createServiceClient();
-        const { data, error } = await supabase
-            .from('operator_runbook_checks')
-            .select('*')
-            .eq('program_day_id', programDayId)
-            .order('section')
-            .order('item_key');
+        const db = await getDb();
+        const rows = await db
+            .select()
+            .from(operatorRunbookChecks)
+            .where(eq(operatorRunbookChecks.programDayId, programDayId))
+            .orderBy(asc(operatorRunbookChecks.section), asc(operatorRunbookChecks.itemKey));
 
-        if (error) {
-            throw error;
-        }
-
-        return (data ?? []).map(mapRunbookCheck);
+        return rows.map(mapRunbookCheck);
     } catch (error) {
         if (isMissingRunbookTable(error)) {
             return [];
@@ -518,30 +433,25 @@ export const getRunbookState = cache(async (programDayId: string): Promise<Runbo
 });
 
 async function getScheduledAssetIds() {
-    const supabase = createServiceClient();
-    const [{ data: blocks, error: blocksError }, { data: layers, error: layersError }] =
-        await Promise.all([
-            supabase
-                .from('program_blocks')
-                .select('asset_id, fallback_asset_id, status')
-                .range(0, 9999),
-            supabase.from('scheduled_layers').select('asset_id, enabled').range(0, 9999),
-        ]);
+    const db = await getDb();
+    const [blockRows, layerRows] = await Promise.all([
+        db
+            .select({
+                assetId: programBlocks.assetId,
+                fallbackAssetId: programBlocks.fallbackAssetId,
+                status: programBlocks.status,
+            })
+            .from(programBlocks),
+        db
+            .select({ assetId: scheduledLayers.assetId, enabled: scheduledLayers.enabled })
+            .from(scheduledLayers),
+    ]);
 
-    if (blocksError) {
-        throw blocksError;
-    }
-
-    if (layersError) {
-        throw layersError;
-    }
     const ids = [
-        ...((blocks ?? []) as Row[])
-            .filter((row) => text(row.status) !== 'archived')
-            .flatMap((row) => [nullableText(row.asset_id), nullableText(row.fallback_asset_id)]),
-        ...((layers ?? []) as Row[])
-            .filter((row) => row.enabled !== false)
-            .map((row) => nullableText(row.asset_id)),
+        ...blockRows
+            .filter((row) => row.status !== 'archived')
+            .flatMap((row) => [row.assetId, row.fallbackAssetId]),
+        ...layerRows.filter((row) => row.enabled !== false).map((row) => row.assetId),
     ];
 
     return new Set(ids.filter((id): id is string => Boolean(id)));
@@ -549,18 +459,11 @@ async function getScheduledAssetIds() {
 
 export const getMediaAssetById = cache(async (id: string): Promise<MediaAsset | null> => {
     try {
-        const supabase = createServiceClient();
-        const { data, error } = await supabase
-            .from('media_assets')
-            .select('*')
-            .eq('id', id)
-            .maybeSingle();
+        const db = await getDb();
+        const rows = await db.select().from(mediaAssets).where(eq(mediaAssets.id, id)).limit(1);
+        const row = rows[0] ?? null;
 
-        if (error) {
-            throw error;
-        }
-
-        return data ? mapMediaAsset(data) : null;
+        return row ? mapMediaAsset(row) : null;
     } catch (error) {
         const fallback = mockSchedule.mediaAssets.find((asset) => asset.id === id) ?? null;
 
@@ -571,18 +474,15 @@ export const getMediaAssetById = cache(async (id: string): Promise<MediaAsset | 
 export const getMediaAssetByVimeoUri = cache(
     async (vimeoUri: string): Promise<MediaAsset | null> => {
         try {
-            const supabase = createServiceClient();
-            const { data, error } = await supabase
-                .from('media_assets')
-                .select('*')
-                .eq('vimeo_uri', vimeoUri)
-                .maybeSingle();
+            const db = await getDb();
+            const rows = await db
+                .select()
+                .from(mediaAssets)
+                .where(eq(mediaAssets.vimeoUri, vimeoUri))
+                .limit(1);
+            const row = rows[0] ?? null;
 
-            if (error) {
-                throw error;
-            }
-
-            return data ? mapMediaAsset(data) : null;
+            return row ? mapMediaAsset(row) : null;
         } catch (error) {
             const fallback =
                 mockSchedule.mediaAssets.find((asset) => asset.vimeoUri === vimeoUri) ?? null;
@@ -594,17 +494,10 @@ export const getMediaAssetByVimeoUri = cache(
 
 export const getSlides = cache(async (): Promise<SlideAsset[]> => {
     try {
-        const supabase = createServiceClient();
-        const { data, error } = await supabase
-            .from('slide_assets')
-            .select('*')
-            .order('updated_at', { ascending: false });
+        const db = await getDb();
+        const rows = await db.select().from(slideAssets).orderBy(desc(slideAssets.updatedAt));
 
-        if (error) {
-            throw error;
-        }
-
-        return (data ?? []).map(mapSlide);
+        return rows.map(mapSlide);
     } catch (error) {
         return handleDataFailure(error, mockSchedule.slideAssets);
     }
@@ -612,26 +505,47 @@ export const getSlides = cache(async (): Promise<SlideAsset[]> => {
 
 export async function getGuests(input: { readyOnly?: boolean } = {}): Promise<Guest[]> {
     try {
-        const supabase = createServiceClient();
-        let query = supabase
-            .from('guests')
-            .select(
-                '*,photo_asset:media_assets!guests_photo_asset_id_fkey(url),video_asset:media_assets!guests_video_asset_id_fkey(url)',
-            );
+        const db = await getDb();
 
-        if (input.readyOnly) {
-            query = query.eq('status', 'ready');
+        // Alias the mediaAssets table for the two FK joins.
+        const photoAsset = mediaAssets;
+
+        // D1/SQLite does not support two aliases of the same table in the same
+        // query without raw SQL. Fetch guest rows first, then resolve asset URLs
+        // with a single IN query on unique asset IDs.
+        const guestRows = await (input.readyOnly
+            ? db
+                  .select()
+                  .from(guests)
+                  .where(eq(guests.status, 'ready'))
+                  .orderBy(asc(guests.appearanceAt), asc(guests.sortOrder), asc(guests.name))
+            : db
+                  .select()
+                  .from(guests)
+                  .orderBy(asc(guests.appearanceAt), asc(guests.sortOrder), asc(guests.name)));
+
+        // Collect all referenced asset IDs for URL lookup.
+        const assetIds = uniqueIds([
+            ...guestRows.map((g) => g.photoAssetId),
+            ...guestRows.map((g) => g.videoAssetId),
+        ]);
+
+        const assetUrlMap = new Map<string, string>();
+
+        if (assetIds.length) {
+            const assetRows = await db
+                .select({ id: photoAsset.id, url: photoAsset.url })
+                .from(photoAsset)
+                .where(inArray(photoAsset.id, assetIds));
+
+            for (const a of assetRows) {
+                if (a.url) {
+                    assetUrlMap.set(a.id, a.url);
+                }
+            }
         }
-        const { data, error } = await query
-            .order('appearance_at', { ascending: true, nullsFirst: false })
-            .order('sort_order', { ascending: true })
-            .order('name', { ascending: true });
 
-        if (error) {
-            throw error;
-        }
-
-        return (data ?? []).map(mapGuest);
+        return guestRows.map((row) => mapGuest(row, assetUrlMap));
     } catch (error) {
         return handleDataFailure(error, []);
     }
@@ -639,17 +553,10 @@ export async function getGuests(input: { readyOnly?: boolean } = {}): Promise<Gu
 
 export const getDays = cache(async (): Promise<ProgramDay[]> => {
     try {
-        const supabase = createServiceClient();
-        const { data, error } = await supabase
-            .from('program_days')
-            .select('*')
-            .order('air_date', { ascending: false });
+        const db = await getDb();
+        const rows = await db.select().from(programDays).orderBy(desc(programDays.airDate));
 
-        if (error) {
-            throw error;
-        }
-
-        return (data ?? []).map(mapDay);
+        return rows.map(mapDay);
     } catch (error) {
         return handleDataFailure(error, mockSchedule.day ? [mockSchedule.day] : []);
     }
@@ -663,111 +570,131 @@ export async function getAuditEvents(
     } = {},
 ): Promise<AuditEvent[]> {
     try {
-        const supabase = createServiceClient();
-        let query = supabase
-            .from('audit_log')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(Math.min(Math.max(input.limit ?? 100, 1), 250));
+        const db = await getDb();
+        const limit = Math.min(Math.max(input.limit ?? 100, 1), 250);
+
+        const conditions = [];
 
         if (input.action) {
-            query = query.eq('action', input.action);
+            conditions.push(eq(auditLog.action, input.action));
         }
 
         if (input.entityType) {
-            query = query.eq('entity_type', input.entityType);
-        }
-        const { data, error } = await query;
-
-        if (error) {
-            throw error;
+            conditions.push(eq(auditLog.entityType, input.entityType));
         }
 
-        return (data ?? []).map((row) => mapAuditEvent(row as Row));
+        const rows = await db
+            .select()
+            .from(auditLog)
+            .where(conditions.length ? and(...conditions) : undefined)
+            .orderBy(desc(auditLog.createdAt))
+            .limit(limit);
+
+        // mapAuditEvent expects snake_case keys (entity_type, entity_id,
+        // created_at). Drizzle returns camelCase, so we re-shape the row.
+        return rows.map((row) => mapAuditEventFromDrizzle(row));
     } catch (error) {
         return handleDataFailure(error, []);
     }
 }
 
-function mapDay(row: Row): ProgramDay {
+/**
+ * Adapts a Drizzle AuditLogRow (camelCase) to the snake_case shape that
+ * mapAuditEvent() in audit.ts expects, without touching audit.ts.
+ */
+function mapAuditEventFromDrizzle(row: AuditLogRow): AuditEvent {
+    return mapAuditEvent({
+        id: row.id,
+        actor: row.actor,
+        action: row.action,
+        entity_type: row.entityType,
+        entity_id: row.entityId,
+        metadata: row.metadata,
+        created_at: row.createdAt,
+    });
+}
+
+function mapDay(row: ProgramDayRow): ProgramDay {
     return {
-        id: text(row.id),
-        airDate: text(row.air_date),
-        timezone: text(row.timezone),
-        status: text(row.status) as ProgramDay['status'],
-        title: nullableText(row.title),
-        notes: nullableText(row.notes),
-        fallbackAssetId: nullableText(row.fallback_asset_id),
-        createdAt: text(row.created_at),
-        updatedAt: text(row.updated_at),
+        id: row.id,
+        airDate: row.airDate,
+        timezone: row.timezone,
+        status: row.status as ProgramDay['status'],
+        title: row.title ?? null,
+        notes: row.notes ?? null,
+        fallbackAssetId: row.fallbackAssetId ?? null,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
     };
 }
 
-function mapBlock(row: Row): ProgramBlock {
+function mapBlock(row: ProgramBlockRow): ProgramBlock {
     return {
-        id: text(row.id),
-        programDayId: text(row.program_day_id),
-        title: text(row.title),
-        blockType: text(row.block_type) as ProgramBlock['blockType'],
-        category: (nullableText(row.category) ?? 'mercados') as ProgramBlock['category'],
-        assetId: nullableText(row.asset_id),
-        slideId: nullableText(row.slide_id),
-        startTime: text(row.start_time),
-        startTimeSeconds: number(row.start_time_seconds),
-        durationSeconds: number(row.duration_seconds),
-        status: text(row.status) as ProgramBlock['status'],
-        hideOverlays: Boolean(row.hide_overlays),
-        fallbackAssetId: nullableText(row.fallback_asset_id),
-        notes: nullableText(row.notes),
+        id: row.id,
+        programDayId: row.programDayId,
+        title: row.title,
+        blockType: row.blockType as ProgramBlock['blockType'],
+        category: (row.category ?? 'mercados') as ProgramBlock['category'],
+        assetId: row.assetId ?? null,
+        slideId: row.slideId ?? null,
+        startTime: row.startTime,
+        startTimeSeconds: row.startTimeSeconds,
+        durationSeconds: row.durationSeconds,
+        status: row.status as ProgramBlock['status'],
+        hideOverlays: Boolean(row.hideOverlays),
+        fallbackAssetId: row.fallbackAssetId ?? null,
+        notes: row.notes ?? null,
         metadata:
             typeof row.metadata === 'object' && row.metadata !== null
                 ? (row.metadata as Record<string, unknown>)
                 : {},
-        createdAt: text(row.created_at),
-        updatedAt: text(row.updated_at),
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
     };
 }
 
-function mapLayer(row: Row): ScheduledLayer {
+function mapLayer(row: ScheduledLayerRow): ScheduledLayer {
     return {
-        id: text(row.id),
-        programBlockId: text(row.program_block_id),
-        title: text(row.title),
-        layerType: text(row.layer_type) as ScheduledLayer['layerType'],
-        assetId: nullableText(row.asset_id),
-        slideId: nullableText(row.slide_id),
-        startTimeSeconds: number(row.start_time_seconds),
-        durationSeconds: number(row.duration_seconds),
-        zIndex: number(row.z_index),
-        position: text(row.position) as ScheduledLayer['position'],
+        id: row.id,
+        programBlockId: row.programBlockId,
+        title: row.title,
+        layerType: row.layerType as ScheduledLayer['layerType'],
+        assetId: row.assetId ?? null,
+        slideId: row.slideId ?? null,
+        startTimeSeconds: row.startTimeSeconds,
+        durationSeconds: row.durationSeconds,
+        zIndex: row.zIndex,
+        position: row.position as ScheduledLayer['position'],
         enabled: Boolean(row.enabled),
         locked: Boolean(row.locked),
-        createdAt: text(row.created_at),
-        updatedAt: text(row.updated_at),
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
     };
 }
 
-function mapRunbookCheck(row: Row): RunbookCheckState {
+function mapRunbookCheck(row: OperatorRunbookCheckRow): RunbookCheckState {
     return {
-        id: text(row.id),
-        programDayId: text(row.program_day_id),
-        section: text(row.section) as RunbookCheckState['section'],
-        itemKey: text(row.item_key),
+        id: row.id,
+        programDayId: row.programDayId,
+        section: row.section as RunbookCheckState['section'],
+        itemKey: row.itemKey,
         checked: Boolean(row.checked),
-        notes: nullableText(row.notes),
-        checkedAt: nullableText(row.checked_at),
-        createdAt: text(row.created_at),
-        updatedAt: text(row.updated_at),
+        notes: row.notes ?? null,
+        checkedAt: row.checkedAt ?? null,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
     };
 }
 
 function isMissingRunbookTable(error: unknown) {
+    // Postgres/PostgREST-specific codes; retained for forward-compat but will
+    // not match D1/SQLite errors. The table always exists after migration.
     if (!error || typeof error !== 'object') {
         return false;
     }
-    const row = error as Row;
-    const code = nullableText(row.code);
-    const message = nullableText(row.message) ?? '';
+    const row = error as Record<string, unknown>;
+    const code = row.code === null || row.code === undefined ? null : String(row.code);
+    const message = row.message === null || row.message === undefined ? '' : String(row.message);
 
     return (
         code === '42P01' ||
@@ -777,132 +704,117 @@ function isMissingRunbookTable(error: unknown) {
     );
 }
 
-function mapMediaAssetSummary(row: Row): MediaAssetSummary {
+type MediaAssetSummaryRow = Pick<
+    MediaAssetRow,
+    'id' | 'title' | 'status' | 'assetType' | 'mediaKind' | 'durationSeconds' | 'createdAt'
+>;
+
+function mapMediaAssetSummary(row: MediaAssetSummaryRow): MediaAssetSummary {
     return {
-        id: text(row.id),
-        title: text(row.title),
-        status: text(row.status) as MediaAsset['status'],
-        assetType: text(row.asset_type) as MediaAsset['assetType'],
-        mediaKind: text(row.media_kind) as MediaAsset['mediaKind'],
-        durationSeconds: nullableNumber(row.duration_seconds),
-        createdAt: text(row.created_at),
+        id: row.id,
+        title: row.title,
+        status: row.status as MediaAsset['status'],
+        assetType: row.assetType as MediaAsset['assetType'],
+        mediaKind: row.mediaKind as MediaAsset['mediaKind'],
+        durationSeconds: row.durationSeconds ?? null,
+        createdAt: row.createdAt,
     };
 }
 
-function mapMediaAsset(row: Row, scheduledAssetIds = new Set<string>()): MediaAsset {
-    const id = text(row.id);
-
+function mapMediaAsset(row: MediaAssetRow, scheduledAssetIds = new Set<string>()): MediaAsset {
     return {
-        id,
-        title: text(row.title),
-        description: nullableText(row.description),
-        sourceType: text(row.source_type) as MediaAsset['sourceType'],
-        mediaKind: text(row.media_kind) as MediaAsset['mediaKind'],
-        assetType: text(row.asset_type) as MediaAsset['assetType'],
-        url: nullableText(row.url),
-        storageBucket: nullableText(row.storage_bucket),
-        storagePath: nullableText(row.storage_path),
-        thumbnailUrl: nullableText(row.thumbnail_url),
-        durationSeconds: nullableNumber(row.duration_seconds),
-        status: text(row.status) as MediaAsset['status'],
-        lifecycleState: (scheduledAssetIds.has(id)
+        id: row.id,
+        title: row.title,
+        description: row.description ?? null,
+        sourceType: row.sourceType as MediaAsset['sourceType'],
+        mediaKind: row.mediaKind as MediaAsset['mediaKind'],
+        assetType: row.assetType as MediaAsset['assetType'],
+        url: row.url ?? null,
+        storageBucket: row.storageBucket ?? null,
+        storagePath: row.storagePath ?? null,
+        thumbnailUrl: row.thumbnailUrl ?? null,
+        durationSeconds: row.durationSeconds ?? null,
+        status: row.status as MediaAsset['status'],
+        lifecycleState: (scheduledAssetIds.has(row.id)
             ? 'scheduled_in_use'
-            : (nullableText(row.lifecycle_state) ?? 'reviewed')) as NonNullable<
-            MediaAsset['lifecycleState']
+            : (row.lifecycleState ?? 'reviewed')) as NonNullable<MediaAsset['lifecycleState']>,
+        vimeoId: row.vimeoId ?? null,
+        vimeoUri: row.vimeoUri ?? null,
+        vimeoPrivacy: row.vimeoPrivacy ?? null,
+        vimeoEmbedStatus: row.vimeoEmbedStatus ?? null,
+        playbackReadinessStatus: (row.playbackReadinessStatus ?? 'unchecked') as NonNullable<
+            MediaAsset['playbackReadinessStatus']
         >,
-        vimeoId: nullableText(row.vimeo_id),
-        vimeoUri: nullableText(row.vimeo_uri),
-        vimeoPrivacy: nullableText(row.vimeo_privacy),
-        vimeoEmbedStatus: nullableText(row.vimeo_embed_status),
-        playbackReadinessStatus: (nullableText(row.playback_readiness_status) ??
-            'unchecked') as NonNullable<MediaAsset['playbackReadinessStatus']>,
-        playbackCheckedAt: nullableText(row.playback_checked_at),
-        playbackError: nullableText(row.playback_error),
+        playbackCheckedAt: row.playbackCheckedAt ?? null,
+        playbackError: row.playbackError ?? null,
         metadata:
             typeof row.metadata === 'object' && row.metadata !== null
                 ? (row.metadata as Record<string, unknown>)
                 : null,
-        createdAt: text(row.created_at),
-        updatedAt: text(row.updated_at),
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
     };
 }
 
-function mapSlide(row: Row): SlideAsset {
+function mapSlide(row: SlideAssetRow): SlideAsset {
     return {
-        id: text(row.id),
-        title: text(row.title),
-        slideType: text(row.slide_type) as SlideAsset['slideType'],
-        content: nullableText(row.content),
-        imageUrl: nullableText(row.image_url),
-        htmlContent: nullableText(row.html_content),
-        templateId: nullableText(row.template_id),
-        defaultDurationSeconds: nullableNumber(row.default_duration_seconds),
-        status: text(row.status) as SlideAsset['status'],
+        id: row.id,
+        title: row.title,
+        slideType: row.slideType as SlideAsset['slideType'],
+        content: row.content ?? null,
+        imageUrl: row.imageUrl ?? null,
+        htmlContent: row.htmlContent ?? null,
+        templateId: row.templateId ?? null,
+        defaultDurationSeconds: row.defaultDurationSeconds ?? null,
+        status: row.status as SlideAsset['status'],
         metadata:
             typeof row.metadata === 'object' && row.metadata !== null
                 ? (row.metadata as Record<string, unknown>)
                 : null,
-        createdAt: text(row.created_at),
-        updatedAt: text(row.updated_at),
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
     };
 }
 
-function mapGuest(row: Row): Guest {
+function mapGuest(row: GuestRow, assetUrlMap: Map<string, string>): Guest {
+    const photoUrl =
+        (row.photoAssetId ? (assetUrlMap.get(row.photoAssetId) ?? null) : null) ??
+        row.photoUrl ??
+        null;
+    const videoUrl =
+        (row.videoAssetId ? (assetUrlMap.get(row.videoAssetId) ?? null) : null) ??
+        row.videoUrl ??
+        null;
+
     return {
-        id: text(row.id),
-        name: text(row.name),
-        role: nullableText(row.role),
-        company: nullableText(row.company),
-        host: nullableText(row.host),
-        program: nullableText(row.program),
-        category: nullableText(row.category) ?? 'markets',
-        appearanceAt: nullableText(row.appearance_at),
-        photoUrl: relatedAssetUrl(row.photo_asset) ?? nullableText(row.photo_url),
-        photoAssetId: nullableText(row.photo_asset_id),
-        videoUrl: relatedAssetUrl(row.video_asset) ?? nullableText(row.video_url),
-        videoAssetId: nullableText(row.video_asset_id),
-        color: nullableText(row.color) ?? '#f7931a',
-        sortOrder: number(row.sort_order),
-        status: text(row.status) as Guest['status'],
+        id: row.id,
+        name: row.name,
+        role: row.role ?? null,
+        company: row.company ?? null,
+        host: row.host ?? null,
+        program: row.program ?? null,
+        category: row.category ?? 'markets',
+        appearanceAt: row.appearanceAt ?? null,
+        photoUrl,
+        photoAssetId: row.photoAssetId ?? null,
+        videoUrl,
+        videoAssetId: row.videoAssetId ?? null,
+        color: row.color ?? '#f7931a',
+        sortOrder: row.sortOrder,
+        status: row.status as Guest['status'],
         metadata:
             typeof row.metadata === 'object' && row.metadata !== null
                 ? (row.metadata as Record<string, unknown>)
                 : null,
-        createdAt: text(row.created_at),
-        updatedAt: text(row.updated_at),
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
     };
 }
 
-function relatedAssetUrl(value: unknown) {
-    const row = Array.isArray(value) ? value[0] : value;
-
-    return typeof row === 'object' && row !== null ? nullableText((row as Row).url) : null;
-}
-
-function text(value: unknown): string {
-    return String(value ?? '');
-}
-
-function nullableText(value: unknown): string | null {
-    return value === null || value === undefined ? null : String(value);
-}
-
-function number(value: unknown): number {
-    return typeof value === 'number' ? value : Number(value);
-}
-
-function nullableNumber(value: unknown): number | null {
-    if (value === null || value === undefined) {
-        return null;
-    }
-
-    return number(value);
-}
-
-function uniqueIds(values: Array<string | null>): string[] {
+function uniqueIds(values: Array<string | null | undefined>): string[] {
     return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 
-function uniqueRows(rows: Row[]): Row[] {
-    return [...new Map(rows.map((row) => [text(row.id), row])).values()];
+function uniqueMediaRows(rows: MediaAssetRow[]): MediaAssetRow[] {
+    return [...new Map(rows.map((row) => [row.id, row])).values()];
 }

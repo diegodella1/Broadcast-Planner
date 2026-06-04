@@ -1,4 +1,5 @@
 import { revalidatePath } from 'next/cache';
+import { and, eq, gte, inArray, lt, ne } from 'drizzle-orm';
 
 import { auditedMutation } from '../audit/audit';
 import { getScheduleForDate } from '../data';
@@ -18,41 +19,139 @@ import {
     LIVE_ESTIMATED_DURATION_SECONDS,
     type LiveEndReason,
 } from '../live-object';
-import { createServiceClient } from '../supabase/server';
+import { getDb, type DrizzleD1Client } from '../db/client';
+import { programBlocks, programDays, scheduledLayers } from '../db/schema';
 import { formatTimecode, parseTimecode, PLAYOUT_TIMEZONE } from '../helpers/time';
 
 import type { BlockCategory, ProgramBlock, ProgramStatus } from '../types';
 
 type ConflictResolutionMode = 'none' | 'insert_shift' | 'archive_conflicts' | 'strict';
 
+// ─── Overlap guard ───────────────────────────────────────────────────────────
+//
+// Replicates the final PostgreSQL trigger defined across:
+//   20260510123000_prevent_program_block_overlaps.sql  (baseline)
+//   20260520163500_ignore_archived_block_overlaps.sql  (skip archived)
+//   20260603124500_allow_live_object_overlaps.sql      (skip live objects)
+//
+// Rules:
+//   1. Skip the check when the CANDIDATE block is 'archived'.
+//   2. Skip the check when the CANDIDATE block has metadata.live_object === true.
+//   3. Reject if any EXISTING block overlaps where the existing block is:
+//      - NOT 'archived', AND
+//      - does NOT have metadata.live_object === true
+//   4. Overlap condition: [start, start+duration) intervals intersect,
+//      i.e. candidateStart < existingEnd && candidateEnd > existingStart.
+//   5. A block is always excluded from matching against itself (excludeBlockId).
+
+async function assertNoBlockOverlap(
+    db: DrizzleD1Client,
+    programDayId: string,
+    candidate: {
+        startTimeSeconds: number;
+        durationSeconds: number;
+        status: string;
+        metadata?: Record<string, unknown>;
+    },
+    excludeBlockId?: string,
+): Promise<void> {
+    // Rule 1 & 2: skip check if candidate is archived or is a live object.
+    if (candidate.status === 'archived') {
+        return;
+    }
+
+    if (candidate.metadata?.live_object === true) {
+        return;
+    }
+
+    const candidateEnd = candidate.startTimeSeconds + candidate.durationSeconds;
+
+    const rows = await db
+        .select({
+            id: programBlocks.id,
+            startTimeSeconds: programBlocks.startTimeSeconds,
+            durationSeconds: programBlocks.durationSeconds,
+            status: programBlocks.status,
+            metadata: programBlocks.metadata,
+        })
+        .from(programBlocks)
+        .where(
+            excludeBlockId
+                ? and(
+                      eq(programBlocks.programDayId, programDayId),
+                      ne(programBlocks.id, excludeBlockId),
+                  )
+                : eq(programBlocks.programDayId, programDayId),
+        );
+
+    for (const row of rows) {
+        // Rule 3a: skip archived existing blocks.
+        if (row.status === 'archived') {
+            continue;
+        }
+
+        // Rule 3b: skip existing live-object blocks.
+        const existingMeta =
+            typeof row.metadata === 'object' && row.metadata !== null
+                ? (row.metadata as Record<string, unknown>)
+                : {};
+
+        if (existingMeta.live_object === true) {
+            continue;
+        }
+
+        const existingEnd = row.startTimeSeconds + row.durationSeconds;
+        const overlaps =
+            candidate.startTimeSeconds < existingEnd && candidateEnd > row.startTimeSeconds;
+
+        if (overlaps) {
+            throw new Error(`program_blocks overlap for program_day_id ${programDayId}`);
+        }
+    }
+}
+
+// ─── ensureProgramDay ─────────────────────────────────────────────────────────
+
 export async function ensureProgramDay(date: string): Promise<Result<string>> {
     try {
-        const supabase = createServiceClient();
-        const { data, error } = await supabase
-            .from('program_days')
-            .upsert(
-                {
-                    air_date: date,
+        const db = await getDb();
+
+        await db
+            .insert(programDays)
+            .values({
+                airDate: date,
+                timezone: PLAYOUT_TIMEZONE,
+                status: 'draft',
+                title: `Programming ${date}`,
+            })
+            .onConflictDoUpdate({
+                target: programDays.airDate,
+                set: {
                     timezone: PLAYOUT_TIMEZONE,
-                    status: 'draft',
                     title: `Programming ${date}`,
                 },
-                { onConflict: 'air_date' },
-            )
-            .select('id')
-            .single();
+            });
 
-        if (error) {
-            throw error;
+        const [row] = await db
+            .select({ id: programDays.id })
+            .from(programDays)
+            .where(eq(programDays.airDate, date))
+            .limit(1);
+
+        if (!row) {
+            throw new Error('Failed to upsert program day');
         }
+
         revalidatePath('/admin/calendar');
         revalidatePath(`/admin/schedule/${date}`);
 
-        return ok(data.id as string);
+        return ok(row.id);
     } catch (error) {
         return err(extractError(error));
     }
 }
+
+// ─── createProgramBlock ───────────────────────────────────────────────────────
 
 export async function createProgramBlock(input: {
     date: string;
@@ -81,6 +180,7 @@ export async function createProgramBlock(input: {
         if (!dayResult.success) {
             return dayResult;
         }
+
         const dayId = dayResult.data;
         const startTimeSeconds = parseTimecode(input.startTime);
         const schedule = await getScheduleForDate(input.date);
@@ -103,6 +203,7 @@ export async function createProgramBlock(input: {
         if (input.liveUrl && !liveMetadata) {
             return err('Live URL must be a YouTube video link or HLS .m3u8 URL');
         }
+
         const metadata = liveMetadata
             ? liveMetadata
             : reutersStream
@@ -120,7 +221,8 @@ export async function createProgramBlock(input: {
         if (input.blockType === 'ad' && durationSeconds > 300) {
             return err('Ads cannot be longer than 300 seconds');
         }
-        const supabase = createServiceClient();
+
+        const db = await getDb();
         const candidate: ProgramBlock = {
             id: 'candidate',
             programDayId: dayId,
@@ -145,6 +247,7 @@ export async function createProgramBlock(input: {
             mode: mutationMode,
         });
         let createdBlock = { id: '', start_time_seconds: startTimeSeconds };
+
         await auditedMutation(
             {
                 action: 'program_block.created',
@@ -170,33 +273,47 @@ export async function createProgramBlock(input: {
                     archives: plan.blocksToArchive,
                     reason: 'program_block.conflict_replaced',
                 });
-                const { data, error } = await supabase
-                    .from('program_blocks')
-                    .insert({
-                        program_day_id: dayId,
-                        title: input.title,
-                        block_type: input.blockType,
-                        category: liveMetadata
-                            ? 'broadcast'
-                            : reutersStream
-                              ? 'reuters'
-                              : (input.category ?? 'mercados'),
-                        asset_id: input.assetId || null,
-                        slide_id: input.slideId || null,
-                        start_time: input.startTime,
-                        start_time_seconds: startTimeSeconds,
-                        duration_seconds: durationSeconds,
-                        status: 'archived',
-                        hide_overlays: input.hideOverlays,
-                        metadata,
-                    })
-                    .select('id,start_time_seconds')
-                    .single();
 
-                if (error) {
-                    throw error;
+                const blockStatus = 'archived';
+                const category = liveMetadata
+                    ? 'broadcast'
+                    : reutersStream
+                      ? 'reuters'
+                      : (input.category ?? 'mercados');
+
+                await assertNoBlockOverlap(db, dayId, {
+                    startTimeSeconds,
+                    durationSeconds,
+                    status: blockStatus,
+                    metadata: metadata as Record<string, unknown>,
+                });
+
+                const [inserted] = await db
+                    .insert(programBlocks)
+                    .values({
+                        programDayId: dayId,
+                        title: input.title,
+                        blockType: input.blockType,
+                        category,
+                        assetId: input.assetId || null,
+                        slideId: input.slideId || null,
+                        startTime: input.startTime,
+                        startTimeSeconds,
+                        durationSeconds,
+                        status: blockStatus,
+                        hideOverlays: input.hideOverlays,
+                        metadata: metadata as Record<string, unknown>,
+                    })
+                    .returning({
+                        id: programBlocks.id,
+                        start_time_seconds: programBlocks.startTimeSeconds,
+                    });
+
+                if (!inserted) {
+                    throw new Error('Failed to insert program block');
                 }
-                createdBlock = data as { id: string; start_time_seconds: number };
+
+                createdBlock = inserted as { id: string; start_time_seconds: number };
                 await applyScheduleShiftRestores(plan.blocksToShift);
             },
         );
@@ -211,6 +328,8 @@ export async function createProgramBlock(input: {
     }
 }
 
+// ─── scheduleLiveObjectOverride ───────────────────────────────────────────────
+
 export async function scheduleLiveObjectOverride(input: {
     date: string;
     title: string;
@@ -224,6 +343,7 @@ export async function scheduleLiveObjectOverride(input: {
         if (!dayResult.success) {
             return dayResult;
         }
+
         const dayId = dayResult.data;
         const title = input.title.trim() || 'Live';
         const liveMetadata = buildLiveObjectMetadata({
@@ -235,8 +355,9 @@ export async function scheduleLiveObjectOverride(input: {
         if (!liveMetadata) {
             return err('Live URL must be a YouTube video link or HLS .m3u8 URL');
         }
+
         const startTimeSeconds = parseTimecode(input.startTime);
-        const supabase = createServiceClient();
+        const db = await getDb();
         let createdBlock = { id: '', start_time_seconds: startTimeSeconds };
 
         await auditedMutation(
@@ -251,38 +372,39 @@ export async function scheduleLiveObjectOverride(input: {
                 },
             },
             async () => {
-                const { data, error } = await supabase
-                    .from('program_blocks')
-                    .insert({
-                        program_day_id: dayId,
+                // Live objects are exempt from overlap check (live_object === true in metadata).
+                const [inserted] = await db
+                    .insert(programBlocks)
+                    .values({
+                        programDayId: dayId,
                         title,
-                        block_type: 'video',
+                        blockType: 'video',
                         category: 'broadcast',
-                        asset_id: null,
-                        slide_id: null,
-                        start_time: input.startTime,
-                        start_time_seconds: startTimeSeconds,
-                        duration_seconds: LIVE_ESTIMATED_DURATION_SECONDS,
+                        assetId: null,
+                        slideId: null,
+                        startTime: input.startTime,
+                        startTimeSeconds,
+                        durationSeconds: LIVE_ESTIMATED_DURATION_SECONDS,
                         status: 'ready',
-                        hide_overlays: true,
-                        fallback_asset_id: null,
-                        metadata: liveMetadata,
+                        hideOverlays: true,
+                        fallbackAssetId: null,
+                        metadata: liveMetadata as Record<string, unknown>,
                     })
-                    .select('id,start_time_seconds')
-                    .single();
+                    .returning({
+                        id: programBlocks.id,
+                        start_time_seconds: programBlocks.startTimeSeconds,
+                    });
 
-                if (error) {
-                    throw error;
+                if (!inserted) {
+                    throw new Error('Failed to insert live block');
                 }
-                createdBlock = data as { id: string; start_time_seconds: number };
-                const { error: statusError } = await supabase
-                    .from('program_blocks')
-                    .update({ status: 'ready', updated_at: new Date().toISOString() })
-                    .eq('id', createdBlock.id);
 
-                if (statusError) {
-                    throw statusError;
-                }
+                createdBlock = inserted as { id: string; start_time_seconds: number };
+
+                await db
+                    .update(programBlocks)
+                    .set({ status: 'ready', updatedAt: new Date().toISOString() })
+                    .where(eq(programBlocks.id, createdBlock.id));
             },
         );
         revalidatePath(`/admin/schedule/${input.date}`);
@@ -299,6 +421,8 @@ export async function scheduleLiveObjectOverride(input: {
     }
 }
 
+// ─── createProgramDayFromTemplate ─────────────────────────────────────────────
+
 export async function createProgramDayFromTemplate(input: {
     date: string;
     templateId: string;
@@ -310,11 +434,13 @@ export async function createProgramDayFromTemplate(input: {
         if (!template) {
             return err('Unknown day template');
         }
+
         const dayResult = await ensureProgramDay(input.date);
 
         if (!dayResult.success) {
             return dayResult;
         }
+
         const dayId = dayResult.data;
         const blocks = buildTemplateBlocks(template, input.startTime);
         const lastBlock = blocks[blocks.length - 1];
@@ -334,7 +460,8 @@ export async function createProgramDayFromTemplate(input: {
             return err('Day already has blocks. Open the schedule and edit it instead.');
         }
 
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'program_day.template_created',
@@ -348,25 +475,21 @@ export async function createProgramDayFromTemplate(input: {
                 next: { template: template.name, blocks: blocks.length },
             },
             async () => {
-                const { error } = await supabase.from('program_blocks').insert(
+                await db.insert(programBlocks).values(
                     blocks.map((block) => ({
-                        program_day_id: dayId,
+                        programDayId: dayId,
                         title: block.title,
-                        block_type: block.blockType,
+                        blockType: block.blockType,
                         category: block.category,
-                        asset_id: null,
-                        slide_id: null,
-                        start_time: block.startTime,
-                        start_time_seconds: block.startTimeSeconds,
-                        duration_seconds: block.durationSeconds,
+                        assetId: null,
+                        slideId: null,
+                        startTime: block.startTime,
+                        startTimeSeconds: block.startTimeSeconds,
+                        durationSeconds: block.durationSeconds,
                         status: 'draft',
-                        hide_overlays: false,
+                        hideOverlays: false,
                     })),
                 );
-
-                if (error) {
-                    throw error;
-                }
             },
         );
         revalidateSchedule(input.date);
@@ -376,6 +499,8 @@ export async function createProgramDayFromTemplate(input: {
         return err(extractError(error));
     }
 }
+
+// ─── fillProgramBlockContent ──────────────────────────────────────────────────
 
 export async function fillProgramBlockContent(input: {
     date: string;
@@ -390,6 +515,7 @@ export async function fillProgramBlockContent(input: {
         if (!block) {
             return err('Bloque no encontrado');
         }
+
         const asset = input.assetId
             ? schedule.mediaAssets.find((item) => item.id === input.assetId)
             : null;
@@ -424,7 +550,8 @@ export async function fillProgramBlockContent(input: {
         const contentDuration = asset?.durationSeconds ?? slide?.defaultDurationSeconds ?? 0;
         const durationSeconds = Math.max(block.durationSeconds, contentDuration || 1);
         const title = asset?.title ?? slide?.title ?? block.title;
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'program_block.content_filled',
@@ -435,21 +562,17 @@ export async function fillProgramBlockContent(input: {
                 next: { title, status: 'ready', duration_seconds: durationSeconds },
             },
             async () => {
-                const { error } = await supabase
-                    .from('program_blocks')
-                    .update({
+                await db
+                    .update(programBlocks)
+                    .set({
                         title,
-                        asset_id: asset?.id ?? null,
-                        slide_id: slide?.id ?? null,
-                        duration_seconds: durationSeconds,
+                        assetId: asset?.id ?? null,
+                        slideId: slide?.id ?? null,
+                        durationSeconds,
                         status: 'ready',
-                        updated_at: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
                     })
-                    .eq('id', block.id);
-
-                if (error) {
-                    throw error;
-                }
+                    .where(eq(programBlocks.id, block.id));
             },
         );
         revalidateSchedule(input.date);
@@ -472,6 +595,7 @@ function getKnownContentDuration(
     if (assetDuration) {
         return assetDuration;
     }
+
     const slideDuration = slideId
         ? schedule.slideAssets.find((slide) => slide.id === slideId)?.defaultDurationSeconds
         : null;
@@ -519,6 +643,8 @@ function reutersBlockMetadata(stream: {
     };
 }
 
+// ─── updateProgramDayStatus ───────────────────────────────────────────────────
+
 export async function updateProgramDayStatus(input: {
     date: string;
     status: string;
@@ -528,11 +654,13 @@ export async function updateProgramDayStatus(input: {
         if (!['draft', 'ready', 'active', 'archived'].includes(input.status)) {
             return err('Estado invalido');
         }
+
         const schedule = await getScheduleForDate(input.date);
 
         if (!schedule.day) {
             return err('Dia no encontrado');
         }
+
         const day = schedule.day;
         const health = analyzeSchedule(schedule);
 
@@ -547,7 +675,9 @@ export async function updateProgramDayStatus(input: {
         ) {
             return err('Hay advertencias pendientes');
         }
-        const supabase = createServiceClient();
+
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'program_day.status_updated',
@@ -558,14 +688,10 @@ export async function updateProgramDayStatus(input: {
                 next: { status: input.status },
             },
             async () => {
-                const { error } = await supabase
-                    .from('program_days')
-                    .update({ status: input.status, updated_at: new Date().toISOString() })
-                    .eq('id', day.id);
-
-                if (error) {
-                    throw error;
-                }
+                await db
+                    .update(programDays)
+                    .set({ status: input.status, updatedAt: new Date().toISOString() })
+                    .where(eq(programDays.id, day.id));
             },
         );
         revalidatePath('/admin/calendar');
@@ -576,6 +702,8 @@ export async function updateProgramDayStatus(input: {
         return err(extractError(error));
     }
 }
+
+// ─── updateProgramBlock ───────────────────────────────────────────────────────
 
 export async function updateProgramBlock(input: {
     date: string;
@@ -608,12 +736,14 @@ export async function updateProgramBlock(input: {
         if (!['draft', 'ready', 'active', 'archived'].includes(input.status)) {
             return err('Estado invalido');
         }
+
         const schedule = await getScheduleForDate(input.date);
         const block = schedule.blocks.find((item) => item.id === input.blockId);
 
         if (!block) {
             return err('Bloque no encontrado');
         }
+
         const startTimeSeconds = parseTimecode(input.startTime);
         const reutersStream = parseReutersStreamInput({
             ...(input.reutersStreamUrl ? { url: input.reutersStreamUrl } : {}),
@@ -631,6 +761,7 @@ export async function updateProgramBlock(input: {
         if (input.liveUrl && !liveMetadata) {
             return err('Live URL must be a YouTube video link or HLS .m3u8 URL');
         }
+
         const metadata = liveMetadata
             ? {
                   ...liveMetadata,
@@ -658,6 +789,7 @@ export async function updateProgramBlock(input: {
         if (input.blockType === 'ad' && durationSeconds > 300) {
             return err('Ads cannot be longer than 300 seconds');
         }
+
         const plan = planScheduleMutation({
             blocks: schedule.blocks,
             candidate: {
@@ -669,7 +801,8 @@ export async function updateProgramBlock(input: {
             },
             mode: scheduleMutationMode(input.conflictResolution),
         });
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'program_block.updated',
@@ -702,33 +835,43 @@ export async function updateProgramBlock(input: {
                     archives: plan.blocksToArchive,
                     reason: 'program_block.conflict_replaced',
                 });
-                const { error } = await supabase
-                    .from('program_blocks')
-                    .update({
+
+                await assertNoBlockOverlap(
+                    db,
+                    block.programDayId,
+                    {
+                        startTimeSeconds,
+                        durationSeconds,
+                        status: input.status,
+                        metadata: metadata as Record<string, unknown>,
+                    },
+                    input.blockId,
+                );
+
+                await db
+                    .update(programBlocks)
+                    .set({
                         title: input.title,
-                        block_type: input.blockType,
+                        blockType: input.blockType,
                         category: liveMetadata
                             ? 'broadcast'
                             : reutersStream
                               ? 'reuters'
                               : (input.category ?? block.category),
-                        asset_id: input.assetId || null,
-                        slide_id: input.slideId || null,
-                        start_time: input.startTime,
-                        start_time_seconds: startTimeSeconds,
-                        duration_seconds: durationSeconds,
+                        assetId: input.assetId || null,
+                        slideId: input.slideId || null,
+                        startTime: input.startTime,
+                        startTimeSeconds,
+                        durationSeconds,
                         status: input.status,
-                        hide_overlays: input.hideOverlays,
-                        fallback_asset_id: input.fallbackAssetId || null,
+                        hideOverlays: input.hideOverlays,
+                        fallbackAssetId: input.fallbackAssetId || null,
                         notes: input.notes || null,
-                        metadata,
-                        updated_at: new Date().toISOString(),
+                        metadata: metadata as Record<string, unknown>,
+                        updatedAt: new Date().toISOString(),
                     })
-                    .eq('id', input.blockId);
+                    .where(eq(programBlocks.id, input.blockId));
 
-                if (error) {
-                    throw error;
-                }
                 await applyScheduleShiftRestores(plan.blocksToShift);
             },
         );
@@ -741,26 +884,30 @@ export async function updateProgramBlock(input: {
     }
 }
 
+// ─── markLiveObjectEnded ──────────────────────────────────────────────────────
+
 export async function markLiveObjectEnded(input: {
     blockId: string;
     reason: LiveEndReason | string;
     failed?: boolean;
 }): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
-        const { data, error } = await supabase
-            .from('program_blocks')
-            .select('id,title,metadata,program_day_id')
-            .eq('id', input.blockId)
-            .maybeSingle();
-
-        if (error) {
-            throw error;
-        }
+        const db = await getDb();
+        const [data] = await db
+            .select({
+                id: programBlocks.id,
+                title: programBlocks.title,
+                metadata: programBlocks.metadata,
+                programDayId: programBlocks.programDayId,
+            })
+            .from(programBlocks)
+            .where(eq(programBlocks.id, input.blockId))
+            .limit(1);
 
         if (!data?.id) {
             return err('Live block not found');
         }
+
         const metadata =
             typeof data.metadata === 'object' && data.metadata !== null
                 ? (data.metadata as Record<string, unknown>)
@@ -773,6 +920,7 @@ export async function markLiveObjectEnded(input: {
         if (metadata.live_status === 'ended' || metadata.live_status === 'failed') {
             return ok(undefined);
         }
+
         const now = new Date().toISOString();
         const nextMetadata = {
             ...metadata,
@@ -780,6 +928,7 @@ export async function markLiveObjectEnded(input: {
             live_ended_at: now,
             live_end_reason: input.reason,
         };
+
         await auditedMutation(
             {
                 action: input.failed ? 'live_object.failed' : 'live_object.ended',
@@ -790,14 +939,10 @@ export async function markLiveObjectEnded(input: {
                 next: { live_status: nextMetadata.live_status, live_ended_at: now },
             },
             async () => {
-                const { error: updateError } = await supabase
-                    .from('program_blocks')
-                    .update({ metadata: nextMetadata, updated_at: now })
-                    .eq('id', String(data.id));
-
-                if (updateError) {
-                    throw updateError;
-                }
+                await db
+                    .update(programBlocks)
+                    .set({ metadata: nextMetadata, updatedAt: now })
+                    .where(eq(programBlocks.id, String(data.id)));
             },
         );
         revalidatePath('/admin/output');
@@ -809,26 +954,29 @@ export async function markLiveObjectEnded(input: {
     }
 }
 
+// ─── updateLiveObjectLowerThird ───────────────────────────────────────────────
+
 export async function updateLiveObjectLowerThird(input: {
     blockId: string;
     visible: boolean;
     text: string;
 }): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
-        const { data, error } = await supabase
-            .from('program_blocks')
-            .select('id,metadata,program_day_id')
-            .eq('id', input.blockId)
-            .maybeSingle();
-
-        if (error) {
-            throw error;
-        }
+        const db = await getDb();
+        const [data] = await db
+            .select({
+                id: programBlocks.id,
+                metadata: programBlocks.metadata,
+                programDayId: programBlocks.programDayId,
+            })
+            .from(programBlocks)
+            .where(eq(programBlocks.id, input.blockId))
+            .limit(1);
 
         if (!data?.id) {
             return err('Live block not found');
         }
+
         const metadata =
             typeof data.metadata === 'object' && data.metadata !== null
                 ? (data.metadata as Record<string, unknown>)
@@ -837,6 +985,7 @@ export async function updateLiveObjectLowerThird(input: {
         if (metadata.live_object !== true) {
             return err('Block is not a live object');
         }
+
         const now = new Date().toISOString();
         const nextMetadata = {
             ...metadata,
@@ -859,14 +1008,10 @@ export async function updateLiveObjectLowerThird(input: {
                 },
             },
             async () => {
-                const { error: updateError } = await supabase
-                    .from('program_blocks')
-                    .update({ metadata: nextMetadata, updated_at: now })
-                    .eq('id', String(data.id));
-
-                if (updateError) {
-                    throw updateError;
-                }
+                await db
+                    .update(programBlocks)
+                    .set({ metadata: nextMetadata, updatedAt: now })
+                    .where(eq(programBlocks.id, String(data.id)));
             },
         );
         revalidatePath('/live');
@@ -877,6 +1022,8 @@ export async function updateLiveObjectLowerThird(input: {
         return err(extractError(error));
     }
 }
+
+// ─── reorderProgramBlocks ─────────────────────────────────────────────────────
 
 export async function reorderProgramBlocks(input: {
     date: string;
@@ -896,11 +1043,13 @@ export async function reorderProgramBlocks(input: {
         if (activeBlocks.length !== input.orderedBlockIds.length) {
             return err('El rundown cambio. Recarga antes de reordenar');
         }
+
         const byId = new Map(activeBlocks.map((block) => [block.id, block]));
 
         if (input.orderedBlockIds.some((id) => !byId.has(id))) {
             return err('El rundown incluye un bloque inexistente');
         }
+
         const startSeconds = activeBlocks[0]?.startTimeSeconds ?? 0;
         let cursor = startSeconds;
         const updates = input.orderedBlockIds.map((id) => {
@@ -919,7 +1068,9 @@ export async function reorderProgramBlocks(input: {
         if (cursor > 86400) {
             return err('El rundown excede las 24 horas');
         }
-        const supabase = createServiceClient();
+
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'program_blocks.reordered',
@@ -935,33 +1086,25 @@ export async function reorderProgramBlocks(input: {
             },
             async () => {
                 for (const update of updates) {
-                    const { error } = await supabase
-                        .from('program_blocks')
-                        .update({
+                    await db
+                        .update(programBlocks)
+                        .set({
                             status: 'archived',
-                            updated_at: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
                         })
-                        .eq('id', update.id);
-
-                    if (error) {
-                        throw error;
-                    }
+                        .where(eq(programBlocks.id, update.id));
                 }
 
                 for (const update of updates) {
-                    const { error } = await supabase
-                        .from('program_blocks')
-                        .update({
-                            start_time: update.startTime,
-                            start_time_seconds: update.startTimeSeconds,
+                    await db
+                        .update(programBlocks)
+                        .set({
+                            startTime: update.startTime,
+                            startTimeSeconds: update.startTimeSeconds,
                             status: update.status,
-                            updated_at: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
                         })
-                        .eq('id', update.id);
-
-                    if (error) {
-                        throw error;
-                    }
+                        .where(eq(programBlocks.id, update.id));
                 }
             },
         );
@@ -972,6 +1115,8 @@ export async function reorderProgramBlocks(input: {
         return err(extractError(error));
     }
 }
+
+// ─── resizeProgramBlock ───────────────────────────────────────────────────────
 
 export async function resizeProgramBlock(input: {
     date: string;
@@ -985,6 +1130,7 @@ export async function resizeProgramBlock(input: {
         if (!block) {
             return err('Bloque no encontrado');
         }
+
         const durationSeconds = Math.max(1, Math.floor(Number(input.durationSeconds || 0)));
         const plan = planScheduleMutation({
             blocks: schedule.blocks,
@@ -997,7 +1143,8 @@ export async function resizeProgramBlock(input: {
             },
             mode: 'insert_shift',
         });
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'program_block.resized',
@@ -1014,17 +1161,27 @@ export async function resizeProgramBlock(input: {
                     archives: [],
                     reason: 'program_block.resize_shift',
                 });
-                const { error } = await supabase
-                    .from('program_blocks')
-                    .update({
-                        duration_seconds: durationSeconds,
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', block.id);
 
-                if (error) {
-                    throw error;
-                }
+                await assertNoBlockOverlap(
+                    db,
+                    block.programDayId,
+                    {
+                        startTimeSeconds: block.startTimeSeconds,
+                        durationSeconds,
+                        status: block.status,
+                        metadata: (block.metadata as Record<string, unknown> | undefined) ?? {},
+                    },
+                    block.id,
+                );
+
+                await db
+                    .update(programBlocks)
+                    .set({
+                        durationSeconds,
+                        updatedAt: new Date().toISOString(),
+                    })
+                    .where(eq(programBlocks.id, block.id));
+
                 await applyScheduleShiftRestores(plan.blocksToShift);
             },
         );
@@ -1035,6 +1192,8 @@ export async function resizeProgramBlock(input: {
         return err(extractError(error));
     }
 }
+
+// ─── moveProgramBlock ─────────────────────────────────────────────────────────
 
 export async function moveProgramBlock(input: {
     date: string;
@@ -1048,6 +1207,7 @@ export async function moveProgramBlock(input: {
         if (!block) {
             return err('Bloque no encontrado');
         }
+
         const startTimeSeconds = Math.min(
             Math.max(0, Math.floor(Number(input.startTimeSeconds || 0))),
             86400 - block.durationSeconds,
@@ -1064,7 +1224,8 @@ export async function moveProgramBlock(input: {
             mode: 'insert_shift',
         });
         const startTime = formatTimecode(startTimeSeconds);
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'program_block.moved',
@@ -1084,18 +1245,28 @@ export async function moveProgramBlock(input: {
                     archives: [],
                     reason: 'program_block.move_shift',
                 });
-                const { error } = await supabase
-                    .from('program_blocks')
-                    .update({
-                        start_time: startTime,
-                        start_time_seconds: startTimeSeconds,
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', block.id);
 
-                if (error) {
-                    throw error;
-                }
+                await assertNoBlockOverlap(
+                    db,
+                    block.programDayId,
+                    {
+                        startTimeSeconds,
+                        durationSeconds: block.durationSeconds,
+                        status: block.status,
+                        metadata: (block.metadata as Record<string, unknown> | undefined) ?? {},
+                    },
+                    block.id,
+                );
+
+                await db
+                    .update(programBlocks)
+                    .set({
+                        startTime,
+                        startTimeSeconds,
+                        updatedAt: new Date().toISOString(),
+                    })
+                    .where(eq(programBlocks.id, block.id));
+
                 await applyScheduleShiftRestores(plan.blocksToShift);
             },
         );
@@ -1106,6 +1277,8 @@ export async function moveProgramBlock(input: {
         return err(extractError(error));
     }
 }
+
+// ─── duplicateProgramBlock ────────────────────────────────────────────────────
 
 export async function duplicateProgramBlock(input: {
     date: string;
@@ -1118,6 +1291,7 @@ export async function duplicateProgramBlock(input: {
         if (!block) {
             return err('Bloque no encontrado');
         }
+
         const insertStart = block.startTimeSeconds + block.durationSeconds;
         const plan = planScheduleMutation({
             blocks: schedule.blocks,
@@ -1129,7 +1303,8 @@ export async function duplicateProgramBlock(input: {
             },
             mode: 'insert_shift',
         });
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'program_block.duplicated',
@@ -1145,25 +1320,30 @@ export async function duplicateProgramBlock(input: {
                     archives: [],
                     reason: 'program_block.duplicate_shift',
                 });
-                const { error } = await supabase.from('program_blocks').insert({
-                    program_day_id: block.programDayId,
-                    title: `${block.title} copy`,
-                    block_type: block.blockType,
-                    category: block.category,
-                    asset_id: block.assetId || null,
-                    slide_id: block.slideId || null,
-                    start_time: formatTimecode(insertStart),
-                    start_time_seconds: insertStart,
-                    duration_seconds: block.durationSeconds,
+
+                await assertNoBlockOverlap(db, block.programDayId, {
+                    startTimeSeconds: insertStart,
+                    durationSeconds: block.durationSeconds,
                     status: 'draft',
-                    hide_overlays: block.hideOverlays,
-                    fallback_asset_id: block.fallbackAssetId || null,
+                    metadata: {},
+                });
+
+                await db.insert(programBlocks).values({
+                    programDayId: block.programDayId,
+                    title: `${block.title} copy`,
+                    blockType: block.blockType,
+                    category: block.category,
+                    assetId: block.assetId || null,
+                    slideId: block.slideId || null,
+                    startTime: formatTimecode(insertStart),
+                    startTimeSeconds: insertStart,
+                    durationSeconds: block.durationSeconds,
+                    status: 'draft',
+                    hideOverlays: block.hideOverlays,
+                    fallbackAssetId: block.fallbackAssetId || null,
                     notes: block.notes || null,
                 });
 
-                if (error) {
-                    throw error;
-                }
                 await applyScheduleShiftRestores(plan.blocksToShift);
             },
         );
@@ -1174,6 +1354,8 @@ export async function duplicateProgramBlock(input: {
         return err(extractError(error));
     }
 }
+
+// ─── archiveProgramBlock / bulkUpdateProgramBlockStatus ───────────────────────
 
 export async function archiveProgramBlock(input: {
     date: string;
@@ -1195,18 +1377,22 @@ export async function bulkUpdateProgramBlockStatus(input: {
         if (!['draft', 'ready', 'active', 'archived'].includes(input.status)) {
             return err('Estado invalido');
         }
+
         const blockIds = [...new Set(input.blockIds)].filter(Boolean);
 
         if (!blockIds.length) {
             return err('Selecciona al menos un bloque');
         }
+
         const schedule = await getScheduleForDate(input.date);
         const existing = schedule.blocks.filter((block) => blockIds.includes(block.id));
 
         if (existing.length !== blockIds.length) {
             return err('Uno o mas bloques no existen');
         }
-        const supabase = createServiceClient();
+
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'program_blocks.bulk_status_updated',
@@ -1218,14 +1404,10 @@ export async function bulkUpdateProgramBlockStatus(input: {
                 next: { status: input.status },
             },
             async () => {
-                const { error } = await supabase
-                    .from('program_blocks')
-                    .update({ status: input.status, updated_at: new Date().toISOString() })
-                    .in('id', blockIds);
-
-                if (error) {
-                    throw error;
-                }
+                await db
+                    .update(programBlocks)
+                    .set({ status: input.status, updatedAt: new Date().toISOString() })
+                    .where(inArray(programBlocks.id, blockIds));
             },
         );
         revalidateSchedule(input.date);
@@ -1236,118 +1418,7 @@ export async function bulkUpdateProgramBlockStatus(input: {
     }
 }
 
-function revalidateSchedule(date: string) {
-    revalidatePath(`/admin/schedule/${date}`);
-    revalidatePath('/admin/calendar');
-    revalidatePath('/admin/output');
-}
-
-function scheduleMutationMode(value?: ConflictResolutionMode): ScheduleMutationMode {
-    if (value === 'archive_conflicts') {
-        return 'replace_window';
-    }
-
-    if (value === 'strict' || value === 'none') {
-        return 'strict';
-    }
-
-    return 'insert_shift';
-}
-
-async function applySchedulePlanPreparation(input: {
-    date: string;
-    shifts: ScheduleBlockShift[];
-    archives: Parameters<typeof archiveConflictingBlocks>[0]['conflicts'];
-    reason: string;
-}) {
-    if (input.archives.length) {
-        await archiveConflictingBlocks({
-            date: input.date,
-            conflicts: input.archives,
-            reason: input.reason,
-        });
-    }
-
-    if (!input.shifts.length) {
-        return;
-    }
-    const supabase = createServiceClient();
-
-    for (const shift of input.shifts) {
-        const { error } = await supabase
-            .from('program_blocks')
-            .update({ status: 'archived', updated_at: new Date().toISOString() })
-            .eq('id', shift.id);
-
-        if (error) {
-            throw error;
-        }
-    }
-}
-
-async function applyScheduleShiftRestores(shifts: ScheduleBlockShift[]) {
-    if (!shifts.length) {
-        return;
-    }
-    const supabase = createServiceClient();
-
-    for (const shift of shifts) {
-        const { error } = await supabase
-            .from('program_blocks')
-            .update({
-                start_time: shift.startTime,
-                start_time_seconds: shift.startTimeSeconds,
-                status: shift.status,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', shift.id);
-
-        if (error) {
-            throw error;
-        }
-    }
-}
-
-async function archiveConflictingBlocks(input: {
-    date: string;
-    conflicts: Array<{
-        blockId: string;
-        title: string;
-        startTimeSeconds: number;
-        endTimeSeconds: number;
-    }>;
-    reason: string;
-}) {
-    const supabase = createServiceClient();
-
-    for (const conflict of input.conflicts) {
-        await auditedMutation(
-            {
-                action: 'program_block.archived_for_replacement',
-                entityType: 'program_blocks',
-                entityId: conflict.blockId,
-                metadata: {
-                    date: input.date,
-                    reason: input.reason,
-                    start_seconds: conflict.startTimeSeconds,
-                    end_seconds: conflict.endTimeSeconds,
-                },
-                previous: { title: conflict.title },
-                next: { status: 'archived' },
-            },
-            async () => {
-                const { error } = await supabase
-                    .from('program_blocks')
-                    .update({ status: 'archived', updated_at: new Date().toISOString() })
-                    .eq('id', conflict.blockId);
-
-                if (error) {
-                    throw error;
-                }
-            },
-        );
-    }
-}
+// ─── deleteProgramBlock ───────────────────────────────────────────────────────
 
 export async function deleteProgramBlock(input: {
     date: string;
@@ -1360,15 +1431,11 @@ export async function deleteProgramBlock(input: {
         if (!block) {
             return err('Bloque no encontrado');
         }
-        const supabase = createServiceClient();
-        const { error: layerError } = await supabase
-            .from('scheduled_layers')
-            .delete()
-            .eq('program_block_id', input.blockId);
 
-        if (layerError) {
-            throw layerError;
-        }
+        const db = await getDb();
+
+        await db.delete(scheduledLayers).where(eq(scheduledLayers.programBlockId, input.blockId));
+
         await auditedMutation(
             {
                 action: 'program_block.deleted',
@@ -1378,14 +1445,7 @@ export async function deleteProgramBlock(input: {
                 previous: { title: block.title, start_time: block.startTime, status: block.status },
             },
             async () => {
-                const { error } = await supabase
-                    .from('program_blocks')
-                    .delete()
-                    .eq('id', input.blockId);
-
-                if (error) {
-                    throw error;
-                }
+                await db.delete(programBlocks).where(eq(programBlocks.id, input.blockId));
             },
         );
         revalidatePath(`/admin/schedule/${input.date}`);
@@ -1395,6 +1455,8 @@ export async function deleteProgramBlock(input: {
         return err(extractError(error));
     }
 }
+
+// ─── createLongTestSchedule ───────────────────────────────────────────────────
 
 export async function createLongTestSchedule(input: {
     date: string;
@@ -1411,6 +1473,7 @@ export async function createLongTestSchedule(input: {
         if (!dayResult.success) {
             return dayResult;
         }
+
         const dayId = dayResult.data;
         const schedule = await getScheduleForDate(input.date);
         const generatedBlocks = buildLongTestSchedule({
@@ -1429,21 +1492,20 @@ export async function createLongTestSchedule(input: {
             return err('No se pudo generar la grilla');
         }
 
-        const supabase = createServiceClient();
+        const db = await getDb();
         const startSeconds = firstBlock.startTimeSeconds;
         const endSeconds = lastBlock.startTimeSeconds + lastBlock.durationSeconds;
 
         if (input.replaceWindow) {
-            const { error: deleteError } = await supabase
-                .from('program_blocks')
-                .delete()
-                .eq('program_day_id', dayId)
-                .gte('start_time_seconds', startSeconds)
-                .lt('start_time_seconds', endSeconds);
-
-            if (deleteError) {
-                throw deleteError;
-            }
+            await db
+                .delete(programBlocks)
+                .where(
+                    and(
+                        eq(programBlocks.programDayId, dayId),
+                        gte(programBlocks.startTimeSeconds, startSeconds),
+                        lt(programBlocks.startTimeSeconds, endSeconds),
+                    ),
+                );
         }
 
         await auditedMutation(
@@ -1464,25 +1526,21 @@ export async function createLongTestSchedule(input: {
                 },
             },
             async () => {
-                const { error } = await supabase.from('program_blocks').insert(
+                await db.insert(programBlocks).values(
                     generatedBlocks.map((block) => ({
-                        program_day_id: dayId,
+                        programDayId: dayId,
                         title: block.title,
-                        block_type: block.blockType,
+                        blockType: block.blockType,
                         category: 'broadcast' satisfies BlockCategory,
-                        asset_id: block.assetId || null,
-                        slide_id: block.slideId || null,
-                        start_time: block.startTime,
-                        start_time_seconds: block.startTimeSeconds,
-                        duration_seconds: block.durationSeconds,
+                        assetId: block.assetId || null,
+                        slideId: block.slideId || null,
+                        startTime: block.startTime,
+                        startTimeSeconds: block.startTimeSeconds,
+                        durationSeconds: block.durationSeconds,
                         status: 'ready',
-                        hide_overlays: false,
+                        hideOverlays: false,
                     })),
                 );
-
-                if (error) {
-                    throw error;
-                }
             },
         );
         revalidatePath(`/admin/schedule/${input.date}`);
@@ -1493,6 +1551,8 @@ export async function createLongTestSchedule(input: {
         return err(extractError(error));
     }
 }
+
+// ─── createBulkCardLoop ───────────────────────────────────────────────────────
 
 export async function createBulkCardLoop(input: {
     date: string;
@@ -1507,6 +1567,7 @@ export async function createBulkCardLoop(input: {
         if (!dayResult.success) {
             return dayResult;
         }
+
         const dayId = dayResult.data;
         const schedule = await getScheduleForDate(input.date);
         const slideById = new Map(
@@ -1550,6 +1611,7 @@ export async function createBulkCardLoop(input: {
         if (!firstBlock || !lastBlock) {
             return err('El rango no admite ninguna card completa');
         }
+
         const startSeconds = firstBlock.startTimeSeconds;
         const endSeconds = parseTimecode(input.endTime);
         const conflicts = schedule.blocks
@@ -1564,7 +1626,8 @@ export async function createBulkCardLoop(input: {
             return err('El rango se solapa con bloques existentes');
         }
 
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'program_blocks.bulk_card_loop_created',
@@ -1592,37 +1655,32 @@ export async function createBulkCardLoop(input: {
             },
             async () => {
                 if (conflicts.length) {
-                    const { error: archiveError } = await supabase
-                        .from('program_blocks')
-                        .update({ status: 'archived', updated_at: new Date().toISOString() })
-                        .in(
-                            'id',
-                            conflicts.map((block) => block.id),
+                    await db
+                        .update(programBlocks)
+                        .set({ status: 'archived', updatedAt: new Date().toISOString() })
+                        .where(
+                            inArray(
+                                programBlocks.id,
+                                conflicts.map((block) => block.id),
+                            ),
                         );
-
-                    if (archiveError) {
-                        throw archiveError;
-                    }
                 }
-                const { error } = await supabase.from('program_blocks').insert(
+
+                await db.insert(programBlocks).values(
                     generatedBlocks.map((block) => ({
-                        program_day_id: dayId,
+                        programDayId: dayId,
                         title: block.title,
-                        block_type: 'slide',
+                        blockType: 'slide',
                         category: 'broadcast' satisfies BlockCategory,
-                        asset_id: null,
-                        slide_id: block.slideId,
-                        start_time: block.startTime,
-                        start_time_seconds: block.startTimeSeconds,
-                        duration_seconds: block.durationSeconds,
+                        assetId: null,
+                        slideId: block.slideId,
+                        startTime: block.startTime,
+                        startTimeSeconds: block.startTimeSeconds,
+                        durationSeconds: block.durationSeconds,
                         status: 'ready',
-                        hide_overlays: false,
+                        hideOverlays: false,
                     })),
                 );
-
-                if (error) {
-                    throw error;
-                }
             },
         );
         revalidatePath(`/admin/schedule/${input.date}`);
@@ -1632,5 +1690,110 @@ export async function createBulkCardLoop(input: {
         return ok(undefined);
     } catch (error) {
         return err(extractError(error));
+    }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function revalidateSchedule(date: string) {
+    revalidatePath(`/admin/schedule/${date}`);
+    revalidatePath('/admin/calendar');
+    revalidatePath('/admin/output');
+}
+
+function scheduleMutationMode(value?: ConflictResolutionMode): ScheduleMutationMode {
+    if (value === 'archive_conflicts') {
+        return 'replace_window';
+    }
+
+    if (value === 'strict' || value === 'none') {
+        return 'strict';
+    }
+
+    return 'insert_shift';
+}
+
+async function applySchedulePlanPreparation(input: {
+    date: string;
+    shifts: ScheduleBlockShift[];
+    archives: Parameters<typeof archiveConflictingBlocks>[0]['conflicts'];
+    reason: string;
+}) {
+    if (input.archives.length) {
+        await archiveConflictingBlocks({
+            date: input.date,
+            conflicts: input.archives,
+            reason: input.reason,
+        });
+    }
+
+    if (!input.shifts.length) {
+        return;
+    }
+
+    const db = await getDb();
+
+    for (const shift of input.shifts) {
+        await db
+            .update(programBlocks)
+            .set({ status: 'archived', updatedAt: new Date().toISOString() })
+            .where(eq(programBlocks.id, shift.id));
+    }
+}
+
+async function applyScheduleShiftRestores(shifts: ScheduleBlockShift[]) {
+    if (!shifts.length) {
+        return;
+    }
+
+    const db = await getDb();
+
+    for (const shift of shifts) {
+        await db
+            .update(programBlocks)
+            .set({
+                startTime: shift.startTime,
+                startTimeSeconds: shift.startTimeSeconds,
+                status: shift.status,
+                updatedAt: new Date().toISOString(),
+            })
+            .where(eq(programBlocks.id, shift.id));
+    }
+}
+
+async function archiveConflictingBlocks(input: {
+    date: string;
+    conflicts: Array<{
+        blockId: string;
+        title: string;
+        startTimeSeconds: number;
+        endTimeSeconds: number;
+    }>;
+    reason: string;
+}) {
+    const db = await getDb();
+
+    for (const conflict of input.conflicts) {
+        await auditedMutation(
+            {
+                action: 'program_block.archived_for_replacement',
+                entityType: 'program_blocks',
+                entityId: conflict.blockId,
+                metadata: {
+                    date: input.date,
+                    reason: input.reason,
+                    start_seconds: conflict.startTimeSeconds,
+                    end_seconds: conflict.endTimeSeconds,
+                },
+                previous: { title: conflict.title },
+                next: { status: 'archived' },
+            },
+            async () => {
+                await db
+                    .update(programBlocks)
+                    .set({ status: 'archived', updatedAt: new Date().toISOString() })
+                    .where(eq(programBlocks.id, conflict.blockId));
+            },
+        );
     }
 }

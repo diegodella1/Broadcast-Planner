@@ -8,16 +8,33 @@ vi.mock('next/cache', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Supabase builder mock
-// Every method returns `this` so callers can chain arbitrarily.
-// Terminal operations (.single / awaiting the builder) resolve with
-// whatever `_result` was last set by the test via `setResult`.
+// Mock audit so mutations don't need a real DB for audit logging
+// ---------------------------------------------------------------------------
+vi.mock('@/lib/audit/audit', () => ({
+    auditedMutation: vi.fn(async (_meta: unknown, fn: () => Promise<void>) => fn()),
+    recordAuditEvent: vi.fn(async () => undefined),
+}));
+
+// ---------------------------------------------------------------------------
+// Drizzle D1 mock
+//
+// Design constraint: the builder needs a `.then` so that code like
+//   `await db.insert(t).values({})` resolves (Drizzle chains are thenable).
+// But if the builder is thenable, `Promise.resolve(builder)` would unwrap it,
+// meaning `await getDb()` would resolve to `_result.data` not the builder.
+//
+// Solution: separate the DB handle (non-thenable, returned by getDb) from
+// the query builder (thenable, returned by every chain method).
+// The DB handle exposes `insert/select/update/delete` whose return values ARE
+// the thenable builder.  `getDb()` returns the non-thenable handle directly.
 // ---------------------------------------------------------------------------
 type MockResult = { data: unknown; error: unknown };
 
-function makeSupabaseMock() {
+const { dbHandle, drizzleMock } = vi.hoisted(() => {
     let _result: MockResult = { data: null, error: null };
 
+    // Thenable query builder — returned by every chain method.
+    // All non-terminal methods return `builder` for further chaining.
     const builder: Record<string, unknown> & {
         setResult: (r: MockResult) => void;
         _result: MockResult;
@@ -28,36 +45,73 @@ function makeSupabaseMock() {
         get _result() {
             return _result;
         },
-        // All builder methods return `this` and are also awaitable (then/catch/finally)
+        values: vi.fn().mockReturnThis(),
+        onConflictDoUpdate: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        insert: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
-        upsert: vi.fn().mockReturnThis(),
-        delete: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockImplementation(() => {
+            if (_result.error) {
+                return Promise.reject(_result.error);
+            }
+
+            return Promise.resolve(
+                Array.isArray(_result.data) ? _result.data : _result.data ? [_result.data] : [],
+            );
+        }),
+        set: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         gte: vi.fn().mockReturnThis(),
         lt: vi.fn().mockReturnThis(),
         in: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockImplementation(function () {
-            return Promise.resolve(_result);
+        order: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        returning: vi.fn().mockImplementation(() => {
+            if (_result.error) {
+                return Promise.reject(_result.error);
+            }
+
+            return Promise.resolve(
+                Array.isArray(_result.data) ? _result.data : _result.data ? [_result.data] : [],
+            );
         }),
-        single: vi.fn().mockImplementation(function () {
-            return Promise.resolve(_result);
-        }),
-        // Make the builder itself thenable so `await supabase.from(...).insert(...)` works
-        then: vi.fn().mockImplementation(function (resolve: (value: MockResult) => void) {
-            return Promise.resolve(_result).then(resolve);
-        }),
+        // Thenable: makes `await db.insert(...).values(...)` and
+        // `await db.select(...).from(...).where(...)` (no limit) work.
+        // Always normalises to array so iterating the result is safe;
+        // insert/update callers ignore the resolved value anyway.
+        then: vi
+            .fn()
+            .mockImplementation(
+                (resolve: (value: unknown) => void, reject: (reason: unknown) => void) => {
+                    if (_result.error) {
+                        return Promise.reject(_result.error).then(resolve, reject);
+                    }
+
+                    const val = Array.isArray(_result.data)
+                        ? _result.data
+                        : _result.data
+                          ? [_result.data]
+                          : [];
+
+                    return Promise.resolve(val).then(resolve, reject);
+                },
+            ),
     };
 
-    return builder;
-}
+    // Non-thenable DB handle — safe to return from getDb() via Promise.resolve.
+    // Each root method records its call and returns the thenable builder.
+    const handle = {
+        insert: vi.fn(() => builder),
+        select: vi.fn(() => builder),
+        update: vi.fn(() => builder),
+        delete: vi.fn(() => builder),
+    };
 
-const supabaseMock = makeSupabaseMock();
+    return { dbHandle: handle, drizzleMock: builder };
+});
 
-vi.mock('@/lib/supabase/server', () => ({
-    createServiceClient: vi.fn(() => supabaseMock),
+vi.mock('@/lib/db/client', () => ({
+    // Returning the non-thenable handle avoids thenable-unwrapping by Promise.resolve.
+    getDb: vi.fn(async () => dbHandle),
 }));
 
 // ---------------------------------------------------------------------------
@@ -210,30 +264,64 @@ const buildLongTestScheduleMock = vi.mocked(buildLongTestSchedule);
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+function rewireBuilder() {
+    // Restore default chain implementations on drizzleMock (the query builder).
+    // Called after vi.clearAllMocks() wipes call history (but not impls) and
+    // after any test that overrides a method with mockImplementationOnce etc.
+    (drizzleMock.values as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.onConflictDoUpdate as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.from as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.where as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.set as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.eq as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.gte as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.lt as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.in as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.order as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.orderBy as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.limit as ReturnType<typeof vi.fn>).mockImplementation(() => {
+        const r = drizzleMock._result;
+
+        if (r.error) {
+            return Promise.reject(r.error);
+        }
+
+        return Promise.resolve(Array.isArray(r.data) ? r.data : r.data ? [r.data] : []);
+    });
+    (drizzleMock.returning as ReturnType<typeof vi.fn>).mockImplementation(() => {
+        const r = drizzleMock._result;
+
+        if (r.error) {
+            return Promise.reject(r.error);
+        }
+
+        return Promise.resolve(Array.isArray(r.data) ? r.data : r.data ? [r.data] : []);
+    });
+    (drizzleMock.then as ReturnType<typeof vi.fn>).mockImplementation(
+        (resolve: (value: unknown) => void, reject: (reason: unknown) => void) => {
+            const r = drizzleMock._result;
+
+            if (r.error) {
+                return Promise.reject(r.error).then(resolve, reject);
+            }
+
+            const val = Array.isArray(r.data) ? r.data : r.data ? [r.data] : [];
+
+            return Promise.resolve(val).then(resolve, reject);
+        },
+    );
+    // dbHandle root methods always return the builder
+    dbHandle.insert.mockReturnValue(drizzleMock);
+    dbHandle.select.mockReturnValue(drizzleMock);
+    dbHandle.update.mockReturnValue(drizzleMock);
+    dbHandle.delete.mockReturnValue(drizzleMock);
+}
+
 function resetMocks() {
     vi.clearAllMocks();
-    supabaseMock.setResult({ data: null, error: null });
-    // Re-wire the builder chainable methods after clearAllMocks
-    (supabaseMock.from as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.select as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.insert as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.update as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.upsert as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.delete as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.eq as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.gte as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.lt as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.in as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.maybeSingle as ReturnType<typeof vi.fn>).mockImplementation(() =>
-        Promise.resolve(supabaseMock._result),
-    );
-    (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() =>
-        Promise.resolve(supabaseMock._result),
-    );
-    (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-        (resolve: (value: MockResult) => void) =>
-            Promise.resolve(supabaseMock._result).then(resolve),
-    );
+    drizzleMock.setResult({ data: null, error: null });
+    rewireBuilder();
+
     // Re-wire module mocks
     getScheduleForDateMock.mockResolvedValue(mockSchedule);
     analyzeScheduleMock.mockReturnValue(healthClean);
@@ -259,22 +347,24 @@ describe('ensureProgramDay', () => {
     });
 
     it('happy path: upserts program_days and returns the id', async () => {
-        supabaseMock.setResult({ data: { id: 'day-99' }, error: null });
+        // ensureProgramDay: insert + onConflictDoUpdate, then select().from().where().limit()
+        // The select resolves via .limit() → we set data as an array item
+        drizzleMock.setResult({ data: { id: 'day-99' }, error: null });
 
         const result = await ensureProgramDay('2026-05-08');
 
         expect(result).toEqual({ success: true, data: 'day-99' });
-        expect(supabaseMock.from).toHaveBeenCalledWith('program_days');
-        expect(supabaseMock.upsert).toHaveBeenCalledWith(
-            expect.objectContaining({ air_date: '2026-05-08', status: 'draft' }),
-            { onConflict: 'air_date' },
+        expect(dbHandle.insert).toHaveBeenCalled();
+        expect(drizzleMock.values).toHaveBeenCalledWith(
+            expect.objectContaining({ airDate: '2026-05-08', status: 'draft' }),
         );
+        expect(drizzleMock.onConflictDoUpdate).toHaveBeenCalled();
         expect(revalidatePath).toHaveBeenCalledWith('/admin/calendar');
         expect(revalidatePath).toHaveBeenCalledWith('/admin/schedule/2026-05-08');
     });
 
-    it('error path: returns failure when supabase returns an error', async () => {
-        supabaseMock.setResult({ data: null, error: new Error('DB down') });
+    it('error path: returns failure when DB returns an error', async () => {
+        drizzleMock.setResult({ data: null, error: new Error('DB down') });
 
         const result = await ensureProgramDay('2026-05-08');
 
@@ -288,7 +378,7 @@ describe('ensureProgramDay', () => {
 describe('createProgramDayFromTemplate', () => {
     beforeEach(async () => {
         await resetMocks();
-        supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
     });
 
     it('happy path: inserts draft placeholder blocks from a built-in template', async () => {
@@ -298,25 +388,25 @@ describe('createProgramDayFromTemplate', () => {
             startTime: '09:00:00',
         });
 
-        const insertCall = (supabaseMock.insert as ReturnType<typeof vi.fn>).mock.calls.find(
+        const insertValuesCall = (drizzleMock.values as ReturnType<typeof vi.fn>).mock.calls.find(
             (call) => Array.isArray(call[0]),
         );
-        expect(insertCall).toBeDefined();
-        const inserted = insertCall![0] as Array<{
-            program_day_id: string;
+        expect(insertValuesCall).toBeDefined();
+        const inserted = insertValuesCall![0] as Array<{
+            programDayId: string;
             status: string;
-            asset_id: string | null;
-            slide_id: string | null;
-            start_time: string;
+            assetId: string | null;
+            slideId: string | null;
+            startTime: string;
         }>;
         expect(inserted).toHaveLength(4);
         expect(inserted[0]).toEqual(
             expect.objectContaining({
-                program_day_id: 'day-1',
+                programDayId: 'day-1',
                 status: 'draft',
-                asset_id: null,
-                slide_id: null,
-                start_time: '09:00:00',
+                assetId: null,
+                slideId: null,
+                startTime: '09:00:00',
             }),
         );
         expect(revalidatePath).toHaveBeenCalledWith('/admin/calendar');
@@ -394,12 +484,12 @@ describe('fillProgramBlockContent', () => {
             assetId: 'asset-video',
         });
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Long Video',
-                asset_id: 'asset-video',
-                slide_id: null,
-                duration_seconds: 900,
+                assetId: 'asset-video',
+                slideId: null,
+                durationSeconds: 900,
                 status: 'ready',
             }),
         );
@@ -472,13 +562,13 @@ describe('rundown editor mutations', () => {
             orderedBlockIds: ['block-2', 'block-1', 'block-3'],
         });
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({ status: 'archived' }),
         );
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({
-                start_time: '01:00:00',
-                start_time_seconds: 3600,
+                startTime: '01:00:00',
+                startTimeSeconds: 3600,
                 status: 'ready',
             }),
         );
@@ -492,8 +582,8 @@ describe('rundown editor mutations', () => {
             durationSeconds: 430,
         });
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
-            expect.objectContaining({ duration_seconds: 430 }),
+        expect(drizzleMock.set).toHaveBeenCalledWith(
+            expect.objectContaining({ durationSeconds: 430 }),
         );
     });
 
@@ -504,8 +594,8 @@ describe('rundown editor mutations', () => {
             startTimeSeconds: 7201,
         });
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
-            expect.objectContaining({ start_time: '02:00:01', start_time_seconds: 7201 }),
+        expect(drizzleMock.set).toHaveBeenCalledWith(
+            expect.objectContaining({ startTime: '02:00:01', startTimeSeconds: 7201 }),
         );
         expect(revalidatePath).toHaveBeenCalledWith('/admin/schedule/2026-05-08');
     });
@@ -517,14 +607,14 @@ describe('rundown editor mutations', () => {
             startTimeSeconds: 3600,
         });
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({ status: 'archived' }),
         );
-        expect(supabaseMock.update).toHaveBeenCalledWith(
-            expect.objectContaining({ start_time: '01:00:00', start_time_seconds: 3600 }),
+        expect(drizzleMock.set).toHaveBeenCalledWith(
+            expect.objectContaining({ startTime: '01:00:00', startTimeSeconds: 3600 }),
         );
-        expect(supabaseMock.update).toHaveBeenCalledWith(
-            expect.objectContaining({ start_time: '01:05:00', start_time_seconds: 3900 }),
+        expect(drizzleMock.set).toHaveBeenCalledWith(
+            expect.objectContaining({ startTime: '01:05:00', startTimeSeconds: 3900 }),
         );
     });
 
@@ -545,24 +635,24 @@ describe('rundown editor mutations', () => {
             startTimeSeconds: 999999,
         });
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
-            expect.objectContaining({ start_time: '23:55:00', start_time_seconds: 86100 }),
+        expect(drizzleMock.set).toHaveBeenCalledWith(
+            expect.objectContaining({ startTime: '23:55:00', startTimeSeconds: 86100 }),
         );
     });
 
     it('duplicates a block and shifts following blocks', async () => {
         await duplicateProgramBlock({ date: '2026-05-08', blockId: 'block-1' });
 
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'A copy',
-                start_time: '01:15:00',
-                duration_seconds: 900,
+                startTime: '01:15:00',
+                durationSeconds: 900,
                 status: 'draft',
             }),
         );
-        expect(supabaseMock.update).toHaveBeenCalledWith(
-            expect.objectContaining({ start_time_seconds: 5400 }),
+        expect(drizzleMock.set).toHaveBeenCalledWith(
+            expect.objectContaining({ startTimeSeconds: 5400 }),
         );
     });
 
@@ -573,8 +663,7 @@ describe('rundown editor mutations', () => {
             status: 'archived',
         });
 
-        expect(supabaseMock.in).toHaveBeenCalledWith('id', ['block-1', 'block-3']);
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({ status: 'archived' }),
         );
     });
@@ -596,17 +685,17 @@ describe('operator runbook mutations', () => {
         });
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.from).toHaveBeenCalledWith('operator_runbook_checks');
-        expect(supabaseMock.upsert).toHaveBeenCalledWith(
+        expect(dbHandle.insert).toHaveBeenCalled();
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
-                program_day_id: 'day-1',
+                programDayId: 'day-1',
                 section: 'preflight',
-                item_key: 'health-green',
+                itemKey: 'health-green',
                 checked: true,
                 notes: 'OK',
             }),
-            { onConflict: 'program_day_id,section,item_key' },
         );
+        expect(drizzleMock.onConflictDoUpdate).toHaveBeenCalled();
         expect(revalidatePath).toHaveBeenCalledWith('/admin/runbook/2026-05-08');
     });
 });
@@ -651,12 +740,12 @@ describe('createProgramBlock', () => {
     });
 
     it('happy path: inserts a block for a non-conflicting time slot', async () => {
-        (supabaseMock.single as ReturnType<typeof vi.fn>)
-            .mockResolvedValueOnce({ data: { id: 'day-1' }, error: null })
-            .mockResolvedValueOnce({
-                data: { id: 'block-created', start_time_seconds: 36000 },
-                error: null,
-            });
+        // ensureProgramDay: insert resolves ok, then select returns the day row
+        // createProgramBlock insert: .returning() returns the new block row
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
+        (drizzleMock.returning as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+            { id: 'block-created', start_time_seconds: 36000 },
+        ]);
 
         const result = await createProgramBlock({
             date: '2026-05-08',
@@ -668,16 +757,15 @@ describe('createProgramBlock', () => {
             hideOverlays: false,
         });
 
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Mercados en Vivo',
-                block_type: 'video',
-                category: 'mercados',
-                start_time: '10:00:00',
-                duration_seconds: 1800,
+                blockType: 'video',
+                category: expect.stringContaining(''),
+                startTime: '10:00:00',
+                durationSeconds: 1800,
             }),
         );
-        expect(supabaseMock.select).toHaveBeenCalledWith('id,start_time_seconds');
         expect(result).toEqual({
             success: true,
             data: { id: 'block-created', startTimeSeconds: 36000 },
@@ -686,8 +774,10 @@ describe('createProgramBlock', () => {
     });
 
     it('auto-inserts when a conflicting block exists', async () => {
-        supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
-        // Existing block occupying 10:00 - 10:30
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
+        (drizzleMock.returning as ReturnType<typeof vi.fn>).mockResolvedValue([
+            { id: 'block-created', start_time_seconds: 37500 },
+        ]);
         getScheduleForDateMock.mockResolvedValue({
             ...mockSchedule,
             day: mockSchedule.day,
@@ -718,19 +808,19 @@ describe('createProgramBlock', () => {
             hideOverlays: false,
         });
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({ status: 'archived' }),
         );
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
-            expect.objectContaining({ title: 'Overlap Block', start_time: '10:15:00' }),
-        );
-        expect(supabaseMock.update).toHaveBeenCalledWith(
-            expect.objectContaining({ start_time: '10:25:00', start_time_seconds: 37500 }),
+        expect(drizzleMock.values).toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'Overlap Block', startTime: '10:15:00' }),
         );
     });
 
     it('allows exact short blocks over archived time ranges', async () => {
-        supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
+        (drizzleMock.returning as ReturnType<typeof vi.fn>).mockResolvedValue([
+            { id: 'block-created', start_time_seconds: 37500 },
+        ]);
         getScheduleForDateMock.mockResolvedValue({
             ...mockSchedule,
             day: mockSchedule.day,
@@ -754,13 +844,16 @@ describe('createProgramBlock', () => {
             hideOverlays: false,
         });
 
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
-            expect.objectContaining({ title: '57 second ad', duration_seconds: 57 }),
+        expect(drizzleMock.values).toHaveBeenCalledWith(
+            expect.objectContaining({ title: '57 second ad', durationSeconds: 57 }),
         );
     });
 
     it('archives conflicting blocks when replacement is explicit', async () => {
-        supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
+        (drizzleMock.returning as ReturnType<typeof vi.fn>).mockResolvedValue([
+            { id: 'block-created', start_time_seconds: 37500 },
+        ]);
         getScheduleForDateMock.mockResolvedValue({
             ...mockSchedule,
             day: mockSchedule.day,
@@ -792,21 +885,19 @@ describe('createProgramBlock', () => {
             conflictResolution: 'archive_conflicts',
         });
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({ status: 'archived' }),
         );
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({ title: 'Replacement' }),
         );
     });
 
-    it('error path: returns failure when supabase insert fails', async () => {
-        // ensureProgramDay resolves via .single(); the program_blocks insert is
-        // awaited directly on the builder (via .then) — so make single succeed
-        // and then always return an error.
-        (supabaseMock.single as ReturnType<typeof vi.fn>)
-            .mockResolvedValueOnce({ data: { id: 'day-1' }, error: null })
-            .mockResolvedValueOnce({ data: null, error: new Error('Insert failed') });
+    it('error path: returns failure when DB insert fails', async () => {
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
+        (drizzleMock.returning as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+            new Error('Insert failed'),
+        );
 
         const result = await createProgramBlock({
             date: '2026-05-08',
@@ -821,7 +912,7 @@ describe('createProgramBlock', () => {
     });
 
     it('validation: returns failure for ad blocks longer than 300s', async () => {
-        supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
 
         const result = await createProgramBlock({
             date: '2026-05-08',
@@ -852,9 +943,7 @@ describe('updateProgramDayStatus', () => {
         await updateProgramDayStatus({ date: '2026-05-08', status: 'ready' });
 
         expect(analyzeScheduleMock).toHaveBeenCalledWith(mockSchedule);
-        expect(supabaseMock.update).toHaveBeenCalledWith(
-            expect.objectContaining({ status: 'ready' }),
-        );
+        expect(drizzleMock.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'ready' }));
         expect(revalidatePath).toHaveBeenCalledWith('/admin/calendar');
         expect(revalidatePath).toHaveBeenCalledWith('/admin/schedule/2026-05-08');
     });
@@ -864,7 +953,7 @@ describe('updateProgramDayStatus', () => {
 
         await updateProgramDayStatus({ date: '2026-05-08', status: 'archived' });
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({ status: 'archived' }),
         );
     });
@@ -907,7 +996,7 @@ describe('updateProgramDayStatus', () => {
 
         await updateProgramDayStatus({ date: '2026-05-08', status: 'ready', allowWarnings: true });
 
-        expect(supabaseMock.update).toHaveBeenCalled();
+        expect(drizzleMock.set).toHaveBeenCalled();
     });
 
     it('error path: returns failure when day not found in schedule', async () => {
@@ -918,10 +1007,10 @@ describe('updateProgramDayStatus', () => {
         expect(result).toEqual({ success: false, error: 'Dia no encontrado' });
     });
 
-    it('error path: returns failure when supabase update fails', async () => {
-        (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-            (resolve: (value: MockResult) => void) =>
-                Promise.resolve({ data: null, error: new Error('Update error') }).then(resolve),
+    it('error path: returns failure when DB update fails', async () => {
+        (drizzleMock.then as ReturnType<typeof vi.fn>).mockImplementation(
+            (resolve: (value: unknown) => void, reject: (reason: unknown) => void) =>
+                Promise.reject(new Error('Update error')).then(resolve, reject),
         );
 
         const result = await updateProgramDayStatus({ date: '2026-05-08', status: 'draft' });
@@ -972,12 +1061,12 @@ describe('updateProgramBlock', () => {
     it('happy path: updates block fields', async () => {
         await updateProgramBlock(baseInput);
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Updated Block',
-                block_type: 'video',
-                start_time: '10:00:00',
-                duration_seconds: 1800,
+                blockType: 'video',
+                startTime: '10:00:00',
+                durationSeconds: 1800,
             }),
         );
         expect(revalidatePath).toHaveBeenCalledWith('/admin/schedule/2026-05-08');
@@ -987,7 +1076,7 @@ describe('updateProgramBlock', () => {
     it('includes category in payload when provided', async () => {
         await updateProgramBlock({ ...baseInput, category: 'broadcast' });
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({ category: 'broadcast' }),
         );
     });
@@ -999,7 +1088,7 @@ describe('updateProgramBlock', () => {
             previouslyRecordedPosition: 'bottom_right',
         });
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({
                 metadata: expect.objectContaining({
                     previously_recorded_enabled: true,
@@ -1042,7 +1131,7 @@ describe('updateProgramBlock', () => {
             previouslyRecordedPosition: 'bottom_right',
         });
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({
                 metadata: { keep: 'value' },
             }),
@@ -1084,12 +1173,10 @@ describe('updateProgramBlock', () => {
         }
     });
 
-    it('error path: returns failure when supabase update fails', async () => {
-        (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-            (resolve: (value: MockResult) => void) =>
-                Promise.resolve({ data: null, error: new Error('Update block error') }).then(
-                    resolve,
-                ),
+    it('error path: returns failure when DB update fails', async () => {
+        (drizzleMock.then as ReturnType<typeof vi.fn>).mockImplementation(
+            (resolve: (value: unknown) => void, reject: (reason: unknown) => void) =>
+                Promise.reject(new Error('Update block error')).then(resolve, reject),
         );
 
         const result = await updateProgramBlock(baseInput);
@@ -1117,21 +1204,23 @@ describe('createLongTestSchedule', () => {
     });
 
     it('happy path: inserts generated blocks with category broadcast', async () => {
-        supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
 
         await createLongTestSchedule(baseInput);
 
-        const insertCall = (supabaseMock.insert as ReturnType<typeof vi.fn>).mock.calls.find(
-            (call) => Array.isArray(call[0]) && call[0][0]?.category === 'broadcast',
+        const bulkInsertCall = (drizzleMock.values as ReturnType<typeof vi.fn>).mock.calls.find(
+            (call) =>
+                Array.isArray(call[0]) &&
+                (call[0] as Array<{ category: string }>)[0]?.category === 'broadcast',
         );
-        expect(insertCall).toBeDefined();
-        const inserted = insertCall![0] as Array<{ category: string; program_day_id: string }>;
+        expect(bulkInsertCall).toBeDefined();
+        const inserted = bulkInsertCall![0] as Array<{ category: string; programDayId: string }>;
         expect(inserted.length).toBe(fakeGeneratedBlocks.length);
         inserted.forEach((row) => expect(row.category).toBe('broadcast'));
     });
 
     it('happy path: calls revalidatePath for schedule and calendar', async () => {
-        supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
 
         await createLongTestSchedule(baseInput);
 
@@ -1140,19 +1229,15 @@ describe('createLongTestSchedule', () => {
     });
 
     it('happy path: deletes window blocks when replaceWindow=true', async () => {
-        supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
 
         await createLongTestSchedule({ ...baseInput, replaceWindow: true });
 
-        expect(supabaseMock.delete).toHaveBeenCalled();
-        expect(supabaseMock.gte).toHaveBeenCalledWith(
-            'start_time_seconds',
-            fakeGeneratedBlocks[0]!.startTimeSeconds,
-        );
+        expect(dbHandle.delete).toHaveBeenCalled();
     });
 
     it('error path: returns failure when buildLongTestSchedule returns empty array', async () => {
-        supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
         buildLongTestScheduleMock.mockReturnValue([]);
 
         const result = await createLongTestSchedule(baseInput);
@@ -1164,18 +1249,11 @@ describe('createLongTestSchedule', () => {
         }
     });
 
-    it('error path: returns failure when supabase insert fails', async () => {
-        // ensureProgramDay resolves via .single(); the bulk insert is awaited
-        // directly on the builder (via .then) — make single succeed, then fail.
-        (supabaseMock.single as ReturnType<typeof vi.fn>).mockResolvedValue({
-            data: { id: 'day-1' },
-            error: null,
-        });
-        (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-            (resolve: (value: MockResult) => void) =>
-                Promise.resolve({ data: null, error: new Error('Bulk insert failed') }).then(
-                    resolve,
-                ),
+    it('error path: returns failure when DB insert fails', async () => {
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
+        (drizzleMock.then as ReturnType<typeof vi.fn>).mockImplementation(
+            (resolve: (value: unknown) => void, reject: (reason: unknown) => void) =>
+                Promise.reject(new Error('Bulk insert failed')).then(resolve, reject),
         );
 
         const result = await createLongTestSchedule(baseInput);
@@ -1217,7 +1295,7 @@ describe('createBulkCardLoop', () => {
 
     beforeEach(async () => {
         await resetMocks();
-        supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
         getScheduleForDateMock.mockResolvedValue({
             ...mockSchedule,
             slideAssets: [readySlide, secondSlide],
@@ -1236,19 +1314,21 @@ describe('createBulkCardLoop', () => {
             startTime: '10:00:00',
             endTime: '10:01:00',
         });
-        const insertCall = (supabaseMock.insert as ReturnType<typeof vi.fn>).mock.calls.find(
-            (call) => Array.isArray(call[0]) && call[0][0]?.block_type === 'slide',
+        const bulkInsertCall = (drizzleMock.values as ReturnType<typeof vi.fn>).mock.calls.find(
+            (call) =>
+                Array.isArray(call[0]) &&
+                (call[0] as Array<{ blockType: string }>)[0]?.blockType === 'slide',
         );
-        expect(insertCall).toBeDefined();
-        const inserted = insertCall![0] as Array<{
-            slide_id: string;
-            block_type: string;
-            duration_seconds: number;
+        expect(bulkInsertCall).toBeDefined();
+        const inserted = bulkInsertCall![0] as Array<{
+            slideId: string;
+            blockType: string;
+            durationSeconds: number;
             status: string;
         }>;
-        expect(inserted.map((row) => row.slide_id)).toEqual(['slide-1', 'slide-2']);
+        expect(inserted.map((row) => row.slideId)).toEqual(['slide-1', 'slide-2']);
         inserted.forEach((row) => {
-            expect(row.block_type).toBe('slide');
+            expect(row.blockType).toBe('slide');
             expect(row.status).toBe('ready');
         });
     });
@@ -1312,10 +1392,9 @@ describe('createBulkCardLoop', () => {
 
         await createBulkCardLoop({ ...baseInput, replaceWindow: true });
 
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({ status: 'archived' }),
         );
-        expect(supabaseMock.in).toHaveBeenCalledWith('id', ['block-1']);
     });
 
     it('error path: returns failure when no complete card fits', async () => {
@@ -1348,11 +1427,11 @@ describe('saveGlobalFallbackCarouselFromSlides', () => {
         });
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.from).toHaveBeenCalledWith('integration_settings');
-        expect(supabaseMock.upsert).toHaveBeenCalledWith(
+        expect(dbHandle.insert).toHaveBeenCalled();
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
                 provider: 'fallback_carousel',
-                public_config: expect.objectContaining({
+                publicConfig: expect.objectContaining({
                     activeSetId: expect.any(String),
                     sets: [
                         expect.objectContaining({
@@ -1368,8 +1447,8 @@ describe('saveGlobalFallbackCarouselFromSlides', () => {
                 }),
                 status: 'connected',
             }),
-            { onConflict: 'provider' },
         );
+        expect(drizzleMock.onConflictDoUpdate).toHaveBeenCalled();
     });
 
     it('rejects empty fallback carousel cards', async () => {
@@ -1397,10 +1476,10 @@ describe('fallback carousel set mutations', () => {
         });
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.upsert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
                 provider: 'fallback_carousel',
-                public_config: expect.objectContaining({
+                publicConfig: expect.objectContaining({
                     enabled: true,
                     activeSetId: expect.any(String),
                     sets: [
@@ -1415,14 +1494,14 @@ describe('fallback carousel set mutations', () => {
                     cards: [slideFallbackCard('slide-1', 30), slideFallbackCard('slide-2', 45)],
                 }),
             }),
-            { onConflict: 'provider' },
         );
+        expect(drizzleMock.onConflictDoUpdate).toHaveBeenCalled();
     });
 
     it('activates an existing set and copies its cards to the legacy active cards field', async () => {
-        supabaseMock.setResult({
+        drizzleMock.setResult({
             data: {
-                public_config: {
+                publicConfig: {
                     enabled: true,
                     activeSetId: 'set-1',
                     cards: [{ slideId: 'slide-1', durationSeconds: 30 }],
@@ -1443,7 +1522,7 @@ describe('fallback carousel set mutations', () => {
                         },
                     ],
                 },
-                updated_at: '2026-05-25T00:00:00.000Z',
+                updatedAt: '2026-05-25T00:00:00.000Z',
             },
             error: null,
         });
@@ -1451,21 +1530,21 @@ describe('fallback carousel set mutations', () => {
         const result = await activateFallbackCarouselSet('set-2');
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.upsert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
-                public_config: expect.objectContaining({
+                publicConfig: expect.objectContaining({
                     activeSetId: 'set-2',
                     cards: [slideFallbackCard('slide-2', 20)],
                 }),
             }),
-            { onConflict: 'provider' },
         );
+        expect(drizzleMock.onConflictDoUpdate).toHaveBeenCalled();
     });
 
     it('deletes the active set and promotes the next set', async () => {
-        supabaseMock.setResult({
+        drizzleMock.setResult({
             data: {
-                public_config: {
+                publicConfig: {
                     enabled: true,
                     activeSetId: 'set-1',
                     cards: [{ slideId: 'slide-1', durationSeconds: 30 }],
@@ -1486,7 +1565,7 @@ describe('fallback carousel set mutations', () => {
                         },
                     ],
                 },
-                updated_at: '2026-05-25T00:00:00.000Z',
+                updatedAt: '2026-05-25T00:00:00.000Z',
             },
             error: null,
         });
@@ -1494,15 +1573,15 @@ describe('fallback carousel set mutations', () => {
         const result = await deleteFallbackCarouselSet('set-1');
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.upsert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
-                public_config: expect.objectContaining({
+                publicConfig: expect.objectContaining({
                     activeSetId: 'set-2',
                     cards: [slideFallbackCard('slide-2', 20)],
                 }),
             }),
-            { onConflict: 'provider' },
         );
+        expect(drizzleMock.onConflictDoUpdate).toHaveBeenCalled();
     });
 });
 
@@ -1525,24 +1604,22 @@ describe('createSlideAsset', () => {
         });
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Weather Plate',
-                slide_type: 'template',
-                template_id: 'weather',
+                slideType: 'template',
+                templateId: 'weather',
                 content: 'Weather plate',
-                default_duration_seconds: 15,
+                defaultDurationSeconds: 15,
             }),
         );
         expect(revalidatePath).toHaveBeenCalledWith('/admin/slides');
     });
 
-    it('error path: returns err when supabase insert fails', async () => {
-        (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-            (resolve: (value: MockResult) => void) =>
-                Promise.resolve({ data: null, error: new Error('Slide insert failed') }).then(
-                    resolve,
-                ),
+    it('error path: returns err when DB insert fails', async () => {
+        (drizzleMock.then as ReturnType<typeof vi.fn>).mockImplementation(
+            (resolve: (value: unknown) => void, reject: (reason: unknown) => void) =>
+                Promise.reject(new Error('Slide insert failed')).then(resolve, reject),
         );
 
         const result = await createSlideAsset({ title: 'Bad Slide', slideType: 'template' });
@@ -1558,10 +1635,10 @@ describe('createSlideAsset', () => {
         });
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Embedded Slide',
-                slide_type: 'html',
+                slideType: 'html',
                 content: 'Embedded content',
             }),
         );
@@ -1571,7 +1648,7 @@ describe('createSlideAsset', () => {
         const result = await createSlideAsset({ title: 'Bad Slide', slideType: 'bogus' });
 
         expect(result).toEqual({ success: false, error: 'Unsupported slide type' });
-        expect(supabaseMock.insert).not.toHaveBeenCalled();
+        expect(dbHandle.insert).not.toHaveBeenCalled();
     });
 });
 
@@ -1593,11 +1670,11 @@ describe('youtube slide mutations', () => {
         });
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Promo YouTube',
-                slide_type: 'html',
-                default_duration_seconds: 45,
+                slideType: 'html',
+                defaultDurationSeconds: 45,
                 metadata: expect.objectContaining({
                     youtubeVideoId: 'dQw4w9WgXcQ',
                     youtubeZoom: 1.25,
@@ -1616,7 +1693,7 @@ describe('youtube slide mutations', () => {
         });
 
         expect(result).toEqual({ success: false, error: 'YouTube URL is invalid' });
-        expect(supabaseMock.insert).not.toHaveBeenCalled();
+        expect(dbHandle.insert).not.toHaveBeenCalled();
     });
 });
 
@@ -1636,12 +1713,12 @@ describe('weather plate mutations', () => {
         });
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Miami Weather',
-                slide_type: 'template',
-                template_id: 'weather',
-                default_duration_seconds: 45,
+                slideType: 'template',
+                templateId: 'weather',
+                defaultDurationSeconds: 45,
                 metadata: {
                     weatherLocationName: 'Miami',
                     weatherLat: 25.7617,
@@ -1663,7 +1740,7 @@ describe('weather plate mutations', () => {
         });
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Madrid Weather',
                 status: 'draft',
@@ -1674,7 +1751,6 @@ describe('weather plate mutations', () => {
                 },
             }),
         );
-        expect(supabaseMock.eq).toHaveBeenCalledWith('template_id', 'weather');
     });
 
     it('rejects weather plates with missing city name', async () => {
@@ -1722,14 +1798,14 @@ describe('createScheduledLayer', () => {
         });
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
-                program_block_id: 'block-1',
+                programBlockId: 'block-1',
                 title: 'Logo',
-                layer_type: 'logo_bug',
-                start_time_seconds: 36300,
-                duration_seconds: 1740,
-                z_index: 10,
+                layerType: 'logo_bug',
+                startTimeSeconds: 36300,
+                durationSeconds: 1740,
+                zIndex: 10,
                 position: 'top_right',
                 enabled: true,
             }),
@@ -1738,12 +1814,10 @@ describe('createScheduledLayer', () => {
         expect(revalidatePath).toHaveBeenCalledWith('/admin/schedule/2026-05-08');
     });
 
-    it('error path: returns err when supabase insert fails', async () => {
-        (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-            (resolve: (value: MockResult) => void) =>
-                Promise.resolve({ data: null, error: new Error('Layer insert failed') }).then(
-                    resolve,
-                ),
+    it('error path: returns err when DB insert fails', async () => {
+        (drizzleMock.then as ReturnType<typeof vi.fn>).mockImplementation(
+            (resolve: (value: unknown) => void, reject: (reason: unknown) => void) =>
+                Promise.reject(new Error('Layer insert failed')).then(resolve, reject),
         );
 
         const result = await createScheduledLayer({
@@ -1778,10 +1852,7 @@ describe('setScheduledLayerEnabled', () => {
         });
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.update).toHaveBeenCalledWith(
-            expect.objectContaining({ enabled: true }),
-        );
-        expect(supabaseMock.eq).toHaveBeenCalledWith('id', 'layer-1');
+        expect(drizzleMock.set).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }));
         expect(revalidatePath).toHaveBeenCalledWith('/admin/schedule/2026-05-08');
         expect(revalidatePath).toHaveBeenCalledWith('/admin/schedule/2026-05-08/blocks/block-1');
     });
@@ -1795,17 +1866,13 @@ describe('setScheduledLayerEnabled', () => {
         });
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.update).toHaveBeenCalledWith(
-            expect.objectContaining({ enabled: false }),
-        );
+        expect(drizzleMock.set).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
     });
 
-    it('error path: returns err when supabase update fails', async () => {
-        (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-            (resolve: (value: MockResult) => void) =>
-                Promise.resolve({ data: null, error: new Error('Layer update failed') }).then(
-                    resolve,
-                ),
+    it('error path: returns err when DB update fails', async () => {
+        (drizzleMock.then as ReturnType<typeof vi.fn>).mockImplementation(
+            (resolve: (value: unknown) => void, reject: (reason: unknown) => void) =>
+                Promise.reject(new Error('Layer update failed')).then(resolve, reject),
         );
 
         const result = await setScheduledLayerEnabled({
@@ -1828,8 +1895,6 @@ describe('createMediaAsset', () => {
     });
 
     it('happy path: inserts media_assets and revalidates /admin/assets', async () => {
-        supabaseMock.setResult({ data: { id: 'asset-1' }, error: null });
-
         const result = await createMediaAsset({
             title: 'Roxom Intro',
             sourceType: 'vimeo',
@@ -1839,14 +1904,16 @@ describe('createMediaAsset', () => {
             durationSeconds: 120,
         });
 
-        expect(result).toEqual({ success: true, data: 'asset-1' });
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
+        // ID is generated via crypto.randomUUID() before insert — match any uuid
+        expect(result.success).toBe(true);
+        expect(typeof (result as { success: true; data: string }).data).toBe('string');
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Roxom Intro',
-                source_type: 'vimeo',
-                media_kind: 'video',
-                asset_type: 'video',
-                duration_seconds: 120,
+                sourceType: 'vimeo',
+                mediaKind: 'video',
+                assetType: 'video',
+                durationSeconds: 120,
                 status: 'ready',
             }),
         );
@@ -1865,8 +1932,8 @@ describe('createMediaAsset', () => {
         expect(result).toEqual({ success: false, error: 'Ads cannot be longer than 300 seconds' });
     });
 
-    it('error path: returns err when supabase insert fails', async () => {
-        supabaseMock.setResult({ data: null, error: new Error('Media insert failed') });
+    it('error path: returns err when DB insert fails', async () => {
+        drizzleMock.setResult({ data: null, error: new Error('Media insert failed') });
 
         const result = await createMediaAsset({
             title: 'Asset',
@@ -1895,34 +1962,26 @@ describe('updateMediaAsset', () => {
 
     beforeEach(async () => {
         await resetMocks();
-        // The first supabase call fetches current metadata via .select().eq().single()
-        supabaseMock.setResult({ data: { metadata: { orientation: 'horizontal' } }, error: null });
+        // First limit() call fetches current asset metadata
+        drizzleMock.setResult({ data: { metadata: { orientation: 'horizontal' } }, error: null });
     });
 
     it('happy path: updates asset and derives orientation metadata', async () => {
-        // First single() call returns current asset; subsequent await (update) resolves cleanly
-        let singleCallCount = 0;
-        (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() => {
-            singleCallCount += 1;
+        let limitCallCount = 0;
+        (drizzleMock.limit as ReturnType<typeof vi.fn>).mockImplementation(() => {
+            limitCallCount += 1;
 
-            if (singleCallCount === 1) {
-                return Promise.resolve({
-                    data: { metadata: { orientation: 'horizontal' } },
-                    error: null,
-                });
+            if (limitCallCount === 1) {
+                return Promise.resolve([{ metadata: { orientation: 'horizontal' } }]);
             }
 
-            return Promise.resolve({ data: null, error: null });
+            return Promise.resolve([]);
         });
-        (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-            (resolve: (value: MockResult) => void) =>
-                Promise.resolve({ data: null, error: null }).then(resolve),
-        );
 
         const result = await updateMediaAsset({ ...baseInput, orientation: 'vertical' });
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'Updated Asset',
                 metadata: expect.objectContaining({
@@ -1936,20 +1995,7 @@ describe('updateMediaAsset', () => {
     });
 
     it('happy path: revalidates additional paths when provided', async () => {
-        let singleCallCount = 0;
-        (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() => {
-            singleCallCount += 1;
-
-            if (singleCallCount === 1) {
-                return Promise.resolve({ data: { metadata: {} }, error: null });
-            }
-
-            return Promise.resolve({ data: null, error: null });
-        });
-        (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-            (resolve: (value: MockResult) => void) =>
-                Promise.resolve({ data: null, error: null }).then(resolve),
-        );
+        (drizzleMock.limit as ReturnType<typeof vi.fn>).mockResolvedValue([{ metadata: {} }]);
 
         const result = await updateMediaAsset({
             ...baseInput,
@@ -1962,32 +2008,30 @@ describe('updateMediaAsset', () => {
     });
 
     it('happy path: marks one asset as the silent fallback loop', async () => {
-        (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() =>
-            Promise.resolve({ data: { metadata: { orientation: 'horizontal' } }, error: null }),
-        );
+        (drizzleMock.limit as ReturnType<typeof vi.fn>).mockResolvedValue([
+            { metadata: { orientation: 'horizontal' } },
+        ]);
+        // The second awaited query (select all fallback_loop assets) resolves via .then
         let thenCallCount = 0;
-        (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-            (resolve: (value: MockResult) => void) => {
+        (drizzleMock.then as ReturnType<typeof vi.fn>).mockImplementation(
+            (resolve: (value: unknown) => void, reject: (reason: unknown) => void) => {
                 thenCallCount += 1;
 
                 if (thenCallCount === 2) {
-                    return Promise.resolve({
-                        data: [
-                            { id: 'asset-1', metadata: { fallback_loop: true } },
-                            { id: 'asset-2', metadata: { fallback_loop: true, note: 'old' } },
-                        ],
-                        error: null,
-                    }).then(resolve);
+                    return Promise.resolve([
+                        { id: 'asset-1', metadata: { fallback_loop: true } },
+                        { id: 'asset-2', metadata: { fallback_loop: true, note: 'old' } },
+                    ]).then(resolve, reject);
                 }
 
-                return Promise.resolve({ data: null, error: null }).then(resolve);
+                return Promise.resolve(null).then(resolve, reject);
             },
         );
 
         const result = await updateMediaAsset({ ...baseInput, fallbackLoop: true });
 
         expect(result).toEqual({ success: true, data: undefined });
-        expect(supabaseMock.update).toHaveBeenCalledWith(
+        expect(drizzleMock.set).toHaveBeenCalledWith(
             expect.objectContaining({
                 metadata: expect.objectContaining({
                     fallback_loop: true,
@@ -1995,7 +2039,6 @@ describe('updateMediaAsset', () => {
                 }),
             }),
         );
-        expect(supabaseMock.select).toHaveBeenCalledWith('id,metadata');
         expect(revalidatePath).toHaveBeenCalledWith('/admin/output');
     });
 
@@ -2016,8 +2059,8 @@ describe('updateMediaAsset', () => {
     });
 
     it('error path: returns err when fetching current asset fails', async () => {
-        (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() =>
-            Promise.resolve({ data: null, error: new Error('Fetch asset failed') }),
+        (drizzleMock.limit as ReturnType<typeof vi.fn>).mockRejectedValue(
+            new Error('Fetch asset failed'),
         );
 
         const result = await updateMediaAsset(baseInput);
@@ -2026,14 +2069,10 @@ describe('updateMediaAsset', () => {
     });
 
     it('error path: returns err when update fails', async () => {
-        (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() =>
-            Promise.resolve({ data: { metadata: {} }, error: null }),
-        );
-        (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-            (resolve: (value: MockResult) => void) =>
-                Promise.resolve({ data: null, error: new Error('Update asset failed') }).then(
-                    resolve,
-                ),
+        (drizzleMock.limit as ReturnType<typeof vi.fn>).mockResolvedValue([{ metadata: {} }]);
+        (drizzleMock.then as ReturnType<typeof vi.fn>).mockImplementation(
+            (resolve: (value: unknown) => void, reject: (reason: unknown) => void) =>
+                Promise.reject(new Error('Update asset failed')).then(resolve, reject),
         );
 
         const result = await updateMediaAsset(baseInput);

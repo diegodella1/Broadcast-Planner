@@ -1,5 +1,7 @@
-import { createServiceClient } from './supabase/server';
+import { and, eq } from 'drizzle-orm';
 
+import { getDb } from './db/client';
+import { outputOverrides } from './db/schema';
 import type { OutputOverride } from './types';
 
 type Row = Record<string, unknown>;
@@ -8,19 +10,17 @@ export async function getActiveOutputOverride(programDayId?: string | null) {
     if (!programDayId) {
         return null;
     }
-    const supabase = createServiceClient();
-    const { data, error } = await supabase
-        .from('output_overrides')
-        .select('*')
-        .eq('program_day_id', programDayId)
-        .eq('enabled', true)
-        .maybeSingle();
 
-    if (error) {
-        throw error;
-    }
+    const db = await getDb();
+    const [row] = await db
+        .select()
+        .from(outputOverrides)
+        .where(
+            and(eq(outputOverrides.programDayId, programDayId), eq(outputOverrides.enabled, true)),
+        )
+        .limit(1);
 
-    return data ? mapOutputOverride(data as Row) : null;
+    return row ? mapOutputOverride(row as unknown as Row) : null;
 }
 
 export { clearOutputOverride, setReutersOutputOverride } from './mutations/output';
@@ -28,23 +28,25 @@ export { clearOutputOverride, setReutersOutputOverride } from './mutations/outpu
 export function mapOutputOverride(row: Row): OutputOverride {
     return {
         id: String(row.id ?? ''),
-        programDayId: String(row.program_day_id ?? ''),
-        enabled: row.enabled !== false,
-        sourceType: String(row.source_type ?? 'scheduled_block') as OutputOverride['sourceType'],
-        blockId: nullable(row.block_id),
-        assetId: nullable(row.asset_id),
-        slideId: nullable(row.slide_id),
-        streamUrl: nullable(row.stream_url),
-        streamProtocol: streamProtocol(row.stream_protocol),
+        programDayId: String(row.program_day_id ?? row.programDayId ?? ''),
+        enabled: row.enabled !== false && row.enabled !== 0,
+        sourceType: String(
+            row.source_type ?? row.sourceType ?? 'scheduled_block',
+        ) as OutputOverride['sourceType'],
+        blockId: nullable(row.block_id ?? row.blockId),
+        assetId: nullable(row.asset_id ?? row.assetId),
+        slideId: nullable(row.slide_id ?? row.slideId),
+        streamUrl: nullable(row.stream_url ?? row.streamUrl),
+        streamProtocol: streamProtocol(row.stream_protocol ?? row.streamProtocol),
         label: nullable(row.label),
-        expiresAt: nullable(row.expires_at),
+        expiresAt: nullable(row.expires_at ?? row.expiresAt),
         metadata:
             typeof row.metadata === 'object' && row.metadata !== null
                 ? (row.metadata as Record<string, unknown>)
                 : {},
-        createdBy: nullable(row.created_by),
-        createdAt: String(row.created_at ?? ''),
-        updatedAt: String(row.updated_at ?? ''),
+        createdBy: nullable(row.created_by ?? row.createdBy),
+        createdAt: String(row.created_at ?? row.createdAt ?? ''),
+        updatedAt: String(row.updated_at ?? row.updatedAt ?? ''),
     };
 }
 

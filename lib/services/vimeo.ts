@@ -1,6 +1,8 @@
 import { revalidatePath } from 'next/cache';
+import { eq, inArray } from 'drizzle-orm';
 
-import { createServiceClient } from '../supabase/server';
+import { getDb } from '../db/client';
+import { mediaAssets } from '../db/schema';
 
 const VIMEO_API = 'https://api.vimeo.com';
 const VIMEO_ACCEPT = 'application/vnd.vimeo.*+json;version=3.4';
@@ -118,23 +120,24 @@ export async function getVimeoPlayback(token: string, videoId: string): Promise<
 }
 
 export async function upsertVimeoVideos(videos: VimeoVideo[]) {
-    const supabase = createServiceClient();
+    const db = await getDb();
     const rows = videos.map((video) => vimeoVideoToAssetRow(video));
 
     if (rows.length) {
-        const { error } = await supabase
-            .from('media_assets')
-            .upsert(rows, { onConflict: 'vimeo_id' });
+        // rows[0] is guaranteed non-undefined inside this branch
+        await db
+            .insert(mediaAssets)
+            .values(rows)
+            .onConflictDoUpdate({
+                target: mediaAssets.vimeoId,
 
-        if (error) {
-            throw error;
-        }
+                set: buildUpsertSet(rows[0]!),
+            });
     }
     revalidatePath('/admin/assets');
 }
 
 export async function syncVimeoCatalog(token: string, scopeUri?: string): Promise<VimeoSyncResult> {
-    const supabase = createServiceClient();
     const now = new Date().toISOString();
     const shows = scopeUri ? [] : await listVimeoShows(token);
     const scopedShow = scopeUri ? { uri: scopeUri, name: scopeUri } : null;
@@ -158,13 +161,7 @@ export async function syncVimeoCatalog(token: string, scopeUri?: string): Promis
     }
 
     const videos = [...merged.values()];
-    const { rows: existingRows, hasPlaybackReadinessColumns } =
-        await selectExistingVimeoRows(supabase);
-    const existingByVimeoId = new Map(
-        (existingRows ?? [])
-            .filter((row) => row.vimeo_id)
-            .map((row) => [String(row.vimeo_id), row as Record<string, unknown>]),
-    );
+    const { existingByVimeoId } = await selectExistingVimeoRows();
 
     const rows = videos.map((video) => {
         const vimeoId = video.uri.split('/').pop();
@@ -177,7 +174,6 @@ export async function syncVimeoCatalog(token: string, scopeUri?: string): Promis
             video,
             now,
             vimeoId ? existingByVimeoId.get(vimeoId) : undefined,
-            hasPlaybackReadinessColumns,
         );
     });
 
@@ -185,38 +181,32 @@ export async function syncVimeoCatalog(token: string, scopeUri?: string): Promis
 
     if (rows.length) {
         for (const batch of chunks(rows, 100)) {
-            const { error } = await supabase
-                .from('media_assets')
-                .upsert(batch, { onConflict: 'vimeo_id' });
+            try {
+                const db = await getDb();
 
-            if (isMissingLifecycleStateError(error)) {
-                const { error: retryError } = await supabase
-                    .from('media_assets')
-                    .upsert(batch.map(withoutLifecycleState), { onConflict: 'vimeo_id' });
+                await db
+                    .insert(mediaAssets)
+                    .values(batch)
+                    .onConflictDoUpdate({
+                        target: mediaAssets.vimeoId,
+                        // batch is always non-empty (chunks() never emits empty slices)
 
-                if (retryError) {
-                    failedCount += batch.length;
-                    throw retryError;
-                }
-            } else if (error) {
+                        set: buildUpsertSet(batch[0]!),
+                    });
+            } catch {
                 failedCount += batch.length;
-                throw error;
             }
         }
     }
 
-    const readiness = hasPlaybackReadinessColumns
-        ? await validateSyncedVimeoPlayback(
-              token,
-              rows.map((row) => String(row.vimeo_id ?? '')).filter(Boolean),
-          )
-        : { checkedCount: 0, failedCount: 0, skippedCount: 0 };
+    const readiness = await validateSyncedVimeoPlayback(
+        token,
+        rows.map((row) => row.vimeoId ?? '').filter(Boolean),
+    );
     failedCount += readiness.failedCount;
 
     let staleCount = 0;
-    const staleRows = (existingRows ?? []).filter((row) => {
-        const vimeoId = row.vimeo_id ? String(row.vimeo_id) : '';
-
+    const staleEntries = [...existingByVimeoId.entries()].filter(([vimeoId, row]) => {
         if (!vimeoId || seen.has(vimeoId)) {
             return false;
         }
@@ -224,33 +214,39 @@ export async function syncVimeoCatalog(token: string, scopeUri?: string): Promis
         if (!scopeUri) {
             return true;
         }
-        const metadata = row.metadata as Record<string, unknown> | null;
-
-        return metadata?.vimeo_show_uri === scopeUri;
-    });
-
-    for (const row of staleRows) {
         const metadata =
             typeof row.metadata === 'object' && row.metadata !== null
                 ? (row.metadata as Record<string, unknown>)
                 : {};
-        const { error } = await supabase
-            .from('media_assets')
-            .update({
-                status: 'archived',
-                metadata: {
-                    ...metadata,
-                    vimeo_sync_status: 'stale',
-                    vimeo_last_synced_at: now,
-                },
-                updated_at: now,
-            })
-            .eq('id', String(row.id));
 
-        if (error) {
-            failedCount += 1;
-        } else {
+        return metadata.vimeo_show_uri === scopeUri;
+    });
+
+    for (const [, row] of staleEntries) {
+        const existingMeta =
+            typeof row.metadata === 'object' && row.metadata !== null
+                ? (row.metadata as Record<string, unknown>)
+                : {};
+
+        try {
+            const db = await getDb();
+
+            await db
+                .update(mediaAssets)
+                .set({
+                    status: 'archived',
+                    metadata: {
+                        ...existingMeta,
+                        vimeo_sync_status: 'stale',
+                        vimeo_last_synced_at: now,
+                    },
+                    updatedAt: now,
+                })
+                .where(eq(mediaAssets.id, row.id));
+
             staleCount += 1;
+        } catch {
+            failedCount += 1;
         }
     }
 
@@ -264,39 +260,42 @@ export async function syncVimeoCatalog(token: string, scopeUri?: string): Promis
         failedCount,
         showCount: scopeUri ? 1 : shows.length,
         readinessCheckedCount: readiness.checkedCount,
-        readinessSkipped: !hasPlaybackReadinessColumns || readiness.skippedCount > 0,
+        readinessSkipped: readiness.skippedCount > 0,
         readinessSkippedCount: readiness.skippedCount,
     };
 }
 
 export async function checkVimeoAssetPlayback(assetId: string, token: string) {
-    const supabase = createServiceClient();
-    const { data: asset, error } = await supabase
-        .from('media_assets')
-        .select('id,title,vimeo_id')
-        .eq('id', assetId)
-        .eq('source_type', 'vimeo')
-        .maybeSingle();
+    const db = await getDb();
+    const [asset] = await db
+        .select({
+            id: mediaAssets.id,
+            title: mediaAssets.title,
+            vimeoId: mediaAssets.vimeoId,
+        })
+        .from(mediaAssets)
+        .where(eq(mediaAssets.id, assetId))
+        .limit(1);
 
-    if (error) {
-        throw error;
+    if (!asset || asset.vimeoId === null || asset.vimeoId === undefined) {
+        throw new Error('Vimeo asset not found');
     }
 
-    if (!asset?.vimeo_id) {
+    const row = asset as { id: string; title: string; vimeoId: string };
+
+    if (!row.vimeoId) {
         throw new Error('Vimeo asset not found');
     }
     await validateOneVimeoPlayback(token, {
-        id: String(asset.id),
-        vimeoId: String(asset.vimeo_id),
-        title: String(asset.title ?? ''),
+        id: row.id,
+        vimeoId: row.vimeoId,
+        title: row.title ?? '',
     });
     revalidatePath('/admin/assets');
     revalidatePath('/admin/vimeo');
 }
 
 async function validateSyncedVimeoPlayback(token: string, vimeoIds: string[]) {
-    const supabase = createServiceClient();
-
     if (!vimeoIds.length) {
         return { checkedCount: 0, failedCount: 0, skippedCount: 0 };
     }
@@ -305,62 +304,78 @@ async function validateSyncedVimeoPlayback(token: string, vimeoIds: string[]) {
     if (vimeoIds.length > maxInlineChecks) {
         return { checkedCount: 0, failedCount: 0, skippedCount: vimeoIds.length };
     }
-    const data = [];
+
+    const db = await getDb();
+    const rows: Array<{ id: string; title: string; vimeoId: string | null }> = [];
 
     for (const batch of chunks(vimeoIds, 50)) {
-        const { data: rows, error } = await supabase
-            .from('media_assets')
-            .select('id,title,vimeo_id')
-            .eq('source_type', 'vimeo')
-            .in('vimeo_id', batch);
+        const batchRows = await db
+            .select({
+                id: mediaAssets.id,
+                title: mediaAssets.title,
+                vimeoId: mediaAssets.vimeoId,
+            })
+            .from(mediaAssets)
+            .where(inArray(mediaAssets.vimeoId, batch));
 
-        if (error) {
-            throw error;
-        }
-        data.push(...(rows ?? []));
+        rows.push(...batchRows);
     }
 
     let failedCount = 0;
 
-    for (const row of data) {
+    for (const row of rows) {
+        if (!row.vimeoId) {
+            continue;
+        }
+
         try {
             await validateOneVimeoPlayback(token, {
-                id: String(row.id),
-                vimeoId: String(row.vimeo_id),
-                title: String(row.title ?? ''),
+                id: row.id,
+                vimeoId: row.vimeoId,
+                title: row.title ?? '',
             });
         } catch {
             failedCount += 1;
         }
     }
 
-    return { checkedCount: data.length, failedCount, skippedCount: 0 };
+    return { checkedCount: rows.length, failedCount, skippedCount: 0 };
 }
 
 async function validateOneVimeoPlayback(
     token: string,
     asset: { id: string; vimeoId: string; title: string },
 ) {
-    const supabase = createServiceClient();
     const now = new Date().toISOString();
 
     try {
         const playback = await getVimeoPlayback(token, asset.vimeoId);
-        await updateVimeoPlaybackSuccess(supabase, asset.id, playback.durationSeconds || null, now);
+        await updateVimeoPlaybackSuccess(asset.id, playback.durationSeconds || null, now);
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown Vimeo playback error';
-        await updateVimeoPlaybackFailure(supabase, asset.id, message, now);
+        await updateVimeoPlaybackFailure(asset.id, message, now);
         throw error;
     }
 }
 
+// ─── Row builder ─────────────────────────────────────────────────────────────
+
+type ExistingVimeoRow = {
+    id: string;
+    title: string | null;
+    assetType: string;
+    status: string;
+    vimeoId: string | null;
+    metadata: unknown;
+    playbackReadinessStatus: string;
+};
+
 function vimeoVideoToAssetRow(
     video: VimeoVideo,
     syncedAt = new Date().toISOString(),
-    existing?: Record<string, unknown>,
-    includePlaybackReadinessFields = true,
+    existing?: ExistingVimeoRow,
 ) {
-    const vimeoId = video.uri.split('/').pop();
+    const vimeoId = video.uri.split('/').pop() ?? null;
     const thumbnail = video.pictures?.sizes?.sort((a, b) => b.width - a.width)[0]?.link ?? null;
     const existingMetadata =
         typeof existing?.metadata === 'object' && existing.metadata !== null
@@ -375,9 +390,7 @@ function vimeoVideoToAssetRow(
               ? 'ready'
               : 'syncing';
     const existingAssetType =
-        typeof existing?.asset_type === 'string' && existing.asset_type
-            ? existing.asset_type
-            : null;
+        typeof existing?.assetType === 'string' && existing.assetType ? existing.assetType : null;
     const assetType =
         existingAssetType && !(existingAssetType === 'ad' && video.duration > 300)
             ? existingAssetType
@@ -387,27 +400,23 @@ function vimeoVideoToAssetRow(
 
     return {
         title: typeof existing?.title === 'string' && existing.title ? existing.title : video.name,
-        source_type: 'vimeo',
-        media_kind: 'video',
-        asset_type: assetType,
+        sourceType: 'vimeo',
+        mediaKind: 'video',
+        assetType,
         url: video.link,
-        thumbnail_url: thumbnail,
-        duration_seconds: hasDuration ? video.duration : null,
+        thumbnailUrl: thumbnail,
+        durationSeconds: hasDuration ? video.duration : null,
         status,
-        lifecycle_state: status === 'archived' ? 'expired' : 'synced',
-        vimeo_id: vimeoId,
-        vimeo_uri: video.uri,
-        vimeo_privacy: video.privacy?.view ?? null,
-        vimeo_embed_status: video.privacy?.embed ?? null,
-        ...(includePlaybackReadinessFields
-            ? {
-                  playback_readiness_status:
-                      typeof existing?.playback_readiness_status === 'string'
-                          ? existing.playback_readiness_status
-                          : 'unchecked',
-                  playback_error: null,
-              }
-            : {}),
+        lifecycleState: status === 'archived' ? 'expired' : 'synced',
+        vimeoId,
+        vimeoUri: video.uri,
+        vimeoPrivacy: video.privacy?.view ?? null,
+        vimeoEmbedStatus: video.privacy?.embed ?? null,
+        playbackReadinessStatus:
+            typeof existing?.playbackReadinessStatus === 'string'
+                ? existing.playbackReadinessStatus
+                : 'unchecked',
+        playbackError: null,
         metadata: {
             ...existingMetadata,
             ...video,
@@ -417,135 +426,116 @@ function vimeoVideoToAssetRow(
             vimeo_last_synced_at: syncedAt,
             vimeo_sync_status: 'review',
         },
-        updated_at: syncedAt,
+        updatedAt: syncedAt,
     };
 }
 
-async function selectExistingVimeoRows(supabase: ReturnType<typeof createServiceClient>) {
-    const withReadiness = await supabase
-        .from('media_assets')
-        .select('id,title,asset_type,status,vimeo_id,metadata,playback_readiness_status')
-        .eq('source_type', 'vimeo')
-        .range(0, 9999);
-
-    if (!isMissingColumnError(withReadiness.error)) {
-        if (withReadiness.error) {
-            throw withReadiness.error;
-        }
-
-        return { rows: withReadiness.data ?? [], hasPlaybackReadinessColumns: true };
-    }
-
-    const withoutReadiness = await supabase
-        .from('media_assets')
-        .select('id,title,asset_type,status,vimeo_id,metadata')
-        .eq('source_type', 'vimeo')
-        .range(0, 9999);
-
-    if (withoutReadiness.error) {
-        throw withoutReadiness.error;
-    }
-
-    return { rows: withoutReadiness.data ?? [], hasPlaybackReadinessColumns: false };
+// Builds the `set` object for onConflictDoUpdate — must list every column we
+// want to overwrite on conflict. We use an ad-hoc object because Drizzle's
+// sqlite `excluded` helper isn't available without raw SQL.
+function buildUpsertSet(sample: ReturnType<typeof vimeoVideoToAssetRow>) {
+    return {
+        title: sample.title,
+        sourceType: sample.sourceType,
+        mediaKind: sample.mediaKind,
+        assetType: sample.assetType,
+        url: sample.url,
+        thumbnailUrl: sample.thumbnailUrl,
+        durationSeconds: sample.durationSeconds,
+        status: sample.status,
+        lifecycleState: sample.lifecycleState,
+        vimeoUri: sample.vimeoUri,
+        vimeoPrivacy: sample.vimeoPrivacy,
+        vimeoEmbedStatus: sample.vimeoEmbedStatus,
+        playbackReadinessStatus: sample.playbackReadinessStatus,
+        playbackError: sample.playbackError,
+        metadata: sample.metadata,
+        updatedAt: sample.updatedAt,
+    };
 }
 
+// ─── Existing-row loader ──────────────────────────────────────────────────────
+
+async function selectExistingVimeoRows(): Promise<{
+    existingByVimeoId: Map<string, ExistingVimeoRow>;
+}> {
+    const db = await getDb();
+
+    // D1 has a 999-row result limit per statement when using `.all()`; fetch
+    // in large slices via offset pagination to handle big catalogs.
+    const allRows: ExistingVimeoRow[] = [];
+    const pageSize = 500;
+    let offset = 0;
+
+    while (true) {
+        const page = await db
+            .select({
+                id: mediaAssets.id,
+                title: mediaAssets.title,
+                assetType: mediaAssets.assetType,
+                status: mediaAssets.status,
+                vimeoId: mediaAssets.vimeoId,
+                metadata: mediaAssets.metadata,
+                playbackReadinessStatus: mediaAssets.playbackReadinessStatus,
+            })
+            .from(mediaAssets)
+            .where(eq(mediaAssets.sourceType, 'vimeo'))
+            .limit(pageSize)
+            .offset(offset);
+
+        allRows.push(...page);
+
+        if (page.length < pageSize) {
+            break;
+        }
+        offset += pageSize;
+    }
+
+    const existingByVimeoId = new Map<string, ExistingVimeoRow>(
+        allRows.filter((row) => row.vimeoId).map((row) => [row.vimeoId as string, row]),
+    );
+
+    return { existingByVimeoId };
+}
+
+// ─── Playback status helpers ──────────────────────────────────────────────────
+
 async function updateVimeoPlaybackSuccess(
-    supabase: ReturnType<typeof createServiceClient>,
     assetId: string,
     durationSeconds: number | null,
     now: string,
 ) {
-    const update = {
-        status: 'ready',
-        duration_seconds: durationSeconds,
-        playback_readiness_status: 'ready',
-        playback_checked_at: now,
-        playback_error: null,
-        updated_at: now,
-    };
-    const { error } = await supabase.from('media_assets').update(update).eq('id', assetId);
+    const db = await getDb();
 
-    if (!isMissingColumnError(error)) {
-        if (error) {
-            throw error;
-        }
-
-        return;
-    }
-    const { error: fallbackError } = await supabase
-        .from('media_assets')
-        .update({
+    await db
+        .update(mediaAssets)
+        .set({
             status: 'ready',
-            duration_seconds: durationSeconds,
-            updated_at: now,
+            durationSeconds,
+            playbackReadinessStatus: 'ready',
+            playbackCheckedAt: now,
+            playbackError: null,
+            updatedAt: now,
         })
-        .eq('id', assetId);
-
-    if (fallbackError) {
-        throw fallbackError;
-    }
+        .where(eq(mediaAssets.id, assetId));
 }
 
-async function updateVimeoPlaybackFailure(
-    supabase: ReturnType<typeof createServiceClient>,
-    assetId: string,
-    message: string,
-    now: string,
-) {
-    const update = {
-        status: 'failed',
-        playback_readiness_status: 'failed',
-        playback_checked_at: now,
-        playback_error: message,
-        updated_at: now,
-    };
-    const { error } = await supabase.from('media_assets').update(update).eq('id', assetId);
+async function updateVimeoPlaybackFailure(assetId: string, message: string, now: string) {
+    const db = await getDb();
 
-    if (!isMissingColumnError(error)) {
-        return;
-    }
-    await supabase
-        .from('media_assets')
-        .update({
+    await db
+        .update(mediaAssets)
+        .set({
             status: 'failed',
-            updated_at: now,
+            playbackReadinessStatus: 'failed',
+            playbackCheckedAt: now,
+            playbackError: message,
+            updatedAt: now,
         })
-        .eq('id', assetId);
+        .where(eq(mediaAssets.id, assetId));
 }
 
-function isMissingColumnError(error: unknown) {
-    if (!error || typeof error !== 'object') {
-        return false;
-    }
-    const item = error as { code?: unknown; message?: unknown };
-    const message = String(item.message ?? '');
-
-    return (
-        item.code === '42703' ||
-        item.code === 'PGRST204' ||
-        message.includes('does not exist') ||
-        message.includes('Could not find')
-    );
-}
-
-function isMissingLifecycleStateError(error: unknown) {
-    if (!isMissingColumnError(error)) {
-        return false;
-    }
-    const message =
-        error && typeof error === 'object'
-            ? String((error as { message?: unknown }).message ?? '')
-            : '';
-
-    return message.includes('lifecycle_state');
-}
-
-function withoutLifecycleState<T extends Record<string, unknown>>(row: T) {
-    const next = { ...row };
-    delete next.lifecycle_state;
-
-    return next;
-}
+// ─── Utilities ────────────────────────────────────────────────────────────────
 
 function chunks<T>(items: T[], size: number) {
     const batches: T[][] = [];

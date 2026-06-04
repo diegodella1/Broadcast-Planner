@@ -1,5 +1,6 @@
-import { createServiceClient } from '../supabase/server';
 import { currentAuditActor } from '../auth/auth';
+import { getDb } from '../db/client';
+import { auditLog } from '../db/schema';
 
 export type AuditResult = 'success' | 'failure';
 
@@ -30,23 +31,21 @@ export type AuditEvent = {
 };
 
 export async function recordAuditEvent(input: AuditEventInput) {
-    const supabase = createServiceClient();
     const actor = input.actor ?? (await currentAuditActor());
     const metadata = {
         ...(input.metadata ?? {}),
         result: input.result ?? 'success',
     };
-    const { error } = await supabase.from('audit_log').insert({
+    const db = await getDb();
+
+    await db.insert(auditLog).values({
         actor,
         action: input.action,
-        entity_type: input.entityType,
-        entity_id: input.entityId ?? null,
+        entityType: input.entityType,
+        entityId: input.entityId ?? null,
         metadata,
+        createdAt: new Date().toISOString(),
     });
-
-    if (error) {
-        throw error;
-    }
 }
 
 export async function auditedMutation<T>(

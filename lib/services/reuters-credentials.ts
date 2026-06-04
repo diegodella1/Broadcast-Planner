@@ -1,6 +1,9 @@
+import { eq } from 'drizzle-orm';
+
 import { decryptSecret, encryptSecret, maskSecret } from '../auth/crypto';
 import { auditedMutation } from '../audit/audit';
-import { createServiceClient } from '../supabase/server';
+import { getDb } from '../db/client';
+import { integrationSettings } from '../db/schema';
 
 import type { IntegrationSetting } from '../settings';
 
@@ -30,21 +33,15 @@ export async function saveReutersSettings(input: {
     clientSecret?: string;
     refreshToken?: string;
 }): Promise<void> {
-    const supabase = createServiceClient();
     const existing = await getStoredCredentials();
     const merged: ReutersCredentials = {
         clientId: input.clientId ?? existing?.clientId ?? '',
         clientSecret: input.clientSecret ?? existing?.clientSecret ?? '',
         refreshToken: input.refreshToken ?? existing?.refreshToken ?? '',
     };
-    const encrypted_secret = encryptSecret(JSON.stringify(merged));
-    const payload: Record<string, unknown> = {
-        provider: PROVIDER,
-        public_config: {},
-        encrypted_secret,
-        status: 'unknown',
-        updated_at: new Date().toISOString(),
-    };
+    const encryptedSecret = encryptSecret(JSON.stringify(merged));
+    const now = new Date().toISOString();
+
     await auditedMutation(
         {
             actor: 'admin',
@@ -58,13 +55,25 @@ export async function saveReutersSettings(input: {
             },
         },
         async () => {
-            const { error } = await supabase
-                .from('integration_settings')
-                .upsert(payload, { onConflict: 'provider' });
+            const db = await getDb();
 
-            if (error) {
-                throw error;
-            }
+            await db
+                .insert(integrationSettings)
+                .values({
+                    provider: PROVIDER,
+                    publicConfig: {},
+                    encryptedSecret,
+                    status: 'unknown',
+                    updatedAt: now,
+                })
+                .onConflictDoUpdate({
+                    target: integrationSettings.provider,
+                    set: {
+                        encryptedSecret,
+                        status: 'unknown',
+                        updatedAt: now,
+                    },
+                });
         },
     );
 }
@@ -86,27 +95,34 @@ export async function getReutersCredentials(): Promise<ReutersCredentials | null
 }
 
 export async function getReutersSettings(): Promise<IntegrationSetting | null> {
-    const supabase = createServiceClient();
-    const { data } = await supabase
-        .from('integration_settings')
-        .select('provider, public_config, encrypted_secret, status, last_error, last_checked_at')
-        .eq('provider', PROVIDER)
-        .maybeSingle();
+    const db = await getDb();
+    const [row] = await db
+        .select({
+            provider: integrationSettings.provider,
+            publicConfig: integrationSettings.publicConfig,
+            encryptedSecret: integrationSettings.encryptedSecret,
+            status: integrationSettings.status,
+            lastError: integrationSettings.lastError,
+            lastCheckedAt: integrationSettings.lastCheckedAt,
+        })
+        .from(integrationSettings)
+        .where(eq(integrationSettings.provider, PROVIDER))
+        .limit(1);
 
-    if (!data) {
+    if (!row) {
         return null;
     }
 
     return {
-        provider: String(data.provider),
+        provider: row.provider,
         publicConfig:
-            typeof data.public_config === 'object' && data.public_config !== null
-                ? (data.public_config as Record<string, unknown>)
+            typeof row.publicConfig === 'object' && row.publicConfig !== null
+                ? (row.publicConfig as Record<string, unknown>)
                 : {},
-        status: String(data.status) as IntegrationSetting['status'],
-        lastError: data.last_error ? String(data.last_error) : null,
-        lastCheckedAt: data.last_checked_at ? String(data.last_checked_at) : null,
-        hasSecret: Boolean(data.encrypted_secret),
+        status: row.status as IntegrationSetting['status'],
+        lastError: row.lastError ?? null,
+        lastCheckedAt: row.lastCheckedAt ?? null,
+        hasSecret: Boolean(row.encryptedSecret),
     };
 }
 
@@ -114,31 +130,32 @@ export async function markReutersStatus(
     status: 'connected' | 'invalid' | 'failed',
     errorMessage?: string,
 ): Promise<void> {
-    const supabase = createServiceClient();
-    await supabase
-        .from('integration_settings')
-        .update({
+    const db = await getDb();
+
+    await db
+        .update(integrationSettings)
+        .set({
             status,
-            last_checked_at: new Date().toISOString(),
-            last_error: errorMessage ?? null,
+            lastCheckedAt: new Date().toISOString(),
+            lastError: errorMessage ?? null,
         })
-        .eq('provider', PROVIDER);
+        .where(eq(integrationSettings.provider, PROVIDER));
 }
 
 async function getStoredCredentials(): Promise<ReutersCredentials | null> {
-    const supabase = createServiceClient();
-    const { data } = await supabase
-        .from('integration_settings')
-        .select('encrypted_secret')
-        .eq('provider', PROVIDER)
-        .maybeSingle();
+    const db = await getDb();
+    const [row] = await db
+        .select({ encryptedSecret: integrationSettings.encryptedSecret })
+        .from(integrationSettings)
+        .where(eq(integrationSettings.provider, PROVIDER))
+        .limit(1);
 
-    if (!data?.encrypted_secret) {
+    if (!row?.encryptedSecret) {
         return null;
     }
 
     try {
-        const raw = decryptSecret(String(data.encrypted_secret));
+        const raw = decryptSecret(row.encryptedSecret);
         const parsed: unknown = JSON.parse(raw);
 
         if (!parsed || typeof parsed !== 'object') {

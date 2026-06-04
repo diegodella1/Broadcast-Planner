@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { and, eq } from 'drizzle-orm';
 
 import { appUrl } from '@/lib/helpers/app-url';
 import { requireAdmin } from '@/lib/auth/auth';
@@ -6,7 +7,8 @@ import { verifyCsrfToken } from '@/lib/auth/csrf';
 import { assertRateLimit, rateLimitErrorResponse } from '@/lib/auth/rate-limit';
 import { importVimeoVideoSchema } from '@/lib/schemas';
 import { getVimeoToken, markVimeoStatus, recordVimeoSyncStatus } from '@/lib/settings';
-import { createServiceClient } from '@/lib/supabase/server';
+import { getDb } from '@/lib/db/client';
+import { mediaAssets } from '@/lib/db/schema';
 import {
     checkVimeoAssetPlayback,
     getVimeoVideo,
@@ -109,20 +111,19 @@ async function checkImportedPlayback(videoUri: string, token: string) {
     if (!vimeoId) {
         return 'failed';
     }
-    const supabase = createServiceClient();
-    const { data, error } = await supabase
-        .from('media_assets')
-        .select('id')
-        .eq('source_type', 'vimeo')
-        .eq('vimeo_id', vimeoId)
-        .maybeSingle();
+    const db = await getDb();
+    const [row] = await db
+        .select({ id: mediaAssets.id })
+        .from(mediaAssets)
+        .where(and(eq(mediaAssets.sourceType, 'vimeo'), eq(mediaAssets.vimeoId, vimeoId)))
+        .limit(1);
 
-    if (error || !data?.id) {
+    if (!row?.id) {
         return 'failed';
     }
 
     try {
-        await checkVimeoAssetPlayback(String(data.id), token);
+        await checkVimeoAssetPlayback(row.id, token);
 
         return 'ready';
     } catch {

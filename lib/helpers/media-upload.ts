@@ -1,3 +1,5 @@
+import { eq } from 'drizzle-orm';
+
 import { createMediaAsset } from '../mutations';
 import {
     MAX_SHORT_VIDEO_SECONDS,
@@ -8,7 +10,9 @@ import {
 } from './media-upload-constants';
 import { publicMediaAssetUrl } from './media-asset-url';
 import { parseMusicMetadataJson } from './music-metadata';
-import { createServiceClient } from '../supabase/server';
+import { getDb } from '../db/client';
+import { mediaAssets } from '../db/schema';
+import { getMediaBucket } from '../storage/r2';
 
 export {
     MAX_SHORT_VIDEO_SECONDS,
@@ -136,18 +140,21 @@ export async function uploadMediaFile(file: FileLike, fields: UploadedMediaField
     const resolved = resolveUploadedMedia(file, fields);
     const bytes = await file.arrayBuffer();
     assertFileSignature(file, new Uint8Array(bytes.slice(0, 32)));
-    const supabase = createServiceClient();
-    await ensureSmallMediaBucket(supabase);
 
     const extension = extensionFor(file);
     const storagePath = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}${extension}`;
-    const { error: uploadError } = await supabase.storage
-        .from(SMALL_MEDIA_BUCKET)
-        .upload(storagePath, bytes, { contentType: file.type, upsert: false });
 
-    if (uploadError) {
-        throw uploadError;
+    const bucket = await getMediaBucket();
+
+    // Upsert:false semantics — the key includes a UUID so collisions are near-impossible,
+    // but we guard with a head check to surface a clear error if one ever occurs.
+    const existing = await bucket.head(storagePath);
+
+    if (existing) {
+        throw new Error(`Object already exists at path: ${storagePath}`);
     }
+
+    await bucket.put(storagePath, bytes, { httpMetadata: { contentType: file.type } });
 
     let assetId = '';
 
@@ -168,17 +175,20 @@ export async function uploadMediaFile(file: FileLike, fields: UploadedMediaField
         }
         assetId = createResult.data;
     } catch (error) {
-        await removeUploadedObject(supabase, storagePath);
+        await removeUploadedObject(storagePath);
         throw error;
     }
-    const url = publicMediaAssetUrl(assetId);
-    const { error: urlError } = await supabase
-        .from('media_assets')
-        .update({ url, updated_at: new Date().toISOString() })
-        .eq('id', assetId);
 
-    if (urlError) {
-        await markUploadedAssetFailed(supabase, assetId, urlError);
+    const url = publicMediaAssetUrl(assetId);
+
+    try {
+        const db = await getDb();
+        await db
+            .update(mediaAssets)
+            .set({ url, updatedAt: new Date().toISOString() })
+            .where(eq(mediaAssets.id, assetId));
+    } catch (urlError) {
+        await markUploadedAssetFailed(assetId, urlError);
         throw urlError;
     }
 
@@ -251,51 +261,29 @@ function parseOptionalPositiveNumber(value: string | number | null | undefined) 
     return Math.ceil(numeric);
 }
 
-async function ensureSmallMediaBucket(supabase: ReturnType<typeof createServiceClient>) {
-    const { data: buckets } = await supabase.storage.listBuckets();
-
-    if (buckets?.some((bucket) => bucket.id === SMALL_MEDIA_BUCKET)) {
-        return;
-    }
-    const { error } = await supabase.storage.createBucket(SMALL_MEDIA_BUCKET, {
-        public: true,
-        fileSizeLimit: MAX_SMALL_MEDIA_BYTES,
-        allowedMimeTypes: [...SMALL_MEDIA_MIME_TYPES],
-    });
-
-    if (error) {
-        throw error;
-    }
-}
-
-async function removeUploadedObject(
-    supabase: ReturnType<typeof createServiceClient>,
-    storagePath: string,
-) {
+async function removeUploadedObject(storagePath: string) {
     try {
-        await supabase.storage.from(SMALL_MEDIA_BUCKET).remove([storagePath]);
+        const bucket = await getMediaBucket();
+        await bucket.delete(storagePath);
     } catch {
         // The database row failed, so the upload route should not be blocked by best-effort cleanup.
     }
 }
 
-async function markUploadedAssetFailed(
-    supabase: ReturnType<typeof createServiceClient>,
-    assetId: string,
-    error: unknown,
-) {
+async function markUploadedAssetFailed(assetId: string, error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
 
     try {
-        await supabase
-            .from('media_assets')
-            .update({
+        const db = await getDb();
+        await db
+            .update(mediaAssets)
+            .set({
                 status: 'failed',
-                playback_readiness_status: 'failed',
-                playback_error: message,
-                updated_at: new Date().toISOString(),
+                playbackReadinessStatus: 'failed',
+                playbackError: message,
+                updatedAt: new Date().toISOString(),
             })
-            .eq('id', assetId);
+            .where(eq(mediaAssets.id, assetId));
     } catch {
         // Preserve the original upload error for the caller.
     }

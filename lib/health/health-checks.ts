@@ -8,7 +8,17 @@ import {
     readSmokeStatus,
     smokeStatusMessage,
 } from './smoke-status';
-import { createServiceClient } from '../supabase/server';
+import { getDb } from '../db/client';
+import { getMediaBucket } from '../storage/r2';
+import {
+    adminOperators,
+    guests,
+    mediaAssets,
+    operatorPreferences,
+    outputOverrides,
+    programDays,
+    slideAssets,
+} from '../db/schema';
 
 type VimeoSettings = Awaited<ReturnType<typeof getVimeoSettings>>;
 type VimeoToken = Awaited<ReturnType<typeof getVimeoToken>>;
@@ -120,8 +130,6 @@ export async function collectOperatorHealth(
 
 function checkEnv(): OperatorHealthCheck {
     const missing = [
-        'NEXT_PUBLIC_SUPABASE_URL',
-        'SUPABASE_SERVICE_ROLE_KEY',
         'APP_ENCRYPTION_KEY',
         'ADMIN_BOOTSTRAP_TOKEN',
         ...(process.env.NODE_ENV === 'production' ? ['OUTPUT_CAPTURE_TOKEN'] : []),
@@ -143,37 +151,50 @@ function checkEnv(): OperatorHealthCheck {
 
 async function checkSupabase(): Promise<OperatorHealthCheck> {
     try {
-        const supabase = createServiceClient();
-        const { error } = await supabase.from('program_days').select('id').limit(1);
+        const db = await getDb();
 
-        if (error) {
-            throw error;
-        }
+        await db.select({ id: programDays.id }).from(programDays).limit(1);
 
-        return pass('supabase', 'Supabase', 'Database query succeeded');
+        return pass('supabase', 'Database', 'D1 database query succeeded');
     } catch (error) {
-        return fail('supabase', 'Supabase', `Supabase unavailable: ${errorMessage(error)}`);
+        return fail('supabase', 'Database', `D1 database unavailable: ${errorMessage(error)}`);
     }
 }
 
 async function checkSchema(): Promise<OperatorHealthCheck> {
     try {
-        const supabase = createServiceClient();
-        const [mediaAssets, slideAssets, guests] = await Promise.all([
-            supabase
-                .from('media_assets')
-                .select('id,playback_readiness_status,playback_checked_at,playback_error')
+        const db = await getDb();
+
+        await Promise.all([
+            db
+                .select({
+                    id: mediaAssets.id,
+                    playbackReadinessStatus: mediaAssets.playbackReadinessStatus,
+                    playbackCheckedAt: mediaAssets.playbackCheckedAt,
+                    playbackError: mediaAssets.playbackError,
+                })
+                .from(mediaAssets)
                 .limit(1),
-            supabase.from('slide_assets').select('id,template_id,metadata').limit(1),
-            supabase.from('guests').select('id,photo_asset_id,video_asset_id,updated_at').limit(1),
+            db
+                .select({
+                    id: slideAssets.id,
+                    templateId: slideAssets.templateId,
+                    metadata: slideAssets.metadata,
+                })
+                .from(slideAssets)
+                .limit(1),
+            db
+                .select({
+                    id: guests.id,
+                    photoAssetId: guests.photoAssetId,
+                    videoAssetId: guests.videoAssetId,
+                    updatedAt: guests.updatedAt,
+                })
+                .from(guests)
+                .limit(1),
         ]);
-        const error = mediaAssets.error ?? slideAssets.error ?? guests.error;
 
-        if (error) {
-            throw error;
-        }
-
-        return pass('schema', 'Schema', 'Required app columns present');
+        return pass('schema', 'Schema', 'Required D1 tables and columns present');
     } catch (error) {
         return degraded('schema', 'Schema', `Schema drift detected: ${errorMessage(error)}`);
     }
@@ -181,37 +202,10 @@ async function checkSchema(): Promise<OperatorHealthCheck> {
 
 async function checkStorage(): Promise<OperatorHealthCheck> {
     try {
-        const supabase = createServiceClient();
-        const { data, error } = await supabase.storage.listBuckets();
+        const bucket = await getMediaBucket();
+        await bucket.list({ limit: 1 });
 
-        if (error) {
-            throw error;
-        }
-        const buckets = new Set((data ?? []).map((bucket) => bucket.id));
-        const missingRequired = ['slide-assets', 'graphics'].filter(
-            (bucket) => !buckets.has(bucket),
-        );
-        const missingOptional = ['video-assets', 'small-media-assets'].filter(
-            (bucket) => !buckets.has(bucket),
-        );
-
-        if (missingRequired.length) {
-            return fail(
-                'storage',
-                'Storage',
-                `Missing required buckets: ${missingRequired.join(', ')}`,
-            );
-        }
-
-        if (missingOptional.length) {
-            return degraded(
-                'storage',
-                'Storage',
-                `Missing optional buckets: ${missingOptional.join(', ')}`,
-            );
-        }
-
-        return pass('storage', 'Storage', 'Required storage buckets present');
+        return pass('storage', 'Storage', 'R2 bucket reachable');
     } catch (error) {
         return fail('storage', 'Storage', `Storage check failed: ${errorMessage(error)}`);
     }
@@ -310,25 +304,42 @@ async function checkOutput(preloadedLiveSchedule?: LiveSchedule): Promise<Operat
 
 async function checkMigrations(): Promise<OperatorHealthCheck> {
     try {
-        const supabase = createServiceClient();
-        const [operators, preferences, overrides, guests] = await Promise.all([
-            supabase.from('admin_operators').select('id').limit(1),
-            supabase.from('operator_preferences').select('operator_id,key,value').limit(1),
-            supabase.from('output_overrides').select('id,program_day_id,enabled').limit(1),
-            supabase.from('guests').select('id,status,sort_order').limit(1),
+        const db = await getDb();
+
+        await Promise.all([
+            db.select({ id: adminOperators.id }).from(adminOperators).limit(1),
+            db
+                .select({
+                    operatorId: operatorPreferences.operatorId,
+                    key: operatorPreferences.key,
+                    value: operatorPreferences.value,
+                })
+                .from(operatorPreferences)
+                .limit(1),
+            db
+                .select({
+                    id: outputOverrides.id,
+                    programDayId: outputOverrides.programDayId,
+                    enabled: outputOverrides.enabled,
+                })
+                .from(outputOverrides)
+                .limit(1),
+            db
+                .select({
+                    id: guests.id,
+                    status: guests.status,
+                    sortOrder: guests.sortOrder,
+                })
+                .from(guests)
+                .limit(1),
         ]);
-        const error = operators.error ?? preferences.error ?? overrides.error ?? guests.error;
 
-        if (error) {
-            throw error;
-        }
-
-        return pass('migrations', 'Migrations', 'Ops readiness tables are available');
+        return pass('migrations', 'Migrations', 'D1 ops readiness tables are available');
     } catch (error) {
         return fail(
             'migrations',
             'Migrations',
-            `Ops readiness migration missing or invalid: ${errorMessage(error)}`,
+            `D1 ops readiness migration missing or invalid: ${errorMessage(error)}`,
         );
     }
 }

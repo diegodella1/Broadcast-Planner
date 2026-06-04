@@ -1,6 +1,8 @@
 import { cache } from 'react';
+import { eq } from 'drizzle-orm';
 
-import { createServiceClient } from './supabase/server';
+import { getDb } from './db/client';
+import { integrationSettings } from './db/schema';
 
 import type { MediaAsset, ScheduleBundle, SlideAsset } from './types';
 
@@ -40,14 +42,17 @@ export type FallbackCarouselSelection = {
 };
 
 export const getGlobalFallbackCarousel = cache(async (): Promise<FallbackCarousel | null> => {
-    const supabase = createServiceClient();
-    const { data } = await supabase
-        .from('integration_settings')
-        .select('public_config, updated_at')
-        .eq('provider', 'fallback_carousel')
-        .maybeSingle();
+    const db = await getDb();
+    const [row] = await db
+        .select({
+            publicConfig: integrationSettings.publicConfig,
+            updatedAt: integrationSettings.updatedAt,
+        })
+        .from(integrationSettings)
+        .where(eq(integrationSettings.provider, 'fallback_carousel'))
+        .limit(1);
 
-    return parseFallbackCarousel(data?.public_config, data?.updated_at);
+    return parseFallbackCarousel(row?.publicConfig, row?.updatedAt);
 });
 
 export function selectFallbackCarouselSlide(

@@ -1,4 +1,5 @@
 import { revalidatePath } from 'next/cache';
+import { and, eq } from 'drizzle-orm';
 
 import { auditedMutation } from '../audit/audit';
 import {
@@ -7,7 +8,13 @@ import {
     type FallbackCarouselSet,
 } from '../fallback-carousel';
 import { err, extractError, ok, type Result } from '../result';
-import { createServiceClient } from '../supabase/server';
+import { getDb, type DrizzleD1Client } from '../db/client';
+import {
+    integrationSettings,
+    operatorRunbookChecks,
+    scheduledLayers,
+    slideAssets,
+} from '../db/schema';
 import { parseTimecode } from '../helpers/time';
 import { youtubeSlideMetadata } from '../slides/youtube';
 
@@ -147,7 +154,8 @@ export type SetScheduledLayerEnabledInput = {
 
 export async function updateRunbookCheck(input: RunbookCheckInput): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'operator_runbook.updated',
@@ -156,22 +164,30 @@ export async function updateRunbookCheck(input: RunbookCheckInput): Promise<Resu
                 next: { checked: input.checked, notes: input.notes || null },
             },
             async () => {
-                const { error } = await supabase.from('operator_runbook_checks').upsert(
-                    {
-                        program_day_id: input.programDayId,
+                await db
+                    .insert(operatorRunbookChecks)
+                    .values({
+                        programDayId: input.programDayId,
                         section: input.section,
-                        item_key: input.itemKey,
+                        itemKey: input.itemKey,
                         checked: input.checked,
                         notes: input.notes || null,
-                        checked_at: input.checked ? new Date().toISOString() : null,
-                        updated_at: new Date().toISOString(),
-                    },
-                    { onConflict: 'program_day_id,section,item_key' },
-                );
-
-                if (error) {
-                    throw error;
-                }
+                        checkedAt: input.checked ? new Date().toISOString() : null,
+                        updatedAt: new Date().toISOString(),
+                    })
+                    .onConflictDoUpdate({
+                        target: [
+                            operatorRunbookChecks.programDayId,
+                            operatorRunbookChecks.section,
+                            operatorRunbookChecks.itemKey,
+                        ],
+                        set: {
+                            checked: input.checked,
+                            notes: input.notes || null,
+                            checkedAt: input.checked ? new Date().toISOString() : null,
+                            updatedAt: new Date().toISOString(),
+                        },
+                    });
             },
         );
         revalidatePath(`/admin/runbook/${input.date}`);
@@ -197,7 +213,7 @@ export async function saveFallbackCarouselSet(
     input: SaveFallbackCarouselSetInput,
 ): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
+        const db = await getDb();
         const name = input.name.trim();
         const cards = normalizeFallbackCards(input.cards);
 
@@ -209,7 +225,7 @@ export async function saveFallbackCarouselSet(
             return err('Selecciona al menos una card para fallback');
         }
 
-        const existing = await readFallbackCarouselConfig(supabase);
+        const existing = await readFallbackCarouselConfig(db);
         const now = new Date().toISOString();
         const setId = input.setId || crypto.randomUUID();
         const previousSet = existing.sets.find((set) => set.id === setId);
@@ -222,7 +238,7 @@ export async function saveFallbackCarouselSet(
         };
         const sets = [nextSet, ...existing.sets.filter((set) => set.id !== setId)];
 
-        await writeFallbackCarouselConfig(supabase, {
+        await writeFallbackCarouselConfig(db, {
             activeSetId: setId,
             sets,
             cards,
@@ -238,15 +254,15 @@ export async function saveFallbackCarouselSet(
 
 export async function activateFallbackCarouselSet(setId: string): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
-        const existing = await readFallbackCarouselConfig(supabase);
+        const db = await getDb();
+        const existing = await readFallbackCarouselConfig(db);
         const set = existing.sets.find((item) => item.id === setId);
 
         if (!set) {
             return err('Fallback set not found');
         }
 
-        await writeFallbackCarouselConfig(supabase, {
+        await writeFallbackCarouselConfig(db, {
             activeSetId: set.id,
             sets: existing.sets,
             cards: set.cards,
@@ -262,15 +278,15 @@ export async function activateFallbackCarouselSet(setId: string): Promise<Result
 
 export async function deleteFallbackCarouselSet(setId: string): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
-        const existing = await readFallbackCarouselConfig(supabase);
+        const db = await getDb();
+        const existing = await readFallbackCarouselConfig(db);
         const sets = existing.sets.filter((set) => set.id !== setId);
         const activeSet =
             existing.activeSetId === setId
                 ? (sets[0] ?? null)
                 : (sets.find((set) => set.id === existing.activeSetId) ?? null);
 
-        await writeFallbackCarouselConfig(supabase, {
+        await writeFallbackCarouselConfig(db, {
             activeSetId: activeSet?.id ?? null,
             sets,
             cards: activeSet?.cards ?? [],
@@ -289,18 +305,17 @@ export async function deleteFallbackCarouselSet(setId: string): Promise<Result<v
     }
 }
 
-async function readFallbackCarouselConfig(supabase: ReturnType<typeof createServiceClient>) {
-    const { data, error } = await supabase
-        .from('integration_settings')
-        .select('public_config, updated_at')
-        .eq('provider', 'fallback_carousel')
-        .maybeSingle();
+async function readFallbackCarouselConfig(db: DrizzleD1Client) {
+    const [row] = await db
+        .select({
+            publicConfig: integrationSettings.publicConfig,
+            updatedAt: integrationSettings.updatedAt,
+        })
+        .from(integrationSettings)
+        .where(eq(integrationSettings.provider, 'fallback_carousel'))
+        .limit(1);
 
-    if (error) {
-        throw error;
-    }
-
-    const parsed = parseFallbackCarousel(data?.public_config, data?.updated_at);
+    const parsed = parseFallbackCarousel(row?.publicConfig, row?.updatedAt);
 
     return {
         activeSetId: parsed?.activeSetId ?? null,
@@ -310,7 +325,7 @@ async function readFallbackCarouselConfig(supabase: ReturnType<typeof createServ
 }
 
 async function writeFallbackCarouselConfig(
-    supabase: ReturnType<typeof createServiceClient>,
+    db: DrizzleD1Client,
     input: {
         activeSetId: string | null;
         sets: FallbackCarouselSet[];
@@ -328,24 +343,29 @@ async function writeFallbackCarouselConfig(
             next: input.next,
         },
         async () => {
-            const { error } = await supabase.from('integration_settings').upsert(
-                {
-                    provider: 'fallback_carousel',
-                    public_config: {
-                        enabled: input.enabled ?? true,
-                        activeSetId: input.activeSetId,
-                        sets: input.sets,
-                        cards: input.cards,
-                    },
-                    status: input.enabled === false ? 'disabled' : 'connected',
-                    updated_at: new Date().toISOString(),
-                },
-                { onConflict: 'provider' },
-            );
+            const publicConfig = {
+                enabled: input.enabled ?? true,
+                activeSetId: input.activeSetId,
+                sets: input.sets,
+                cards: input.cards,
+            };
 
-            if (error) {
-                throw error;
-            }
+            await db
+                .insert(integrationSettings)
+                .values({
+                    provider: 'fallback_carousel',
+                    publicConfig,
+                    status: input.enabled === false ? 'disabled' : 'connected',
+                    updatedAt: new Date().toISOString(),
+                })
+                .onConflictDoUpdate({
+                    target: integrationSettings.provider,
+                    set: {
+                        publicConfig,
+                        status: input.enabled === false ? 'disabled' : 'connected',
+                        updatedAt: new Date().toISOString(),
+                    },
+                });
         },
     );
     revalidatePath('/admin/slides');
@@ -361,6 +381,7 @@ export async function createWeatherPlate(input: WeatherPlateBaseInput): Promise<
         if (!normalized.success) {
             return normalized;
         }
+
         const result = await createSlideAsset({
             title: input.title,
             slideType: 'template',
@@ -374,6 +395,7 @@ export async function createWeatherPlate(input: WeatherPlateBaseInput): Promise<
         if (!result.success) {
             return result;
         }
+
         revalidatePath('/admin/slides');
 
         return ok(undefined);
@@ -391,8 +413,10 @@ export async function updateWeatherPlate(
         if (!normalized.success) {
             return normalized;
         }
+
         const status = normalizeWeatherStatus(input.status);
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'weather_plate.updated',
@@ -401,22 +425,22 @@ export async function updateWeatherPlate(
                 next: { title: input.title, status, locationName: normalized.data.locationName },
             },
             async () => {
-                const { error } = await supabase
-                    .from('slide_assets')
-                    .update({
+                await db
+                    .update(slideAssets)
+                    .set({
                         title: input.title,
                         content: `Weather plate for ${normalized.data.locationName}.`,
-                        default_duration_seconds: input.defaultDurationSeconds ?? 30,
+                        defaultDurationSeconds: input.defaultDurationSeconds ?? 30,
                         status,
                         metadata: weatherPlateMetadata(normalized.data),
-                        updated_at: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
                     })
-                    .eq('id', input.slideId)
-                    .eq('template_id', 'weather');
-
-                if (error) {
-                    throw error;
-                }
+                    .where(
+                        and(
+                            eq(slideAssets.id, input.slideId),
+                            eq(slideAssets.templateId, 'weather'),
+                        ),
+                    );
             },
         );
         revalidatePath('/admin/slides');
@@ -460,6 +484,7 @@ export async function createYouTubeSlide(input: YouTubeSlideInput): Promise<Resu
         if (!result.success) {
             return result;
         }
+
         revalidatePath('/admin/slides');
         revalidatePath('/admin/schedule');
         revalidatePath('/admin/output');
@@ -473,7 +498,8 @@ export async function createYouTubeSlide(input: YouTubeSlideInput): Promise<Resu
 export async function createScheduledLayer(input: ScheduledLayerInput): Promise<Result<void>> {
     try {
         const startTimeSeconds = parseTimecode(input.startTime);
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'scheduled_layer.created',
@@ -486,22 +512,18 @@ export async function createScheduledLayer(input: ScheduledLayerInput): Promise<
                 },
             },
             async () => {
-                const { error } = await supabase.from('scheduled_layers').insert({
-                    program_block_id: input.blockId,
+                await db.insert(scheduledLayers).values({
+                    programBlockId: input.blockId,
                     title: input.title,
-                    layer_type: input.layerType,
-                    asset_id: input.assetId || null,
-                    slide_id: input.slideId || null,
-                    start_time_seconds: startTimeSeconds,
-                    duration_seconds: input.durationSeconds,
-                    z_index: input.zIndex,
+                    layerType: input.layerType,
+                    assetId: input.assetId || null,
+                    slideId: input.slideId || null,
+                    startTimeSeconds,
+                    durationSeconds: input.durationSeconds,
+                    zIndex: input.zIndex,
                     position: input.position,
                     enabled: true,
                 });
-
-                if (error) {
-                    throw error;
-                }
             },
         );
         revalidatePath(`/admin/schedule/${input.date}/blocks/${input.blockId}`);
@@ -517,7 +539,8 @@ export async function setScheduledLayerEnabled(
     input: SetScheduledLayerEnabledInput,
 ): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: input.enabled ? 'scheduled_layer.enabled' : 'scheduled_layer.disabled',
@@ -527,14 +550,10 @@ export async function setScheduledLayerEnabled(
                 next: { enabled: input.enabled },
             },
             async () => {
-                const { error } = await supabase
-                    .from('scheduled_layers')
-                    .update({ enabled: input.enabled, updated_at: new Date().toISOString() })
-                    .eq('id', input.layerId);
-
-                if (error) {
-                    throw error;
-                }
+                await db
+                    .update(scheduledLayers)
+                    .set({ enabled: input.enabled, updatedAt: new Date().toISOString() })
+                    .where(eq(scheduledLayers.id, input.layerId));
             },
         );
         revalidatePath(`/admin/schedule/${input.date}`);

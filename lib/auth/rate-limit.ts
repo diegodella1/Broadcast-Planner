@@ -1,5 +1,8 @@
+import { sql } from 'drizzle-orm';
+
 import { getCurrentOperatorSession, hashSecret } from './auth';
-import { createServiceClient } from '../supabase/server';
+import { apiRateLimits } from '../db/schema';
+import { getDb } from '../db/client';
 
 export type RateLimitResult = {
     allowed: boolean;
@@ -36,96 +39,70 @@ export async function checkRateLimit(input: {
     const resetAt = new Date(
         Math.ceil(now.getTime() / (windowSeconds * 1000)) * windowSeconds * 1000,
     );
-    const rpcResult = await atomicRateLimitHit(bucketKey, resetAt);
 
-    if (rpcResult) {
-        return {
-            allowed: rpcResult.hits <= limit,
-            retryAfterSeconds: Math.max(
-                1,
-                Math.ceil((rpcResult.resetAt.getTime() - now.getTime()) / 1000),
-            ),
-        };
-    }
-
-    return legacyRateLimitHit(bucketKey, resetAt, now, limit);
+    return atomicRateLimitHit(bucketKey, resetAt, now, limit);
 }
 
+/**
+ * Atomic upsert that replicates the `increment_rate_limit` Postgres function.
+ *
+ * Semantics (from 20260522153000_atomic_rate_limits.sql):
+ *   - INSERT a new row with hits=1 and the provided reset_at.
+ *   - On conflict with an existing bucket_key:
+ *       • If the stored reset_at <= now → the window expired; reset hits to 1
+ *         and adopt the new reset_at.
+ *       • Otherwise → still within the same window; increment hits by 1 and
+ *         keep the original reset_at.
+ *   - RETURNING hits and reset_at so the caller can evaluate the limit.
+ *
+ * SQLite serialises writes, so a single statement is atomic — no BEGIN needed.
+ */
 async function atomicRateLimitHit(
     bucketKey: string,
     resetAt: Date,
-): Promise<{ hits: number; resetAt: Date } | null> {
-    const supabase = createServiceClient();
+    now: Date,
+    limit: number,
+): Promise<RateLimitResult> {
+    const resetAtIso = resetAt.toISOString();
+    const nowIso = now.toISOString();
 
-    if (typeof supabase.rpc !== 'function') {
-        return null;
-    }
-    const { data, error } = await supabase.rpc('increment_rate_limit', {
-        p_bucket_key: bucketKey,
-        p_reset_at: resetAt.toISOString(),
-    });
+    try {
+        const db = await getDb();
+        const rows = await db
+            .insert(apiRateLimits)
+            .values({
+                bucketKey,
+                hits: 1,
+                resetAt: resetAtIso,
+                updatedAt: nowIso,
+            })
+            .onConflictDoUpdate({
+                target: apiRateLimits.bucketKey,
+                set: {
+                    hits: sql<number>`case when ${apiRateLimits.resetAt} <= ${nowIso} then 1 else ${apiRateLimits.hits} + 1 end`,
+                    resetAt: sql<string>`case when ${apiRateLimits.resetAt} <= ${nowIso} then ${resetAtIso} else ${apiRateLimits.resetAt} end`,
+                    updatedAt: nowIso,
+                },
+            })
+            .returning({
+                hits: apiRateLimits.hits,
+                resetAt: apiRateLimits.resetAt,
+            });
 
-    if (!error) {
-        const row = Array.isArray(data) ? data[0] : data;
-
-        if (!row) {
-            return { hits: 1, resetAt };
-        }
+        const row = rows[0];
+        const effectiveResetAt = row ? new Date(row.resetAt) : resetAt;
+        const hits = row ? row.hits : 1;
 
         return {
-            hits: Number(row.hits ?? 1),
-            resetAt: new Date(String(row.reset_at ?? resetAt.toISOString())),
+            allowed: hits <= limit,
+            retryAfterSeconds: Math.max(
+                1,
+                Math.ceil((effectiveResetAt.getTime() - now.getTime()) / 1000),
+            ),
         };
-    }
-
-    if (!isMissingRateLimitFunction(error)) {
-        fallbackForRateLimitBackendError(error);
-
-        return null;
-    }
-
-    return null;
-}
-
-async function legacyRateLimitHit(bucketKey: string, resetAt: Date, now: Date, limit: number) {
-    const supabase = createServiceClient();
-    const { data, error } = await supabase
-        .from('api_rate_limits')
-        .select('hits, reset_at')
-        .eq('bucket_key', bucketKey)
-        .maybeSingle();
-
-    if (error) {
+    } catch (error: unknown) {
         return fallbackForRateLimitBackendError(error);
     }
-    const currentHits =
-        data && new Date(String(data.reset_at)).getTime() > now.getTime() ? Number(data.hits) : 0;
-    const nextHits = currentHits + 1;
-    const { error: upsertError } = await supabase.from('api_rate_limits').upsert({
-        bucket_key: bucketKey,
-        hits: nextHits,
-        reset_at: resetAt.toISOString(),
-        updated_at: now.toISOString(),
-    });
-
-    if (upsertError) {
-        return fallbackForRateLimitBackendError(upsertError);
-    }
-
-    return {
-        allowed: nextHits <= limit,
-        retryAfterSeconds: Math.max(1, Math.ceil((resetAt.getTime() - now.getTime()) / 1000)),
-    };
-}
-
-function isMissingRateLimitFunction(error: unknown) {
-    if (typeof error !== 'object' || error === null) {
-        return false;
-    }
-    const code = 'code' in error ? String((error as { code?: unknown }).code) : '';
-    const message = 'message' in error ? String((error as { message?: unknown }).message) : '';
-
-    return code === '42883' || message.includes('increment_rate_limit');
 }
 
 function fallbackForRateLimitBackendError(error: unknown): RateLimitResult {

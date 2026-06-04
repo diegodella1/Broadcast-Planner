@@ -27,3 +27,6 @@ pnpm-debug.log*
 .codex/
 awesome-codex-skills/
 caveman/
+
+# One-time data snapshot (6MB) — already applied; must NOT live in migrations_dir (would revert live edits on re-apply)
+drizzle/seed-from-supabase.sql

@@ -1,12 +1,15 @@
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
+import { eq, inArray } from 'drizzle-orm';
 
 import { recordAuditEvent } from '@/lib/audit/audit';
 import { requireAdmin } from '@/lib/auth/auth';
 import { verifyCsrfToken } from '@/lib/auth/csrf';
 import { assertRateLimit, rateLimitErrorResponse } from '@/lib/auth/rate-limit';
 import { getReutersClient, type ReutersChannel } from '@/lib/services/reuters';
-import { createServiceClient } from '@/lib/supabase/server';
+import { getDb } from '@/lib/db/client';
+import { mediaAssets } from '@/lib/db/schema';
+import type { InsertMediaAssetRow } from '@/lib/db/schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,21 +82,21 @@ export async function POST(request: Request): Promise<NextResponse> {
         await verifyCsrfToken(request);
         const client = await getReutersClient();
         const channels = await client.listLiveChannels();
-        const supabase = createServiceClient();
+        const db = await getDb();
 
         const urls = channels.map((c) => c.hlsUrl);
-        const { data: existingRows, error: existingError } = urls.length
-            ? await supabase.from('media_assets').select('id, url').in('url', urls)
-            : { data: [], error: null };
+        const existingRows = urls.length
+            ? await db
+                  .select({ id: mediaAssets.id, url: mediaAssets.url })
+                  .from(mediaAssets)
+                  .where(inArray(mediaAssets.url, urls))
+            : [];
 
-        if (existingError) {
-            throw existingError;
-        }
         const existingByUrl = new Map<string, string>();
 
-        for (const row of existingRows ?? []) {
+        for (const row of existingRows) {
             const url = typeof row.url === 'string' ? row.url : '';
-            const id = typeof row.id === 'string' ? row.id : String(row.id ?? '');
+            const id = typeof row.id === 'string' ? row.id : '';
 
             if (url && id) {
                 existingByUrl.set(url, id);
@@ -106,11 +109,7 @@ export async function POST(request: Request): Promise<NextResponse> {
             .map((c) => buildAssetInsertRow(c, nowIso));
 
         if (inserts.length) {
-            const { error } = await supabase.from('media_assets').insert(inserts);
-
-            if (error) {
-                throw error;
-            }
+            await db.insert(mediaAssets).values(inserts);
         }
 
         const updates = channels.filter((c) => existingByUrl.has(c.hlsUrl));
@@ -121,14 +120,10 @@ export async function POST(request: Request): Promise<NextResponse> {
             if (!id) {
                 continue;
             }
-            const { error } = await supabase
-                .from('media_assets')
-                .update(buildAssetUpdateRow(channel, nowIso))
-                .eq('id', id);
-
-            if (error) {
-                throw error;
-            }
+            await db
+                .update(mediaAssets)
+                .set(buildAssetUpdateRow(channel, nowIso))
+                .where(eq(mediaAssets.id, id));
         }
 
         revalidatePath('/admin/assets');
@@ -194,28 +189,24 @@ export async function POST(request: Request): Promise<NextResponse> {
 async function mergeWithCachedAssetIds(
     channels: ReutersChannel[],
 ): Promise<ReutersSyncedChannel[]> {
-    const supabase = createServiceClient();
     const urls = channels.map((c) => c.hlsUrl);
 
     if (!urls.length) {
         return [];
     }
-    const { data, error } = await supabase
-        .from('media_assets')
-        .select('id, url')
-        .eq('source_type', 'reuters')
-        .in('url', urls);
+    const db = await getDb();
+    const rows = await db
+        .select({ id: mediaAssets.id, url: mediaAssets.url })
+        .from(mediaAssets)
+        .where(eq(mediaAssets.sourceType, 'reuters'));
 
-    if (error) {
-        throw error;
-    }
     const byUrl = new Map<string, string>();
 
-    for (const row of data ?? []) {
+    for (const row of rows) {
         const url = typeof row.url === 'string' ? row.url : '';
-        const id = typeof row.id === 'string' ? row.id : String(row.id ?? '');
+        const id = typeof row.id === 'string' ? row.id : '';
 
-        if (url && id) {
+        if (url && id && urls.includes(url)) {
             byUrl.set(url, id);
         }
     }
@@ -223,37 +214,40 @@ async function mergeWithCachedAssetIds(
     return channels.map((c) => ({ ...c, assetId: byUrl.get(c.hlsUrl) ?? null }));
 }
 
-function buildAssetInsertRow(channel: ReutersChannel, nowIso: string) {
+function buildAssetInsertRow(channel: ReutersChannel, nowIso: string): InsertMediaAssetRow {
     return {
         title: channel.name,
         description: channel.description ?? null,
-        source_type: 'reuters',
-        media_kind: 'video',
-        asset_type: 'video',
+        sourceType: 'reuters',
+        mediaKind: 'video',
+        assetType: 'video',
         url: channel.hlsUrl,
-        thumbnail_url: channel.thumbnailUrl ?? null,
-        duration_seconds: null,
+        thumbnailUrl: channel.thumbnailUrl ?? null,
+        durationSeconds: null,
         status: 'ready',
-        lifecycle_state: 'synced',
+        lifecycleState: 'synced',
         metadata: {
             reuters_channel_id: channel.id,
             reuters_category: channel.category ?? null,
         },
-        updated_at: nowIso,
+        updatedAt: nowIso,
     };
 }
 
-function buildAssetUpdateRow(channel: ReutersChannel, nowIso: string) {
+function buildAssetUpdateRow(
+    channel: ReutersChannel,
+    nowIso: string,
+): Partial<InsertMediaAssetRow> {
     return {
         title: channel.name,
         description: channel.description ?? null,
-        thumbnail_url: channel.thumbnailUrl ?? null,
+        thumbnailUrl: channel.thumbnailUrl ?? null,
         status: 'ready',
-        lifecycle_state: 'synced',
+        lifecycleState: 'synced',
         metadata: {
             reuters_channel_id: channel.id,
             reuters_category: channel.category ?? null,
         },
-        updated_at: nowIso,
+        updatedAt: nowIso,
     };
 }
