@@ -274,7 +274,7 @@ export async function createProgramBlock(input: {
                     reason: 'program_block.conflict_replaced',
                 });
 
-                const blockStatus = 'archived';
+                const blockStatus = 'ready';
                 const category = liveMetadata
                     ? 'broadcast'
                     : reutersStream
