@@ -1,8 +1,11 @@
 import { revalidatePath } from 'next/cache';
+import { eq } from 'drizzle-orm';
 
 import { auditedMutation } from '../audit/audit';
+import { getDb } from '../db/client';
+import { mediaAssets, programBlocks, scheduledLayers, slideAssets } from '../db/schema';
 import { err, extractError, ok, type Result } from '../result';
-import { createServiceClient } from '../supabase/server';
+import { getMediaBucket } from '../storage/r2';
 
 export async function createSlideAsset(input: {
     title: string;
@@ -23,7 +26,9 @@ export async function createSlideAsset(input: {
         ) {
             return err('Unsupported slide type');
         }
-        const supabase = createServiceClient();
+
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'slide_asset.created',
@@ -35,20 +40,16 @@ export async function createSlideAsset(input: {
                 },
             },
             async () => {
-                const { error } = await supabase.from('slide_assets').insert({
+                await db.insert(slideAssets).values({
                     title: input.title,
-                    slide_type: input.slideType,
+                    slideType: input.slideType,
                     content: input.content || null,
-                    image_url: input.imageUrl || null,
-                    template_id: input.templateId || null,
-                    default_duration_seconds: input.defaultDurationSeconds || null,
+                    imageUrl: input.imageUrl || null,
+                    templateId: input.templateId || null,
+                    defaultDurationSeconds: input.defaultDurationSeconds || null,
                     metadata: input.metadata ?? {},
                     status: input.status || 'ready',
                 });
-
-                if (error) {
-                    throw error;
-                }
             },
         );
         revalidatePath('/admin/slides');
@@ -61,7 +62,8 @@ export async function createSlideAsset(input: {
 
 export async function archiveSlideAsset(slideId: string): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'slide_asset.archived',
@@ -70,14 +72,10 @@ export async function archiveSlideAsset(slideId: string): Promise<Result<void>> 
                 next: { status: 'archived' },
             },
             async () => {
-                const { error } = await supabase
-                    .from('slide_assets')
-                    .update({ status: 'archived', updated_at: new Date().toISOString() })
-                    .eq('id', slideId);
-
-                if (error) {
-                    throw error;
-                }
+                await db
+                    .update(slideAssets)
+                    .set({ status: 'archived', updatedAt: new Date().toISOString() })
+                    .where(eq(slideAssets.id, slideId));
             },
         );
         revalidatePath('/admin/slides');
@@ -105,7 +103,10 @@ export async function createMediaAsset(input: {
         if (input.assetType === 'ad' && input.durationSeconds && input.durationSeconds > 300) {
             return err('Ads cannot be longer than 300 seconds');
         }
-        const supabase = createServiceClient();
+
+        const db = await getDb();
+        const id = crypto.randomUUID();
+
         const data = await auditedMutation(
             {
                 action: 'media_asset.created',
@@ -113,29 +114,22 @@ export async function createMediaAsset(input: {
                 next: { title: input.title, source_type: input.sourceType, status: 'ready' },
             },
             async () => {
-                const { data, error } = await supabase
-                    .from('media_assets')
-                    .insert({
-                        title: input.title,
-                        source_type: input.sourceType,
-                        media_kind: input.mediaKind,
-                        asset_type: input.assetType,
-                        url: input.url || null,
-                        storage_bucket: input.storageBucket || null,
-                        storage_path: input.storagePath || null,
-                        duration_seconds: input.durationSeconds || null,
-                        metadata: input.metadata ?? {},
-                        status: 'ready',
-                        lifecycle_state: input.lifecycleState ?? 'reviewed',
-                    })
-                    .select('id')
-                    .single();
+                await db.insert(mediaAssets).values({
+                    id,
+                    title: input.title,
+                    sourceType: input.sourceType,
+                    mediaKind: input.mediaKind,
+                    assetType: input.assetType,
+                    url: input.url || null,
+                    storageBucket: input.storageBucket || null,
+                    storagePath: input.storagePath || null,
+                    durationSeconds: input.durationSeconds || null,
+                    metadata: input.metadata ?? {},
+                    status: 'ready',
+                    lifecycleState: input.lifecycleState ?? 'reviewed',
+                });
 
-                if (error) {
-                    throw error;
-                }
-
-                return data;
+                return { id };
             },
         );
         revalidatePath('/admin/assets');
@@ -171,17 +165,20 @@ export async function updateMediaAsset(input: {
         if (input.assetType === 'ad' && input.durationSeconds && input.durationSeconds > 300) {
             return err('Ads cannot be longer than 300 seconds');
         }
-        const supabase = createServiceClient();
-        const { data: current, error: currentError } = await supabase
-            .from('media_assets')
-            .select('metadata')
-            .eq('id', input.id)
-            .single();
 
-        if (currentError) {
-            throw currentError;
+        const db = await getDb();
+        const [current] = await db
+            .select({ metadata: mediaAssets.metadata })
+            .from(mediaAssets)
+            .where(eq(mediaAssets.id, input.id))
+            .limit(1);
+
+        if (!current) {
+            throw new Error('Asset not found');
         }
+
         const metadata = buildUpdateMediaMetadata(current, input);
+
         await auditedMutation(
             {
                 action: 'media_asset.updated',
@@ -199,27 +196,23 @@ export async function updateMediaAsset(input: {
                 },
             },
             async () => {
-                const { error } = await supabase
-                    .from('media_assets')
-                    .update({
+                await db
+                    .update(mediaAssets)
+                    .set({
                         title: input.title,
                         description: input.description || null,
-                        source_type: input.sourceType,
-                        media_kind: input.mediaKind,
-                        asset_type: input.assetType,
+                        sourceType: input.sourceType,
+                        mediaKind: input.mediaKind,
+                        assetType: input.assetType,
                         url: input.url || null,
-                        thumbnail_url: input.thumbnailUrl || null,
-                        duration_seconds: input.durationSeconds || null,
+                        thumbnailUrl: input.thumbnailUrl || null,
+                        durationSeconds: input.durationSeconds || null,
                         status: input.status,
-                        lifecycle_state: input.lifecycleState ?? 'reviewed',
+                        lifecycleState: input.lifecycleState ?? 'reviewed',
                         metadata,
-                        updated_at: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
                     })
-                    .eq('id', input.id);
-
-                if (error) {
-                    throw error;
-                }
+                    .where(eq(mediaAssets.id, input.id));
             },
         );
 
@@ -278,13 +271,10 @@ function buildUpdateMediaMetadata(
 
 async function clearOtherFallbackLoops(activeAssetId: string): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
-        const { data, error } = await supabase.from('media_assets').select('id,metadata');
-
-        if (error) {
-            throw error;
-        }
-        const rows = Array.isArray(data) ? data : [];
+        const db = await getDb();
+        const rows = await db
+            .select({ id: mediaAssets.id, metadata: mediaAssets.metadata })
+            .from(mediaAssets);
 
         for (const row of rows) {
             const id = typeof row?.id === 'string' ? row.id : '';
@@ -299,14 +289,11 @@ async function clearOtherFallbackLoops(activeAssetId: string): Promise<Result<vo
             metadata.fallback_loop = false;
             metadata.fallback_muted = false;
             delete metadata.fallback_loop_selected_at;
-            const { error: updateError } = await supabase
-                .from('media_assets')
-                .update({ metadata, updated_at: new Date().toISOString() })
-                .eq('id', id);
 
-            if (updateError) {
-                throw updateError;
-            }
+            await db
+                .update(mediaAssets)
+                .set({ metadata, updatedAt: new Date().toISOString() })
+                .where(eq(mediaAssets.id, id));
         }
 
         return ok(undefined);
@@ -323,35 +310,38 @@ export async function deleteMediaAsset(input: {
         if (!input.id) {
             return err('Asset missing');
         }
-        const supabase = createServiceClient();
-        const { data: asset, error: assetError } = await supabase
-            .from('media_assets')
-            .select('title, storage_bucket, storage_path, lifecycle_state')
-            .eq('id', input.id)
-            .single();
 
-        if (assetError) {
-            throw assetError;
+        const db = await getDb();
+        const [asset] = await db
+            .select({
+                title: mediaAssets.title,
+                storageBucket: mediaAssets.storageBucket,
+                storagePath: mediaAssets.storagePath,
+                lifecycleState: mediaAssets.lifecycleState,
+            })
+            .from(mediaAssets)
+            .where(eq(mediaAssets.id, input.id))
+            .limit(1);
+
+        if (!asset) {
+            throw new Error('Asset not found');
         }
+
         const scheduledInUse =
-            asset.lifecycle_state === 'scheduled_in_use' || (await isAssetScheduled(input.id));
+            asset.lifecycleState === 'scheduled_in_use' || (await isAssetScheduled(input.id));
 
         if (scheduledInUse && !input.force) {
             return err('Asset is scheduled in use. Confirm force delete to continue.');
         }
 
-        const storageBucket = asset.storage_bucket ? String(asset.storage_bucket) : '';
-        const storagePath = asset.storage_path ? String(asset.storage_path) : '';
+        const storageBucket = asset.storageBucket ? String(asset.storageBucket) : '';
+        const storagePath = asset.storagePath ? String(asset.storagePath) : '';
 
         if (storageBucket && storagePath) {
-            const { error: storageError } = await supabase.storage
-                .from(storageBucket)
-                .remove([storagePath]);
-
-            if (storageError) {
-                throw storageError;
-            }
+            const bucket = await getMediaBucket();
+            await bucket.delete(storagePath);
         }
+
         await auditedMutation(
             {
                 action: 'media_asset.deleted',
@@ -360,11 +350,7 @@ export async function deleteMediaAsset(input: {
                 previous: { title: String(asset.title ?? '') },
             },
             async () => {
-                const { error } = await supabase.from('media_assets').delete().eq('id', input.id);
-
-                if (error) {
-                    throw error;
-                }
+                await db.delete(mediaAssets).where(eq(mediaAssets.id, input.id));
             },
         );
         revalidatePath('/admin/assets');
@@ -376,29 +362,29 @@ export async function deleteMediaAsset(input: {
     }
 }
 
-async function isAssetScheduled(assetId: string) {
-    const supabase = createServiceClient();
-    const [{ data: blocks, error: blocksError }, { data: layers, error: layersError }] =
-        await Promise.all([
-            supabase.from('program_blocks').select('asset_id, fallback_asset_id, status'),
-            supabase.from('scheduled_layers').select('asset_id, enabled'),
-        ]);
-
-    if (blocksError) {
-        throw blocksError;
-    }
-
-    if (layersError) {
-        throw layersError;
-    }
-    const blockRows = (blocks ?? []) as Array<Record<string, unknown>>;
-    const layerRows = (layers ?? []) as Array<Record<string, unknown>>;
+async function isAssetScheduled(assetId: string): Promise<boolean> {
+    const db = await getDb();
+    const [blockRows, layerRows] = await Promise.all([
+        db
+            .select({
+                assetId: programBlocks.assetId,
+                fallbackAssetId: programBlocks.fallbackAssetId,
+                status: programBlocks.status,
+            })
+            .from(programBlocks),
+        db
+            .select({
+                assetId: scheduledLayers.assetId,
+                enabled: scheduledLayers.enabled,
+            })
+            .from(scheduledLayers),
+    ]);
 
     return (
         blockRows.some(
             (row) =>
                 row.status !== 'archived' &&
-                (row.asset_id === assetId || row.fallback_asset_id === assetId),
-        ) || layerRows.some((row) => row.enabled !== false && row.asset_id === assetId)
+                (row.assetId === assetId || row.fallbackAssetId === assetId),
+        ) || layerRows.some((row) => row.enabled !== false && row.assetId === assetId)
     );
 }

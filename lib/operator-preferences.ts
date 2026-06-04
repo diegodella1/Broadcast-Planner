@@ -1,5 +1,8 @@
+import { and, desc, eq } from 'drizzle-orm';
+
 import { getCurrentOperatorSession } from './auth/auth';
-import { createServiceClient } from './supabase/server';
+import { getDb } from './db/client';
+import { operatorPreferences } from './db/schema';
 
 export type MusicPreference = {
     enabled: boolean;
@@ -19,36 +22,32 @@ export async function getMusicPreference(): Promise<MusicPreference> {
     if (!operator || operator.operatorId === 'bootstrap') {
         return DEFAULT_MUSIC_PREFERENCE;
     }
-    const supabase = createServiceClient();
-    const { data, error } = await supabase
-        .from('operator_preferences')
-        .select('value')
-        .eq('operator_id', operator.operatorId)
-        .eq('key', 'music')
-        .maybeSingle();
 
-    if (error) {
-        throw error;
-    }
+    const db = await getDb();
+    const [row] = await db
+        .select({ value: operatorPreferences.value })
+        .from(operatorPreferences)
+        .where(
+            and(
+                eq(operatorPreferences.operatorId, operator.operatorId),
+                eq(operatorPreferences.key, 'music'),
+            ),
+        )
+        .limit(1);
 
-    return parseMusicPreference(data?.value);
+    return parseMusicPreference(row?.value);
 }
 
 export async function getLatestMusicPreference(): Promise<MusicPreference> {
-    const supabase = createServiceClient();
-    const { data, error } = await supabase
-        .from('operator_preferences')
-        .select('value,updated_at')
-        .eq('key', 'music')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    const db = await getDb();
+    const [row] = await db
+        .select({ value: operatorPreferences.value })
+        .from(operatorPreferences)
+        .where(eq(operatorPreferences.key, 'music'))
+        .orderBy(desc(operatorPreferences.updatedAt))
+        .limit(1);
 
-    if (error) {
-        throw error;
-    }
-
-    return parseMusicPreference(data?.value);
+    return parseMusicPreference(row?.value);
 }
 
 export async function saveMusicPreference(input: Partial<MusicPreference>) {
@@ -57,21 +56,25 @@ export async function saveMusicPreference(input: Partial<MusicPreference>) {
     if (!operator || operator.operatorId === 'bootstrap') {
         return DEFAULT_MUSIC_PREFERENCE;
     }
+
     const next = parseMusicPreference(input);
-    const supabase = createServiceClient();
-    const { error } = await supabase.from('operator_preferences').upsert(
-        {
-            operator_id: operator.operatorId,
+    const db = await getDb();
+
+    await db
+        .insert(operatorPreferences)
+        .values({
+            operatorId: operator.operatorId,
             key: 'music',
             value: next,
-            updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'operator_id,key' },
-    );
-
-    if (error) {
-        throw error;
-    }
+            updatedAt: new Date().toISOString(),
+        })
+        .onConflictDoUpdate({
+            target: [operatorPreferences.operatorId, operatorPreferences.key],
+            set: {
+                value: next,
+                updatedAt: new Date().toISOString(),
+            },
+        });
 
     return next;
 }

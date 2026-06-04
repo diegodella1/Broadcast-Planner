@@ -19,7 +19,9 @@ import {
 import { slidePreviewHref } from '@/lib/helpers/slide-preview';
 import { SLIDE_TEMPLATES, type SlideTemplateEntry } from '@/lib/slides/registry';
 import { getYouTubeSlideConfig, isYouTubeSlide } from '@/lib/slides/youtube';
-import { createServiceClient } from '@/lib/supabase/server';
+import { eq, ne } from 'drizzle-orm';
+import { getDb } from '@/lib/db/client';
+import { programBlocks, scheduledLayers } from '@/lib/db/schema';
 import type { SlideAsset } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -901,15 +903,21 @@ function isLegacySlide(slide: SlideAsset, currentTemplateIds: Set<string>) {
 
 async function getScheduledSlideIds() {
     try {
-        const supabase = createServiceClient();
-        const [{ data: blocks }, { data: layers }] = await Promise.all([
-            supabase.from('program_blocks').select('slide_id,status').neq('status', 'archived'),
-            supabase.from('scheduled_layers').select('slide_id,enabled').eq('enabled', true),
+        const db = await getDb();
+        const [blocks, layers] = await Promise.all([
+            db
+                .select({ slideId: programBlocks.slideId })
+                .from(programBlocks)
+                .where(ne(programBlocks.status, 'archived')),
+            db
+                .select({ slideId: scheduledLayers.slideId })
+                .from(scheduledLayers)
+                .where(eq(scheduledLayers.enabled, true)),
         ]);
 
         return new Set(
-            [...(blocks ?? []), ...(layers ?? [])]
-                .map((row) => row.slide_id)
+            [...blocks, ...layers]
+                .map((row) => row.slideId)
                 .filter((id): id is string => Boolean(id)),
         );
     } catch (error) {

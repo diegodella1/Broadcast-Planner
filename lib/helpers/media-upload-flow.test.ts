@@ -1,16 +1,35 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { createMediaAssetMock, createServiceClientMock } = vi.hoisted(() => ({
+const { createMediaAssetMock } = vi.hoisted(() => ({
     createMediaAssetMock: vi.fn(),
-    createServiceClientMock: vi.fn(),
 }));
 
 vi.mock('../mutations', () => ({
     createMediaAsset: createMediaAssetMock,
 }));
 
-vi.mock('../supabase/server', () => ({
-    createServiceClient: createServiceClientMock,
+// ---------------------------------------------------------------------------
+// Mock the new D1/R2 data layer
+// ---------------------------------------------------------------------------
+const mockBucketHead = vi.fn();
+const mockBucketPut = vi.fn();
+const mockDbUpdate = vi.fn().mockReturnThis();
+const mockDbSet = vi.fn().mockReturnThis();
+const mockDbWhere = vi.fn().mockResolvedValue(undefined);
+
+vi.mock('../db/client', () => ({
+    getDb: vi.fn(async () => ({
+        update: mockDbUpdate,
+        set: mockDbSet,
+        where: mockDbWhere,
+    })),
+}));
+
+vi.mock('../storage/r2', () => ({
+    getMediaBucket: vi.fn(async () => ({
+        head: mockBucketHead,
+        put: mockBucketPut,
+    })),
 }));
 
 import { uploadMediaFile } from './media-upload';
@@ -20,19 +39,18 @@ describe('uploadMediaFile', () => {
         vi.clearAllMocks();
         vi.stubEnv('NEXT_PUBLIC_APP_BASE_URL', 'https://rtvtime.diegodella.ar');
         vi.stubEnv('NODE_ENV', 'production');
+
         createMediaAssetMock.mockResolvedValue({ success: true, data: 'asset-1' });
-        const updateMock = vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ error: null }),
-        });
-        createServiceClientMock.mockReturnValue({
-            from: vi.fn().mockReturnValue({ update: updateMock }),
-            storage: {
-                listBuckets: vi.fn().mockResolvedValue({ data: [{ id: 'small-media-assets' }] }),
-                from: vi.fn().mockReturnValue({
-                    upload: vi.fn().mockResolvedValue({ error: null }),
-                }),
-            },
-        });
+
+        // head() → no existing object (safe to upload)
+        mockBucketHead.mockResolvedValue(null);
+        // put() → success
+        mockBucketPut.mockResolvedValue(undefined);
+
+        // Re-wire DB chain after clearAllMocks
+        mockDbUpdate.mockReturnThis();
+        mockDbSet.mockReturnThis();
+        mockDbWhere.mockResolvedValue(undefined);
     });
 
     it('stores a public app proxy URL for uploaded media assets', async () => {
@@ -61,5 +79,12 @@ describe('uploadMediaFile', () => {
         );
         expect(createMediaAssetMock.mock.calls[0]?.[0]).not.toHaveProperty('url');
         expect(result.url).toBe('https://rtvtime.diegodella.ar/api/media/assets/asset-1');
+
+        // R2 put was called with the storage path and content type
+        expect(mockBucketPut).toHaveBeenCalledWith(
+            expect.stringMatching(/\.mp4$/),
+            expect.any(ArrayBuffer),
+            expect.objectContaining({ httpMetadata: { contentType: 'video/mp4' } }),
+        );
     });
 });

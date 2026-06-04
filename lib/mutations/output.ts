@@ -1,4 +1,5 @@
 import { revalidatePath } from 'next/cache';
+import { and, eq, desc } from 'drizzle-orm';
 
 import { auditedMutation, recordAuditEvent } from '../audit/audit';
 import { getCurrentOperatorSession } from '../auth/auth';
@@ -6,7 +7,8 @@ import { getMediaAssetById, getMediaAssetByVimeoUri } from '../data';
 import { maskStreamUrl, parseReutersStreamInput } from '../services/reuters-stream';
 import { err, extractError, ok, type Result } from '../result';
 import { getVimeoToken } from '../settings';
-import { createServiceClient } from '../supabase/server';
+import { getDb } from '../db/client';
+import { outputOverrides, programBlocks, programDays } from '../db/schema';
 import {
     formatTimecode,
     isoDateInTimezone,
@@ -52,8 +54,10 @@ export async function setReutersOutputOverride(input: ReutersOverrideInput): Pro
         if (!stream) {
             return err('Reuters stream URL is required');
         }
-        const supabase = createServiceClient();
+
+        const db = await getDb();
         const operator = await getCurrentOperatorSession();
+
         await auditedMutation(
             {
                 action: 'output_override.reuters_set',
@@ -72,24 +76,24 @@ export async function setReutersOutputOverride(input: ReutersOverrideInput): Pro
                 if (!clear.success) {
                     throw new Error(clear.error);
                 }
-                const { error } = await supabase.from('output_overrides').insert({
-                    program_day_id: input.programDayId,
+
+                await db.insert(outputOverrides).values({
+                    programDayId: input.programDayId,
                     enabled: true,
-                    source_type: 'reuters',
-                    stream_url: stream.url,
-                    stream_protocol: stream.protocol,
+                    sourceType: 'reuters',
+                    streamUrl: stream.url,
+                    streamProtocol: stream.protocol,
                     label: stream.label,
-                    expires_at: stream.expiresAt ?? null,
+                    expiresAt: stream.expiresAt ?? null,
                     metadata: {
                         stream_url_masked: maskStreamUrl(stream.url),
                         refreshed_at: new Date().toISOString(),
                     },
-                    created_by: operator?.operatorId === 'bootstrap' ? null : operator?.operatorId,
+                    createdBy:
+                        operator?.operatorId === 'bootstrap'
+                            ? null
+                            : (operator?.operatorId ?? null),
                 });
-
-                if (error) {
-                    throw error;
-                }
             },
         );
         revalidatePath('/admin/output');
@@ -102,16 +106,17 @@ export async function setReutersOutputOverride(input: ReutersOverrideInput): Pro
 
 async function clearOutputOverrideInternal(programDayId: string): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
-        const { error } = await supabase
-            .from('output_overrides')
-            .update({ enabled: false, updated_at: new Date().toISOString() })
-            .eq('program_day_id', programDayId)
-            .eq('enabled', true);
+        const db = await getDb();
 
-        if (error) {
-            throw error;
-        }
+        await db
+            .update(outputOverrides)
+            .set({ enabled: false, updatedAt: new Date().toISOString() })
+            .where(
+                and(
+                    eq(outputOverrides.programDayId, programDayId),
+                    eq(outputOverrides.enabled, true),
+                ),
+            );
 
         return ok(undefined);
     } catch (error) {
@@ -153,6 +158,7 @@ export async function ensureVimeoAssetCached(
         if (existing) {
             return ok(existing.id);
         }
+
         const video = await getVimeoVideo(token, vimeoUri);
         await upsertVimeoVideos([video]);
 
@@ -175,6 +181,7 @@ export async function searchVimeoCatalog(query: string): Promise<Result<VimeoVid
         if (!token) {
             return err('vimeo: no token configured');
         }
+
         const videos = await searchVimeoAccountVideos(token, query);
 
         return ok(videos);
@@ -192,11 +199,13 @@ export async function goLiveWithVimeo(
         if (!token) {
             return err('vimeo: no token configured');
         }
+
         const cacheResult = await ensureVimeoAssetCached(token, input.vimeoUri);
 
         if (!cacheResult.success) {
             return cacheResult;
         }
+
         const assetId = cacheResult.data;
         const asset = await getMediaAssetById(assetId);
 
@@ -253,11 +262,13 @@ export async function scheduleVimeoBlock(
         if (!token) {
             return err('vimeo: no token configured');
         }
+
         const cacheResult = await ensureVimeoAssetCached(token, input.vimeoUri);
 
         if (!cacheResult.success) {
             return cacheResult;
         }
+
         const assetId = cacheResult.data;
         const asset = await getMediaAssetById(assetId);
 
@@ -440,26 +451,30 @@ function startTimeToSeconds(hhmmss: string): number {
 
 async function fetchInsertedBlockId(date: string, startSeconds: number): Promise<string | null> {
     try {
-        const supabase = createServiceClient();
-        const { data: day } = await supabase
-            .from('program_days')
-            .select('id')
-            .eq('air_date', date)
-            .maybeSingle();
+        const db = await getDb();
+        const [day] = await db
+            .select({ id: programDays.id })
+            .from(programDays)
+            .where(eq(programDays.airDate, date))
+            .limit(1);
 
         if (!day?.id) {
             return null;
         }
-        const { data } = await supabase
-            .from('program_blocks')
-            .select('id')
-            .eq('program_day_id', String(day.id))
-            .eq('start_time_seconds', startSeconds)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
 
-        return data?.id ? String(data.id) : null;
+        const [row] = await db
+            .select({ id: programBlocks.id })
+            .from(programBlocks)
+            .where(
+                and(
+                    eq(programBlocks.programDayId, day.id),
+                    eq(programBlocks.startTimeSeconds, startSeconds),
+                ),
+            )
+            .orderBy(desc(programBlocks.createdAt))
+            .limit(1);
+
+        return row?.id ? String(row.id) : null;
     } catch (error) {
         console.error('[lib/mutations/output.ts:fetchInsertedBlockId]', error);
 

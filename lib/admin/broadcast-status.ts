@@ -1,3 +1,5 @@
+import { and, asc, eq, or, sql } from 'drizzle-orm';
+
 import { withKvCache } from '@/lib/helpers/kv-cache';
 import {
     isoDateInTimezone,
@@ -5,7 +7,8 @@ import {
     secondsSinceMidnightInTimezone,
 } from '@/lib/helpers/time';
 import { collectOperatorHealth } from '@/lib/health/health-checks';
-import { createServiceClient } from '@/lib/supabase/server';
+import { getDb } from '@/lib/db/client';
+import { integrationSettings, mediaAssets, programBlocks, programDays } from '@/lib/db/schema';
 
 const STATUS_CACHE_KEY = 'broadcast-status:v1';
 const STATUS_TTL_SECONDS = 10;
@@ -42,65 +45,92 @@ export async function getBroadcastStatus(): Promise<BroadcastStatus> {
 
 async function computeBroadcastStatus(): Promise<BroadcastStatus> {
     try {
-        const supabase = createServiceClient();
+        const db = await getDb();
         const today = isoDateInTimezone(new Date(), PLAYOUT_TIMEZONE);
-        const [dayResult, fallbackResult, carouselResult, healthStatus] = await Promise.all([
-            supabase
-                .from('program_days')
-                .select('id,status,timezone')
-                .eq('air_date', today)
-                .maybeSingle(),
-            supabase
-                .from('media_assets')
-                .select('id,title')
-                .eq('status', 'ready')
-                .eq('media_kind', 'video')
-                .or('asset_type.eq.fallback,metadata->>fallback_loop.eq.true')
+
+        const [dayRow, fallbackRow, carouselRow, healthStatus] = await Promise.all([
+            db
+                .select({
+                    id: programDays.id,
+                    status: programDays.status,
+                    timezone: programDays.timezone,
+                })
+                .from(programDays)
+                .where(eq(programDays.airDate, today))
                 .limit(1)
-                .maybeSingle(),
-            supabase
-                .from('integration_settings')
-                .select('public_config')
-                .eq('provider', 'fallback_carousel')
-                .maybeSingle(),
+                .then((rows) => rows[0] ?? null),
+
+            db
+                .select({ id: mediaAssets.id, title: mediaAssets.title })
+                .from(mediaAssets)
+                .where(
+                    and(
+                        eq(mediaAssets.status, 'ready'),
+                        eq(mediaAssets.mediaKind, 'video'),
+                        or(
+                            eq(mediaAssets.assetType, 'fallback'),
+                            sql`json_extract(${mediaAssets.metadata}, '$.fallback_loop') = true`,
+                        ),
+                    ),
+                )
+                .limit(1)
+                .then((rows) => rows[0] ?? null),
+
+            db
+                .select({ publicConfig: integrationSettings.publicConfig })
+                .from(integrationSettings)
+                .where(eq(integrationSettings.provider, 'fallback_carousel'))
+                .limit(1)
+                .then((rows) => rows[0] ?? null),
+
             getHealthStatus(),
         ]);
-        const dayRow = dayResult.data;
-        const timezone = (dayRow?.timezone as string | null) ?? PLAYOUT_TIMEZONE;
+
+        const timezone = dayRow?.timezone ?? PLAYOUT_TIMEZONE;
         const nowSeconds = secondsSinceMidnightInTimezone(new Date(), timezone);
-        const dayStatus = (dayRow?.status as string | null) ?? 'draft';
+        const dayStatus = dayRow?.status ?? 'draft';
         let activeTitle: string | null = null;
         let nextTitle: string | null = null;
         let nextSeconds: number | null = null;
 
         if (dayRow?.id) {
-            const { data: blocks } = await supabase
-                .from('program_blocks')
-                .select('title,start_time_seconds,duration_seconds')
-                .eq('program_day_id', dayRow.id as string)
-                .in('status', ['ready', 'active'])
-                .order('start_time_seconds')
-                .range(0, 999);
+            const blocks = await db
+                .select({
+                    title: programBlocks.title,
+                    startTimeSeconds: programBlocks.startTimeSeconds,
+                    durationSeconds: programBlocks.durationSeconds,
+                })
+                .from(programBlocks)
+                .where(
+                    and(
+                        eq(programBlocks.programDayId, dayRow.id),
+                        or(eq(programBlocks.status, 'ready'), eq(programBlocks.status, 'active')),
+                    ),
+                )
+                .orderBy(asc(programBlocks.startTimeSeconds))
+                .limit(1000);
 
-            for (const block of blocks ?? []) {
-                const start = Number(block.start_time_seconds);
-                const duration = Number(block.duration_seconds);
+            for (const block of blocks) {
+                const start = block.startTimeSeconds;
+                const duration = block.durationSeconds;
 
                 if (nowSeconds >= start && nowSeconds < start + duration) {
-                    activeTitle = String(block.title);
+                    activeTitle = block.title;
                 }
 
                 if (start > nowSeconds && nextSeconds === null) {
-                    nextTitle = String(block.title);
+                    nextTitle = block.title;
                     nextSeconds = start;
                 }
             }
         }
-        const carousel = carouselResult.data?.public_config as Record<string, unknown> | undefined;
+
+        const carousel =
+            typeof carouselRow?.publicConfig === 'object' && carouselRow.publicConfig !== null
+                ? (carouselRow.publicConfig as Record<string, unknown>)
+                : undefined;
         const carouselEnabled = carousel?.enabled === true;
-        const fallbackTitle =
-            (fallbackResult.data?.title as string | undefined) ??
-            (carouselEnabled ? 'Slide carousel' : null);
+        const fallbackTitle = fallbackRow?.title ?? (carouselEnabled ? 'Slide carousel' : null);
 
         return {
             ok: true,

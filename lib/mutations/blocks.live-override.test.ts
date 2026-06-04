@@ -8,11 +8,25 @@ vi.mock('next/cache', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Supabase builder mock (mirrors lib/mutations.test.ts pattern exactly)
+// Mock audit so mutations don't need a real DB for audit logging
+// ---------------------------------------------------------------------------
+vi.mock('@/lib/audit/audit', () => ({
+    auditedMutation: vi.fn(async (_meta: unknown, fn: () => Promise<void>) => fn()),
+    recordAuditEvent: vi.fn(async () => undefined),
+}));
+
+// ---------------------------------------------------------------------------
+// Drizzle D1 mock (mirrors lib/mutations.test.ts pattern exactly)
+//
+// Two-object split:
+//   dbHandle  — non-thenable, returned by getDb(). Exposes insert/select/update/delete.
+//   drizzleMock — thenable query builder, returned by every chain method.
+// Keeping them separate prevents Promise.resolve(builder) from unwrapping the
+// thenable when resolving getDb().
 // ---------------------------------------------------------------------------
 type MockResult = { data: unknown; error: unknown };
 
-function makeSupabaseMock() {
+const { dbHandle, drizzleMock } = vi.hoisted(() => {
     let _result: MockResult = { data: null, error: null };
 
     const builder: Record<string, unknown> & {
@@ -25,34 +39,68 @@ function makeSupabaseMock() {
         get _result() {
             return _result;
         },
+        values: vi.fn().mockReturnThis(),
+        onConflictDoUpdate: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        insert: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
-        upsert: vi.fn().mockReturnThis(),
-        delete: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockImplementation(() => {
+            if (_result.error) {
+                return Promise.reject(_result.error);
+            }
+
+            return Promise.resolve(
+                Array.isArray(_result.data) ? _result.data : _result.data ? [_result.data] : [],
+            );
+        }),
+        set: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         gte: vi.fn().mockReturnThis(),
         lt: vi.fn().mockReturnThis(),
         in: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockImplementation(function () {
-            return Promise.resolve(_result);
+        order: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        returning: vi.fn().mockImplementation(() => {
+            if (_result.error) {
+                return Promise.reject(_result.error);
+            }
+
+            return Promise.resolve(
+                Array.isArray(_result.data) ? _result.data : _result.data ? [_result.data] : [],
+            );
         }),
-        single: vi.fn().mockImplementation(function () {
-            return Promise.resolve(_result);
-        }),
-        then: vi.fn().mockImplementation(function (resolve: (value: MockResult) => void) {
-            return Promise.resolve(_result).then(resolve);
-        }),
+        // Thenable: makes `await db.insert(...).values(...)` and bare
+        // `await db.select(...).from(...).where(...)` work without .limit/.returning.
+        then: vi
+            .fn()
+            .mockImplementation(
+                (resolve: (value: unknown) => void, reject: (reason: unknown) => void) => {
+                    if (_result.error) {
+                        return Promise.reject(_result.error).then(resolve, reject);
+                    }
+
+                    const val = Array.isArray(_result.data)
+                        ? _result.data
+                        : _result.data
+                          ? [_result.data]
+                          : [];
+
+                    return Promise.resolve(val).then(resolve, reject);
+                },
+            ),
     };
 
-    return builder;
-}
+    const handle = {
+        insert: vi.fn(() => builder),
+        select: vi.fn(() => builder),
+        update: vi.fn(() => builder),
+        delete: vi.fn(() => builder),
+    };
 
-const supabaseMock = makeSupabaseMock();
+    return { dbHandle: handle, drizzleMock: builder };
+});
 
-vi.mock('@/lib/supabase/server', () => ({
-    createServiceClient: vi.fn(() => supabaseMock),
+vi.mock('@/lib/db/client', () => ({
+    getDb: vi.fn(async () => dbHandle),
 }));
 
 // ---------------------------------------------------------------------------
@@ -117,29 +165,59 @@ import { LIVE_ESTIMATED_DURATION_SECONDS } from '../live-object';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+function rewireBuilder() {
+    (drizzleMock.values as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.onConflictDoUpdate as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.from as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.where as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.set as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.eq as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.gte as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.lt as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.in as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.order as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.orderBy as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.limit as ReturnType<typeof vi.fn>).mockImplementation(() => {
+        const r = drizzleMock._result;
+
+        if (r.error) {
+            return Promise.reject(r.error);
+        }
+
+        return Promise.resolve(Array.isArray(r.data) ? r.data : r.data ? [r.data] : []);
+    });
+    (drizzleMock.returning as ReturnType<typeof vi.fn>).mockImplementation(() => {
+        const r = drizzleMock._result;
+
+        if (r.error) {
+            return Promise.reject(r.error);
+        }
+
+        return Promise.resolve(Array.isArray(r.data) ? r.data : r.data ? [r.data] : []);
+    });
+    (drizzleMock.then as ReturnType<typeof vi.fn>).mockImplementation(
+        (resolve: (value: unknown) => void, reject: (reason: unknown) => void) => {
+            const r = drizzleMock._result;
+
+            if (r.error) {
+                return Promise.reject(r.error).then(resolve, reject);
+            }
+
+            const val = Array.isArray(r.data) ? r.data : r.data ? [r.data] : [];
+
+            return Promise.resolve(val).then(resolve, reject);
+        },
+    );
+    dbHandle.insert.mockReturnValue(drizzleMock);
+    dbHandle.select.mockReturnValue(drizzleMock);
+    dbHandle.update.mockReturnValue(drizzleMock);
+    dbHandle.delete.mockReturnValue(drizzleMock);
+}
+
 function resetMocks() {
     vi.clearAllMocks();
-    supabaseMock.setResult({ data: null, error: null });
-    (supabaseMock.from as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.select as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.insert as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.update as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.upsert as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.delete as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.eq as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.gte as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.lt as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.in as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.maybeSingle as ReturnType<typeof vi.fn>).mockImplementation(() =>
-        Promise.resolve(supabaseMock._result),
-    );
-    (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() =>
-        Promise.resolve(supabaseMock._result),
-    );
-    (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-        (resolve: (value: MockResult) => void) =>
-            Promise.resolve(supabaseMock._result).then(resolve),
-    );
+    drizzleMock.setResult({ data: null, error: null });
+    rewireBuilder();
     getScheduleForDateMock.mockResolvedValue(emptySchedule);
 }
 
@@ -152,23 +230,12 @@ describe('scheduleLiveObjectOverride', () => {
     });
 
     it('happy path: creates the live block when no overlap exists', async () => {
-        supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
-        getScheduleForDateMock.mockResolvedValue(emptySchedule);
-
-        // Second call (insert) returns the created block
-        let callCount = 0;
-        (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() => {
-            callCount++;
-
-            if (callCount === 1) {
-                return Promise.resolve({ data: { id: 'day-1' }, error: null });
-            }
-
-            return Promise.resolve({
-                data: { id: 'live-block-1', start_time_seconds: 32400 },
-                error: null,
-            });
-        });
+        // ensureProgramDay: insert+onConflictDoUpdate resolves ok, then select returns day row.
+        // The live block insert: .returning() returns the created block row.
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
+        (drizzleMock.returning as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+            { id: 'live-block-1', start_time_seconds: 32400 },
+        ]);
 
         const result = await scheduleLiveObjectOverride({
             date: '2026-06-03',
@@ -183,13 +250,13 @@ describe('scheduleLiveObjectOverride', () => {
         if (result.success) {
             expect(result.data.id).toBe('live-block-1');
         }
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
-                block_type: 'video',
+                blockType: 'video',
                 category: 'broadcast',
-                duration_seconds: LIVE_ESTIMATED_DURATION_SECONDS,
+                durationSeconds: LIVE_ESTIMATED_DURATION_SECONDS,
                 status: 'ready',
-                hide_overlays: true,
+                hideOverlays: true,
                 metadata: expect.objectContaining({ live_object: true }),
             }),
         );
@@ -202,21 +269,10 @@ describe('scheduleLiveObjectOverride', () => {
         // the live block must coexist on top and the schedule must be untouched.
         getScheduleForDateMock.mockResolvedValue(scheduleWithConflict);
 
-        let callCount = 0;
-        (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() => {
-            callCount++;
-
-            if (callCount === 1) {
-                // ensureProgramDay upsert
-                return Promise.resolve({ data: { id: 'day-1' }, error: null });
-            }
-
-            // live block insert
-            return Promise.resolve({
-                data: { id: 'live-block-new', start_time_seconds: 32400 },
-                error: null,
-            });
-        });
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
+        (drizzleMock.returning as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+            { id: 'live-block-new', start_time_seconds: 32400 },
+        ]);
 
         const result = await scheduleLiveObjectOverride({
             date: '2026-06-03',
@@ -229,7 +285,7 @@ describe('scheduleLiveObjectOverride', () => {
         expect(result.success).toBe(true);
 
         // No scheduled block may be archived or otherwise updated by the overlay.
-        const updateCalls = (supabaseMock.update as ReturnType<typeof vi.fn>).mock.calls;
+        const updateCalls = (dbHandle.update as ReturnType<typeof vi.fn>).mock.calls;
         const archiveCall = updateCalls.find(
             (call) =>
                 typeof call[0] === 'object' &&
@@ -237,13 +293,12 @@ describe('scheduleLiveObjectOverride', () => {
                 (call[0] as Record<string, unknown>).status === 'archived',
         );
         expect(archiveCall).toBeUndefined();
-        expect(supabaseMock.update).not.toHaveBeenCalled();
 
         // The live block is inserted on top of the existing schedule.
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
                 category: 'broadcast',
-                duration_seconds: LIVE_ESTIMATED_DURATION_SECONDS,
+                durationSeconds: LIVE_ESTIMATED_DURATION_SECONDS,
                 metadata: expect.objectContaining({
                     live_object: true,
                     live_source_type: 'youtube',
@@ -252,20 +307,14 @@ describe('scheduleLiveObjectOverride', () => {
         );
     });
 
-    it('error path: returns err when supabase insert fails (no blocks archived without live block)', async () => {
+    it('error path: returns err when D1 insert fails (no blocks archived without live block)', async () => {
         getScheduleForDateMock.mockResolvedValue(scheduleWithConflict);
 
-        let callCount = 0;
-        (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() => {
-            callCount++;
-
-            if (callCount === 1) {
-                return Promise.resolve({ data: { id: 'day-1' }, error: null });
-            }
-
-            // Live block insert fails
-            return Promise.resolve({ data: null, error: new Error('DB constraint violation') });
-        });
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
+        // Live block insert fails — returning() rejects
+        (drizzleMock.returning as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+            new Error('DB constraint violation'),
+        );
 
         const result = await scheduleLiveObjectOverride({
             date: '2026-06-03',
@@ -283,7 +332,7 @@ describe('scheduleLiveObjectOverride', () => {
     });
 
     it('error path: returns err for invalid live URL', async () => {
-        supabaseMock.setResult({ data: { id: 'day-1' }, error: null });
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
 
         const result = await scheduleLiveObjectOverride({
             date: '2026-06-03',
@@ -297,7 +346,18 @@ describe('scheduleLiveObjectOverride', () => {
             success: false,
             error: 'Live URL must be a YouTube video link or HLS .m3u8 URL',
         });
-        expect(supabaseMock.insert).not.toHaveBeenCalled();
+        // ensureProgramDay runs before URL validation, so programDays insert fires once.
+        // The live block insert (programBlocks with blockType: 'video') must NOT happen.
+        const liveBlockInsertCalls = (
+            drizzleMock.values as ReturnType<typeof vi.fn>
+        ).mock.calls.filter(
+            (call) =>
+                typeof call[0] === 'object' &&
+                call[0] !== null &&
+                !Array.isArray(call[0]) &&
+                (call[0] as Record<string, unknown>).blockType === 'video',
+        );
+        expect(liveBlockInsertCalls).toHaveLength(0);
     });
 
     it('leaves every existing scheduled block untouched (no archive, no shift)', async () => {
@@ -316,19 +376,10 @@ describe('scheduleLiveObjectOverride', () => {
             blocks: [baseBlock, laterBlock],
         });
 
-        let callCount = 0;
-        (supabaseMock.single as ReturnType<typeof vi.fn>).mockImplementation(() => {
-            callCount++;
-
-            if (callCount === 1) {
-                return Promise.resolve({ data: { id: 'day-1' }, error: null });
-            }
-
-            return Promise.resolve({
-                data: { id: 'live-block-new', start_time_seconds: 32400 },
-                error: null,
-            });
-        });
+        drizzleMock.setResult({ data: { id: 'day-1' }, error: null });
+        (drizzleMock.returning as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+            { id: 'live-block-new', start_time_seconds: 32400 },
+        ]);
 
         const result = await scheduleLiveObjectOverride({
             date: '2026-06-03',
@@ -340,12 +391,19 @@ describe('scheduleLiveObjectOverride', () => {
 
         expect(result.success).toBe(true);
 
-        // No existing block is updated in any way (no archive, no shift).
-        expect(supabaseMock.update).not.toHaveBeenCalled();
+        // No existing block is updated with status archived (no archive, no shift).
+        const setArchiveCalls = (drizzleMock.set as ReturnType<typeof vi.fn>).mock.calls.filter(
+            (call) =>
+                typeof call[0] === 'object' &&
+                call[0] !== null &&
+                (call[0] as Record<string, unknown>).status === 'archived',
+        );
+        expect(setArchiveCalls).toHaveLength(0);
+
         // The live overlay block is inserted.
-        expect(supabaseMock.insert).toHaveBeenCalledWith(
+        expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
-                duration_seconds: LIVE_ESTIMATED_DURATION_SECONDS,
+                durationSeconds: LIVE_ESTIMATED_DURATION_SECONDS,
                 metadata: expect.objectContaining({ live_object: true }),
             }),
         );

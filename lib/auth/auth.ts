@@ -1,8 +1,11 @@
 import { cookies } from 'next/headers';
 import crypto from 'node:crypto';
 
+import { eq } from 'drizzle-orm';
+
 import { ADMIN_SESSION_COOKIE } from './auth-constants';
-import { createServiceClient } from '../supabase/server';
+import { adminOperators, adminSessions } from '../db/schema';
+import { getDb } from '../db/client';
 
 export { ADMIN_SESSION_COOKIE } from './auth-constants';
 
@@ -47,11 +50,11 @@ export async function revokeCurrentOperatorSession() {
 
     if (sessionToken) {
         try {
-            const supabase = createServiceClient();
-            await supabase
-                .from('admin_sessions')
-                .update({ revoked_at: new Date().toISOString() })
-                .eq('session_hash', hashSecret(sessionToken));
+            const db = await getDb();
+            await db
+                .update(adminSessions)
+                .set({ revokedAt: new Date().toISOString() })
+                .where(eq(adminSessions.sessionHash, hashSecret(sessionToken)));
         } catch {
             // Logout must still clear browser access if the revoke write fails.
         }
@@ -127,46 +130,51 @@ export async function createOperatorSession(input: {
 
         return { token: input.token, session: bootstrapSession() };
     }
-    const supabase = createServiceClient();
-    const { data, error } = await supabase
-        .from('admin_operators')
-        .select('id, handle, display_name, role, token_hash, status')
-        .eq('handle', handle)
-        .eq('status', 'active')
-        .maybeSingle();
+    const db = await getDb();
+    const [operatorRow] = await db
+        .select({
+            id: adminOperators.id,
+            handle: adminOperators.handle,
+            displayName: adminOperators.displayName,
+            role: adminOperators.role,
+            tokenHash: adminOperators.tokenHash,
+            status: adminOperators.status,
+        })
+        .from(adminOperators)
+        .where(eq(adminOperators.handle, handle))
+        .limit(1);
 
-    if (error) {
-        throw error;
+    if (!operatorRow || operatorRow.status !== 'active') {
+        return null;
     }
 
-    if (!data?.id || !safeEqual(hashSecret(input.token), String(data.token_hash))) {
+    if (!safeEqual(hashSecret(input.token), operatorRow.tokenHash)) {
         return null;
     }
 
     const sessionToken = crypto.randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 12).toISOString();
-    const { data: inserted, error: insertError } = await supabase
-        .from('admin_sessions')
-        .insert({
-            operator_id: String(data.id),
-            session_hash: hashSecret(sessionToken),
-            expires_at: expiresAt,
+    const [inserted] = await db
+        .insert(adminSessions)
+        .values({
+            operatorId: operatorRow.id,
+            sessionHash: hashSecret(sessionToken),
+            expiresAt,
         })
-        .select('id')
-        .single();
+        .returning({ id: adminSessions.id });
 
-    if (insertError) {
-        throw insertError;
+    if (!inserted) {
+        throw new Error('Failed to create session');
     }
 
     return {
         token: sessionToken,
         session: {
-            operatorId: String(data.id),
-            handle: String(data.handle),
-            displayName: String(data.display_name),
-            role: String(data.role) as OperatorRole,
-            sessionId: String(inserted.id),
+            operatorId: operatorRow.id,
+            handle: operatorRow.handle,
+            displayName: operatorRow.displayName,
+            role: operatorRow.role as OperatorRole,
+            sessionId: inserted.id,
         },
     };
 }
@@ -179,36 +187,47 @@ export async function getCurrentOperatorSession(): Promise<OperatorSession | nul
         if (!sessionToken) {
             return null;
         }
-        const supabase = createServiceClient();
-        const { data, error } = await supabase
-            .from('admin_sessions')
-            .select(
-                'id, expires_at, revoked_at, admin_operators(id, handle, display_name, role, status)',
-            )
-            .eq('session_hash', hashSecret(sessionToken))
-            .maybeSingle();
+        const db = await getDb();
+        const [sessionRow] = await db
+            .select({
+                id: adminSessions.id,
+                expiresAt: adminSessions.expiresAt,
+                revokedAt: adminSessions.revokedAt,
+                operatorId: adminSessions.operatorId,
+            })
+            .from(adminSessions)
+            .where(eq(adminSessions.sessionHash, hashSecret(sessionToken)))
+            .limit(1);
 
-        if (error) {
-            throw error;
-        }
-
-        if (!data || data.revoked_at || new Date(String(data.expires_at)).getTime() <= Date.now()) {
+        if (
+            !sessionRow ||
+            sessionRow.revokedAt ||
+            new Date(sessionRow.expiresAt).getTime() <= Date.now()
+        ) {
             return null;
         }
-        const operatorRow = Array.isArray(data.admin_operators)
-            ? data.admin_operators[0]
-            : data.admin_operators;
+        const [operatorRow] = await db
+            .select({
+                id: adminOperators.id,
+                handle: adminOperators.handle,
+                displayName: adminOperators.displayName,
+                role: adminOperators.role,
+                status: adminOperators.status,
+            })
+            .from(adminOperators)
+            .where(eq(adminOperators.id, sessionRow.operatorId))
+            .limit(1);
 
-        if (!operatorRow || String(operatorRow.status) !== 'active') {
+        if (!operatorRow || operatorRow.status !== 'active') {
             return null;
         }
 
         return {
-            operatorId: String(operatorRow.id),
-            handle: String(operatorRow.handle),
-            displayName: String(operatorRow.display_name),
-            role: String(operatorRow.role) as OperatorRole,
-            sessionId: String(data.id),
+            operatorId: operatorRow.id,
+            handle: operatorRow.handle,
+            displayName: operatorRow.displayName,
+            role: operatorRow.role as OperatorRole,
+            sessionId: sessionRow.id,
         };
     } catch {
         return null;

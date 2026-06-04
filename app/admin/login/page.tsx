@@ -34,20 +34,28 @@ export default async function LoginPage({
         });
         const formReturnTo = safeAdminReturnTo(String(formData.get('return_to') ?? ''));
 
-        if (parsed.success) {
-            const handle = parsed.data.handle?.trim().toLowerCase() || 'bootstrap';
-            await assertRateLimit({
-                scope: `login:${handle === 'bootstrap' ? handle : hashSecret(handle)}`,
-                limit: 10,
-                windowSeconds: 60,
-            });
+        let session: Awaited<ReturnType<typeof createOperatorSession>> = null;
+
+        try {
+            if (parsed.success) {
+                const handle = parsed.data.handle?.trim().toLowerCase() || 'bootstrap';
+                await assertRateLimit({
+                    scope: `login:${handle === 'bootstrap' ? handle : hashSecret(handle)}`,
+                    limit: 10,
+                    windowSeconds: 60,
+                });
+                session = await createOperatorSession({
+                    ...(parsed.data.handle ? { handle: parsed.data.handle } : {}),
+                    token: parsed.data.token,
+                });
+            }
+        } catch (error) {
+            if (error instanceof Error && error.message === 'Rate limit exceeded') {
+                redirect(`/admin/login?error=rate&return_to=${encodeURIComponent(formReturnTo)}`);
+            }
+            console.error('[app/admin/login] auth backend error', error);
+            redirect(`/admin/login?error=backend&return_to=${encodeURIComponent(formReturnTo)}`);
         }
-        const session = parsed.success
-            ? await createOperatorSession({
-                  ...(parsed.data.handle ? { handle: parsed.data.handle } : {}),
-                  token: parsed.data.token,
-              })
-            : null;
 
         if (!parsed.success || !session) {
             redirect(`/admin/login?error=1&return_to=${encodeURIComponent(formReturnTo)}`);
@@ -130,6 +138,22 @@ function LoginNotice({
 
     if (!params.error) {
         return null;
+    }
+
+    if (params.error === 'rate') {
+        return (
+            <p className="mt-3 rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger-strong">
+                Too many attempts. Wait a minute and try again.
+            </p>
+        );
+    }
+
+    if (params.error === 'backend') {
+        return (
+            <p className="mt-3 rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger-strong">
+                Login service is temporarily unavailable. Check server configuration and try again.
+            </p>
+        );
     }
 
     return (

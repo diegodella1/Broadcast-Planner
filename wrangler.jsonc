@@ -1,40 +1,38 @@
 {
     // ─── Required secrets (set out-of-band, NEVER commit) ───────────────────────
-    // wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-    // wrangler secret put APP_ENCRYPTION_KEY
-    // wrangler secret put ADMIN_BOOTSTRAP_TOKEN
+    // wrangler secret put APP_ENCRYPTION_KEY           (decrypts stored Vimeo/Reuters creds)
+    // wrangler secret put ADMIN_BOOTSTRAP_TOKEN        (admin bootstrap login)
     // wrangler secret put VIMEO_ACCESS_TOKEN          (optional; falls back to encrypted DB value)
     // wrangler secret put REUTERS_CLIENT_ID            (only when REUTERS_PROVIDER=real)
     // wrangler secret put REUTERS_CLIENT_SECRET        (only when REUTERS_PROVIDER=real)
     // wrangler secret put REUTERS_REFRESH_TOKEN        (only when REUTERS_PROVIDER=real)
     //
+    // Data: Cloudflare D1 (binding DB) + R2 (binding MEDIA_BUCKET) — see blocks below.
+    // Migrated off Supabase 2026-06-04; no SUPABASE_* / NEXT_PUBLIC_SUPABASE_* needed.
+    //
     // Per-environment dashboard env vars (NOT secrets, but per-env config):
-    //   Set these in the Cloudflare dashboard under Workers & Pages > roxom-playout-manager > Settings > Variables
-    //   NEXT_PUBLIC_SUPABASE_URL      (e.g. https://xxxxx.supabase.co)
-    //   NEXT_PUBLIC_SUPABASE_ANON_KEY (public anon key from Supabase dashboard)
-    //   NEXT_PUBLIC_APP_BASE_URL      (e.g. https://roxomtv.com)
+    //   Set in Cloudflare dashboard > Workers & Pages > roxom-playout-manager > Settings > Variables
+    //   NEXT_PUBLIC_APP_BASE_URL      (e.g. https://roxomtv.com) — build-time inlined
     // ────────────────────────────────────────────────────────────────────────────
-
     "name": "roxom-playout-manager",
     "main": ".open-next/worker.js",
     "compatibility_date": "2026-04-15",
     "compatibility_flags": ["nodejs_compat"],
-
     // Preserve dashboard env vars + secrets on every deploy, regardless of
     // CLI flag or CF Workers Builds dashboard build command. Defensive guard
     // against `wrangler deploy` raw wiping dashboard variables.
     "keep_vars": true,
-
+    // ─── Named env blocks ────────────────────────────────────────────────────────
+    // IMPORTANT: Named envs (--env dev / --env prod) do NOT inherit top-level
+    // bindings. Every binding used by a named env MUST be re-declared inside
+    // its env block. The top-level bindings below serve `wrangler dev` (no
+    // --env flag) and the bare `deploy` / `cf:deploy` scripts.
+    // ────────────────────────────────────────────────────────────────────────────
     "assets": {
         "directory": ".open-next/assets",
         "binding": "ASSETS",
     },
-
     // ─── Slide-data KV cache (Phase E1) ─────────────────────────────────────────
-    // Edge cache layer in front of /api/slide-data/* routes. Per-route TTLs
-    // (10–600 s) align with upstream rtv-api refresh cadence. The helper
-    // `lib/helpers/kv-cache.ts` reads through this binding on a hit and writes
-    // through on a miss; missing binding falls back to the upstream fetcher.
     "kv_namespaces": [
         {
             "binding": "SLIDE_DATA_KV",
@@ -42,4 +40,91 @@
             "preview_id": "1592b3ff06a44ae9b3aee486420382eb",
         },
     ],
+    // ─── D1 database (Phase D1 migration) ───────────────────────────────────────
+    // Run `wrangler d1 create rtv-tl-manager-db` to provision and replace the
+    // PLACEHOLDER below with the real database_id printed by that command.
+    "d1_databases": [
+        {
+            "binding": "DB",
+            "database_name": "rtv-tl-manager-db",
+            "database_id": "f698737f-1c28-434d-8218-9304b9461423",
+            "migrations_dir": "./drizzle",
+        },
+    ],
+    // ─── R2 media storage (Phase R2 migration) ───────────────────────────────────
+    // Run `wrangler r2 bucket create rtv-tl-manager-media` to provision.
+    "r2_buckets": [
+        {
+            "binding": "MEDIA_BUCKET",
+            "bucket_name": "rtv-tl-manager-media",
+        },
+    ],
+    // ─── Named env: dev ──────────────────────────────────────────────────────────
+    // Used by: npm run deploy:dev  →  wrangler deploy --keep-vars --env dev
+    // Run `wrangler d1 create rtv-tl-manager-db-dev` and replace PLACEHOLDER_DEV_D1_ID.
+    // Run `wrangler r2 bucket create rtv-tl-manager-media-dev` for the dev R2 bucket.
+    "env": {
+        "dev": {
+            "name": "roxom-playout-manager-dev",
+            "keep_vars": true,
+            "assets": {
+                "directory": ".open-next/assets",
+                "binding": "ASSETS",
+            },
+            "kv_namespaces": [
+                {
+                    "binding": "SLIDE_DATA_KV",
+                    "id": "9f83185620c54181a75c0462fd906193",
+                    "preview_id": "1592b3ff06a44ae9b3aee486420382eb",
+                },
+            ],
+            "d1_databases": [
+                {
+                    "binding": "DB",
+                    "database_name": "rtv-tl-manager-db-dev",
+                    "database_id": "2e6532c4-e8a9-49d5-99c6-76c70a71fca1",
+                    "migrations_dir": "./drizzle",
+                },
+            ],
+            "r2_buckets": [
+                {
+                    "binding": "MEDIA_BUCKET",
+                    "bucket_name": "rtv-tl-manager-media-dev",
+                },
+            ],
+        },
+        // ─── Named env: prod ─────────────────────────────────────────────────────
+        // Used by: npm run deploy:prod  →  wrangler deploy --keep-vars --env prod
+        // Shares the same D1 + R2 ids as the top-level (production) bindings.
+        // Replace PLACEHOLDER_PROD_D1_ID once `wrangler d1 create rtv-tl-manager-db` runs.
+        "prod": {
+            "name": "roxom-playout-manager",
+            "keep_vars": true,
+            "assets": {
+                "directory": ".open-next/assets",
+                "binding": "ASSETS",
+            },
+            "kv_namespaces": [
+                {
+                    "binding": "SLIDE_DATA_KV",
+                    "id": "9f83185620c54181a75c0462fd906193",
+                    "preview_id": "1592b3ff06a44ae9b3aee486420382eb",
+                },
+            ],
+            "d1_databases": [
+                {
+                    "binding": "DB",
+                    "database_name": "rtv-tl-manager-db",
+                    "database_id": "f698737f-1c28-434d-8218-9304b9461423",
+                    "migrations_dir": "./drizzle",
+                },
+            ],
+            "r2_buckets": [
+                {
+                    "binding": "MEDIA_BUCKET",
+                    "bucket_name": "rtv-tl-manager-media",
+                },
+            ],
+        },
+    },
 }

@@ -41,12 +41,20 @@ vi.mock('@/lib/mutations/blocks', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Supabase builder mock — mirrors mutations.test.ts pattern.
-// fetchInsertedBlockId and logManualBroadcast both call createServiceClient.
+// Mock audit so logManualBroadcast does not need a real DB
+// ---------------------------------------------------------------------------
+vi.mock('@/lib/audit/audit', () => ({
+    auditedMutation: vi.fn(async (_meta: unknown, fn: () => Promise<void>) => fn()),
+    recordAuditEvent: vi.fn(async () => undefined),
+}));
+
+// ---------------------------------------------------------------------------
+// Drizzle D1 mock — mirrors mutations.test.ts pattern.
+// fetchInsertedBlockId calls getDb() → select().from().where().limit() twice.
 // ---------------------------------------------------------------------------
 type MockResult = { data: unknown; error: unknown };
 
-function makeSupabaseMock() {
+function makeDrizzleMock() {
     let _result: MockResult = { data: null, error: null };
 
     const builder: Record<string, unknown> & {
@@ -59,30 +67,51 @@ function makeSupabaseMock() {
         get _result() {
             return _result;
         },
-        from: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
         insert: vi.fn().mockReturnThis(),
+        values: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
         update: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
         upsert: vi.fn().mockReturnThis(),
         delete: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockImplementation(function () {
+            const r = _result;
+
+            if (r.error) {
+                return Promise.reject(r.error);
+            }
+
+            return Promise.resolve(Array.isArray(r.data) ? r.data : r.data ? [r.data] : []);
+        }),
         maybeSingle: vi.fn().mockImplementation(function () {
             return Promise.resolve(_result);
         }),
-        then: vi.fn().mockImplementation(function (resolve: (value: MockResult) => void) {
-            return Promise.resolve(_result).then(resolve);
+        then: vi.fn().mockImplementation(function (
+            resolve: (value: unknown) => void,
+            reject: (reason: unknown) => void,
+        ) {
+            const r = _result;
+
+            if (r.error) {
+                return Promise.reject(r.error).then(resolve, reject);
+            }
+
+            return Promise.resolve(r.data).then(resolve, reject);
         }),
     };
 
     return builder;
 }
 
-const supabaseMock = makeSupabaseMock();
+const drizzleMock = makeDrizzleMock();
 
-vi.mock('@/lib/supabase/server', () => ({
-    createServiceClient: vi.fn(() => supabaseMock),
+vi.mock('@/lib/db/client', () => ({
+    getDb: vi.fn(async () => drizzleMock),
 }));
 
 // ---------------------------------------------------------------------------
@@ -138,22 +167,42 @@ function makeVimeoVideo(overrides: Partial<VimeoVideo> = {}): VimeoVideo {
 // ---------------------------------------------------------------------------
 function resetMocks() {
     vi.clearAllMocks();
-    supabaseMock.setResult({ data: null, error: null });
-    (supabaseMock.from as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.select as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.insert as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.update as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.upsert as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.delete as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.eq as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.order as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.limit as ReturnType<typeof vi.fn>).mockReturnThis();
-    (supabaseMock.maybeSingle as ReturnType<typeof vi.fn>).mockImplementation(() =>
-        Promise.resolve(supabaseMock._result),
+    drizzleMock.setResult({ data: null, error: null });
+
+    (drizzleMock.insert as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.values as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.select as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.from as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.where as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.update as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.set as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.upsert as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.delete as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.eq as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.order as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.orderBy as ReturnType<typeof vi.fn>).mockReturnThis();
+    (drizzleMock.limit as ReturnType<typeof vi.fn>).mockImplementation(() => {
+        const r = drizzleMock._result;
+
+        if (r.error) {
+            return Promise.reject(r.error);
+        }
+
+        return Promise.resolve(Array.isArray(r.data) ? r.data : r.data ? [r.data] : []);
+    });
+    (drizzleMock.maybeSingle as ReturnType<typeof vi.fn>).mockImplementation(() =>
+        Promise.resolve(drizzleMock._result),
     );
-    (supabaseMock.then as ReturnType<typeof vi.fn>).mockImplementation(
-        (resolve: (value: MockResult) => void) =>
-            Promise.resolve(supabaseMock._result).then(resolve),
+    (drizzleMock.then as ReturnType<typeof vi.fn>).mockImplementation(
+        (resolve: (value: unknown) => void, reject: (reason: unknown) => void) => {
+            const r = drizzleMock._result;
+
+            if (r.error) {
+                return Promise.reject(r.error).then(resolve, reject);
+            }
+
+            return Promise.resolve(r.data).then(resolve, reject);
+        },
     );
 }
 
@@ -220,8 +269,8 @@ describe('goLiveWithVimeo', () => {
             success: true,
             data: { id: 'block-created', startTimeSeconds: 0 },
         });
-        // fetchInsertedBlockId: program_days query returns null, so programBlockId falls back to ""
-        supabaseMock.setResult({ data: null, error: null });
+        // fetchInsertedBlockId: select queries return null rows → programBlockId falls back to ""
+        drizzleMock.setResult({ data: null, error: null });
 
         const result = await goLiveWithVimeo({ vimeoUri: '/videos/123' });
 
@@ -245,7 +294,7 @@ describe('goLiveWithVimeo', () => {
             success: true,
             data: { id: 'block-created', startTimeSeconds: 0 },
         });
-        supabaseMock.setResult({ data: null, error: null });
+        drizzleMock.setResult({ data: null, error: null });
 
         await goLiveWithVimeo({ vimeoUri: '/videos/999' });
 
@@ -262,7 +311,7 @@ describe('goLiveWithVimeo', () => {
             success: true,
             data: { id: 'block-created', startTimeSeconds: 0 },
         });
-        supabaseMock.setResult({ data: null, error: null });
+        drizzleMock.setResult({ data: null, error: null });
 
         await goLiveWithVimeo({ vimeoUri: '/videos/999' });
 
@@ -284,7 +333,7 @@ describe('goLiveWithVimeo', () => {
             success: true,
             data: { id: 'block-created', startTimeSeconds: 0 },
         });
-        supabaseMock.setResult({ data: null, error: null });
+        drizzleMock.setResult({ data: null, error: null });
 
         await goLiveWithVimeo({ vimeoUri: '/videos/123' });
 
@@ -303,7 +352,7 @@ describe('goLiveWithVimeo', () => {
             success: true,
             data: { id: 'block-created', startTimeSeconds: 0 },
         });
-        supabaseMock.setResult({ data: null, error: null });
+        drizzleMock.setResult({ data: null, error: null });
 
         await goLiveWithVimeo({ vimeoUri: '/videos/123' });
 
@@ -336,7 +385,7 @@ describe('scheduleVimeoBlock', () => {
             success: true,
             data: { id: 'block-created', startTimeSeconds: 0 },
         });
-        supabaseMock.setResult({ data: null, error: null });
+        drizzleMock.setResult({ data: null, error: null });
 
         await scheduleVimeoBlock({ vimeoUri: '/videos/123', startAt: '14:30' });
 
@@ -354,7 +403,7 @@ describe('scheduleVimeoBlock', () => {
             success: true,
             data: { id: 'block-created', startTimeSeconds: 0 },
         });
-        supabaseMock.setResult({ data: null, error: null });
+        drizzleMock.setResult({ data: null, error: null });
 
         await scheduleVimeoBlock({
             vimeoUri: '/videos/123',
@@ -375,7 +424,7 @@ describe('scheduleVimeoBlock', () => {
             success: true,
             data: { id: 'block-created', startTimeSeconds: 0 },
         });
-        supabaseMock.setResult({ data: null, error: null });
+        drizzleMock.setResult({ data: null, error: null });
 
         // Freeze time to a known instant so the derived date is predictable
         const fakeNow = new Date('2026-05-08T12:00:00Z');
@@ -434,7 +483,7 @@ describe('goLiveWithReuters', () => {
             success: true,
             data: { id: 'block-created', startTimeSeconds: 0 },
         });
-        supabaseMock.setResult({ data: null, error: null });
+        drizzleMock.setResult({ data: null, error: null });
 
         await goLiveWithReuters({ assetId: '11111111-1111-1111-1111-111111111111' });
 
@@ -455,7 +504,7 @@ describe('goLiveWithReuters', () => {
             success: true,
             data: { id: 'block-created', startTimeSeconds: 0 },
         });
-        supabaseMock.setResult({ data: null, error: null });
+        drizzleMock.setResult({ data: null, error: null });
 
         await goLiveWithReuters({ assetId: '11111111-1111-1111-1111-111111111111' });
 
@@ -488,7 +537,7 @@ describe('scheduleReutersBlock', () => {
             success: true,
             data: { id: 'block-created', startTimeSeconds: 0 },
         });
-        supabaseMock.setResult({ data: null, error: null });
+        drizzleMock.setResult({ data: null, error: null });
 
         await scheduleReutersBlock({
             assetId: '22222222-2222-2222-2222-222222222222',
@@ -507,7 +556,7 @@ describe('scheduleReutersBlock', () => {
             success: true,
             data: { id: 'block-created', startTimeSeconds: 0 },
         });
-        supabaseMock.setResult({ data: null, error: null });
+        drizzleMock.setResult({ data: null, error: null });
 
         await scheduleReutersBlock({
             assetId: '22222222-2222-2222-2222-222222222222',

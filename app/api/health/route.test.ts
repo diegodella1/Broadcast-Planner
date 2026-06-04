@@ -2,15 +2,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GET } from './route';
 
-import { createServiceClient } from '@/lib/supabase/server';
+// ---------------------------------------------------------------------------
+// Mock the new D1/R2 data layer
+// ---------------------------------------------------------------------------
+const mockList = vi.fn();
+
+vi.mock('@/lib/db/client', () => ({
+    getDb: vi.fn(async () => makeDbMock()),
+}));
+
+vi.mock('@/lib/storage/r2', () => ({
+    getMediaBucket: vi.fn(async () => ({ list: mockList })),
+}));
 
 vi.mock('@/lib/settings', () => ({
     getVimeoSettings: vi.fn(async () => ({ status: 'ready', hasSecret: true })),
     getVimeoToken: vi.fn(async () => 'vimeo-token'),
-}));
-
-vi.mock('@/lib/supabase/server', () => ({
-    createServiceClient: vi.fn(),
 }));
 
 vi.mock('@/lib/services/reuters-credentials', () => ({
@@ -31,27 +38,64 @@ vi.mock('@/lib/output-overrides', () => ({
     getActiveOutputOverride: vi.fn(async () => null),
 }));
 
+vi.mock('@/lib/health/smoke-status', () => ({
+    readSmokeStatus: vi.fn(async () => null),
+    isSmokeStatusOk: vi.fn(() => false),
+    isSmokeStatusStale: vi.fn(() => false),
+    smokeStatusMessage: vi.fn(() => 'No smoke status'),
+}));
+
+vi.mock('@/lib/audit/alerts', () => ({
+    notifyHealthFailures: vi.fn(async () => undefined),
+}));
+
+vi.mock('@/lib/auth/auth', () => ({
+    requireAdmin: vi.fn(async () => {
+        throw new Error('Unauthorized');
+    }),
+}));
+
 const originalEnv = { ...process.env };
+
+// Build a minimal Drizzle-shaped chainable object.
+// Each select() returns a chain that resolves via await with { rows }.
+// schemaErrorOnTable lets a test inject an error for the mediaAssets schema check.
+function makeDbMock(schemaErrorOnTable?: string) {
+    return {
+        select: (_fields?: unknown) => ({
+            from: (table: unknown) => ({
+                limit: async (_n: number) => {
+                    if (schemaErrorOnTable && table === schemaErrorOnTable) {
+                        throw new Error(`column does not exist: ${schemaErrorOnTable}`);
+                    }
+
+                    return [];
+                },
+            }),
+        }),
+    };
+}
+
+import { getDb } from '@/lib/db/client';
+import { getMediaBucket } from '@/lib/storage/r2';
 
 describe('GET /api/health', () => {
     beforeEach(() => {
         vi.resetAllMocks();
         process.env = { ...originalEnv };
-        process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
-        process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role';
         process.env.APP_ENCRYPTION_KEY = 'encryption-key';
         process.env.ADMIN_BOOTSTRAP_TOKEN = 'admin-token';
         process.env.OUTPUT_CAPTURE_TOKEN = 'output-token';
         delete process.env.ALLOW_DEMO_DATA;
-        vi.mocked(createServiceClient).mockReturnValue(
-            mockSupabase({ schemaError: null, storageError: null }),
-        );
+
+        // Default: happy-path — DB and storage both succeed
+        vi.mocked(getDb).mockResolvedValue(makeDbMock() as never);
+        mockList.mockResolvedValue({ objects: [] });
+        vi.mocked(getMediaBucket).mockResolvedValue({ list: mockList } as never);
     });
 
-    it('fails when required storage buckets cannot be verified', async () => {
-        vi.mocked(createServiceClient).mockReturnValue(
-            mockSupabase({ schemaError: null, storageError: new Error('storage unavailable') }),
-        );
+    it('fails when required storage bucket cannot be reached', async () => {
+        vi.mocked(getMediaBucket).mockRejectedValue(new Error('storage unavailable'));
 
         const response = await GET();
         const payload = await response.json();
@@ -74,16 +118,32 @@ describe('GET /api/health', () => {
         expect(payload.checks.env.message).toBe('Check failed');
     });
 
-    it('reports degraded schema when Vimeo readiness columns are missing', async () => {
-        vi.mocked(createServiceClient).mockReturnValue(
-            mockSupabase({
-                schemaError: {
-                    code: '42703',
-                    message: 'column media_assets.playback_readiness_status does not exist',
-                },
-                storageError: null,
+    it('reports degraded schema when Vimeo readiness columns cause an error', async () => {
+        // Simulate a schema-drift error only for schema-check selects.
+        // checkSupabase selects only { id }, checkSchema selects { id, playbackReadinessStatus, ... }.
+        // We detect schema-check queries by the presence of a key beyond just "id" in the fields arg.
+        vi.mocked(getDb).mockResolvedValue({
+            select: (fields: Record<string, unknown>) => ({
+                from: () => ({
+                    limit: async () => {
+                        const keys = Object.keys(fields ?? {});
+                        // Only fields unique to checkSchema queries — NOT checkMigrations.
+                        const isSchemaCheck =
+                            keys.includes('playbackReadinessStatus') ||
+                            keys.includes('photoAssetId') ||
+                            keys.includes('templateId');
+
+                        if (isSchemaCheck) {
+                            throw new Error(
+                                'column media_assets.playback_readiness_status does not exist',
+                            );
+                        }
+
+                        return [];
+                    },
+                }),
             }),
-        );
+        } as never);
 
         const response = await GET();
         const payload = await response.json();
@@ -95,36 +155,3 @@ describe('GET /api/health', () => {
         expect(payload.checks.schema.message).toBe('Check degraded');
     });
 });
-
-function mockSupabase({
-    schemaError = null,
-    storageError,
-}: {
-    schemaError?: Error | { code: string; message: string } | null;
-    storageError: Error | null;
-}) {
-    return {
-        from: () => ({
-            select: (columns: string) => ({
-                limit: async () => ({
-                    data: [],
-                    error: columns.includes('playback_readiness_status') ? schemaError : null,
-                }),
-            }),
-        }),
-        storage: {
-            listBuckets: async () =>
-                storageError
-                    ? { data: null, error: storageError }
-                    : {
-                          data: [
-                              { id: 'slide-assets' },
-                              { id: 'graphics' },
-                              { id: 'video-assets' },
-                              { id: 'small-media-assets' },
-                          ],
-                          error: null,
-                      },
-        },
-    } as unknown as ReturnType<typeof createServiceClient>;
-}

@@ -1,8 +1,10 @@
 import { revalidatePath } from 'next/cache';
+import { and, eq } from 'drizzle-orm';
 
 import { auditedMutation } from '../audit/audit';
+import { getDb } from '../db/client';
+import { guests, slideAssets } from '../db/schema';
 import { err, extractError, ok, type Result } from '../result';
-import { createServiceClient } from '../supabase/server';
 
 import { createSlideAsset } from './assets';
 
@@ -45,21 +47,22 @@ function buildGuestRow(input: GuestRowInput) {
         host: input.host || null,
         program: input.program || null,
         category: input.category || 'markets',
-        appearance_at: input.appearanceAt || null,
-        photo_url: input.photoUrl || null,
-        photo_asset_id: input.photoAssetId || null,
-        video_url: input.videoUrl || null,
-        video_asset_id: input.videoAssetId || null,
+        appearanceAt: input.appearanceAt || null,
+        photoUrl: input.photoUrl || null,
+        photoAssetId: input.photoAssetId || null,
+        videoUrl: input.videoUrl || null,
+        videoAssetId: input.videoAssetId || null,
         color: input.color || '#f7931a',
-        sort_order: input.sortOrder ?? 0,
+        sortOrder: input.sortOrder ?? 0,
         status: normalizeGuestStatus(input.status),
     };
 }
 
 export async function createGuest(input: GuestRowInput): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
+        const db = await getDb();
         const row = buildGuestRow(input);
+
         await auditedMutation(
             {
                 action: 'guest.created',
@@ -67,11 +70,7 @@ export async function createGuest(input: GuestRowInput): Promise<Result<void>> {
                 next: { name: row.name, status: row.status },
             },
             async () => {
-                const { error } = await supabase.from('guests').insert(row);
-
-                if (error) {
-                    throw error;
-                }
+                await db.insert(guests).values(row);
             },
         );
         revalidatePath('/admin/guests');
@@ -85,8 +84,9 @@ export async function createGuest(input: GuestRowInput): Promise<Result<void>> {
 
 export async function updateGuest(input: GuestRowInput & { id: string }): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
-        const row = { ...buildGuestRow(input), updated_at: new Date().toISOString() };
+        const db = await getDb();
+        const row = { ...buildGuestRow(input), updatedAt: new Date().toISOString() };
+
         await auditedMutation(
             {
                 action: 'guest.updated',
@@ -95,11 +95,7 @@ export async function updateGuest(input: GuestRowInput & { id: string }): Promis
                 next: { name: row.name, status: row.status },
             },
             async () => {
-                const { error } = await supabase.from('guests').update(row).eq('id', input.id);
-
-                if (error) {
-                    throw error;
-                }
+                await db.update(guests).set(row).where(eq(guests.id, input.id));
             },
         );
         revalidatePath('/admin/guests');
@@ -113,7 +109,8 @@ export async function updateGuest(input: GuestRowInput & { id: string }): Promis
 
 export async function archiveGuest(id: string): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'guest.archived',
@@ -122,14 +119,10 @@ export async function archiveGuest(id: string): Promise<Result<void>> {
                 next: { status: 'archived' },
             },
             async () => {
-                const { error } = await supabase
-                    .from('guests')
-                    .update({ status: 'archived', updated_at: new Date().toISOString() })
-                    .eq('id', id);
-
-                if (error) {
-                    throw error;
-                }
+                await db
+                    .update(guests)
+                    .set({ status: 'archived', updatedAt: new Date().toISOString() })
+                    .where(eq(guests.id, id));
             },
         );
         revalidatePath('/admin/guests');
@@ -148,7 +141,8 @@ export async function attachGuestMediaAsset(input: {
     url: string;
 }): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'guest.media_attached',
@@ -160,23 +154,17 @@ export async function attachGuestMediaAsset(input: {
                 const update =
                     input.kind === 'photo'
                         ? {
-                              photo_asset_id: input.assetId,
-                              photo_url: input.url,
-                              updated_at: new Date().toISOString(),
+                              photoAssetId: input.assetId,
+                              photoUrl: input.url,
+                              updatedAt: new Date().toISOString(),
                           }
                         : {
-                              video_asset_id: input.assetId,
-                              video_url: input.url,
-                              updated_at: new Date().toISOString(),
+                              videoAssetId: input.assetId,
+                              videoUrl: input.url,
+                              updatedAt: new Date().toISOString(),
                           };
-                const { error } = await supabase
-                    .from('guests')
-                    .update(update)
-                    .eq('id', input.guestId);
 
-                if (error) {
-                    throw error;
-                }
+                await db.update(guests).set(update).where(eq(guests.id, input.guestId));
             },
         );
         revalidatePath('/admin/guests');
@@ -200,6 +188,7 @@ export async function createGuestPlate(input: {
         if (!guestIds.length) {
             return err('Selecciona al menos un invitado');
         }
+
         const result = await createSlideAsset({
             title: input.title,
             slideType: 'template',
@@ -213,6 +202,7 @@ export async function createGuestPlate(input: {
         if (!result.success) {
             return result;
         }
+
         revalidatePath('/admin/guests');
 
         return ok(undefined);
@@ -234,9 +224,11 @@ export async function updateGuestPlate(input: {
         if (!guestIds.length) {
             return err('Selecciona al menos un invitado');
         }
+
         const status =
             input.status === 'draft' || input.status === 'archived' ? input.status : 'ready';
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'guest_plate.updated',
@@ -245,21 +237,21 @@ export async function updateGuestPlate(input: {
                 next: { title: input.title, status, guests: guestIds.length },
             },
             async () => {
-                const { error } = await supabase
-                    .from('slide_assets')
-                    .update({
+                await db
+                    .update(slideAssets)
+                    .set({
                         title: input.title,
-                        default_duration_seconds: input.defaultDurationSeconds ?? 30,
+                        defaultDurationSeconds: input.defaultDurationSeconds ?? 30,
                         status,
                         metadata: { guestIds },
-                        updated_at: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
                     })
-                    .eq('id', input.slideId)
-                    .eq('template_id', 'guest-lineup');
-
-                if (error) {
-                    throw error;
-                }
+                    .where(
+                        and(
+                            eq(slideAssets.id, input.slideId),
+                            eq(slideAssets.templateId, 'guest-lineup'),
+                        ),
+                    );
             },
         );
         revalidatePath('/admin/guests');
@@ -273,7 +265,8 @@ export async function updateGuestPlate(input: {
 
 export async function archiveGuestPlate(slideId: string): Promise<Result<void>> {
     try {
-        const supabase = createServiceClient();
+        const db = await getDb();
+
         await auditedMutation(
             {
                 action: 'guest_plate.archived',
@@ -282,15 +275,15 @@ export async function archiveGuestPlate(slideId: string): Promise<Result<void>> 
                 next: { status: 'archived' },
             },
             async () => {
-                const { error } = await supabase
-                    .from('slide_assets')
-                    .update({ status: 'archived', updated_at: new Date().toISOString() })
-                    .eq('id', slideId)
-                    .eq('template_id', 'guest-lineup');
-
-                if (error) {
-                    throw error;
-                }
+                await db
+                    .update(slideAssets)
+                    .set({ status: 'archived', updatedAt: new Date().toISOString() })
+                    .where(
+                        and(
+                            eq(slideAssets.id, slideId),
+                            eq(slideAssets.templateId, 'guest-lineup'),
+                        ),
+                    );
             },
         );
         revalidatePath('/admin/guests');
