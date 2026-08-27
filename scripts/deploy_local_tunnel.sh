@@ -160,7 +160,10 @@ build_release() {
     staging_dir="$releases_dir/.staging-$release_id"
 
     echo "Building release $release_id" >&2
-    (cd "$repo_dir" && NEXT_TELEMETRY_DISABLED=1 npm run build) >&2
+    if ! (cd "$repo_dir" && NEXT_TELEMETRY_DISABLED=1 npm run build) >&2; then
+        echo "Build command failed" >&2
+        return 1
+    fi
 
     if [[ ! -f "$repo_dir/.next/standalone/server.js" ]]; then
         echo "Build completed without .next/standalone/server.js" >&2
