@@ -10,6 +10,7 @@ describe('getBtcPriceUsd', () => {
         vi.unstubAllGlobals();
         __resetBtcCacheForTests();
         process.env = { ...originalEnv };
+        process.env.DATA_PROVIDER_API_URL = 'https://data-provider.example';
     });
 
     afterEach(() => {
@@ -19,10 +20,10 @@ describe('getBtcPriceUsd', () => {
         __resetBtcCacheForTests();
     });
 
-    it('uses rtv-api BTC price when available', async () => {
+    it('uses data-provider-api BTC price when available', async () => {
         vi.stubGlobal(
             'fetch',
-            vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse(rtvPayload('81234.56'))),
+            vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse(providerPayload('81234.56'))),
         );
 
         await expect(getBtcPriceUsd()).resolves.toBe(81234.56);
@@ -31,16 +32,16 @@ describe('getBtcPriceUsd', () => {
     it('returns BTC price source metadata', async () => {
         vi.stubGlobal(
             'fetch',
-            vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse(rtvPayload('81234.56'))),
+            vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse(providerPayload('81234.56'))),
         );
 
         await expect(getBtcPriceData()).resolves.toMatchObject({
             price: 81234.56,
-            source: 'rtv-api',
+            source: 'data-provider-api',
         });
     });
 
-    it('falls back to Coinbase spot price when rtv-api fails', async () => {
+    it('falls back to Coinbase spot price when data-provider-api fails', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
         vi.stubGlobal(
             'fetch',
@@ -54,7 +55,7 @@ describe('getBtcPriceUsd', () => {
     });
 });
 
-function rtvPayload(price: string) {
+function providerPayload(price: string) {
     return {
         success: true,
         data: {

@@ -100,9 +100,9 @@ export default async function AdminOutputPage() {
               }
             : null,
         mediaError:
-            active.asset?.sourceType === 'vimeo' &&
-            active.asset.playbackReadinessStatus === 'failed'
-                ? (active.asset.playbackError ?? 'Vimeo playback failed')
+            active.asset?.playbackReadinessStatus === 'failed' ||
+            active.asset?.playbackReadinessStatus === 'review'
+                ? (active.asset.playbackError ?? 'Media playback needs review')
                 : null,
     };
 

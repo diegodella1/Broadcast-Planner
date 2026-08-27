@@ -8,17 +8,18 @@
 import type { SataData, StrcData } from '@/lib/slides/types';
 
 import { getBtcPriceData } from './btc-cache';
+import { getDataProviderConfig } from './provider-config';
 
 const STRC_CACHE_DURATION_MS = 60_000;
 const SATA_CACHE_DURATION_MS = 60_000;
-const RTV_API_TIMEOUT_MS = 5_000;
+const DATA_PROVIDER_API_TIMEOUT_MS = 5_000;
 const DEFAULT_STRATEGY_API_URL = 'https://api.strategy.com/btc/strcKpiData';
 const DEFAULT_STRATEGY_TRACKER_URL = 'https://data.strategytracker.com';
 const PAR_VALUE = 100;
 
 type CacheEntry<T> = { data: T; timestamp: number };
 type JsonObject = Record<string, unknown>;
-type RtvEnvelope<T> = { success?: boolean; data?: T } & Partial<T>;
+type DataProviderEnvelope<T> = { success?: boolean; data?: T } & Partial<T>;
 
 let strcCache: CacheEntry<StrcData> | null = null;
 let sataCache: CacheEntry<SataData> | null = null;
@@ -82,16 +83,16 @@ export async function getStrcSlideData(): Promise<StrcData> {
         return strcCache.data;
     }
 
-    const rtvApiData = await fetchStrcFromRtvApi().catch((error) => {
-        console.warn('[lib/slides/data/strc.ts:fetchStrcFromRtvApi]', error);
+    const dataProviderApiData = await fetchStrcFromDataProviderApi().catch((error) => {
+        console.warn('[lib/slides/data/strc.ts:fetchStrcFromDataProviderApi]', error);
 
         return null;
     });
 
-    if (rtvApiData) {
-        strcCache = { data: rtvApiData, timestamp: now };
+    if (dataProviderApiData) {
+        strcCache = { data: dataProviderApiData, timestamp: now };
 
-        return rtvApiData;
+        return dataProviderApiData;
     }
 
     try {
@@ -118,16 +119,16 @@ export async function getSataSlideData(): Promise<SataData> {
         return sataCache.data;
     }
 
-    const rtvApiData = await fetchSataFromRtvApi().catch((error) => {
-        console.warn('[lib/slides/data/strc.ts:fetchSataFromRtvApi]', error);
+    const dataProviderApiData = await fetchSataFromDataProviderApi().catch((error) => {
+        console.warn('[lib/slides/data/strc.ts:fetchSataFromDataProviderApi]', error);
 
         return null;
     });
 
-    if (rtvApiData) {
-        sataCache = { data: rtvApiData, timestamp: now };
+    if (dataProviderApiData) {
+        sataCache = { data: dataProviderApiData, timestamp: now };
 
-        return rtvApiData;
+        return dataProviderApiData;
     }
 
     try {
@@ -147,44 +148,47 @@ export async function getSataSlideData(): Promise<SataData> {
     }
 }
 
-async function fetchStrcFromRtvApi(): Promise<StrcData | null> {
-    const payload = await fetchRtvApiPayload<JsonObject>('/api/strc');
+async function fetchStrcFromDataProviderApi(): Promise<StrcData | null> {
+    const payload = await fetchDataProviderApiPayload<JsonObject>('/api/strc');
 
     if (!payload) {
         return null;
     }
 
-    return mapRtvStrcPayload(payload);
+    return mapDataProviderStrcPayload(payload);
 }
 
-async function fetchSataFromRtvApi(): Promise<SataData | null> {
-    const payload = await fetchRtvApiPayload<JsonObject>('/api/strc/sata');
+async function fetchSataFromDataProviderApi(): Promise<SataData | null> {
+    const payload = await fetchDataProviderApiPayload<JsonObject>('/api/strc/sata');
 
     if (!payload) {
         return null;
     }
 
-    return mapRtvSataPayload(payload);
+    return mapDataProviderSataPayload(payload);
 }
 
-async function fetchRtvApiPayload<T extends JsonObject>(path: string): Promise<T | null> {
-    const rtvApiUrl = (process.env.RTV_API_URL ?? 'https://api.roxom.tv').replace(/\/$/, '');
-    const rtvApiKey = process.env.RTV_API_KEY ?? process.env.NEXT_PUBLIC_RTV_API_KEY ?? '';
+async function fetchDataProviderApiPayload<T extends JsonObject>(path: string): Promise<T | null> {
+    const provider = getDataProviderConfig();
+
+    if (!provider) {
+        return null;
+    }
     const headers: Record<string, string> = { Accept: 'application/json' };
 
-    if (rtvApiKey) {
-        headers['x-api-key'] = rtvApiKey;
+    if (provider.apiKey) {
+        headers['x-api-key'] = provider.apiKey;
     }
-    const response = await fetch(`${rtvApiUrl}${path}`, {
+    const response = await fetch(`${provider.baseUrl}${path}`, {
         headers,
         cache: 'no-store',
-        signal: AbortSignal.timeout(RTV_API_TIMEOUT_MS),
+        signal: AbortSignal.timeout(DATA_PROVIDER_API_TIMEOUT_MS),
     });
 
     if (!response.ok) {
-        throw new Error(`rtv-api ${path} error: ${response.status}`);
+        throw new Error(`data-provider-api ${path} error: ${response.status}`);
     }
-    const envelope = (await response.json()) as RtvEnvelope<T>;
+    const envelope = (await response.json()) as DataProviderEnvelope<T>;
 
     if (envelope.success === true && isObject(envelope.data)) {
         return envelope.data as T;
@@ -197,7 +201,7 @@ async function fetchRtvApiPayload<T extends JsonObject>(path: string): Promise<T
     return null;
 }
 
-function mapRtvStrcPayload(payload: JsonObject): StrcData {
+function mapDataProviderStrcPayload(payload: JsonObject): StrcData {
     const strc = asObject(payload.strc) ?? {};
     const btc = asObject(payload.btc) ?? {};
     const metrics = asObject(payload.metrics) ?? {};
@@ -217,7 +221,7 @@ function mapRtvStrcPayload(payload: JsonObject): StrcData {
             volume: numberValue(strc.volume),
         },
         btc: { price: btcUsd },
-        dividends: mapRtvStrcDividends(payload.dividends, btcUsd),
+        dividends: mapDataProviderStrcDividends(payload.dividends, btcUsd),
         metrics: {
             parValue: numberValue(metrics.parValue) ?? PAR_VALUE,
             annualDiv,
@@ -272,7 +276,7 @@ function mapRtvStrcPayload(payload: JsonObject): StrcData {
     return result;
 }
 
-function mapRtvStrcDividends(value: unknown, btcUsd: number): StrcData['dividends'] {
+function mapDataProviderStrcDividends(value: unknown, btcUsd: number): StrcData['dividends'] {
     if (!Array.isArray(value)) {
         return [];
     }
@@ -291,11 +295,11 @@ function mapRtvStrcDividends(value: unknown, btcUsd: number): StrcData['dividend
     });
 }
 
-function mapRtvSataPayload(payload: JsonObject): SataData {
+function mapDataProviderSataPayload(payload: JsonObject): SataData {
     const btc = asObject(payload.btc) ?? {};
     const metrics = asObject(payload.metrics) ?? {};
     const btcUsd = numberValue(btc.price) ?? 0;
-    const preferred = mapRtvSataPreferred(payload.preferred);
+    const preferred = mapDataProviderSataPreferred(payload.preferred);
     const result: SataData = {
         preferred,
         btc: { price: btcUsd },
@@ -325,7 +329,7 @@ function mapRtvSataPayload(payload: JsonObject): SataData {
     return result;
 }
 
-function mapRtvSataPreferred(value: unknown): SataData['preferred'] {
+function mapDataProviderSataPreferred(value: unknown): SataData['preferred'] {
     if (!isObject(value)) {
         return null;
     }

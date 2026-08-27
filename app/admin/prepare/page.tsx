@@ -1,4 +1,4 @@
-import { CloudSun, DatabaseZap, Music, PackageOpen, Users, Video } from 'lucide-react';
+import { CloudSun, DatabaseZap, Music, Users, Video } from 'lucide-react';
 
 import { FlowCard, FlowGrid, FlowHero, FlowRail } from '@/components/admin/admin-flow';
 import { AdminShell } from '@/components/admin/admin-shell';
@@ -52,14 +52,6 @@ export default async function PreparePage() {
                         detail="Upload or reference playable assets. Review readiness before scheduling."
                         tone={reviewAssets.length ? 'warn' : 'prepare'}
                         badge={`${readyAssets.length}/${assets.length} ready`}
-                    />
-                    <FlowCard
-                        href="/admin/vimeo"
-                        icon={PackageOpen}
-                        label="Import"
-                        title="Vimeo programs"
-                        detail="Sync source programs into the library before building the rundown."
-                        tone="prepare"
                     />
                     <FlowCard
                         href="/admin/music"

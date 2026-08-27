@@ -1,8 +1,8 @@
-# Roxom Playout Manager Product Plan
+# Broadcast Planner Product Plan
 
 ## Product Identity
 
-Roxom Playout Manager is an internal broadcast operations product for programming what appears on Roxom TV output, when it appears, and how it recovers when something fails.
+Broadcast Planner is a broadcast operations product for programming what appears on an output, when it appears, and how it recovers when something fails.
 
 The product is not a consumer website, not a passive video library, and not only a weather or camera rotation tool. It is a CMS-controlled playout layer for a television workflow. The viewer does not interact with it. Operators, producers, and content administrators use it to assemble the signal that is later captured by vMix, OBS, or another broadcast system.
 
@@ -70,7 +70,7 @@ The admin UX is now grouped by operator intent:
 The focused block editor exists at `/admin/schedule/[date]/blocks/[id]` and is the primary surface
 for detailed timing/content/fallback/layer work. Inline schedule editing also supports normal
 program-only `PREVIOUSLY RECORDED` bug configuration with four-corner placement. Real-data plate
-coverage now includes Roxom metals data with fallback, Open-Meteo weather fallback, Supabase events
+coverage now includes external metals data with fallback, Open-Meteo weather fallback, Supabase events
 for calendar plates, guest lineup inputs and a CSS-safe debt plate background.
 
 Loop Builder lives on the schedule page and makes the operator choose one intent: create scheduled
@@ -79,7 +79,7 @@ not create scheduled blocks.
 
 ## Product Thesis
 
-Broadcast playout fails when systems hide uncertainty. Roxom Playout Manager should make uncertainty visible before it becomes an on-air problem.
+Broadcast playout fails when systems hide uncertainty. Broadcast Planner should make uncertainty visible before it becomes an on-air problem.
 
 The product should not only store media and schedule blocks. It should continuously answer:
 
@@ -541,7 +541,7 @@ Acceptance:
 
 Why it matters:
 
-Roxom TV likely benefits from market and crypto data visuals, but these must be reliable and readable.
+Market and crypto data visuals must be reliable and readable.
 
 Feature:
 
@@ -663,7 +663,7 @@ Goal: support more channels, more people, and more accountability when needed.
 
 Why it matters:
 
-If Roxom adds more outputs, the product should evolve without rewriting the schedule model.
+If Broadcast Planner adds more outputs, the product should evolve without rewriting the schedule model.
 
 Feature:
 

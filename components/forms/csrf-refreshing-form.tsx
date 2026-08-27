@@ -78,7 +78,7 @@ function firstFileLimitError(form: HTMLFormElement) {
         const file = input.files?.[0];
 
         if (file && file.size > maxBytes) {
-            return `File is ${formatBytes(file.size)}. Browser uploads must be ${formatBytes(maxBytes)} or less; use Vimeo or a remote URL for larger videos.`;
+            return `File is ${formatBytes(file.size)}. Uploads must be ${formatBytes(maxBytes)} or less.`;
         }
     }
 

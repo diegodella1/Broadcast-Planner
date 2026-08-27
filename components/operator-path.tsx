@@ -10,7 +10,7 @@ const steps = [
         detail: 'Add & verify content',
         href: '/admin/assets',
         icon: FolderOpen,
-        match: ['/admin/assets', '/admin/vimeo', '/admin/slides', '/admin/music'],
+        match: ['/admin/assets', '/admin/slides', '/admin/music'],
     },
     {
         label: 'Schedule',

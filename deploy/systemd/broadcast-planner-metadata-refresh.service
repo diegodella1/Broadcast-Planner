@@ -1,0 +1,11 @@
+[Unit]
+Description=Broadcast Planner public media metadata refresh
+After=network-online.target broadcast-planner.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=diego
+WorkingDirectory=/home/diego/.local/share/broadcast-planner/current
+EnvironmentFile=/home/diego/.local/share/broadcast-planner/shared/.env
+ExecStart=/home/diego/.local/share/broadcast-planner/current/scripts/refresh_media_metadata.sh

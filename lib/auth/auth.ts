@@ -3,11 +3,11 @@ import crypto from 'node:crypto';
 
 import { eq } from 'drizzle-orm';
 
-import { ADMIN_SESSION_COOKIE } from './auth-constants';
+import { ADMIN_BOOTSTRAP_COOKIE, ADMIN_SESSION_COOKIE } from './auth-constants';
 import { adminOperators, adminSessions } from '../db/schema';
 import { getDb } from '../db/client';
 
-export { ADMIN_SESSION_COOKIE } from './auth-constants';
+export { ADMIN_BOOTSTRAP_COOKIE, ADMIN_SESSION_COOKIE } from './auth-constants';
 
 export type OperatorRole = 'admin' | 'operator';
 
@@ -35,7 +35,7 @@ export async function requireAdmin() {
         return bootstrapSession();
     }
     const cookieStore = await cookies();
-    const cookieToken = cookieStore.get('rpm_admin_token')?.value;
+    const cookieToken = cookieStore.get(ADMIN_BOOTSTRAP_COOKIE)?.value;
 
     if (cookieToken !== token) {
         throw new Error('Unauthorized');
@@ -60,7 +60,7 @@ export async function revokeCurrentOperatorSession() {
         }
     }
     cookieStore.delete(ADMIN_SESSION_COOKIE);
-    cookieStore.delete('rpm_admin_token');
+    cookieStore.delete(ADMIN_BOOTSTRAP_COOKIE);
 }
 
 export function safeAdminReturnTo(value: string | null | undefined) {

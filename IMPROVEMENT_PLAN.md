@@ -1,6 +1,6 @@
-# RTV TL Manager Improvement Plan
+# Broadcast Planner Improvement Plan
 
-Goal: prevent the premortem failures and make RTV TL Manager reliable enough for real broadcast operations.
+Goal: prevent the premortem failures and make Broadcast Planner reliable enough for real broadcast operations.
 
 ## Success Criteria
 
@@ -127,7 +127,7 @@ Actions:
     1. Block fallback
     2. Day fallback
     3. Global ready fallback asset
-    4. Hardcoded Roxom emergency slate
+    4. Hardcoded Broadcast Planner emergency slate
 - Add health warning when output would reach level 4.
 
 Acceptance:

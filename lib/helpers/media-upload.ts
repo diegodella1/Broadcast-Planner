@@ -1,8 +1,10 @@
 import { eq } from 'drizzle-orm';
+import { writeFile, unlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { createMediaAsset } from '../mutations';
 import {
-    MAX_SHORT_VIDEO_SECONDS,
     SMALL_MEDIA_BUCKET,
     MAX_SMALL_MEDIA_BYTES,
     SMALL_MEDIA_MIME_TYPES,
@@ -13,17 +15,12 @@ import { parseMusicMetadataJson } from './music-metadata';
 import { getDb } from '../db/client';
 import { mediaAssets } from '../db/schema';
 import { getMediaBucket } from '../storage/r2';
+import { probeMediaInput, type MediaProbe } from '../media/ffprobe';
 
-export {
-    MAX_SHORT_VIDEO_SECONDS,
-    SMALL_MEDIA_BUCKET,
-    MAX_SMALL_MEDIA_BYTES,
-    SMALL_MEDIA_MIME_TYPES,
-};
+export { SMALL_MEDIA_BUCKET, MAX_SMALL_MEDIA_BYTES, SMALL_MEDIA_MIME_TYPES };
 
 type MediaKind = 'video' | 'image' | 'audio';
-type SourceType = 'remote_mp4' | 'supabase_image' | 'supabase_audio';
-type DurationSource = 'manual' | 'detected' | 'image_default';
+type DurationSource = 'server_probe' | 'image_default';
 
 export type UploadedMediaFields = {
     title: string;
@@ -45,7 +42,7 @@ export type FileLike = {
 
 export type ResolvedUploadedMedia = {
     title: string;
-    sourceType: SourceType;
+    sourceType: 'uploaded';
     mediaKind: MediaKind;
     assetType: string;
     durationSeconds: number;
@@ -55,6 +52,7 @@ export type ResolvedUploadedMedia = {
 export function resolveUploadedMedia(
     file: Pick<FileLike, 'name' | 'type' | 'size'>,
     fields: UploadedMediaFields,
+    probe: MediaProbe | null = null,
 ) {
     if (file.size > MAX_SMALL_MEDIA_BYTES) {
         throw new Error(`The file cannot exceed ${formatUploadLimit()}`);
@@ -71,47 +69,31 @@ export function resolveUploadedMedia(
     }
 
     const mediaKind = mediaKindForMime(file.type);
-    const sourceType = sourceTypeForKind(mediaKind);
     const rawAssetType = fields.assetType || 'video';
     const assetType =
         mediaKind === 'audio' && !['ad', 'promo', 'fallback', 'music'].includes(rawAssetType)
             ? 'music'
             : rawAssetType;
     const orientation = fields.orientation || 'auto';
-    const manualDuration = parseOptionalPositiveNumber(fields.durationSeconds);
-    const detectedDuration = parseOptionalPositiveNumber(fields.detectedDurationSeconds);
-    const durationSource: DurationSource = manualDuration
-        ? 'manual'
-        : detectedDuration
-          ? 'detected'
-          : 'image_default';
-    const durationSeconds =
-        manualDuration ?? detectedDuration ?? (mediaKind === 'image' ? 25 : undefined);
+    const durationSource: DurationSource = mediaKind === 'image' ? 'image_default' : 'server_probe';
+    const durationSeconds = probe?.durationSeconds ?? (mediaKind === 'image' ? 25 : undefined);
 
     if (!durationSeconds) {
-        throw new Error('Browser could not read media duration. Enter seconds manually.');
+        throw new Error('Server could not verify media duration');
     }
 
     if (assetType === 'ad' && durationSeconds > 300) {
         throw new Error('Ads cannot be longer than 300 seconds');
     }
 
-    if (
-        mediaKind === 'video' &&
-        assetType === 'video' &&
-        durationSeconds > MAX_SHORT_VIDEO_SECONDS
-    ) {
-        throw new Error('Uploaded videos cannot be longer than 5 minutes');
-    }
-
-    const width = parseOptionalPositiveNumber(fields.detectedWidth);
-    const height = parseOptionalPositiveNumber(fields.detectedHeight);
+    const width = probe?.width ?? parseOptionalPositiveNumber(fields.detectedWidth);
+    const height = probe?.height ?? parseOptionalPositiveNumber(fields.detectedHeight);
     const aspectRatio = width && height ? Number((width / height).toFixed(4)) : undefined;
     const musicMetadata = assetType === 'music' ? parseMusicMetadataJson(fields.metadataJson) : {};
 
     return {
         title,
-        sourceType,
+        sourceType: 'uploaded',
         mediaKind,
         assetType,
         durationSeconds,
@@ -125,21 +107,26 @@ export function resolveUploadedMedia(
             mime_type: file.type,
             size: file.size,
             media_kind: mediaKind,
-            detected_duration_seconds: detectedDuration ?? null,
-            manual_duration_seconds: manualDuration ?? null,
+            detected_duration_seconds: probe?.durationSeconds ?? null,
             duration_source: durationSource,
             width: width ?? null,
             height: height ?? null,
             aspect_ratio: aspectRatio ?? null,
+            video_codec: probe?.videoCodec ?? null,
+            audio_codec: probe?.audioCodec ?? null,
+            bit_rate: probe?.bitRate ?? null,
+            frame_rate: probe?.frameRate ?? null,
+            format_name: probe?.formatName ?? null,
             ...(Object.keys(musicMetadata).length ? { music: musicMetadata } : {}),
         },
     } satisfies ResolvedUploadedMedia;
 }
 
 export async function uploadMediaFile(file: FileLike, fields: UploadedMediaFields) {
-    const resolved = resolveUploadedMedia(file, fields);
     const bytes = await file.arrayBuffer();
     assertFileSignature(file, new Uint8Array(bytes.slice(0, 32)));
+    const probe = await probeUploadedMedia(file, bytes);
+    const resolved = resolveUploadedMedia(file, fields, probe);
 
     const extension = extensionFor(file);
     const storagePath = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}${extension}`;
@@ -168,6 +155,17 @@ export async function uploadMediaFile(file: FileLike, fields: UploadedMediaField
             storagePath,
             durationSeconds: resolved.durationSeconds,
             metadata: resolved.metadata,
+            playbackKind: playbackKindForMime(file.type),
+            contentType: file.type,
+            fileSizeBytes: file.size,
+            width: probe?.width ?? undefined,
+            height: probe?.height ?? undefined,
+            videoCodec: probe?.videoCodec ?? undefined,
+            audioCodec: probe?.audioCodec ?? undefined,
+            bitRate: probe?.bitRate ?? undefined,
+            frameRate: probe?.frameRate ?? undefined,
+            qualityLabel: probe?.qualityLabel ?? undefined,
+            metadataStatus: 'ready',
         });
 
         if (!createResult.success) {
@@ -236,18 +234,6 @@ function mediaKindForMime(mimeType: string): MediaKind {
     return 'video';
 }
 
-function sourceTypeForKind(mediaKind: MediaKind): SourceType {
-    if (mediaKind === 'image') {
-        return 'supabase_image';
-    }
-
-    if (mediaKind === 'audio') {
-        return 'supabase_audio';
-    }
-
-    return 'remote_mp4';
-}
-
 function parseOptionalPositiveNumber(value: string | number | null | undefined) {
     if (value === null || value === undefined || value === '') {
         return undefined;
@@ -259,6 +245,38 @@ function parseOptionalPositiveNumber(value: string | number | null | undefined) 
     }
 
     return Math.ceil(numeric);
+}
+
+async function probeUploadedMedia(file: FileLike, bytes: ArrayBuffer) {
+    if (file.type.startsWith('image/')) {
+        return null;
+    }
+    const path = join(
+        tmpdir(),
+        `broadcast-planner-probe-${crypto.randomUUID()}${extensionFor(file)}`,
+    );
+
+    try {
+        await writeFile(path, Buffer.from(bytes));
+
+        return await probeMediaInput(path);
+    } catch {
+        throw new Error('Media file is corrupt or unsupported');
+    } finally {
+        await unlink(path).catch(() => undefined);
+    }
+}
+
+function playbackKindForMime(mimeType: string) {
+    if (mimeType.startsWith('image/')) {
+        return 'image' as const;
+    }
+
+    if (mimeType.startsWith('audio/')) {
+        return 'audio' as const;
+    }
+
+    return 'video_file' as const;
 }
 
 async function removeUploadedObject(storagePath: string) {

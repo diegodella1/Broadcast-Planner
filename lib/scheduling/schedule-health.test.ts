@@ -67,27 +67,26 @@ describe('schedule health', () => {
     it('flags unsupported video assets as not ready', () => {
         const asset: MediaAsset = {
             ...firstAsset,
-            sourceType: 'remote_image',
+            sourceType: 'legacy_external',
             mediaKind: 'video',
-            vimeoId: null,
         };
         const readiness = getAssetReadiness(asset);
         expect(readiness.ready).toBe(false);
         expect(readiness.severity).toBe('critical');
     });
 
-    it('flags failed Vimeo playback readiness as critical', () => {
+    it('flags failed public playback readiness as critical', () => {
         const asset: MediaAsset = {
             ...firstAsset,
-            sourceType: 'vimeo',
+            sourceType: 'public_url',
+            playbackKind: 'embed',
             mediaKind: 'video',
-            vimeoId: '123',
             playbackReadinessStatus: 'failed',
-            playbackError: 'Vimeo playback URL unavailable',
+            playbackError: 'Public playback URL unavailable',
         };
         const readiness = getAssetReadiness(asset);
         expect(readiness.ready).toBe(false);
         expect(readiness.severity).toBe('critical');
-        expect(readiness.messages).toContain('Vimeo playback URL unavailable');
+        expect(readiness.messages).toContain('Public playback URL unavailable');
     });
 });

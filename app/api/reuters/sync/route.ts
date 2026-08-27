@@ -196,9 +196,9 @@ async function mergeWithCachedAssetIds(
     }
     const db = await getDb();
     const rows = await db
-        .select({ id: mediaAssets.id, url: mediaAssets.url })
+        .select({ id: mediaAssets.id, url: mediaAssets.url, metadata: mediaAssets.metadata })
         .from(mediaAssets)
-        .where(eq(mediaAssets.sourceType, 'reuters'));
+        .where(eq(mediaAssets.sourceType, 'public_url'));
 
     const byUrl = new Map<string, string>();
 
@@ -206,7 +206,12 @@ async function mergeWithCachedAssetIds(
         const url = typeof row.url === 'string' ? row.url : '';
         const id = typeof row.id === 'string' ? row.id : '';
 
-        if (url && id && urls.includes(url)) {
+        const metadata =
+            typeof row.metadata === 'object' && row.metadata !== null
+                ? (row.metadata as Record<string, unknown>)
+                : {};
+
+        if (url && id && urls.includes(url) && metadata.reuters_channel_id) {
             byUrl.set(url, id);
         }
     }
@@ -218,13 +223,18 @@ function buildAssetInsertRow(channel: ReutersChannel, nowIso: string): InsertMed
     return {
         title: channel.name,
         description: channel.description ?? null,
-        sourceType: 'reuters',
+        sourceType: 'public_url',
         mediaKind: 'video',
         assetType: 'video',
         url: channel.hlsUrl,
+        canonicalUrl: channel.hlsUrl,
+        playbackKind: 'hls',
         thumbnailUrl: channel.thumbnailUrl ?? null,
         durationSeconds: null,
         status: 'ready',
+        metadataStatus: 'ready',
+        metadataCheckedAt: nowIso,
+        playbackReadinessStatus: 'ready',
         lifecycleState: 'synced',
         metadata: {
             reuters_channel_id: channel.id,
@@ -242,7 +252,11 @@ function buildAssetUpdateRow(
         title: channel.name,
         description: channel.description ?? null,
         thumbnailUrl: channel.thumbnailUrl ?? null,
+        canonicalUrl: channel.hlsUrl,
+        playbackKind: 'hls',
         status: 'ready',
+        metadataStatus: 'ready',
+        metadataCheckedAt: nowIso,
         lifecycleState: 'synced',
         metadata: {
             reuters_channel_id: channel.id,

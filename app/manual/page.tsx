@@ -11,7 +11,7 @@ import {
 import Link from 'next/link';
 
 const workflowSteps = [
-    'Open Prepare and add or sync videos, graphics, slides, audio, Vimeo shows, guest plates, weather cities and live endpoints.',
+    'Open Prepare and add or sync videos, graphics, slides, audio, Public media shows, guest plates, weather cities and live endpoints.',
     'Create guest records and individualized guest lineup plates when the programming needs guest cards.',
     'Open Program to create the broadcast day, build the rundown and assign ready media, slides or live streams.',
     'Use Loop Builder for silent slide loops. Save as scheduled blocks, fallback carousel, or both.',
@@ -29,7 +29,7 @@ const sections = [
     {
         title: 'Prepare',
         icon: PackageOpen,
-        body: 'Unified intake for uploaded media, remote URLs, music beds, Vimeo episodes, guests, weather cities, data plates and reusable graphics before anything reaches air. Uploaded ads/promos and guest media play through the public app media proxy even when Supabase storage is local.',
+        body: 'Unified intake for uploaded media, remote URLs, music beds, Public media episodes, guests, weather cities, data plates and reusable graphics before anything reaches air. Uploaded ads/promos and guest media play through the public app media proxy even when Supabase storage is local.',
         href: '/admin/prepare',
     },
     {
@@ -59,13 +59,13 @@ const sections = [
     {
         title: 'Preview',
         icon: Clapperboard,
-        body: 'Check Vimeo, HLS, MP4, images, audio-backed slides and fallback behavior before a block becomes part of the active day.',
+        body: 'Check Public media, HLS, MP4, images, audio-backed slides and fallback behavior before a block becomes part of the active day.',
         href: '/admin/calendar',
     },
     {
         title: 'Health',
         icon: HeartPulse,
-        body: 'Confirm environment, Supabase, storage, Vimeo, Reuters, output token, schema and Go Live Drill readiness from one screen.',
+        body: 'Confirm environment, Supabase, storage, Public media, Reuters, output token, schema and Go Live Drill readiness from one screen.',
         href: '/admin/health',
     },
 ];
@@ -75,7 +75,7 @@ const operatorHubs = [
         name: 'Prepare',
         href: '/admin/prepare',
         promise: 'Create and review content before it reaches a day.',
-        items: ['Assets', 'Vimeo', 'Music', 'Guests', 'Weather', 'Data plates'],
+        items: ['Assets', 'Public media', 'Music', 'Guests', 'Weather', 'Data plates'],
     },
     {
         name: 'Program',
@@ -99,7 +99,7 @@ const limits = [
     'Prepare, Program and Operate hubs reduce the visible operator path while keeping direct routes available.',
     'Loop Builder can create scheduled slide loops, set the global visual fallback carousel, or do both.',
     'Weather plates can be created per city from the admin graphics surface.',
-    'Metals use Roxom API data when available; weather falls back to Open-Meteo when OpenWeather is not configured.',
+    'Metals use an optional external data provider; weather falls back to Open-Meteo when OpenWeather is not configured.',
     'Calendar/event plates use the Supabase events table from the latest migration/bootstrap SQL.',
     'Previously Recorded bugs apply only to normal video program blocks, not ads, promos, slides, images, fallbacks, Reuters or manual overrides.',
     'The final broadcast plate design still needs a visual remodel.',
@@ -120,7 +120,7 @@ const recentUpdates = [
     'Local Supabase media uploads now play publicly through /api/media/assets/:assetId.',
     'Deploy/read-only smoke scripts now persist the latest smoke result for health checks.',
     'Guest lineup plates can now be individualized per slide from /admin/guests.',
-    'Metals plates now use the Roxom metals API for gold and silver with Pyth fallback.',
+    'Metals plates use an optional external provider for gold and silver with Pyth fallback.',
     'Weather plates now have a no-key Open-Meteo fallback.',
     'Calendar/event plates now use a persisted events table.',
     'Normal video programs can show a four-corner Previously Recorded bug in browser output.',
@@ -141,12 +141,12 @@ export default function ManualPage() {
                     >
                         Back to home
                     </Link>
-                    <p className="eyebrow mt-6 text-accent-positive">Roxom TV</p>
+                    <p className="eyebrow mt-6 text-accent-positive">Broadcast Planner</p>
                     <h1 className="mt-3 text-4xl font-semibold tracking-normal md:text-5xl">
                         Operator Manual
                     </h1>
                     <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
-                        RTV Planner is the control room for Roxom TV: build the schedule, protect
+                        Broadcast Planner is the broadcast control room: build the schedule, protect
                         every block with fallbacks, run preflight and send a browser-based signal
                         into OBS or vMix. This page is public; admin actions still require login.
                     </p>

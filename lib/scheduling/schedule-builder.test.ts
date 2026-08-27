@@ -6,7 +6,8 @@ import type { MediaAsset } from '../types';
 
 const baseAsset = {
     description: null,
-    sourceType: 'remote_mp4',
+    sourceType: 'uploaded',
+    playbackKind: 'video_file',
     mediaKind: 'video',
     thumbnailUrl: null,
     status: 'ready',
@@ -23,7 +24,8 @@ describe('buildLongTestSchedule', () => {
                 {
                     ...asset('image-1', 'Plate', 'image', 20),
                     mediaKind: 'image',
-                    sourceType: 'remote_image',
+                    sourceType: 'public_url',
+                    playbackKind: 'image',
                 },
             ],
             slideAssets: [],

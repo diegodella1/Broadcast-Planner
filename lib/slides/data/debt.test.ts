@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { __resetBtcCacheForTests } from './btc-cache';
 import { __resetDebtCachesForTests, getDebtSlideData } from './debt';
 
+const originalEnv = process.env;
+
 describe('getDebtSlideData', () => {
     beforeEach(() => {
         vi.useFakeTimers();
@@ -11,6 +13,10 @@ describe('getDebtSlideData', () => {
         vi.unstubAllGlobals();
         __resetBtcCacheForTests();
         __resetDebtCachesForTests();
+        process.env = {
+            ...originalEnv,
+            DATA_PROVIDER_API_URL: 'https://data-provider.example',
+        };
     });
 
     afterEach(() => {
@@ -19,9 +25,10 @@ describe('getDebtSlideData', () => {
         vi.restoreAllMocks();
         __resetBtcCacheForTests();
         __resetDebtCachesForTests();
+        process.env = originalEnv;
     });
 
-    it('combines official debt, BTC, fiscal, and rtv-api fiscal/context', async () => {
+    it('combines official debt, BTC, fiscal, and data-provider-api fiscal/context', async () => {
         vi.stubGlobal(
             'fetch',
             vi
@@ -34,7 +41,7 @@ describe('getDebtSlideData', () => {
                         ],
                     }),
                 )
-                .mockResolvedValueOnce(jsonResponse(rtvBtc('80000')))
+                .mockResolvedValueOnce(jsonResponse(providerBtc('80000')))
                 .mockResolvedValueOnce(
                     jsonResponse({
                         data: [
@@ -47,7 +54,7 @@ describe('getDebtSlideData', () => {
                         ],
                     }),
                 )
-                .mockResolvedValueOnce(jsonResponse(rtvFiscalContext())),
+                .mockResolvedValueOnce(jsonResponse(providerFiscalContext())),
         );
 
         const data = await getDebtSlideData();
@@ -61,7 +68,7 @@ describe('getDebtSlideData', () => {
         expect(data.stale).toBe(false);
     });
 
-    it('falls back to Census + FRED when rtv-api fiscal/context fails', async () => {
+    it('falls back to Census + FRED when data-provider-api fiscal/context fails', async () => {
         vi.stubGlobal(
             'fetch',
             vi
@@ -74,7 +81,7 @@ describe('getDebtSlideData', () => {
                         ],
                     }),
                 )
-                .mockResolvedValueOnce(jsonResponse(rtvBtc('80000')))
+                .mockResolvedValueOnce(jsonResponse(providerBtc('80000')))
                 .mockResolvedValueOnce(
                     jsonResponse({
                         data: [
@@ -122,7 +129,7 @@ describe('getDebtSlideData', () => {
     });
 });
 
-function rtvFiscalContext() {
+function providerFiscalContext() {
     return {
         success: true,
         data: {
@@ -134,7 +141,7 @@ function rtvFiscalContext() {
     };
 }
 
-function rtvBtc(price: string) {
+function providerBtc(price: string) {
     return { success: true, data: { price: { live_price: price } } };
 }
 

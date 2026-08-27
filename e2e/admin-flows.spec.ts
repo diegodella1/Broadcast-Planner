@@ -29,7 +29,7 @@ test.describe('authenticated admin flows', () => {
         test.skip(!process.env.ADMIN_BOOTSTRAP_TOKEN, 'requires ADMIN_BOOTSTRAP_TOKEN');
         await page.context().addCookies([
             {
-                name: 'rpm_admin_token',
+                name: 'broadcast-planner_admin_token',
                 value: process.env.ADMIN_BOOTSTRAP_TOKEN!,
                 url: baseURL ?? 'http://127.0.0.1:3451',
                 httpOnly: true,
@@ -41,7 +41,7 @@ test.describe('authenticated admin flows', () => {
     test('operator can open core production pages', async ({ page }) => {
         for (const path of [
             '/admin/assets',
-            '/admin/vimeo',
+            '/admin/settings',
             '/admin/calendar',
             '/admin/runbook',
             '/admin/output',
@@ -50,6 +50,18 @@ test.describe('authenticated admin flows', () => {
             await page.goto(path, { waitUntil: 'domcontentloaded' });
             await expect(page.getByRole('main')).toBeVisible();
         }
+    });
+
+    test('admin workspace remains usable at tablet width', async ({ page }) => {
+        await page.setViewportSize({ width: 1024, height: 900 });
+        await page.goto('/admin/assets', { waitUntil: 'domcontentloaded' });
+
+        await expect(page.getByRole('navigation', { name: 'Admin sections' })).toBeVisible();
+        await expect(page.getByText('Asset inspector')).toBeVisible();
+        const overflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow).toBeLessThanOrEqual(1);
     });
 
     test('output page exposes control and health surfaces', async ({ page }) => {
@@ -64,7 +76,7 @@ test.describe('authenticated admin flows', () => {
         await page.goto('/admin/health');
         await expect(page.getByText(/Supabase/i).first()).toBeVisible();
         await expect(page.getByText(/Storage/i).first()).toBeVisible();
-        await expect(page.getByText(/Vimeo/i).first()).toBeVisible();
+        await expect(page.getByText(/Media metadata/i).first()).toBeVisible();
         await expect(page.getByText(/Reuters/i).first()).toBeVisible();
         await expect(page.getByText(/Output/i).first()).toBeVisible();
     });
@@ -81,7 +93,7 @@ test.describe('authenticated admin flows', () => {
 
         for (const path of [
             '/admin/assets',
-            '/admin/vimeo',
+            '/admin/settings',
             `/admin/schedule/${today}`,
             `/admin/runbook/${today}`,
             '/admin/output',
@@ -102,7 +114,7 @@ test.describe('authenticated admin flows', () => {
 test.describe('authenticated write smoke', () => {
     test('schedule and fallback flows are covered by staging write smoke', async () => {
         test.skip(
-            process.env.RTV_E2E_ADMIN_WRITE !== 'true',
+            process.env.BROADCAST_PLANNER_E2E_ADMIN_WRITE !== 'true',
             'run npm run smoke:staging-write for mutating schedule, asset and fallback coverage',
         );
     });

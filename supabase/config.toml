@@ -1,4 +1,4 @@
-project_id = "roxom-playout-manager"
+project_id = "broadcast-planner"
 
 [api]
 enabled = true

@@ -52,11 +52,7 @@ export {
 
 export {
     clearOutputOverride,
-    ensureVimeoAssetCached,
     goLiveWithReuters,
-    goLiveWithVimeo,
     scheduleReutersBlock,
-    scheduleVimeoBlock,
-    searchVimeoCatalog,
     setReutersOutputOverride,
 } from './mutations/output';

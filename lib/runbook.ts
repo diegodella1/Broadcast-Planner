@@ -29,9 +29,9 @@ export const RUNBOOK_TEMPLATE: RunbookSectionDefinition[] = [
                 detail: 'Primary playout path has visible video and expected audio route.',
             },
             {
-                key: 'vimeo-storage-ready',
-                label: 'Vimeo and storage ready',
-                detail: 'Vimeo playback readiness and Supabase media URLs are healthy.',
+                key: 'media-storage-ready',
+                label: 'Media metadata and storage ready',
+                detail: 'Public URL verification and stored media URLs are healthy.',
             },
         ],
     },

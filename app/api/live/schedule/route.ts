@@ -8,6 +8,7 @@ import {
     secondsSinceMidnightInTimezone,
 } from '@/lib/helpers/time';
 import { scheduleLiveObjectOverride } from '@/lib/mutations';
+import { formatZodError, scheduleLiveSchema } from '@/lib/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,21 +16,19 @@ export async function POST(request: Request) {
     try {
         await requireAdmin();
 
-        const body = (await request.json().catch(() => ({}))) as {
-            date?: string;
-            title?: string;
-            startTime?: string;
-            liveSourceType?: string;
-            liveUrl?: string;
-            timingMode?: string;
-        };
+        const parsed = scheduleLiveSchema.safeParse(await request.json().catch(() => ({})));
+
+        if (!parsed.success) {
+            return NextResponse.json({ error: formatZodError(parsed.error) }, { status: 400 });
+        }
+        const body = parsed.data;
         const now = new Date();
         const sendNow = body.timingMode === 'now';
         const date = sendNow ? isoDateInTimezone(now, PLAYOUT_TIMEZONE) : body.date?.trim();
         const startTime = sendNow
             ? formatTimecode(secondsSinceMidnightInTimezone(now))
             : normalizeStartTime(body.startTime || '');
-        const liveUrl = body.liveUrl?.trim();
+        const liveUrl = body.liveUrl;
 
         if (!date) {
             return NextResponse.json({ error: 'date is required' }, { status: 400 });

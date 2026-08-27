@@ -24,7 +24,7 @@ describe('AgendaBlockForm', () => {
         await user.selectOptions(screen.getByLabelText('Content'), 'slide:slide-1');
 
         expect(screen.getByLabelText('Duration')).toHaveValue(30);
-        expect(screen.queryByLabelText('Vimeo Show')).not.toBeInTheDocument();
+        expect(screen.queryByLabelText('Provider')).not.toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'View Slide' })).toHaveAttribute(
             'href',
             '/output/slide/slide-1',
@@ -46,14 +46,14 @@ describe('AgendaBlockForm', () => {
         expect(screen.getByRole('button', { name: 'Use 00:12 SF' })).toBeInTheDocument();
     });
 
-    it('filters ready schedule content by Vimeo show', async () => {
+    it('filters ready schedule content by Public media show', async () => {
         const user = userEvent.setup();
         render(<AgendaBlockForm schedule={schedule()} action={vi.fn()} />);
 
-        await user.selectOptions(screen.getByLabelText('Vimeo Show'), 'Market Wrap');
+        await user.selectOptions(screen.getByLabelText('Provider'), 'Market Wrap');
 
         expect(screen.getByLabelText('Content')).toHaveDisplayValue(
-            'Z Market episode - Market Wrap / video / vimeo / 00:03:00',
+            'Z Market episode - Market Wrap / video / public_url / 00:03:00',
         );
         expect(screen.queryByRole('option', { name: /Z Other episode/ })).not.toBeInTheDocument();
         expect(screen.getByText('Showing 1 of 4 ready items')).toBeInTheDocument();
@@ -100,7 +100,8 @@ function schedule({ withConflict = false }: { withConflict?: boolean } = {}): Sc
             {
                 id: 'asset-1',
                 title: 'Morning video',
-                sourceType: 'remote_mp4',
+                sourceType: 'uploaded',
+                playbackKind: 'video_file',
                 mediaKind: 'video',
                 assetType: 'video',
                 url: 'https://example.com/video.mp4',
@@ -114,17 +115,18 @@ function schedule({ withConflict = false }: { withConflict?: boolean } = {}): Sc
             {
                 id: 'asset-2',
                 title: 'Z Market episode',
-                sourceType: 'vimeo',
+                sourceType: 'public_url',
+                playbackKind: 'embed',
                 mediaKind: 'video',
                 assetType: 'video',
-                url: 'https://vimeo.com/1',
+                url: 'https://video.example/1',
                 thumbnailUrl: null,
                 durationSeconds: 180,
                 status: 'ready',
                 lifecycleState: 'reviewed',
                 metadata: {
-                    vimeo_show_name: 'Market Wrap',
-                    vimeo_created_time: '2025-07-01T00:00:00Z',
+                    provider_name: 'Market Wrap',
+                    provider_published_at: '2025-07-01T00:00:00Z',
                 },
                 createdAt: '',
                 updatedAt: '',
@@ -132,17 +134,18 @@ function schedule({ withConflict = false }: { withConflict?: boolean } = {}): Sc
             {
                 id: 'asset-3',
                 title: 'Z Other episode',
-                sourceType: 'vimeo',
+                sourceType: 'public_url',
+                playbackKind: 'embed',
                 mediaKind: 'video',
                 assetType: 'video',
-                url: 'https://vimeo.com/2',
+                url: 'https://video.example/2',
                 thumbnailUrl: null,
                 durationSeconds: 180,
                 status: 'ready',
                 lifecycleState: 'reviewed',
                 metadata: {
-                    vimeo_show_name: 'Other Show',
-                    vimeo_created_time: '2025-07-02T00:00:00Z',
+                    provider_name: 'Other Show',
+                    provider_published_at: '2025-07-02T00:00:00Z',
                 },
                 createdAt: '',
                 updatedAt: '',

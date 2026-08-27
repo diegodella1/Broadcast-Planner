@@ -1,16 +1,17 @@
 /**
  * Markets data fetcher: BTC + metals (XAU, XAG) + oil (WTI, Brent) via Pyth Network,
- * FX (EUR/JPY/GBP) via rtv-api /api/fx with upstream fallback, copper (ICOP ETF) via rtv-api market-indices.
+ * FX (EUR/JPY/GBP) via data-provider-api /api/fx with upstream fallback, copper (ICOP ETF) via data-provider-api market-indices.
  *
  * Source for the slide-port: backgroundclima/app/api/markets/sats/route.ts.
- * Pyth requires no API key; FX prefers RTV_API_URL/RTV_API_KEY and falls back to
+ * Pyth requires no API key; FX prefers DATA_PROVIDER_API_URL/DATA_PROVIDER_API_KEY and falls back to
  * FX_API_URL/FX_API_KEY (or the no-key open.er-api.com endpoint); copper relies on
- * RTV_API_URL/RTV_API_KEY (already used for the BTC price cache).
+ * DATA_PROVIDER_API_URL/DATA_PROVIDER_API_KEY (already used for the BTC price cache).
  */
 
 import type { MarketsSatsData } from '@/lib/slides/types';
 
 import { getBtcPriceUsd } from './btc-cache';
+import { getDataProviderConfig } from './provider-config';
 
 const PYTH_HERMES_URL = 'https://hermes.pyth.network';
 
@@ -218,7 +219,7 @@ async function fetchOilFromEia(): Promise<{
     }
 }
 
-type RtvFxEnvelope = {
+type DataProviderFxEnvelope = {
     rates?: Record<string, number | string>;
     currencies?: Record<string, { usdPerUnit?: number | string }>;
     base?: string;
@@ -241,36 +242,39 @@ function toFiniteNumber(value: unknown): number | null {
     return null;
 }
 
-async function fetchFxFromRtvApi(): Promise<FxRaw | null> {
-    const rtvApiUrl = (process.env.RTV_API_URL ?? 'https://api.roxom.tv').replace(/\/$/, '');
-    const rtvApiKey = process.env.RTV_API_KEY ?? process.env.NEXT_PUBLIC_RTV_API_KEY ?? '';
+async function fetchFxFromDataProviderApi(): Promise<FxRaw | null> {
+    const provider = getDataProviderConfig();
+
+    if (!provider) {
+        return null;
+    }
     const headers: Record<string, string> = { Accept: 'application/json' };
 
-    if (rtvApiKey) {
-        headers['x-api-key'] = rtvApiKey;
+    if (provider.apiKey) {
+        headers['x-api-key'] = provider.apiKey;
     }
 
-    const response = await fetch(`${rtvApiUrl}/api/fx`, {
+    const response = await fetch(`${provider.baseUrl}/api/fx`, {
         headers,
         cache: 'no-store',
         signal: AbortSignal.timeout(5_000),
     });
 
     if (!response.ok) {
-        throw new Error(`rtv-api fx error: ${response.status}`);
+        throw new Error(`data-provider-api fx error: ${response.status}`);
     }
-    const envelope = (await response.json()) as RtvFxEnvelope;
+    const envelope = (await response.json()) as DataProviderFxEnvelope;
     const currencies = envelope.currencies;
 
     if (!currencies || typeof currencies !== 'object') {
-        throw new Error('rtv-api fx payload missing currencies');
+        throw new Error('data-provider-api fx payload missing currencies');
     }
     const eur = toFiniteNumber(currencies['EUR']?.usdPerUnit);
     const jpy = toFiniteNumber(currencies['JPY']?.usdPerUnit);
     const gbp = toFiniteNumber(currencies['GBP']?.usdPerUnit);
 
     if (eur === null || jpy === null || gbp === null) {
-        throw new Error('rtv-api fx payload missing EUR/JPY/GBP usdPerUnit');
+        throw new Error('data-provider-api fx payload missing EUR/JPY/GBP usdPerUnit');
     }
 
     return {
@@ -348,16 +352,16 @@ async function fetchFx(): Promise<FxRaw> {
     if (fxCache && now - fxCache.timestamp < FX_CACHE_DURATION_MS) {
         return fxCache.data;
     }
-    const rtvApiData = await fetchFxFromRtvApi().catch((error) => {
-        console.warn('[lib/slides/data/markets.ts:fetchFxFromRtvApi]', error);
+    const dataProviderApiData = await fetchFxFromDataProviderApi().catch((error) => {
+        console.warn('[lib/slides/data/markets.ts:fetchFxFromDataProviderApi]', error);
 
         return null;
     });
 
-    if (rtvApiData) {
-        fxCache = { data: rtvApiData, timestamp: now };
+    if (dataProviderApiData) {
+        fxCache = { data: dataProviderApiData, timestamp: now };
 
-        return rtvApiData;
+        return dataProviderApiData;
     }
     const upstream = await fetchFxFromUpstream();
     const hasData =
@@ -376,17 +380,20 @@ async function fetchFx(): Promise<FxRaw> {
     return upstream;
 }
 
-async function fetchCopperFromRtvApi(): Promise<CommodityRaw> {
+async function fetchCopperFromDataProviderApi(): Promise<CommodityRaw> {
     try {
-        const rtvApiUrl = (process.env.RTV_API_URL ?? 'https://api.roxom.tv').replace(/\/$/, '');
-        const rtvApiKey = process.env.RTV_API_KEY ?? process.env.NEXT_PUBLIC_RTV_API_KEY ?? '';
+        const provider = getDataProviderConfig();
+
+        if (!provider) {
+            return { usd: 0, change24hPct: null };
+        }
         const headers: Record<string, string> = { Accept: 'application/json' };
 
-        if (rtvApiKey) {
-            headers['x-api-key'] = rtvApiKey;
+        if (provider.apiKey) {
+            headers['x-api-key'] = provider.apiKey;
         }
 
-        const response = await fetch(`${rtvApiUrl}/api/market-indices/us`, {
+        const response = await fetch(`${provider.baseUrl}/api/market-indices/us`, {
             headers,
             cache: 'no-store',
             signal: AbortSignal.timeout(10_000),
@@ -394,7 +401,7 @@ async function fetchCopperFromRtvApi(): Promise<CommodityRaw> {
 
         if (!response.ok) {
             console.warn(
-                `[lib/slides/data/markets.ts:fetchCopperFromRtvApi] HTTP ${response.status}`,
+                `[lib/slides/data/markets.ts:fetchCopperFromDataProviderApi] HTTP ${response.status}`,
             );
 
             return { usd: 0, change24hPct: null };
@@ -412,13 +419,13 @@ async function fetchCopperFromRtvApi(): Promise<CommodityRaw> {
 
         return { usd: icop.priceUSD, change24hPct: icop.changePercentUSD ?? null };
     } catch (error) {
-        console.error('[lib/slides/data/markets.ts:fetchCopperFromRtvApi]', error);
+        console.error('[lib/slides/data/markets.ts:fetchCopperFromDataProviderApi]', error);
 
         return { usd: 0, change24hPct: null };
     }
 }
 
-async function fetchMetalsFromRtvApi(): Promise<{
+async function fetchMetalsFromDataProviderApi(): Promise<{
     gold: CommodityRaw;
     silver: CommodityRaw;
 }> {
@@ -428,15 +435,18 @@ async function fetchMetalsFromRtvApi(): Promise<{
     };
 
     try {
-        const rtvApiUrl = (process.env.RTV_API_URL ?? 'https://api.roxom.tv').replace(/\/$/, '');
-        const rtvApiKey = process.env.RTV_API_KEY ?? process.env.NEXT_PUBLIC_RTV_API_KEY ?? '';
+        const provider = getDataProviderConfig();
+
+        if (!provider) {
+            return fallback;
+        }
         const headers: Record<string, string> = { Accept: 'application/json' };
 
-        if (rtvApiKey) {
-            headers['x-api-key'] = rtvApiKey;
+        if (provider.apiKey) {
+            headers['x-api-key'] = provider.apiKey;
         }
 
-        const response = await fetch(`${rtvApiUrl}/api/metals`, {
+        const response = await fetch(`${provider.baseUrl}/api/metals`, {
             headers,
             cache: 'no-store',
             signal: AbortSignal.timeout(10_000),
@@ -444,7 +454,7 @@ async function fetchMetalsFromRtvApi(): Promise<{
 
         if (!response.ok) {
             console.warn(
-                `[lib/slides/data/markets.ts:fetchMetalsFromRtvApi] HTTP ${response.status}`,
+                `[lib/slides/data/markets.ts:fetchMetalsFromDataProviderApi] HTTP ${response.status}`,
             );
 
             return fallback;
@@ -469,7 +479,7 @@ async function fetchMetalsFromRtvApi(): Promise<{
                     : fallback.silver,
         };
     } catch (error) {
-        console.error('[lib/slides/data/markets.ts:fetchMetalsFromRtvApi]', error);
+        console.error('[lib/slides/data/markets.ts:fetchMetalsFromDataProviderApi]', error);
 
         return fallback;
     }
@@ -496,11 +506,11 @@ export async function getMarketsSatsData(): Promise<MarketsSatsData> {
         return emptyMarketsSats();
     }
 
-    const [pythRes, fxRes, copperRes, rtvMetalsRes, eiaOilRes] = await Promise.allSettled([
+    const [pythRes, fxRes, copperRes, providerMetalsRes, eiaOilRes] = await Promise.allSettled([
         fetchPyth(),
         fetchFx(),
-        fetchCopperFromRtvApi(),
-        fetchMetalsFromRtvApi(),
+        fetchCopperFromDataProviderApi(),
+        fetchMetalsFromDataProviderApi(),
         fetchOilFromEia(),
     ]);
 
@@ -519,9 +529,9 @@ export async function getMarketsSatsData(): Promise<MarketsSatsData> {
             : { EUR: { usdPerUnit: 0 }, JPY: { usdPerUnit: 0 }, GBP: { usdPerUnit: 0 } };
     const copper: CommodityRaw =
         copperRes.status === 'fulfilled' ? copperRes.value : { usd: 0, change24hPct: null };
-    const rtvMetals =
-        rtvMetalsRes.status === 'fulfilled'
-            ? rtvMetalsRes.value
+    const providerMetals =
+        providerMetalsRes.status === 'fulfilled'
+            ? providerMetalsRes.value
             : {
                   gold: { usd: 0, change24hPct: null },
                   silver: { usd: 0, change24hPct: null },
@@ -533,8 +543,8 @@ export async function getMarketsSatsData(): Promise<MarketsSatsData> {
                   wti: { usd: 0, change24hPct: null },
                   brent: { usd: 0, change24hPct: null },
               };
-    const gold = rtvMetals.gold.usd > 0 ? rtvMetals.gold : pyth.gold;
-    const silver = rtvMetals.silver.usd > 0 ? rtvMetals.silver : pyth.silver;
+    const gold = providerMetals.gold.usd > 0 ? providerMetals.gold : pyth.gold;
+    const silver = providerMetals.silver.usd > 0 ? providerMetals.silver : pyth.silver;
     const wti = eiaOil.wti.usd > 0 ? eiaOil.wti : pyth.wti;
     const brent = eiaOil.brent.usd > 0 ? eiaOil.brent : pyth.brent;
 

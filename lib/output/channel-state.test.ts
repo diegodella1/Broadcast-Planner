@@ -29,12 +29,8 @@ vi.mock('@/lib/operator-preferences', () => ({
     getLatestMusicPreference: vi.fn(async () => ({ enabled: false, volume: 1, fade: 0 })),
 }));
 
-vi.mock('@/lib/settings', () => ({
-    getVimeoToken: vi.fn(async () => null),
-}));
-
 vi.mock('@/lib/helpers/app-url', () => ({
-    appUrl: (path: string) => new URL(path, 'https://local.rtv'),
+    appUrl: (path: string) => new URL(path, 'https://local.invalid'),
 }));
 
 import { composeChannelState } from './channel-state';
@@ -45,10 +41,11 @@ function fallbackLoopAsset(): MediaAsset {
     return {
         id: 'loop-asset-1',
         title: 'glitch',
-        sourceType: 'remote_mp4',
+        sourceType: 'uploaded',
+        playbackKind: 'video_file',
         mediaKind: 'video',
         assetType: 'fallback',
-        url: 'https://content-scheduler.roxom.tv/media/glitch.mp4',
+        url: 'https://media.example.com/glitch.mp4',
         durationSeconds: 88,
         status: 'ready',
         metadata: { fallback_loop: true, fallback_muted: true },

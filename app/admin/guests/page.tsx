@@ -325,7 +325,7 @@ function GuestFields({ guest }: { guest?: Awaited<ReturnType<typeof getGuests>>[
                     name="host"
                     defaultValue={guest?.host ?? ''}
                     className="border border-line px-3 py-2 text-sm"
-                    placeholder="RTV host"
+                    placeholder="Broadcast Planner host"
                 />
             </Field>
             <Field label="Program">

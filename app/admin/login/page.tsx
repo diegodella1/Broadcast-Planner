@@ -1,8 +1,10 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
+import { RadioTower, ShieldCheck } from 'lucide-react';
 
 import {
+    ADMIN_BOOTSTRAP_COOKIE,
     ADMIN_SESSION_COOKIE,
     createOperatorSession,
     getCurrentOperatorSession,
@@ -10,6 +12,7 @@ import {
     isAdminTokenValid,
     safeAdminReturnTo,
 } from '@/lib/auth/auth';
+import { PRODUCT_DESCRIPTOR, PRODUCT_NAME } from '@/lib/brand';
 import { assertRateLimit } from '@/lib/auth/rate-limit';
 import { loginSchema } from '@/lib/schemas';
 
@@ -66,7 +69,7 @@ export default async function LoginPage({
             Boolean(process.env.NEXT_PUBLIC_APP_BASE_URL?.startsWith('https://'));
 
         if (session.session.operatorId === 'bootstrap' && isAdminTokenValid(parsed.data.token)) {
-            cookieStore.set('rpm_admin_token', parsed.data.token, {
+            cookieStore.set(ADMIN_BOOTSTRAP_COOKIE, parsed.data.token, {
                 httpOnly: true,
                 sameSite: 'lax',
                 secure: secureCookie,
@@ -74,7 +77,7 @@ export default async function LoginPage({
                 maxAge: 60 * 60 * 12,
             });
         } else {
-            cookieStore.delete('rpm_admin_token');
+            cookieStore.delete(ADMIN_BOOTSTRAP_COOKIE);
         }
         cookieStore.set(ADMIN_SESSION_COOKIE, session.token, {
             httpOnly: true,
@@ -87,36 +90,67 @@ export default async function LoginPage({
     }
 
     return (
-        <main className="grid min-h-screen place-items-center bg-panel px-6">
-            <form action={login} className="surface-panel w-full max-w-sm p-6">
-                <p className="eyebrow text-signal">{t('eyebrow')}</p>
-                <h1 className="mt-2 text-2xl font-semibold">{t('title')}</h1>
-                <p className="mt-2 text-sm leading-6 text-muted">{t('body')}</p>
-                <label className="mt-6 block text-sm font-medium">
-                    Operator handle
-                    <input
-                        name="handle"
-                        className="mt-2 w-full border border-line px-3 py-2"
-                        placeholder="operator"
-                        autoComplete="username"
-                    />
-                    <span className="mt-1 block text-xs text-muted">
-                        Leave blank only for emergency bootstrap-token login.
-                    </span>
-                </label>
-                <label className="mt-6 block text-sm font-medium">
-                    {t('tokenLabel')}
-                    <input
-                        name="token"
-                        type="password"
-                        className="mt-2 w-full border border-line px-3 py-2"
-                        autoComplete="current-password"
-                    />
-                </label>
-                <input type="hidden" name="return_to" value={returnTo} />
-                <LoginNotice params={params} errorText={t('errorInvalid')} />
-                <button className="btn-primary mt-5 w-full">{t('submit')}</button>
-            </form>
+        <main className="grid min-h-screen bg-panel lg:grid-cols-[minmax(0,1.25fr)_minmax(420px,0.75fr)]">
+            <section className="admin-grid relative hidden overflow-hidden border-r border-line p-12 lg:flex lg:flex-col lg:justify-between">
+                <div>
+                    <div className="inline-flex items-center gap-3">
+                        <span className="grid h-10 w-10 place-items-center rounded bg-accent-positive text-panel">
+                            <RadioTower size={20} />
+                        </span>
+                        <div>
+                            <p className="font-display text-lg font-semibold">{PRODUCT_NAME}</p>
+                            <p className="technical-label text-muted">{PRODUCT_DESCRIPTOR}</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="max-w-2xl">
+                    <p className="technical-label text-accent-positive">Operator access</p>
+                    <h1 className="mt-4 font-display text-5xl font-semibold leading-[1.05] tracking-tight">
+                        Precision starts before the signal goes live.
+                    </h1>
+                    <p className="mt-5 max-w-xl text-base leading-7 text-muted">
+                        Secure control for programming, media verification and browser playout.
+                    </p>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted">
+                    <ShieldCheck size={17} className="text-success" />
+                    Authenticated operator sessions · audited critical actions
+                </div>
+            </section>
+            <section className="grid place-items-center bg-surface px-6 py-12">
+                <form
+                    action={login}
+                    className="w-full max-w-sm border border-line bg-surface-elevated-2 p-6"
+                >
+                    <p className="technical-label text-accent-positive">{t('eyebrow')}</p>
+                    <h2 className="mt-2 font-display text-2xl font-semibold">{t('title')}</h2>
+                    <p className="mt-2 text-sm leading-6 text-muted">{t('body')}</p>
+                    <label className="mt-6 block text-sm font-medium">
+                        Operator handle
+                        <input
+                            name="handle"
+                            className="mt-2 w-full border border-line px-3 py-2"
+                            placeholder="operator"
+                            autoComplete="username"
+                        />
+                        <span className="mt-1 block text-xs text-muted">
+                            Leave blank only for emergency bootstrap-token login.
+                        </span>
+                    </label>
+                    <label className="mt-6 block text-sm font-medium">
+                        {t('tokenLabel')}
+                        <input
+                            name="token"
+                            type="password"
+                            className="mt-2 w-full border border-line px-3 py-2"
+                            autoComplete="current-password"
+                        />
+                    </label>
+                    <input type="hidden" name="return_to" value={returnTo} />
+                    <LoginNotice params={params} errorText={t('errorInvalid')} />
+                    <button className="btn-primary mt-5 w-full">{t('submit')}</button>
+                </form>
+            </section>
         </main>
     );
 }

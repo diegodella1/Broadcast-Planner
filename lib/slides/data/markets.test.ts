@@ -38,7 +38,7 @@ const pythPayload = {
     ],
 };
 
-const rtvMetalsPayload = {
+const providerMetalsPayload = {
     success: true,
     data: [
         { symbol: 'XAU', name: 'Gold spot', price: 2450, changePercent: 1.25 },
@@ -48,7 +48,7 @@ const rtvMetalsPayload = {
     ],
 };
 
-const rtvFxPayload = {
+const providerFxPayload = {
     rates: { EUR: 0.92, JPY: 155.5, GBP: 0.79 },
     currencies: {
         EUR: { usdPerUnit: 1.087 },
@@ -76,6 +76,7 @@ describe('getMarketsSatsData', () => {
         __resetMarketsCachesForTests();
         delete process.env.FX_API_URL;
         delete process.env.FX_API_KEY;
+        process.env.DATA_PROVIDER_API_URL = 'https://data-provider.example';
     });
 
     afterEach(() => {
@@ -84,15 +85,15 @@ describe('getMarketsSatsData', () => {
         __resetMarketsCachesForTests();
     });
 
-    it('consumes rtv-api /api/fx when available', async () => {
+    it('consumes data-provider-api /api/fx when available', async () => {
         vi.stubGlobal(
             'fetch',
             vi
                 .fn<typeof fetch>()
                 .mockResolvedValueOnce(jsonResponse(pythPayload))
-                .mockResolvedValueOnce(jsonResponse(rtvFxPayload))
+                .mockResolvedValueOnce(jsonResponse(providerFxPayload))
                 .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
-                .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
+                .mockResolvedValueOnce(jsonResponse(providerMetalsPayload))
                 .mockResolvedValueOnce(new Response(eiaBrentText))
                 .mockResolvedValueOnce(new Response(eiaWtiText)),
         );
@@ -104,7 +105,7 @@ describe('getMarketsSatsData', () => {
         expect(data.fx.GBP.usdPerUnit).toBeCloseTo(1.266);
     });
 
-    it('falls back to upstream FX when rtv-api /api/fx fails', async () => {
+    it('falls back to upstream FX when data-provider-api /api/fx fails', async () => {
         vi.stubGlobal(
             'fetch',
             vi
@@ -112,7 +113,7 @@ describe('getMarketsSatsData', () => {
                 .mockResolvedValueOnce(jsonResponse(pythPayload))
                 .mockResolvedValueOnce(new Response('upstream error', { status: 503 }))
                 .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
-                .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
+                .mockResolvedValueOnce(jsonResponse(providerMetalsPayload))
                 .mockResolvedValueOnce(new Response(eiaBrentText))
                 .mockResolvedValueOnce(new Response(eiaWtiText))
                 .mockResolvedValueOnce(
@@ -131,9 +132,9 @@ describe('getMarketsSatsData', () => {
         const fetchMock = vi
             .fn<typeof fetch>()
             .mockResolvedValueOnce(jsonResponse(pythPayload))
-            .mockResolvedValueOnce(jsonResponse(rtvFxPayload))
+            .mockResolvedValueOnce(jsonResponse(providerFxPayload))
             .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
-            .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
+            .mockResolvedValueOnce(jsonResponse(providerMetalsPayload))
             .mockResolvedValueOnce(new Response(eiaBrentText))
             .mockResolvedValueOnce(new Response(eiaWtiText));
         vi.stubGlobal('fetch', fetchMock);
@@ -145,15 +146,15 @@ describe('getMarketsSatsData', () => {
         expect(fetchMock).toHaveBeenCalledTimes(6);
     });
 
-    it('prefers Roxom metals API for gold and silver', async () => {
+    it('prefers the configured metals API for gold and silver', async () => {
         vi.stubGlobal(
             'fetch',
             vi
                 .fn<typeof fetch>()
                 .mockResolvedValueOnce(jsonResponse(pythPayload))
-                .mockResolvedValueOnce(jsonResponse(rtvFxPayload))
+                .mockResolvedValueOnce(jsonResponse(providerFxPayload))
                 .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
-                .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
+                .mockResolvedValueOnce(jsonResponse(providerMetalsPayload))
                 .mockResolvedValueOnce(new Response(eiaBrentText))
                 .mockResolvedValueOnce(new Response(eiaWtiText)),
         );
@@ -174,9 +175,9 @@ describe('getMarketsSatsData', () => {
             vi
                 .fn<typeof fetch>()
                 .mockResolvedValueOnce(jsonResponse(pythPayload))
-                .mockResolvedValueOnce(jsonResponse(rtvFxPayload))
+                .mockResolvedValueOnce(jsonResponse(providerFxPayload))
                 .mockResolvedValueOnce(jsonResponse({ success: true, data: [] }))
-                .mockResolvedValueOnce(jsonResponse(rtvMetalsPayload))
+                .mockResolvedValueOnce(jsonResponse(providerMetalsPayload))
                 .mockResolvedValueOnce(new Response(eiaBrentText))
                 .mockResolvedValueOnce(new Response(eiaWtiText)),
         );

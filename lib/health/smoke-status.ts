@@ -10,7 +10,7 @@ export type SmokeStatus = {
 };
 
 const DEFAULT_MAX_AGE_SECONDS = 24 * 60 * 60;
-const DEFAULT_SMOKE_STATUS_FILE = '/tmp/rtvplanner-smoke-status.json';
+const DEFAULT_SMOKE_STATUS_FILE = '/tmp/broadcast-planner-smoke-status.json';
 const KV_KEY = 'smoke:status';
 
 type SmokeEnv = Record<string, string | undefined>;
@@ -29,11 +29,15 @@ interface SmokeKvEnv {
 }
 
 export async function readSmokeStatus(env: SmokeEnv = process.env): Promise<SmokeStatus | null> {
-    if (env.RTV_LAST_SMOKE_STATUS) {
+    if (env.BROADCAST_PLANNER_LAST_SMOKE_STATUS) {
         return {
-            status: env.RTV_LAST_SMOKE_STATUS,
-            ...(env.RTV_LAST_SMOKE_LABEL ? { label: env.RTV_LAST_SMOKE_LABEL } : {}),
-            ...(env.RTV_LAST_SMOKE_AT ? { recordedAt: env.RTV_LAST_SMOKE_AT } : {}),
+            status: env.BROADCAST_PLANNER_LAST_SMOKE_STATUS,
+            ...(env.BROADCAST_PLANNER_LAST_SMOKE_LABEL
+                ? { label: env.BROADCAST_PLANNER_LAST_SMOKE_LABEL }
+                : {}),
+            ...(env.BROADCAST_PLANNER_LAST_SMOKE_AT
+                ? { recordedAt: env.BROADCAST_PLANNER_LAST_SMOKE_AT }
+                : {}),
         };
     }
     const fromKv = await readFromKv();
@@ -80,7 +84,9 @@ export function isSmokeStatusStale(smoke: SmokeStatus, env: SmokeEnv = process.e
     if (!Number.isFinite(recorded)) {
         return true;
     }
-    const maxAgeSeconds = Number(env.RTV_SMOKE_MAX_AGE_SECONDS || DEFAULT_MAX_AGE_SECONDS);
+    const maxAgeSeconds = Number(
+        env.BROADCAST_PLANNER_SMOKE_MAX_AGE_SECONDS || DEFAULT_MAX_AGE_SECONDS,
+    );
     const maxAge =
         Number.isFinite(maxAgeSeconds) && maxAgeSeconds > 0
             ? maxAgeSeconds
@@ -159,5 +165,8 @@ function writeToFile(status: SmokeStatus, env: SmokeEnv): void {
 }
 
 function smokeStatusPath(env: SmokeEnv) {
-    return resolve(process.cwd(), env.RTV_SMOKE_STATUS_FILE || DEFAULT_SMOKE_STATUS_FILE);
+    return resolve(
+        process.cwd(),
+        env.BROADCAST_PLANNER_SMOKE_STATUS_FILE || DEFAULT_SMOKE_STATUS_FILE,
+    );
 }

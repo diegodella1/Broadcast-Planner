@@ -37,7 +37,7 @@ describe('data fallback policy', () => {
 
     it('rejects demo data in production-like runtimes', () => {
         process.env.ALLOW_DEMO_DATA = 'true';
-        process.env.APP_BASE_URL = 'https://rtvtime.diegodella.ar';
+        process.env.APP_BASE_URL = 'https://broadcast-planner.diegodella.ar';
 
         expect(() => shouldUseDemoData()).toThrow(
             'ALLOW_DEMO_DATA cannot be enabled in production',

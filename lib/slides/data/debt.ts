@@ -1,17 +1,18 @@
 /**
  * US debt clock data fetcher.
- * Source: rtv-proxy fiscal endpoints (Treasury MTS + total public debt outstanding).
+ * Source: data-provider fiscal endpoints (Treasury MTS + total public debt outstanding).
  * Official debt context (population, GDP, debt-to-GDP) is preferred from
- * rtv-api `/api/fiscal/context`, with Census + FRED direct fetches as fallback.
+ * data-provider-api `/api/fiscal/context`, with Census + FRED direct fetches as fallback.
  * Ported from backgroundclima/lib/debt.ts + app/api/debt/route.ts.
  */
 
 import type { DebtData } from '@/lib/slides/types';
 
 import { getBtcPriceData } from './btc-cache';
+import { getDataProviderConfig } from './provider-config';
 
 const FISCAL_PROXY_BASE_URL =
-    process.env.FISCAL_PROXY_BASE_URL ?? 'https://rtv-proxy.vercel.app/api/fiscal';
+    process.env.FISCAL_PROXY_BASE_URL ?? 'https://data-provider.vercel.app/api/fiscal';
 const FISCAL_DEBT_URL = `${FISCAL_PROXY_BASE_URL.replace(/\/$/, '')}/debt`;
 const FISCAL_REVENUE_URL = `${FISCAL_PROXY_BASE_URL.replace(/\/$/, '')}/revenue`;
 
@@ -328,19 +329,21 @@ async function getFederalSpendingAndDeficit(): Promise<{
     }
 }
 
-type RtvFiscalContextEnvelope = {
+type DataProviderFiscalContextEnvelope = {
     success?: boolean;
-    data?: RtvFiscalContextPayload;
-} & Partial<RtvFiscalContextPayload>;
+    data?: DataProviderFiscalContextPayload;
+} & Partial<DataProviderFiscalContextPayload>;
 
-type RtvFiscalContextPayload = {
+type DataProviderFiscalContextPayload = {
     population?: { value?: number; year?: string | number };
     gdp?: { value?: number; asOf?: string };
     debtToGdp?: { value?: number; asOf?: string };
     stale?: boolean;
 };
 
-function mapRtvFiscalContext(payload: RtvFiscalContextPayload): OfficialDebtContext {
+function mapDataProviderFiscalContext(
+    payload: DataProviderFiscalContextPayload,
+): OfficialDebtContext {
     const populationValue = payload.population?.value;
     const populationYear = payload.population?.year;
     const gdpValue = payload.gdp?.value;
@@ -360,11 +363,11 @@ function mapRtvFiscalContext(payload: RtvFiscalContextPayload): OfficialDebtCont
         typeof gdpAsOf !== 'string' ||
         typeof debtToGdpAsOf !== 'string'
     ) {
-        throw new Error('Invalid rtv-api fiscal/context payload');
+        throw new Error('Invalid data-provider-api fiscal/context payload');
     }
     const stale = Boolean(payload.stale);
     const warnings: string[] = stale
-        ? ['rtv-api fiscal/context reports upstream data is stale']
+        ? ['data-provider-api fiscal/context reports upstream data is stale']
         : [];
 
     return {
@@ -385,29 +388,32 @@ function mapRtvFiscalContext(payload: RtvFiscalContextPayload): OfficialDebtCont
     };
 }
 
-async function fetchFromRtvApi(): Promise<OfficialDebtContext | null> {
-    const rtvApiUrl = (process.env.RTV_API_URL ?? 'https://api.roxom.tv').replace(/\/$/, '');
-    const rtvApiKey = process.env.RTV_API_KEY ?? process.env.NEXT_PUBLIC_RTV_API_KEY ?? '';
+async function fetchFromDataProviderApi(): Promise<OfficialDebtContext | null> {
+    const provider = getDataProviderConfig();
+
+    if (!provider) {
+        return null;
+    }
     const headers: Record<string, string> = { Accept: 'application/json' };
 
-    if (rtvApiKey) {
-        headers['x-api-key'] = rtvApiKey;
+    if (provider.apiKey) {
+        headers['x-api-key'] = provider.apiKey;
     }
 
-    const response = await fetch(`${rtvApiUrl}/api/fiscal/context`, {
+    const response = await fetch(`${provider.baseUrl}/api/fiscal/context`, {
         headers,
         cache: 'no-store',
         signal: AbortSignal.timeout(OFFICIAL_CONTEXT_TIMEOUT_MS),
     });
 
     if (!response.ok) {
-        throw new Error(`rtv-api fiscal/context error: ${response.status}`);
+        throw new Error(`data-provider-api fiscal/context error: ${response.status}`);
     }
-    const envelope = (await response.json()) as RtvFiscalContextEnvelope;
-    const payload: RtvFiscalContextPayload =
+    const envelope = (await response.json()) as DataProviderFiscalContextEnvelope;
+    const payload: DataProviderFiscalContextPayload =
         envelope.success && envelope.data ? envelope.data : envelope;
 
-    return mapRtvFiscalContext(payload);
+    return mapDataProviderFiscalContext(payload);
 }
 
 async function fetchOfficialDebtContextFromUpstream(): Promise<OfficialDebtContext> {
@@ -457,12 +463,12 @@ async function getOfficialDebtContext(): Promise<OfficialDebtContext> {
     if (officialContextCache && now - officialContextCache.timestamp < MTS_CACHE_DURATION_MS) {
         return officialContextCache.data;
     }
-    const rtvApiData = await fetchFromRtvApi().catch((error) => {
-        console.warn('[lib/slides/data/debt.ts:fetchFromRtvApi]', error);
+    const dataProviderApiData = await fetchFromDataProviderApi().catch((error) => {
+        console.warn('[lib/slides/data/debt.ts:fetchFromDataProviderApi]', error);
 
         return null;
     });
-    const data = rtvApiData ?? (await fetchOfficialDebtContextFromUpstream());
+    const data = dataProviderApiData ?? (await fetchOfficialDebtContextFromUpstream());
     officialContextCache = { data, timestamp: now };
 
     return data;

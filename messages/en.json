@@ -1,7 +1,7 @@
 {
   "home": {
-    "eyebrow": "Roxom TV",
-    "title": "Playout Manager",
+    "eyebrow": "Broadcast Planner",
+    "title": "Broadcast Control Room",
     "subtitle": "Internal console to schedule the day, verify the signal and keep the broadcast on air.",
     "links": {
       "calendar": {
@@ -27,8 +27,8 @@
     "schedule": "Schedule"
   },
   "chrome": {
-    "brand": "Roxom TV",
-    "tagline": "Playout manager",
+    "brand": "Broadcast Planner",
+    "tagline": "Broadcast Control Room",
     "broadcastOutput": "Broadcast output",
     "openDebug": "Open debug",
     "onAir": "ON AIR",
@@ -94,7 +94,7 @@
       "remoteImage": "Remote image",
       "remoteMp4": "Remote MP4",
       "hls": "HLS",
-      "vimeo": "Vimeo",
+      "public_url": "Public media",
       "supabaseImage": "Supabase image"
     },
     "orientation": {
@@ -254,7 +254,7 @@
       "statusLabel": "status {status}",
       "videoSourceUnsupported": "source {source} not supported for video",
       "imageSourceUnsupported": "source {source} not supported for image",
-      "missingVimeoId": "missing Vimeo ID",
+      "missingPublic mediaId": "missing Public media ID",
       "missingUrl": "missing URL",
       "graphicNotSupported": "graphic cannot render as base yet"
     }
@@ -340,7 +340,7 @@
     },
     "manualBroadcast": {
       "title": "Manual broadcast",
-      "searchPlaceholder": "Search Vimeo…",
+      "searchPlaceholder": "Search Public media…",
       "searching": "Searching…",
       "empty": "No results",
       "modeLabel": "Mode",
@@ -351,7 +351,7 @@
       "goLive": "Go live now",
       "schedule": "Schedule",
       "sourceLabel": "Source",
-      "sourceVimeo": "Vimeo",
+      "sourcePublic media": "Public media",
       "sourceReuters": "Reuters Live",
       "reutersChannels": "Reuters channels",
       "syncChannels": "Refresh channels",
@@ -378,7 +378,7 @@
   "assets": {
     "title": "Assets",
     "description": "Operational library of videos, images, promos, ads and fallbacks for the grid.",
-    "importVimeo": "Import Vimeo",
+    "importPublic media": "Import Public media",
     "uploadedNotice": "Video uploaded and saved as asset.",
     "metrics": {
       "total": "Total",
@@ -499,25 +499,25 @@
   },
   "settings": {
     "title": "Settings",
-    "description": "Credentials, operational timezone and Vimeo import.",
+    "description": "Credentials, operational timezone and Public media import.",
     "savedNotice": "Settings saved.",
     "importedNotice": "Episode imported as asset.",
     "integrations": {
       "title": "Integrations",
       "detail": "Secrets are stored encrypted server-side and are not returned in full from the API.",
-      "vimeoStateSaved": "Vimeo: token saved ({status})",
-      "vimeoStateMissing": "Vimeo: no token saved",
+      "public_urlStateSaved": "Public media: token saved ({status})",
+      "public_urlStateMissing": "Public media: no token saved",
       "lastError": "Last error: {error}"
     },
-    "tokenLabel": "Vimeo API token",
+    "tokenLabel": "Public media API token",
     "tokenPlaceholder": "Bearer token",
-    "folderUriLabel": "Optional Vimeo folder/project URI",
+    "folderUriLabel": "Optional Public media folder/project URI",
     "timezoneLabel": "Timezone",
     "save": "Save settings",
-    "vimeoShows": {
-      "title": "Vimeo shows and episodes",
+    "public_urlShows": {
+      "title": "Public media shows and episodes",
       "detail": "Pick a show and convert visible episodes into assets ready to review.",
-      "missingToken": "Save a Vimeo API token to list shows.",
+      "missingToken": "Save a Public media API token to list shows.",
       "showLabel": "Show",
       "pickShow": "Pick show",
       "viewEpisodes": "View episodes",
@@ -544,15 +544,15 @@
     }
   },
   "login": {
-    "eyebrow": "Roxom TV",
+    "eyebrow": "Broadcast Planner",
     "title": "Admin access",
-    "body": "Enter the operational token configured to manage RTVTime.",
+    "body": "Enter the operational token configured to manage Broadcast Planner.",
     "tokenLabel": "Token",
     "submit": "Sign in",
     "errorInvalid": "Invalid token."
   },
   "output": {
-    "brand": "ROXOM TV",
+    "brand": "BROADCAST_PLANNER",
     "fallback": {
       "noActiveBlock": "No active block",
       "missingAsset": "Missing asset",

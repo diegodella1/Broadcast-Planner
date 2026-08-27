@@ -2,6 +2,7 @@
 
 import {
     CalendarDays,
+    ChevronDown,
     HeartPulse,
     LayoutDashboard,
     MonitorPlay,
@@ -30,20 +31,14 @@ type NavGroup = {
 
 export const navGroups: NavGroup[] = [
     {
-        label: 'Flow',
+        label: 'Workspace',
         items: [
             { label: 'Cockpit', href: '/admin', icon: LayoutDashboard, match: 'exact' },
             {
                 label: 'Prepare',
                 href: '/admin/prepare',
                 icon: PackageOpen,
-                activePaths: [
-                    '/admin/assets',
-                    '/admin/vimeo',
-                    '/admin/slides',
-                    '/admin/guests',
-                    '/admin/music',
-                ],
+                activePaths: ['/admin/assets', '/admin/slides', '/admin/guests', '/admin/music'],
             },
             {
                 label: 'Program',
@@ -60,7 +55,7 @@ export const navGroups: NavGroup[] = [
         ],
     },
     {
-        label: 'Direct',
+        label: 'Systems',
         items: [
             { label: 'Output', href: '/admin/output', icon: MonitorPlay },
             { label: 'Music', href: '/admin/music', icon: Music },
@@ -77,42 +72,59 @@ export function AdminNav({ mobile = false }: { mobile?: boolean }) {
     const links = mobile ? navGroups.flatMap((group) => group.items) : null;
 
     if (mobile) {
-        return (
-            <nav
-                className="mt-4 flex max-w-full flex-wrap gap-2 pb-1 md:hidden"
-                aria-label="Admin sections"
-            >
-                {links!.map(({ label, href, icon: Icon }) => {
-                    const active = href === activeHref;
+        const activeItem = links!.find(({ href }) => href === activeHref);
 
-                    return (
-                        <Link
-                            key={href}
-                            href={href}
-                            aria-current={active ? 'page' : undefined}
-                            className={[
-                                'inline-flex min-h-10 shrink-0 items-center gap-2 rounded-md border px-3 text-sm font-semibold',
-                                active
-                                    ? 'border-accent-positive bg-surface-selected-positive text-accent-positive'
-                                    : 'border-line bg-surface text-muted',
-                            ].join(' ')}
-                        >
-                            <Icon size={16} aria-hidden="true" />
-                            {label}
-                        </Link>
-                    );
-                })}
+        return (
+            <nav className="relative lg:hidden" aria-label="Admin sections">
+                <details className="group">
+                    <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded border border-line bg-surface-elevated-2 px-3 text-sm font-semibold text-ink marker:hidden">
+                        {activeItem ? <activeItem.icon size={16} aria-hidden="true" /> : null}
+                        <span>{activeItem?.label ?? 'Navigation'}</span>
+                        <ChevronDown
+                            size={15}
+                            aria-hidden="true"
+                            className="ml-auto transition-transform group-open:rotate-180"
+                        />
+                    </summary>
+                    <div className="absolute right-0 top-12 z-50 grid w-72 gap-4 rounded border border-line-strong bg-surface-elevated-2 p-3 shadow-2xl">
+                        {navGroups.map((group) => (
+                            <section key={group.label}>
+                                <p className="technical-label px-2 text-muted">{group.label}</p>
+                                <div className="mt-1 grid gap-1">
+                                    {group.items.map(({ label, href, icon: Icon }) => {
+                                        const active = href === activeHref;
+
+                                        return (
+                                            <Link
+                                                key={href}
+                                                href={href}
+                                                aria-current={active ? 'page' : undefined}
+                                                className={[
+                                                    'flex min-h-10 items-center gap-3 rounded px-3 text-sm font-semibold',
+                                                    active
+                                                        ? 'bg-surface-selected-positive text-accent-positive'
+                                                        : 'text-muted hover:bg-panel-soft hover:text-ink',
+                                                ].join(' ')}
+                                            >
+                                                <Icon size={17} aria-hidden="true" />
+                                                {label}
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        ))}
+                    </div>
+                </details>
             </nav>
         );
     }
 
     return (
-        <nav className="mt-8 grid gap-5" aria-label="Admin sections">
+        <nav className="mt-7 grid gap-5" aria-label="Admin sections">
             {navGroups.map((group) => (
                 <section key={group.label}>
-                    <p className="px-3 text-[0.68rem] font-bold uppercase text-muted">
-                        {group.label}
-                    </p>
+                    <p className="technical-label px-3 text-muted">{group.label}</p>
                     <div className="mt-2 grid gap-1">
                         {group.items.map(({ label, href, icon: Icon }) => {
                             const active = href === activeHref;
@@ -123,10 +135,10 @@ export function AdminNav({ mobile = false }: { mobile?: boolean }) {
                                     href={href}
                                     aria-current={active ? 'page' : undefined}
                                     className={[
-                                        'flex min-h-10 items-center gap-3 rounded-md px-3 text-sm font-semibold',
+                                        'flex min-h-10 items-center gap-3 rounded px-3 text-sm font-semibold',
                                         active
-                                            ? 'border border-accent-positive bg-surface-selected-positive text-accent-positive'
-                                            : 'text-muted hover:bg-panel-soft hover:text-ink',
+                                            ? 'border-l-2 border-accent-positive bg-surface-selected-positive text-accent-positive'
+                                            : 'border-l-2 border-transparent text-muted hover:bg-panel-soft hover:text-ink',
                                     ].join(' ')}
                                 >
                                     <Icon size={17} aria-hidden="true" />

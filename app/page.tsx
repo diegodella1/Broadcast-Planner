@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+import { PRODUCT_DESCRIPTOR, PRODUCT_NAME } from '@/lib/brand';
+
 export default function HomePage() {
     const links = [
         {
@@ -28,7 +30,7 @@ export default function HomePage() {
         {
             label: 'Library',
             href: '/admin/assets',
-            detail: 'Videos, Vimeo, ads, promos, stills and fallbacks.',
+            detail: 'Videos, Public media, ads, promos, stills and fallbacks.',
             icon: Video,
         },
         {
@@ -72,8 +74,8 @@ export default function HomePage() {
     return (
         <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-8 px-6 py-10">
             <header>
-                <p className="eyebrow text-signal">Roxom TV</p>
-                <h1 className="mt-2 text-4xl font-semibold">Broadcast Control Room</h1>
+                <p className="eyebrow text-signal">{PRODUCT_NAME}</p>
+                <h1 className="mt-2 text-4xl font-semibold">{PRODUCT_DESCRIPTOR}</h1>
                 <p className="mt-3 max-w-2xl text-lg leading-8 text-muted">
                     Program the day, verify every block, launch browser playout and keep the live
                     signal ready for OBS or vMix from one operator console.

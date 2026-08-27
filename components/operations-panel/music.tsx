@@ -101,7 +101,7 @@ function csrfCookie() {
     return (
         document.cookie
             .split('; ')
-            .find((part) => part.startsWith('rpm_csrf='))
+            .find((part) => part.startsWith('broadcast-planner_csrf='))
             ?.split('=')[1] ?? ''
     );
 }

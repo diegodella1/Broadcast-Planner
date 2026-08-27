@@ -1,7 +1,7 @@
 /**
  * Drizzle ORM schema for Cloudflare D1 (SQLite).
  *
- * Ported from rtvplanner-supabase-install.sql.
+ * Ported from broadcast-planner-supabase-install.sql.
  * Postgres-to-SQLite mapping notes:
  *   uuid          → text  (IDs generated via crypto.randomUUID() in app)
  *   timestamptz   → text  (ISO 8601 strings)
@@ -74,10 +74,23 @@ export const mediaAssets = sqliteTable('media_assets', {
     thumbnailUrl: text('thumbnail_url'),
     durationSeconds: integer('duration_seconds'),
     status: text('status').notNull().default('draft'),
-    vimeoId: text('vimeo_id').unique(),
-    vimeoUri: text('vimeo_uri'),
-    vimeoPrivacy: text('vimeo_privacy'),
-    vimeoEmbedStatus: text('vimeo_embed_status'),
+    canonicalUrl: text('canonical_url').unique(),
+    playbackKind: text('playback_kind'),
+    contentType: text('content_type'),
+    fileSizeBytes: integer('file_size_bytes'),
+    width: integer('width'),
+    height: integer('height'),
+    videoCodec: text('video_codec'),
+    audioCodec: text('audio_codec'),
+    bitRate: integer('bit_rate'),
+    frameRate: real('frame_rate'),
+    qualityLabel: text('quality_label'),
+    etag: text('etag'),
+    lastModified: text('last_modified'),
+    metadataStatus: text('metadata_status').notNull().default('pending'),
+    metadataCheckedAt: text('metadata_checked_at'),
+    metadataFailures: integer('metadata_failures').notNull().default(0),
+    metadataError: text('metadata_error'),
     metadata: text('metadata', { mode: 'json' })
         .notNull()
         .$defaultFn(() => ({})),

@@ -1,10 +1,10 @@
-# Premortem Transcript: RTV TL Manager
+# Premortem Transcript: Broadcast Planner
 
 Generated: 2026-05-08 13:37:18 America/Argentina/Buenos_Aires
 
 ## Context Gathered
 
-Project: RTV TL Manager / Roxom Playout Manager, an internal broadcast operations app for programming Roxom TV output.
+Project: Broadcast Planner / legacy playout manager, an internal broadcast operations app for programming former channel output.
 
 Core promise: Program the day, verify the signal, keep the screen on air.
 
@@ -37,7 +37,7 @@ Important code observations:
 
 ## Premortem Frame
 
-It is 6 months from now. RTV TL Manager failed as a broadcast operations product. It compiled and had useful screens, but the team stopped trusting it for real playout. We are looking back to understand what went wrong.
+It is 6 months from now. Broadcast Planner failed as a broadcast operations product. It compiled and had useful screens, but the team stopped trusting it for real playout. We are looking back to understand what went wrong.
 
 ## Raw Failure Reasons
 
@@ -55,7 +55,7 @@ It is 6 months from now. RTV TL Manager failed as a broadcast operations product
 
 Failure story: On a live programming day, Supabase queries began failing because of an expired key, RLS change, or network issue. Admin screens and output routes still rendered because `lib/data.ts` caught the error and returned `mockSchedule`. Operators saw a valid-looking day and assumed the system was healthy.
 
-The output route then played demo or stale fallback content instead of the actual scheduled Roxom programming. Because the UI looked alive, the failure was detected late by watching the broadcast output, not by the app itself.
+The output route then played demo or stale fallback content instead of the actual scheduled scheduled programming. Because the UI looked alive, the failure was detected late by watching the broadcast output, not by the app itself.
 
 Underlying assumption: A working render means real data was loaded.
 

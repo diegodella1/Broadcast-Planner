@@ -4,6 +4,21 @@
 
 :root {
     color-scheme: dark;
+    --obsidian-floor: #0a0a0a;
+    --obsidian-surface-low: #131313;
+    --obsidian-surface: #1e1e1e;
+    --obsidian-surface-high: #2a2a2a;
+    --obsidian-overlay: #353534;
+    --obsidian-line: rgba(194, 198, 214, 0.12);
+    --obsidian-line-strong: rgba(194, 198, 214, 0.24);
+    --obsidian-text: #e5e2e1;
+    --obsidian-text-muted: #9da1ae;
+    --obsidian-primary: #8fb3ff;
+    --obsidian-primary-strong: #4d8eff;
+    --obsidian-secondary: #d0bcff;
+    --obsidian-live: #ef4444;
+    --obsidian-ready: #10b981;
+    --obsidian-recording: #f59e0b;
 }
 
 * {
@@ -20,7 +35,7 @@ body {
 
 body {
     font-family:
-        var(--font-dm-sans),
+        var(--font-inter),
         -apple-system,
         BlinkMacSystemFont,
         'Segoe UI',
@@ -28,6 +43,23 @@ body {
         sans-serif;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-hanken), var(--font-inter), sans-serif;
+}
+
+code,
+kbd,
+samp,
+.font-technical {
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
 }
 
 button,
@@ -87,20 +119,18 @@ textarea::placeholder {
 }
 
 .surface-card {
-    @apply border border-white/10 rounded-lg bg-surface-elevated-2;
-    box-shadow: 0 1px 2px rgb(0 0 0 / 40%);
+    @apply border border-line rounded bg-surface-elevated-2;
 }
 
 .surface-panel {
-    @apply border border-white/10 rounded-lg bg-surface-elevated-2;
-    box-shadow: 0 1px 2px rgb(0 0 0 / 40%);
+    @apply border border-line rounded bg-surface-elevated-2;
 }
 
 .eyebrow {
     @apply text-white/50;
     font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: 0;
+    letter-spacing: 0.08em;
     line-height: 1rem;
     text-transform: uppercase;
 }
@@ -115,7 +145,7 @@ textarea::placeholder {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    border-radius: 0.375rem;
+    border-radius: 0.25rem;
     padding: 0 0.875rem;
     font-size: 0.875rem;
     font-weight: 700;
@@ -152,6 +182,37 @@ textarea::placeholder {
     @apply border border-accent-positive bg-surface-selected-positive text-accent-positive;
 }
 
+.admin-grid {
+    background-image:
+        linear-gradient(var(--obsidian-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--obsidian-line) 1px, transparent 1px);
+    background-size: 32px 32px;
+}
+
+.technical-label {
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.data-row {
+    content-visibility: auto;
+    contain-intrinsic-size: 64px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
 .tv-output {
     width: 100vw;
     height: 100vh;
@@ -161,7 +222,7 @@ textarea::placeholder {
 
 /* ---------------------------------------------------------------------------
    Keyframe definitions
-   Source: rtv-air-manager_2.html <style> block (lines ~45–209).
+   Source: broadcast-air-manager_2.html <style> block (lines ~45–209).
    flash-up / flash-down / ticker-scroll-* are not in the chyron HTML and are
    inferred per spec. Raw rgba is required — CSS keyframes cannot reference
    Tailwind tokens. Values match design tokens:

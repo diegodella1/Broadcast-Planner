@@ -7,7 +7,7 @@ import { ActionHint, Field, FormHeader } from '@/components/ui';
 export async function MediaUploadForm({
     action,
     title = 'Upload media',
-    detail = 'Store videos, images or MP3 files with browser-checked metadata.',
+    detail = 'Store videos, images or MP3 files with server-verified metadata.',
     submitLabel = 'Upload',
     returnTo,
     includeAudio = true,
@@ -38,8 +38,8 @@ export async function MediaUploadForm({
             <FormHeader title={title} detail={detail} />
             <div className="mt-3">
                 <ActionHint label="Upload flow" tone="info">
-                    Choose a file, wait while duration is read, then keep this page open until the
-                    upload finishes.
+                    Choose a file, review browser preview, then keep this page open while server
+                    validates and stores it.
                 </ActionHint>
             </div>
             {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}

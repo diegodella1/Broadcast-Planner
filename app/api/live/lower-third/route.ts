@@ -6,6 +6,7 @@ import { secondsSinceMidnightInTimezone } from '@/lib/helpers/time';
 import { getLiveObjectConfig } from '@/lib/live-object';
 import { updateLiveObjectLowerThird } from '@/lib/mutations';
 import { findActiveSchedule } from '@/lib/scheduling/scheduler';
+import { formatZodError, updateLiveLowerThirdSchema } from '@/lib/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,10 +14,12 @@ export async function POST(request: Request) {
     try {
         await requireAdmin();
 
-        const body = (await request.json().catch(() => ({}))) as {
-            visible?: unknown;
-            text?: unknown;
-        };
+        const parsed = updateLiveLowerThirdSchema.safeParse(await request.json().catch(() => ({})));
+
+        if (!parsed.success) {
+            return NextResponse.json({ error: formatZodError(parsed.error) }, { status: 400 });
+        }
+        const body = parsed.data;
         const blockId = await activeLiveBlockId();
 
         if (!blockId) {
@@ -24,8 +27,8 @@ export async function POST(request: Request) {
         }
         const result = await updateLiveObjectLowerThird({
             blockId,
-            visible: body.visible === true,
-            text: typeof body.text === 'string' ? body.text : '',
+            visible: body.visible,
+            text: body.text,
         });
 
         if (!result.success) {

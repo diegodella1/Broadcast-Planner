@@ -1,4 +1,4 @@
--- RTV Planner atomic rate-limit migration.
+-- Broadcast Planner atomic rate-limit migration.
 -- Use this on existing Supabase backends that already have api_rate_limits.
 -- Normal repo migration source: supabase/migrations/20260522153000_atomic_rate_limits.sql
 

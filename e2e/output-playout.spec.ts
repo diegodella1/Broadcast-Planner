@@ -35,7 +35,7 @@ test('output session route mints cookie for admin users', async ({ page, baseURL
 
     await page.context().addCookies([
         {
-            name: 'rpm_admin_token',
+            name: 'broadcast-planner_admin_token',
             value: adminToken!,
             url: urlBase,
             httpOnly: true,
@@ -45,7 +45,9 @@ test('output session route mints cookie for admin users', async ({ page, baseURL
     await page.goto(`${urlBase}/api/output/session?debug=true&return_to=/output/live`);
     await expect(page.getByTestId('output-root')).toBeVisible();
     const cookies = await page.context().cookies(urlBase);
-    expect(cookies.find((cookie) => cookie.name === 'rpm_output_token')?.value).toBe(token);
+    expect(cookies.find((cookie) => cookie.name === 'broadcast-planner_output_token')?.value).toBe(
+        token,
+    );
 });
 
 function outputUrl(baseUrl: string, path: string, debug: boolean) {

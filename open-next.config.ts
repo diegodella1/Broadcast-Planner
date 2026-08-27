@@ -1,6 +1,6 @@
 import { defineCloudflareConfig } from '@opennextjs/cloudflare';
 
-// Minimal Cloudflare Workers configuration for roxom-playout-manager.
+// Minimal Cloudflare Workers configuration for Broadcast Planner.
 //
 // The OpenNext Cloudflare adapter bundles the Next.js App Router app into a
 // single Worker file (.open-next/worker.js) and serves static assets from
@@ -14,9 +14,9 @@ import { defineCloudflareConfig } from '@opennextjs/cloudflare';
 // deploys continue to use the standalone output unchanged.
 //
 // Upgrade path — ISR cache backed by R2:
-//   1. Create a Cloudflare R2 bucket: wrangler r2 bucket create roxom-playout-manager-cache
+//   1. Create a Cloudflare R2 bucket: wrangler r2 bucket create broadcast-planner-cache
 //   2. Add to wrangler.jsonc under the root object:
-//        "r2_buckets": [{ "binding": "NEXT_CACHE_R2_BUCKET", "bucket_name": "roxom-playout-manager-cache" }]
+//        "r2_buckets": [{ "binding": "NEXT_CACHE_R2_BUCKET", "bucket_name": "broadcast-planner-cache" }]
 //   3. Replace the import + export below with:
 //        import { defineCloudflareConfig } from "@opennextjs/cloudflare"
 //        import r2IncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/r2-incremental-cache"

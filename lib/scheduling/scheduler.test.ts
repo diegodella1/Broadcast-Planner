@@ -14,7 +14,7 @@ describe('scheduler', () => {
     it('selects the active block by second of day', () => {
         const active = findActiveSchedule(mockSchedule, 10);
         expect(active.block?.id).toBe('block-main');
-        expect(active.asset?.id).toBe('asset-vimeo-demo');
+        expect(active.asset?.id).toBe('asset-public-demo');
     });
 
     it('selects the ad block at the scheduled timestamp', () => {
@@ -103,7 +103,8 @@ describe('scheduler', () => {
         const fallbackByMetadata: MediaAsset = {
             id: 'asset-metadata-fallback',
             title: 'Loopable Standby Reel',
-            sourceType: 'remote_mp4',
+            sourceType: 'uploaded',
+            playbackKind: 'video_file',
             mediaKind: 'video',
             assetType: 'video',
             url: 'https://example.com/standby.mp4',
@@ -129,7 +130,8 @@ describe('scheduler', () => {
         const draftFallback: MediaAsset = {
             id: 'asset-draft-fallback',
             title: 'Draft Standby Reel',
-            sourceType: 'remote_mp4',
+            sourceType: 'uploaded',
+            playbackKind: 'video_file',
             mediaKind: 'video',
             assetType: 'video',
             url: 'https://example.com/draft.mp4',

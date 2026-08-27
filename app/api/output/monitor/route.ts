@@ -62,8 +62,9 @@ export async function GET() {
                       }
                     : null,
                 mediaError:
-                    asset?.sourceType === 'vimeo' && asset.playbackReadinessStatus === 'failed'
-                        ? (asset.playbackError ?? 'Vimeo playback failed')
+                    asset?.playbackReadinessStatus === 'failed' ||
+                    asset?.playbackReadinessStatus === 'review'
+                        ? (asset.playbackError ?? 'Media playback needs review')
                         : null,
             },
             { headers: { 'Cache-Control': 'no-store' } },

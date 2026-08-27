@@ -46,9 +46,9 @@ describe('getUsMarketOpenData', () => {
         delete process.env.US_MARKET_DATA_URL;
         delete process.env.US_MARKET_DATA_KEY;
         delete process.env.US_MARKET_DATA_PROVIDER;
-        delete process.env.RTV_API_URL;
-        delete process.env.RTV_API_KEY;
-        delete process.env.NEXT_PUBLIC_RTV_API_KEY;
+        delete process.env.DATA_PROVIDER_API_URL;
+        delete process.env.DATA_PROVIDER_API_KEY;
+        delete process.env.NEXT_PUBLIC_DATA_PROVIDER_API_KEY;
     });
 
     afterEach(() => {
@@ -81,15 +81,16 @@ describe('getUsMarketOpenData', () => {
         expect(fetchMock).toHaveBeenCalledTimes(4);
     });
 
-    it('uses RTV API for US market data before Stooq', async () => {
-        process.env.RTV_API_KEY = 'test-key';
+    it('uses Data Provider API for US market data before Stooq', async () => {
+        process.env.DATA_PROVIDER_API_URL = 'https://data-provider.example';
+        process.env.DATA_PROVIDER_API_KEY = 'test-key';
         const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse(marketPayload));
         vi.stubGlobal('fetch', fetchMock);
 
         const data = await getUsMarketOpenData(new Date('2026-05-22T13:00:00Z'));
 
         expect(data.mode).toBe('live');
-        expect(data.source).toBe('RTV API');
+        expect(data.source).toBe('Data Provider API');
         expect(data.instruments[0]).toMatchObject({
             id: 'sp500',
             symbol: 'ES',
@@ -99,8 +100,9 @@ describe('getUsMarketOpenData', () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    it('falls back to Stooq when RTV API has no usable US instruments', async () => {
-        process.env.RTV_API_KEY = 'test-key';
+    it('falls back to Stooq when Data Provider API has no usable US instruments', async () => {
+        process.env.DATA_PROVIDER_API_URL = 'https://data-provider.example';
+        process.env.DATA_PROVIDER_API_KEY = 'test-key';
         const fetchMock = vi
             .fn<typeof fetch>()
             .mockResolvedValueOnce(

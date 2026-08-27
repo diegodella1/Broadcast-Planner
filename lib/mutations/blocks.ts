@@ -184,6 +184,7 @@ export async function createProgramBlock(input: {
         const dayId = dayResult.data;
         const startTimeSeconds = parseTimecode(input.startTime);
         const schedule = await getScheduleForDate(input.date);
+        assertSchedulableAsset(schedule, input.assetId);
         const contentDuration = getKnownContentDuration(schedule, input.assetId, input.slideId);
         const preRollSeconds = Math.max(0, Number(input.preRollSeconds || 0) || 0);
         const postRollSeconds = Math.max(0, Number(input.postRollSeconds || 0) || 0);
@@ -516,6 +517,7 @@ export async function fillProgramBlockContent(input: {
         if (!block) {
             return err('Bloque no encontrado');
         }
+        assertSchedulableAsset(schedule, input.assetId);
 
         const asset = input.assetId
             ? schedule.mediaAssets.find((item) => item.id === input.assetId)
@@ -581,6 +583,24 @@ export async function fillProgramBlockContent(input: {
         return ok(undefined);
     } catch (error) {
         return err(extractError(error));
+    }
+}
+
+function assertSchedulableAsset(
+    schedule: Awaited<ReturnType<typeof getScheduleForDate>>,
+    assetId?: string,
+) {
+    if (!assetId) {
+        return;
+    }
+    const asset = schedule.mediaAssets.find((candidate) => candidate.id === assetId);
+
+    if (!asset) {
+        throw new Error('Asset not found');
+    }
+
+    if (asset.status !== 'ready' || asset.playbackReadinessStatus === 'review') {
+        throw new Error('Asset must be verified before scheduling');
     }
 }
 

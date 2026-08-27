@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-const baseUrl = (process.env.RTV_BASE_URL || 'http://127.0.0.1:3450').replace(/\/$/, '');
+const baseUrl = (process.env.BROADCAST_PLANNER_BASE_URL || 'http://127.0.0.1:3450').replace(
+    /\/$/,
+    '',
+);
 const outputToken = process.env.OUTPUT_CAPTURE_TOKEN;
 const outputQuery = outputToken
     ? `?debug=true&token=${encodeURIComponent(outputToken)}`

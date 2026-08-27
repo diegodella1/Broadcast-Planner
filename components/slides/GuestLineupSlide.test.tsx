@@ -22,7 +22,7 @@ const data: GuestLineupSlideProps['data'] = {
             id: 'guest-1',
             name: 'Jane Doe',
             role: 'Market Strategist',
-            company: 'RTV Research',
+            company: 'Market Research',
             host: 'Desk',
             program: 'Opening Bell',
             category: 'markets',
@@ -61,7 +61,7 @@ describe('GuestLineupSlide', () => {
         expect(screen.getByText('Desk')).toBeInTheDocument();
         expect(screen.getByText('MARKETS')).toBeInTheDocument();
         expect(screen.getByText('Market Strategist')).toBeInTheDocument();
-        expect(screen.getByText('RTV Research')).toBeInTheDocument();
+        expect(screen.getByText('Market Research')).toBeInTheDocument();
         expect(screen.getByText('John Smith')).toBeInTheDocument();
         expect(screen.queryByText(/Supabase guests.*cache 30s/i)).not.toBeInTheDocument();
     });

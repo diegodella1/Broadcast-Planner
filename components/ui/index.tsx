@@ -17,9 +17,18 @@ export function MetricTile({
     tone?: Tone;
 }) {
     return (
-        <section className={clsx('surface-card p-4', toneBorder(tone))}>
-            <p className="eyebrow">{label}</p>
-            <p className={clsx('mt-2 text-2xl font-semibold tabular-nums', toneText(tone))}>
+        <section className={clsx('surface-card relative overflow-hidden p-4', toneBorder(tone))}>
+            <span
+                aria-hidden="true"
+                className={clsx('absolute inset-y-0 left-0 w-0.5', toneBar(tone))}
+            />
+            <p className="technical-label text-muted">{label}</p>
+            <p
+                className={clsx(
+                    'mt-2 font-mono text-2xl font-semibold tabular-nums',
+                    toneText(tone),
+                )}
+            >
                 {value}
             </p>
             <p className="mt-1 text-sm text-muted">{detail}</p>
@@ -37,7 +46,7 @@ export function ClearStateBadge({
     return (
         <span
             className={clsx(
-                'inline-flex min-h-7 items-center rounded-md border px-2.5 text-xs font-bold',
+                'technical-label inline-flex min-h-7 items-center rounded-full border px-2.5',
                 stateBadgeTone(tone),
             )}
         >
@@ -56,7 +65,7 @@ export function ActionHint({
     tone?: Tone;
 }) {
     return (
-        <div className={clsx('rounded-md border px-3 py-2 text-sm', noticeTone(tone))}>
+        <div className={clsx('rounded border px-3 py-2 text-sm', noticeTone(tone))}>
             <p className="text-[0.68rem] font-bold uppercase">{label}</p>
             <div className="mt-1 leading-5">{children}</div>
         </div>
@@ -73,7 +82,7 @@ export function Notice({
     children: ReactNode;
 }) {
     return (
-        <div className={clsx('mb-4 rounded-md border px-4 py-3 text-sm', noticeTone(tone))}>
+        <div className={clsx('mb-4 rounded border px-4 py-3 text-sm', noticeTone(tone))}>
             {title ? <p className="font-semibold">{title}</p> : null}
             <div className={title ? 'mt-1' : ''}>{children}</div>
         </div>
@@ -94,7 +103,7 @@ export function StatusBanner({
     action?: ReactNode;
 }) {
     return (
-        <section className={clsx('rounded-lg border px-4 py-3', noticeTone(tone))}>
+        <section className={clsx('rounded border px-4 py-3', noticeTone(tone))}>
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                     <p className="text-[0.68rem] font-bold uppercase">{label}</p>
@@ -123,7 +132,7 @@ export function PrimaryActionPanel({
     secondary?: ReactNode;
 }) {
     return (
-        <section className="mb-5 rounded-lg border border-accent-positive bg-surface-selected-positive p-4 shadow-accent-positive-glow">
+        <section className="mb-5 border border-accent-positive bg-surface-selected-positive p-4 shadow-accent-positive-glow">
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="min-w-0">
                     <p className="eyebrow text-accent-positive">{eyebrow}</p>
@@ -149,7 +158,7 @@ export function EmptyState({
     action?: ReactNode;
 }) {
     return (
-        <div className="rounded-md border border-dashed border-line bg-panel-soft px-4 py-5 text-sm">
+        <div className="rounded border border-dashed border-line bg-panel-soft px-4 py-5 text-sm">
             <p className="font-semibold text-ink">{title}</p>
             <div className="mt-1 max-w-2xl text-muted">{children}</div>
             {action ? <div className="mt-4">{action}</div> : null}
@@ -247,6 +256,21 @@ function toneText(tone: Tone) {
             return 'text-info';
         default:
             return 'text-ink';
+    }
+}
+
+function toneBar(tone: Tone) {
+    switch (tone) {
+        case 'ok':
+            return 'bg-success';
+        case 'warn':
+            return 'bg-warn';
+        case 'danger':
+            return 'bg-danger';
+        case 'info':
+            return 'bg-info';
+        default:
+            return 'bg-line-strong';
     }
 }
 

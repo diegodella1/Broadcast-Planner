@@ -10,7 +10,7 @@ import {
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 
 import { analyzeSchedule } from '@/lib/scheduling/schedule-health';
 import { formatTimecode } from '@/lib/helpers/time';
@@ -235,12 +235,15 @@ export function ScheduleWorkspace({
     ) : null;
 
     return (
-        <section id="add-block" className="mb-5 grid min-w-0 grid-cols-1 gap-5">
+        <section
+            id="add-block"
+            className="mb-5 grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_340px]"
+        >
             <div className="surface-panel min-w-0 overflow-hidden">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
                     <div>
-                        <p className="eyebrow">Day Planner</p>
-                        <h2 className="mt-1 text-xl font-semibold">Rundown</h2>
+                        <p className="technical-label text-accent-positive">Timeline workspace</p>
+                        <h2 className="mt-1 font-display text-xl font-semibold">Rundown</h2>
                         <p className="mt-1 text-sm text-muted">
                             {formatScheduleDate(date, schedule.day?.timezone)} ·{' '}
                             {schedule.day?.timezone ?? 'Schedule timezone'}
@@ -272,32 +275,92 @@ export function ScheduleWorkspace({
                     onSelect={openEdit}
                     onAdd={openAdd}
                 />
-                <BulkCardLoopPanel schedule={schedule} action={bulkCreateAction} />
             </div>
 
-            <RundownControls
-                date={date}
-                schedule={schedule}
-                blocks={orderedBlocks}
-                selectedBlockId={drawerOpen && drawerMode === 'edit' ? selectedBlockId : ''}
-                disabled={isPending}
-                sensors={sensors}
-                displayOrderedIds={displayOrderedIds}
-                onDragEnd={onDragEnd}
-                onSelect={openEdit}
-                onMoveByButton={moveByButton}
-                onDuplicate={handleDuplicate}
-                onArchive={handleArchive}
-            />
+            <aside className="min-w-0 xl:max-h-[calc(100vh-150px)] xl:overflow-y-auto">
+                <RundownControls
+                    date={date}
+                    schedule={schedule}
+                    blocks={orderedBlocks}
+                    selectedBlockId={drawerOpen && drawerMode === 'edit' ? selectedBlockId : ''}
+                    disabled={isPending}
+                    sensors={sensors}
+                    displayOrderedIds={displayOrderedIds}
+                    onDragEnd={onDragEnd}
+                    onSelect={openEdit}
+                    onMoveByButton={moveByButton}
+                    onDuplicate={handleDuplicate}
+                    onArchive={handleArchive}
+                />
+            </aside>
+            <div className="min-w-0 xl:col-span-2">
+                <BulkCardLoopPanel schedule={schedule} action={bulkCreateAction} />
+            </div>
             {editor}
         </section>
     );
 }
 
 function BlockEditorModal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const onCloseRef = useRef(onClose);
+
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    }, [onClose]);
+
+    useEffect(() => {
+        const dialog = dialogRef.current;
+        const previouslyFocused = document.activeElement as HTMLElement | null;
+
+        dialog?.focus();
+
+        function handleKeyDown(event: KeyboardEvent) {
+            if (event.key === 'Escape') {
+                onCloseRef.current();
+
+                return;
+            }
+
+            if (event.key !== 'Tab' || !dialog) {
+                return;
+            }
+
+            const focusable = Array.from(
+                dialog.querySelectorAll<HTMLElement>(
+                    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+                ),
+            );
+
+            if (!focusable.length) {
+                event.preventDefault();
+
+                return;
+            }
+
+            const first = focusable[0]!;
+            const last = focusable[focusable.length - 1]!;
+
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+            previouslyFocused?.focus();
+        };
+    }, []);
+
     return (
         <div
-            className="fixed inset-0 z-[100] grid place-items-center bg-black/60 p-3 backdrop-blur-sm sm:p-6"
+            className="fixed inset-0 z-[100] flex justify-end bg-black/70 backdrop-blur-sm"
             role="presentation"
             onMouseDown={(event) => {
                 if (event.target === event.currentTarget) {
@@ -305,7 +368,14 @@ function BlockEditorModal({ children, onClose }: { children: ReactNode; onClose:
                 }
             }}
         >
-            <div className="w-full max-w-xl" role="dialog" aria-modal="true">
+            <div
+                ref={dialogRef}
+                className="h-full w-full max-w-xl overflow-y-auto border-l border-line-strong bg-surface shadow-2xl"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Block editor"
+                tabIndex={-1}
+            >
                 {children}
             </div>
         </div>

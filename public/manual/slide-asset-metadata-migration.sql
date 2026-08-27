@@ -1,4 +1,4 @@
--- RTV Planner slide asset metadata migration.
+-- Broadcast Planner slide asset metadata migration.
 -- Use this on existing Supabase backends before creating individualized guest plates.
 
 alter table public.slide_assets

@@ -1,9 +1,9 @@
-insert into media_assets (id, title, source_type, media_kind, asset_type, url, duration_seconds, status, vimeo_id, vimeo_uri)
+insert into media_assets (id, title, source_type, media_kind, asset_type, url, canonical_url, playback_kind, duration_seconds, status, metadata_status)
 values
-  ('00000000-0000-0000-0000-000000000101', 'Vimeo Program Placeholder', 'vimeo', 'video', 'video', 'https://vimeo.com/76979871', 7200, 'ready', '76979871', '/videos/76979871'),
-  ('00000000-0000-0000-0000-000000000102', 'Sponsor Image 30s', 'remote_image', 'image', 'ad', 'https://images.unsplash.com/photo-1639322537504-6427a16b0a28', 30, 'ready', null, null),
-  ('00000000-0000-0000-0000-000000000103', 'Roxom Fallback Slate', 'remote_image', 'image', 'fallback', null, null, 'ready', null, null),
-  ('00000000-0000-0000-0000-000000000104', 'Reuters Live Feed', 'reuters', 'video', 'video', 'https://example.com/reuters/live', null, 'ready', null, null)
+  ('00000000-0000-0000-0000-000000000101', 'Public Program Placeholder', 'public_url', 'video', 'video', 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'embed', 7200, 'ready', 'partial'),
+  ('00000000-0000-0000-0000-000000000102', 'Sponsor Image 30s', 'public_url', 'image', 'ad', 'https://images.unsplash.com/photo-1639322537504-6427a16b0a28', 'https://images.unsplash.com/photo-1639322537504-6427a16b0a28', 'image', 30, 'ready', 'ready'),
+  ('00000000-0000-0000-0000-000000000103', 'Broadcast Planner Fallback Slate', 'uploaded', 'image', 'fallback', null, null, 'image', null, 'ready', 'ready'),
+  ('00000000-0000-0000-0000-000000000104', 'Reuters Live Feed', 'public_url', 'video', 'video', 'https://example.com/reuters/live', 'https://example.com/reuters/live', 'hls', null, 'ready', 'ready')
 on conflict (id) do nothing;
 
 insert into slide_assets (id, title, slide_type, content, template_id, default_duration_seconds, status)
@@ -13,7 +13,7 @@ on conflict (id) do nothing;
 
 insert into program_days (id, air_date, timezone, status, title, fallback_asset_id)
 values
-  ('00000000-0000-0000-0000-000000000301', current_date, 'America/Los_Angeles', 'active', 'Roxom Daily', '00000000-0000-0000-0000-000000000103')
+  ('00000000-0000-0000-0000-000000000301', current_date, 'America/Los_Angeles', 'active', 'Broadcast Planner Daily', '00000000-0000-0000-0000-000000000103')
 on conflict (air_date) do nothing;
 
 insert into program_blocks (id, program_day_id, title, block_type, category, asset_id, start_time, start_time_seconds, duration_seconds, status, hide_overlays, fallback_asset_id)
@@ -46,7 +46,7 @@ values
   (
     '00000000-0000-0000-0000-000000000601',
     'Market Open Briefing',
-    'Daily market open agenda for the Roxom TV desk.',
+    'Daily market open agenda for the Broadcast Planner desk.',
     current_date + 1,
     '09:30:00',
     '10:00:00',

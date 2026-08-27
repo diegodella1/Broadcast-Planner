@@ -34,18 +34,6 @@ vi.mock('@/lib/output-overrides', () => ({
     getActiveOutputOverride: vi.fn(async () => null),
 }));
 
-vi.mock('@/lib/settings', () => ({
-    getVimeoToken: vi.fn(async () => 'vimeo-token'),
-}));
-
-vi.mock('@/lib/services/vimeo', () => ({
-    getVimeoPlayback: vi.fn(async () => ({
-        title: 'Vimeo clip',
-        hlsUrl: 'https://example.com/video.m3u8',
-        durationSeconds: 60,
-    })),
-}));
-
 describe('GET /api/output/channel/state background music', () => {
     beforeEach(() => {
         vi.resetAllMocks();
@@ -238,7 +226,8 @@ describe('GET /api/output/channel/state background music', () => {
                     {
                         id: 'fallback-video',
                         title: 'Fallback loop',
-                        sourceType: 'remote_mp4',
+                        sourceType: 'uploaded',
+                        playbackKind: 'video_file',
                         mediaKind: 'video',
                         assetType: 'fallback',
                         url: 'https://example.com/fallback.mp4',
@@ -281,7 +270,8 @@ describe('GET /api/output/channel/state background music', () => {
                     {
                         id: 'fallback-video',
                         title: 'Fallback loop',
-                        sourceType: 'remote_mp4',
+                        sourceType: 'uploaded',
+                        playbackKind: 'video_file',
                         mediaKind: 'video',
                         assetType: 'fallback',
                         url: 'https://example.com/fallback.mp4',
@@ -327,7 +317,8 @@ describe('GET /api/output/channel/state background music', () => {
                     {
                         id: 'promo-video',
                         title: 'Promo spot',
-                        sourceType: 'remote_mp4',
+                        sourceType: 'uploaded',
+                        playbackKind: 'video_file',
                         mediaKind: 'video',
                         assetType: 'promo',
                         url: 'https://example.com/promo.mp4',
@@ -439,7 +430,8 @@ function bundleWith(input: {
                       {
                           id: 'music-1',
                           title: 'Music bed',
-                          sourceType: 'supabase_audio' as const,
+                          sourceType: 'uploaded' as const,
+                          playbackKind: 'audio' as const,
                           mediaKind: 'audio' as const,
                           assetType: 'music' as const,
                           url: 'https://example.com/music.mp3',
@@ -453,7 +445,8 @@ function bundleWith(input: {
             {
                 id: 'video-1',
                 title: 'Video',
-                sourceType: 'remote_mp4' as const,
+                sourceType: 'uploaded',
+                playbackKind: 'video_file' as const,
                 mediaKind: 'video' as const,
                 assetType: 'video' as const,
                 url: 'https://example.com/video.mp4',

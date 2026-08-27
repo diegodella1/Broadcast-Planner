@@ -1,81 +1,71 @@
-**Updated 2026-05-07. Dark broadcast direction adopted. The previous light operational OKLCH theme is DEPRECATED. Source of truth: `rtv-air-manager_2.html` (visual brief).**
+# Obsidian Broadcast — Admin Design System
 
-# RTVTime Admin Design System
+Updated 2026-07-29. Source references: `stitch_media_production_suite.zip`, especially
+`obsidian_broadcast/DESIGN.md`. This file is the implementation source of truth.
 
-## Register
+## Direction
 
-Product UI for internal broadcast operations. Design serves fast scanning, scheduling confidence, and error correction.
+Industrial broadcast instrument for operators working under time pressure. The interface favors
+fast scanning, explicit signal state and dense workspaces over decorative cards. Dark-only.
 
-## Source of Truth
-
-Visual brief: `/Users/macarenazalazar/Downloads/rtv-air-manager_2.html`. Token authority: same file, lines `:11-18`.
+Recognition anchor: persistent on-air strip, monospaced timecodes and edge-to-edge technical panels.
 
 ## Tokens
 
-All tokens declared in `tailwind.config.ts` (P1.1). Component code MUST consume these by name.
+Tokens live as CSS variables in `app/globals.css` and are exposed through semantic Tailwind names.
+Component code must not introduce raw colors.
 
-| Token                         | Value                   | Usage                                               |
-| ----------------------------- | ----------------------- | --------------------------------------------------- |
-| `surface-elevated-1`          | `#191919`               | Body / sidebar / panels                             |
-| `surface-elevated-2`          | `#1e1e1e`               | Cards / blocks                                      |
-| `surface-selected-positive`   | `#19241f`               | Active block bg                                     |
-| `accent-positive`             | `#1ae784`               | Brand green / positive sentiment (chyron-canonical) |
-| `accent-positive-hover`       | `#16cc74`               | Hover on accent surfaces                            |
-| `accent-positive-glow`        | `rgba(26,231,132,0.25)` | Outer glow shadow                                   |
-| `accent-positive-glow-strong` | `rgba(26,231,132,0.60)` | Strong glow on focus                                |
-| `accent-live`                 | `#e7000b`               | LIVE / ON AIR pill bg                               |
-| `accent-live-text`            | `#ff4d4d`               | Live text on dark                                   |
-| `info-blue`                   | `#60a5fa`               | Markets category badge                              |
-| `warn-amber`                  | `#fbbf24`               | Calendar / warning category                         |
-| `info-violet`                 | `#c084fc`               | Debt category                                       |
-| `negative-red`                | `#ef4444`               | Negative sentiment / breaking                       |
+| Role           | Value     | Usage                       |
+| -------------- | --------- | --------------------------- |
+| Floor          | `#0a0a0a` | App background, video stage |
+| Surface low    | `#131313` | Sidebar, rails              |
+| Surface        | `#1e1e1e` | Panels, controls            |
+| Surface high   | `#2a2a2a` | Hover and selected rows     |
+| Overlay        | `#353534` | Drawers, popovers           |
+| Primary        | `#8fb3ff` | Actions, focus, selection   |
+| Primary strong | `#4d8eff` | High-emphasis interaction   |
+| Secondary      | `#d0bcff` | Creative/graphics context   |
+| Ready          | `#10b981` | Healthy, ready, standby     |
+| Recording      | `#f59e0b` | Warning and recording       |
+| Live           | `#ef4444` | On-air and destructive only |
+
+Green, amber and red are status colors. They must not represent ordinary navigation or primary
+actions.
 
 ## Typography
 
-- Family: DM Sans 400 / 500 / 600 / 700 / 800. Loaded via `next/font/google` in `app/layout.tsx`.
-- Base size: 13px.
-- Inline scale used in chyron: 9-15px. Eyebrow at 9px with uppercase and letter-spacing 1.5-2px.
-
-## Radii and Shape
-
-- Square edges.
-- Default `--r: 10px` for small radius on cards and buttons.
-- `border-radius: 50%` only on dot indicators (live dot, category dot).
-
-## Motion
-
-- `blink` 1.4s -- ON AIR pill, LIVE dot.
-- `pd` 2s -- globe / earthcam preview.
-- `bar-grow` -- market chart preview.
-- All animations gated by `@media (prefers-reduced-motion: reduce)`.
+- Display: Hanken Grotesk 600–700 for page and panel titles.
+- UI: Inter 400–700 for controls and prose.
+- Technical: JetBrains Mono 400–700 for timecodes, identifiers and machine state.
+- Labels use uppercase, 11px, 0.08em tracking.
 
 ## Layout
 
-- Fixed 56px sidebar.
-- Fixed 48px topbar.
-- Main content column.
-- Optional 240px right-rail operations panel.
-- Responsive within main column only. NOT a 1920x1080 fixed canvas (chyron mood-board is the only fixed-canvas surface).
+- Desktop: fixed 256px sidebar, 64px topbar and persistent status strip.
+- Workspaces use edge-to-edge panels separated by 1px borders.
+- 4px base rhythm; normal panel padding 12–16px.
+- Tablet: sidebar becomes a menu and secondary panels stack or become drawers.
+- Mobile is an access fallback, not the primary operating target.
 
-## Chyron-Canonical Brand Green
+## Components
 
-`#1ae784` (`accent-positive`) is RoxomTV's brand green. Used for positive sentiment, active states, brand accents. Same value and role as the chyron design system documented in `~/.claude/skills/roxom-design-tokens/SKILL.md`.
+- Panels use tonal separation and borders, not heavy shadows.
+- Tables and queues use dense 56–64px rows with a blue left edge for selection.
+- Inspectors open on the right and retain context.
+- Buttons use 4px radii; status chips may be pill-shaped.
+- Time-sensitive controls show their current state and require confirmation when destructive.
+- Empty states name the next valid action.
 
-## Forbidden
+## Motion and Accessibility
 
-- No raw hex or rgba in component code. Tokens only.
-- No light theme.
-- No imports from `/Users/macarenazalazar/Downloads/x-ready-to-implement` (chyron mood board, separate project).
-- No spark-ui, no Yarn, no Inter. RoxomTV ships on npm and DM Sans.
+- Motion is limited to live/recording pulses, drawer transitions and direct interaction feedback.
+- All animation is disabled by `prefers-reduced-motion`.
+- Focus uses the primary blue token and remains visible on every interactive element.
+- Preserve keyboard drag-and-drop, modal focus handling, semantic labels and WCAG AA contrast.
 
-## Out of Scope
+## Boundaries
 
-- Light/dark toggle.
-- Mobile responsive (broadcast operator console is desktop only).
-- High-contrast mode.
-
-## Copy
-
-- Admin copy stays short, concrete, and action-oriented.
-- Spanish UI text is preferred for operator-facing labels.
-- Avoid explaining how the whole product works inside the UI. Each empty state should name the next action.
+- Admin UI changes must not leak into `/output/*` broadcast plates.
+- Keep existing API, auth, server-action and route contracts unless a product change explicitly
+  requires otherwise.
+- No decorative controls without working behavior.

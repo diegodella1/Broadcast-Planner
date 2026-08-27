@@ -21,13 +21,13 @@ export default async function AuditPage({
     return (
         <AdminShell
             title="Audit trail"
-            description="Operational record for schedule, media, Vimeo, settings and output actions."
+            description="Operational record for schedule, media, Public media, settings and output actions."
         >
             <StatusBanner
                 tone="info"
                 label="Identity mode"
                 title="Bootstrap admin audit"
-                detail="Multi-user roles are intentionally out of scope. Actor values are operational labels such as admin, system, vimeo-sync and manual-broadcast."
+                detail="Multi-user roles are intentionally out of scope. Actor values are operational labels such as admin, system, public_url-sync and manual-broadcast."
             />
 
             <section className="my-5 rounded-lg border border-line bg-surface p-3">

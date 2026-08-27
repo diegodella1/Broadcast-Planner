@@ -3,10 +3,9 @@ import { and, eq, desc } from 'drizzle-orm';
 
 import { auditedMutation, recordAuditEvent } from '../audit/audit';
 import { getCurrentOperatorSession } from '../auth/auth';
-import { getMediaAssetById, getMediaAssetByVimeoUri } from '../data';
+import { getMediaAssetById } from '../data';
 import { maskStreamUrl, parseReutersStreamInput } from '../services/reuters-stream';
 import { err, extractError, ok, type Result } from '../result';
-import { getVimeoToken } from '../settings';
 import { getDb } from '../db/client';
 import { outputOverrides, programBlocks, programDays } from '../db/schema';
 import {
@@ -15,25 +14,12 @@ import {
     PLAYOUT_TIMEZONE,
     secondsSinceMidnightInTimezone,
 } from '../helpers/time';
-import {
-    getVimeoVideo,
-    searchVimeoAccountVideos,
-    upsertVimeoVideos,
-    type VimeoVideo,
-} from '../services/vimeo';
-
 import { createProgramBlock } from './blocks';
 
-import type {
-    GoLiveNowInput,
-    GoLiveReutersInput,
-    ScheduleReutersBlockInput,
-    ScheduleVimeoBlockInput,
-} from '../schemas/manual-broadcast';
+import type { GoLiveReutersInput, ScheduleReutersBlockInput } from '../schemas/manual-broadcast';
 import type { MediaAsset } from '../types';
 
 const TZ = PLAYOUT_TIMEZONE;
-const DEFAULT_DURATION_SECONDS = 1800;
 const REUTERS_LIVE_DEFAULT_DURATION_SECONDS = 1800;
 
 export type ReutersOverrideInput = {
@@ -148,172 +134,6 @@ export async function clearOutputOverride(programDayId: string): Promise<Result<
     }
 }
 
-export async function ensureVimeoAssetCached(
-    token: string,
-    vimeoUri: string,
-): Promise<Result<string>> {
-    try {
-        const existing = await getMediaAssetByVimeoUri(vimeoUri);
-
-        if (existing) {
-            return ok(existing.id);
-        }
-
-        const video = await getVimeoVideo(token, vimeoUri);
-        await upsertVimeoVideos([video]);
-
-        const inserted = await getMediaAssetByVimeoUri(vimeoUri);
-
-        if (!inserted) {
-            return err('manual-broadcast: failed to cache Vimeo asset');
-        }
-
-        return ok(inserted.id);
-    } catch (error) {
-        return err(extractError(error));
-    }
-}
-
-export async function searchVimeoCatalog(query: string): Promise<Result<VimeoVideo[]>> {
-    try {
-        const token = await getVimeoToken();
-
-        if (!token) {
-            return err('vimeo: no token configured');
-        }
-
-        const videos = await searchVimeoAccountVideos(token, query);
-
-        return ok(videos);
-    } catch (error) {
-        return err(extractError(error));
-    }
-}
-
-export async function goLiveWithVimeo(
-    input: GoLiveNowInput,
-): Promise<Result<{ programBlockId: string }>> {
-    try {
-        const token = await getVimeoToken();
-
-        if (!token) {
-            return err('vimeo: no token configured');
-        }
-
-        const cacheResult = await ensureVimeoAssetCached(token, input.vimeoUri);
-
-        if (!cacheResult.success) {
-            return cacheResult;
-        }
-
-        const assetId = cacheResult.data;
-        const asset = await getMediaAssetById(assetId);
-
-        if (!asset) {
-            return err('manual-broadcast: cached asset not found');
-        }
-
-        const now = new Date();
-        const airDate = isoDateInTimezone(now, TZ);
-        const startSeconds = secondsSinceMidnightInTimezone(now, TZ);
-        const startTime = formatTimecode(startSeconds);
-        const durationSeconds = resolveDuration(asset);
-
-        const createResult = await createProgramBlock({
-            date: airDate,
-            title: asset.title,
-            blockType: 'video',
-            category: 'broadcast',
-            assetId,
-            startTime,
-            durationSeconds,
-            hideOverlays: false,
-            conflictResolution: 'archive_conflicts',
-        });
-
-        if (!createResult.success) {
-            return err(createResult.error);
-        }
-
-        const programBlockId = await fetchInsertedBlockId(airDate, startSeconds);
-        await logManualBroadcast('manual_broadcast.go_live', {
-            asset_id: assetId,
-            vimeo_uri: input.vimeoUri,
-            air_date: airDate,
-            start_time: startTime,
-            program_block_id: programBlockId,
-        });
-
-        revalidatePath('/admin/output');
-        revalidatePath(`/admin/schedule/${airDate}`);
-
-        return ok({ programBlockId: programBlockId ?? '' });
-    } catch (error) {
-        return err(extractError(error));
-    }
-}
-
-export async function scheduleVimeoBlock(
-    input: ScheduleVimeoBlockInput,
-): Promise<Result<{ programBlockId: string }>> {
-    try {
-        const token = await getVimeoToken();
-
-        if (!token) {
-            return err('vimeo: no token configured');
-        }
-
-        const cacheResult = await ensureVimeoAssetCached(token, input.vimeoUri);
-
-        if (!cacheResult.success) {
-            return cacheResult;
-        }
-
-        const assetId = cacheResult.data;
-        const asset = await getMediaAssetById(assetId);
-
-        if (!asset) {
-            return err('manual-broadcast: cached asset not found');
-        }
-
-        const airDate = input.airDate ?? isoDateInTimezone(new Date(), TZ);
-        const startTime = normalizeStartTime(input.startAt);
-        const startSeconds = startTimeToSeconds(startTime);
-        const durationSeconds = resolveDuration(asset);
-
-        const createResult = await createProgramBlock({
-            date: airDate,
-            title: asset.title,
-            blockType: 'video',
-            category: 'broadcast',
-            assetId,
-            startTime,
-            durationSeconds,
-            hideOverlays: false,
-        });
-
-        if (!createResult.success) {
-            return err(createResult.error);
-        }
-
-        const programBlockId = await fetchInsertedBlockId(airDate, startSeconds);
-        await logManualBroadcast('manual_broadcast.schedule', {
-            asset_id: assetId,
-            vimeo_uri: input.vimeoUri,
-            air_date: airDate,
-            start_time: startTime,
-            program_block_id: programBlockId,
-        });
-
-        revalidatePath('/admin/output');
-        revalidatePath(`/admin/schedule/${airDate}`);
-
-        return ok({ programBlockId: programBlockId ?? '' });
-    } catch (error) {
-        return err(extractError(error));
-    }
-}
-
 export async function goLiveWithReuters(
     input: GoLiveReutersInput,
 ): Promise<Result<{ programBlockId: string }>> {
@@ -324,7 +144,7 @@ export async function goLiveWithReuters(
             return err('manual-broadcast: reuters asset not found');
         }
 
-        if (asset.sourceType !== 'reuters') {
+        if (asset.metadata?.reuters_channel_id === undefined) {
             return err('manual-broadcast: asset is not a reuters channel');
         }
 
@@ -377,7 +197,7 @@ export async function scheduleReutersBlock(
             return err('manual-broadcast: reuters asset not found');
         }
 
-        if (asset.sourceType !== 'reuters') {
+        if (asset.metadata?.reuters_channel_id === undefined) {
             return err('manual-broadcast: asset is not a reuters channel');
         }
 
@@ -417,16 +237,6 @@ export async function scheduleReutersBlock(
     } catch (error) {
         return err(extractError(error));
     }
-}
-
-function resolveDuration(asset: MediaAsset): number {
-    const value = asset.durationSeconds;
-
-    if (typeof value === 'number' && value > 0) {
-        return Math.round(value);
-    }
-
-    return DEFAULT_DURATION_SECONDS;
 }
 
 function resolveReutersDuration(asset: MediaAsset): number {

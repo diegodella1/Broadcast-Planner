@@ -1,15 +1,15 @@
 # Production Readiness Runbook
 
-RTV Planner is live for controlled production with an operator present. Treat this runbook as the
-release and go-live checklist for the Roxom TV browser-output workflow.
+Broadcast Planner is live for controlled production with an operator present. Treat this runbook as the
+release and go-live checklist for the browser-output workflow.
 
 ## Current Production Shape
 
-- App: standalone Next.js service on the host.
-- Public route: `https://rtvtime.diegodella.ar`.
+- App: immutable standalone Next.js releases; systemd runs the `current` release symlink.
+- Public route: `https://broadcast-planner.diegodella.ar`.
 - Network: Cloudflare tunnel in front of local service.
-- Backend: Supabase database/storage.
-- Uploaded media: local Supabase Storage served publicly through `/api/media/assets/[assetId]`.
+- Backend: D1, R2 and KV through persisted local Wrangler bindings.
+- Uploaded media: R2-backed media served publicly through `/api/media/assets/[assetId]`.
 - Playout: `/output/live` captured by OBS or vMix.
 - Operational model: named operators for normal use, bootstrap token for emergency access.
 - Operator model: `/admin/prepare` for content and plates, `/admin/program` for day/rundown/loop
@@ -17,7 +17,7 @@ release and go-live checklist for the Roxom TV browser-output workflow.
 - Capture status: browser output has been confirmed through web player, vMix and OBS.
 - Main product gate: remodel the on-air plate design for a stronger broadcast look, then tighten
   output alerts for drift, stalls, silence and media errors.
-- Real-data plate inputs: metals use Roxom API data with fallback, weather falls back to Open-Meteo
+- Real-data plate inputs: metals use an optional external provider with fallback, weather falls back to Open-Meteo
   when OpenWeather is not configured, calendar/event plates use the Supabase events table, and the
   debt plate no longer depends on a missing background asset.
 - Normal video programs can opt into a `PREVIOUSLY RECORDED` output bug with four-corner placement.
@@ -34,9 +34,8 @@ release and go-live checklist for the Roxom TV browser-output workflow.
   matching standalone file at `public/manual/atomic-rate-limits-migration.sql`.
 - Public `/api/health` responses are sanitized. Full diagnostic messages are available to logged-in
   admins through the admin health surface.
-- Alternate deploy path: OpenNext/Cloudflare Workers is configured and deployable, but the current
-  production host remains local standalone Next.js behind Cloudflare Tunnel until a Workers deploy
-  is smoke-tested.
+- Alternate deploy path: OpenNext/Cloudflare Workers requires remote Worker, D1 and R2 provisioning plus
+  a successful preview smoke before use.
 
 ## Required Gates
 
@@ -58,7 +57,7 @@ rtk npm run smoke:http
 Run staging write smoke before production deploy:
 
 ```bash
-export RTV_STAGING_BASE_URL="https://staging.example.com"
+export BROADCAST_PLANNER_STAGING_BASE_URL="https://staging.example.com"
 export ADMIN_BOOTSTRAP_TOKEN="..."
 export OUTPUT_CAPTURE_TOKEN="..."
 export NEXT_PUBLIC_SUPABASE_URL="..."
@@ -73,7 +72,7 @@ playout schedule auth and audit visibility.
 Run the production read-only smoke manually before going on air:
 
 ```bash
-export RTV_PROD_BASE_URL="https://example.com"
+export BROADCAST_PLANNER_PROD_BASE_URL="https://example.com"
 export ADMIN_BOOTSTRAP_TOKEN="..."
 export OUTPUT_CAPTURE_TOKEN="..." # when configured
 rtk npm run smoke:prod
@@ -82,18 +81,22 @@ rtk npm run smoke:prod
 The production smoke is intentionally read-only. It must not create days, upload media, publish a
 schedule, trigger sync jobs, or mutate Supabase.
 
-For the current `rtvtime.diegodella.ar` host, production deploy is local standalone Next.js behind
+For the current `broadcast-planner.diegodella.ar` host, production deploy is local standalone Next.js behind
 `cloudflared`:
 
 ```bash
-rtk bash scripts/deploy_local_tunnel.sh
+rtk bash scripts/install_release_units.sh # first install or unit-template change
+rtk bash scripts/deploy_local_tunnel.sh deploy
 ```
+
+Deploys retain a previous immutable release. Manual rollback uses
+`rtk bash scripts/deploy_local_tunnel.sh rollback`.
 
 The deploy script records persisted smoke status for `/api/health`. To run the public read-only
 smoke manually:
 
 ```bash
-export RTV_PROD_BASE_URL="https://rtvtime.diegodella.ar"
+export BROADCAST_PLANNER_PROD_BASE_URL="https://broadcast-planner.diegodella.ar"
 export ADMIN_BOOTSTRAP_TOKEN="..."
 export OUTPUT_CAPTURE_TOKEN="..."
 rtk npm run smoke:prod
@@ -106,19 +109,19 @@ block output, so the operator owns final go/no-go.
 
 ## Sales-Ready Summary
 
-RTV Planner gives Roxom TV one place to plan, verify and operate the daily signal. The product is
+Broadcast Planner gives operators one place to plan, verify and operate the daily signal. The product is
 ready to demonstrate as a practical broadcast operations console: content library, schedule health,
 runbook, browser playout, output monitor, live overrides, fallbacks and audit trail.
 
 What to say in a demo:
 
-- "This is the daily control room for Roxom TV."
+- "This is the daily broadcast control room."
 - "The operator path is Prepare, Program, Operate."
 - "The operator can see what is live, what is next and what can fail before it goes on air."
 - "The browser output is designed to be captured by OBS or vMix."
 - "The web player has already been confirmed in browser, vMix and OBS."
 - "If the output reloads mid-show, it asks the server where the schedule is and resumes near that offset."
-- "Supabase stores the operational state, and a fresh backend can be bootstrapped from SQL."
+- "D1 stores operational state and R2 stores media."
 - "Schedule editing now confirms newly-added blocks clearly, with highlighted placement and
   readable start/end ranges."
 - "Loop Builder can either create scheduled slide loops, update the fallback carousel, or do both."
@@ -128,17 +131,15 @@ Current demo caveat:
 - The output is operationally correct, but the plate visual system still needs a broadcast-quality
   remodel before it should represent the final channel identity.
 
-`cf:build` and `cf:*` commands remain available for Cloudflare Worker/OpenNext deploys. Those
-deploys must keep Cloudflare dashboard vars/secrets configured for Supabase, `APP_ENCRYPTION_KEY`,
-`ADMIN_BOOTSTRAP_TOKEN`, `OUTPUT_CAPTURE_TOKEN`, app base URLs and provider tokens. They are not the
-active production deploy path on this host until a real Workers deploy passes smoke.
+`cf:build` and `cf:*` commands remain development paths for Cloudflare Worker/OpenNext. Remote Worker,
+D1 and R2 resources must be provisioned and smoke-tested before that path can become production.
 
 ## Output Token Rotation
 
 1. Set a new `OUTPUT_CAPTURE_TOKEN` in the target environment.
 2. Redeploy or restart the app.
 3. Confirm `/api/health` is green.
-4. Open output from the admin UI so `/api/output/session` refreshes the `rpm_output_token` cookie.
+4. Open output from the admin UI so `/api/output/session` refreshes the `broadcast-planner_output_token` cookie.
 5. Run `rtk npm run smoke:prod`.
 6. Remove the old token from any temporary capture bootstrap URLs.
 

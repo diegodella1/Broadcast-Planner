@@ -1,8 +1,8 @@
-# PRD — Roxom Playout Manager
+# PRD — Broadcast Planner
 
 ## 1. One-line Summary
 
-Build a new CMS-controlled broadcast playout manager for Roxom TV, based on the lessons from `backgroundclima`, where an admin can program exactly what appears on air and when: long-form videos, ads, slides, maps, cameras, weather, widgets, promos, and other visual layers.
+Build Broadcast Planner as a CMS-controlled broadcast playout manager, based on the lessons from `backgroundclima`, where an admin can program exactly what appears on air and when: long-form videos, ads, slides, maps, cameras, weather, widgets, promos, and other visual layers.
 
 This should be a new architecture, not a direct extension of the current `backgroundclima` city-rotation logic.
 
@@ -81,26 +81,18 @@ The new product should treat `backgroundclima` as one possible scene type inside
 
 ## 4. Product Name
 
-Working name:
+Product name:
 
-# Roxom Playout Manager
+# Broadcast Planner
 
-Alternative internal names:
-
-- Roxom Signal Layer
-- Roxom Visual Rundown Manager
-- Roxom Broadcast Timeline Manager
-- Roxom Visual CMS
-
-Recommended name: **Roxom Playout Manager**.
-
-Reason: it clearly communicates that the product is not only a CMS, not only a weather app, and not only a graphics layer. It manages what plays out to air.
+Broadcast Planner is the standalone product identity. “Broadcast Control Room” is its descriptive tagline,
+not part of the product name.
 
 ---
 
 ## 5. Product Definition
 
-Roxom Playout Manager is an internal CMS + timeline manager + browser-based broadcast renderer.
+Broadcast Planner is an internal CMS + timeline manager + browser-based broadcast renderer.
 
 It allows a content administrator to create and schedule visual/audio-visual elements on a timeline, then output that programmed sequence through a fullscreen browser route that can be captured by vMix, OBS, or another broadcast system.
 
@@ -736,7 +728,7 @@ The renderer should evaluate the active timeline based on elapsed time.
 
 ```txt
 00:00:00 - 02:00:00  Base video: Market Recap Special
-00:00:10 - 00:00:25  Overlay: Roxom logo bug
+00:00:10 - 00:00:25  Overlay: Broadcast Planner logo bug
 00:02:00 - 00:02:20  Slide: Program title
 00:10:00 - 00:10:30  Widget: BTC price
 00:15:00 - 00:16:00  Ad: Sponsor ad
@@ -1136,13 +1128,13 @@ Use this prompt to guide implementation:
 ```md
 You are working on a new product architecture based on lessons from the `backgroundclima` repo.
 
-The new product is called Roxom Playout Manager.
+The product is called Broadcast Planner.
 
 Do not simply extend the old city-rotation logic. The old project should be used as reference, especially for weather/camera scenes, but the new architecture must be built around:
 
 Timeline → Scheduled Layers → Broadcast Renderer
 
-This is a CMS-controlled broadcast playout manager for Roxom TV.
+This is a CMS-controlled broadcast playout manager.
 
 The viewer does not interact with the UI. This is for television. The admin controls what appears on air.
 
@@ -1191,7 +1183,7 @@ Keep the code modular and avoid overbuilding.
 
 ## 26. Final Definition
 
-Roxom Playout Manager is a CMS-controlled visual rundown manager.
+Broadcast Planner is a CMS-controlled visual rundown manager.
 
 It lets an admin program what appears on air and when.
 
@@ -1203,4 +1195,4 @@ It is not an RTMP ingest server.
 
 It is not a complete vMix replacement.
 
-It is the first step toward a structured internal broadcast playout layer for Roxom TV.
+It is the first step toward a structured broadcast playout layer.

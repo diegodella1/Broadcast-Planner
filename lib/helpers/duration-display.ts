@@ -1,4 +1,4 @@
-import type { SourceType } from '../types';
+import type { PlaybackKind, SourceType } from '../types';
 
 export type DurationDisplay = { kind: 'live' } | { kind: 'duration'; seconds: number };
 
@@ -10,15 +10,16 @@ export type DurationDisplay = { kind: 'live' } | { kind: 'duration'; seconds: nu
  * rendering the result (translating `block.live` for `kind: "live"`, or
  * formatting `seconds` via `formatTimecode` for `kind: "duration"`).
  *
- * Only `sourceType === "reuters"` qualifies as a live stream for now. Other
+ * HLS without a published duration qualifies as a live stream. Other
  * unknown durations fall through to a 0-second numeric path so the caller
  * always has a numeric branch available.
  */
 export function getDurationDisplay(input: {
     durationSeconds: number | null;
     sourceType: SourceType;
+    playbackKind?: PlaybackKind | null;
 }): DurationDisplay {
-    if (input.durationSeconds === null && input.sourceType === 'reuters') {
+    if (input.durationSeconds === null && input.playbackKind === 'hls') {
         return { kind: 'live' };
     }
 

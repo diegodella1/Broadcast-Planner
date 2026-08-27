@@ -1,4 +1,4 @@
--- RTV Planner guest lineup migration.
+-- Broadcast Planner guest lineup migration.
 -- Run this on any Supabase/Postgres backend before using /admin/guests.
 -- Normal repo migration source: supabase/migrations/20260522120000_guest_lineup.sql
 

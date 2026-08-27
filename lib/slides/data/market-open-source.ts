@@ -1,4 +1,5 @@
 import type { MarketIndex, MarketIndexPoint, MarketOpenData } from '@/lib/slides/types';
+import { getDataProviderConfig } from './provider-config';
 
 const MARKET_CACHE_DURATION_MS = 30_000;
 const MAX_POINTS = 120;
@@ -7,7 +8,7 @@ type MarketItem = Record<string, unknown>;
 type MarketProviderResult = {
     items: MarketItem[];
     source: string;
-    provider: 'configured' | 'rtv' | 'stooq';
+    provider: 'configured' | 'data-provider' | 'stooq';
 };
 
 type StooqSymbolConfig = {
@@ -121,7 +122,7 @@ async function refreshMarketData(
     let result = await fetchMarketProviderItems(config);
     let updatedAt = newestProviderTimestamp(result.items) ?? now.toISOString();
     let instruments = config.instruments.map((instrument) =>
-        result.provider === 'configured' || result.provider === 'rtv'
+        result.provider === 'configured' || result.provider === 'data-provider'
             ? normalizeConfiguredInstrument(
                   config,
                   instrument,
@@ -132,7 +133,10 @@ async function refreshMarketData(
             : normalizeStooqInstrument(instrument, result.items, updatedAt, pointHistory),
     );
 
-    if (result.provider === 'rtv' && instruments.every((instrument) => instrument.unavailable)) {
+    if (
+        result.provider === 'data-provider' &&
+        instruments.every((instrument) => instrument.unavailable)
+    ) {
         result = {
             items: await fetchStooqMarketItems(config),
             source: 'Stooq delayed quotes',
@@ -166,8 +170,8 @@ function getActiveProviderLabel(config: MarketOpenConfig) {
         return process.env[`${config.envPrefix}_MARKET_DATA_PROVIDER`] || 'Configured market API';
     }
 
-    if (config.envPrefix === 'US' && getRtvApiKey()) {
-        return 'RTV API';
+    if (config.envPrefix === 'US' && getDataProviderConfig()) {
+        return 'Data Provider API';
     }
 
     return 'Stooq delayed quotes';
@@ -185,15 +189,22 @@ async function fetchMarketProviderItems(config: MarketOpenConfig): Promise<Marke
         };
     }
 
-    if (config.envPrefix === 'US' && getRtvApiKey()) {
-        const rtvItems = await fetchRtvUsMarketItems().catch((error) => {
-            console.warn('[lib/slides/data/market-open-source.ts:fetchRtvUsMarketItems]', error);
+    if (config.envPrefix === 'US' && getDataProviderConfig()) {
+        const dataProviderItems = await fetchDataProviderUsMarketItems().catch((error) => {
+            console.warn(
+                '[lib/slides/data/market-open-source.ts:fetchDataProviderUsMarketItems]',
+                error,
+            );
 
             return null;
         });
 
-        if (rtvItems?.length) {
-            return { items: rtvItems, source: 'RTV API', provider: 'rtv' };
+        if (dataProviderItems?.length) {
+            return {
+                items: dataProviderItems,
+                source: 'Data Provider API',
+                provider: 'data-provider',
+            };
         }
     }
 
@@ -247,23 +258,26 @@ async function fetchProviderMarketItems(
     return items.filter(isObject);
 }
 
-async function fetchRtvUsMarketItems(): Promise<MarketItem[]> {
-    const rtvApiUrl = (process.env.RTV_API_URL ?? 'https://api.roxom.tv').replace(/\/$/, '');
-    const rtvApiKey = getRtvApiKey();
+async function fetchDataProviderUsMarketItems(): Promise<MarketItem[]> {
+    const provider = getDataProviderConfig();
+
+    if (!provider) {
+        return [];
+    }
     const headers: Record<string, string> = { Accept: 'application/json' };
 
-    if (rtvApiKey) {
-        headers['x-api-key'] = rtvApiKey;
+    if (provider.apiKey) {
+        headers['x-api-key'] = provider.apiKey;
     }
 
-    const response = await fetch(`${rtvApiUrl}/api/market-indices/us`, {
+    const response = await fetch(`${provider.baseUrl}/api/market-indices/us`, {
         headers,
         cache: 'no-store',
         signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {
-        throw new Error(`RTV API US market data error: ${response.status}`);
+        throw new Error(`Data Provider API US market data error: ${response.status}`);
     }
     const envelope = (await response.json()) as {
         success?: boolean;
@@ -273,7 +287,7 @@ async function fetchRtvUsMarketItems(): Promise<MarketItem[]> {
     };
 
     if (envelope.success === false) {
-        throw new Error('RTV API US market data success=false');
+        throw new Error('Data Provider API US market data success=false');
     }
     const items = Array.isArray(envelope.data)
         ? envelope.data
@@ -286,10 +300,6 @@ async function fetchRtvUsMarketItems(): Promise<MarketItem[]> {
               : [];
 
     return items.filter(isObject);
-}
-
-function getRtvApiKey() {
-    return process.env.RTV_API_KEY ?? process.env.NEXT_PUBLIC_RTV_API_KEY ?? '';
 }
 
 async function fetchStooqMarketItems(config: MarketOpenConfig): Promise<MarketItem[]> {

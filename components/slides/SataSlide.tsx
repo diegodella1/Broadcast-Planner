@@ -193,7 +193,7 @@ const TopBar = React.memo(
                         color: priceSlide.textMuted,
                     }}
                 >
-                    ROXOM TV SYSTEM
+                    BROADCAST_PLANNER SYSTEM
                 </span>
                 <div
                     style={{

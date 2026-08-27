@@ -7,10 +7,10 @@ const required = [
     { path: 'lib/mutations/slides.ts', token: 'auditedMutation' },
     { path: 'lib/mutations/output.ts', token: 'auditedMutation' },
     { path: 'lib/mutations/output.ts', token: 'recordAuditEvent' },
-    { path: 'lib/settings.ts', token: 'auditedMutation' },
+    { path: 'lib/media/asset-metadata.ts', token: 'recordAuditEvent' },
     { path: 'lib/services/reuters-credentials.ts', token: 'auditedMutation' },
     { path: 'app/admin/output/page.tsx', token: 'recordAuditEvent' },
-    { path: 'app/api/vimeo/sync/route.ts', token: 'recordAuditEvent' },
+    { path: 'app/api/media/refresh/route.ts', token: 'refreshPublicAssetBatch' },
     { path: 'app/api/reuters/sync/route.ts', token: 'recordAuditEvent' },
 ];
 

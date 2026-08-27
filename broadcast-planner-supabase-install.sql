@@ -1,4 +1,4 @@
--- RTVplanner Supabase bootstrap.
+-- Broadcast Planner Supabase bootstrap.
 -- Run this in a new Supabase project's SQL editor before pointing the app at it.
 -- It creates schema, RLS policies, trigger checks, storage buckets, and the optional
 -- calendar events table used by slide templates.
@@ -11,20 +11,15 @@ exception when duplicate_object then null;
 end $$;
 
 do $$ begin
-  create type asset_status as enum ('draft', 'syncing', 'ready', 'failed', 'archived');
+  create type asset_status as enum ('draft', 'syncing', 'ready', 'needs_review', 'failed', 'archived');
 exception when duplicate_object then null;
 end $$;
 
 do $$ begin
   create type source_type as enum (
-    'vimeo',
-    'supabase_image',
-    'remote_image',
-    'remote_mp4',
-    'hls',
-    'reuters',
-    'supabase_audio',
-    'rtmp'
+    'uploaded',
+    'public_url',
+    'legacy_external'
   );
 exception when duplicate_object then null;
 end $$;
@@ -73,13 +68,27 @@ create table if not exists media_assets (
   thumbnail_url text,
   duration_seconds integer,
   status asset_status not null default 'draft',
-  vimeo_id text unique,
-  vimeo_uri text,
-  vimeo_privacy text,
-  vimeo_embed_status text,
+  canonical_url text unique,
+  playback_kind text check (playback_kind in ('video_file', 'hls', 'embed', 'image', 'audio')),
+  content_type text,
+  file_size_bytes bigint,
+  width integer,
+  height integer,
+  video_codec text,
+  audio_codec text,
+  bit_rate bigint,
+  frame_rate numeric,
+  quality_label text,
+  etag text,
+  last_modified text,
+  metadata_status text not null default 'pending'
+    check (metadata_status in ('pending', 'ready', 'partial', 'stale', 'failed')),
+  metadata_checked_at timestamptz,
+  metadata_failures integer not null default 0,
+  metadata_error text,
   metadata jsonb not null default '{}'::jsonb,
   playback_readiness_status text not null default 'unchecked'
-    check (playback_readiness_status in ('unchecked', 'ready', 'failed')),
+    check (playback_readiness_status in ('unchecked', 'ready', 'review', 'failed')),
   playback_checked_at timestamptz,
   playback_error text,
   lifecycle_state text not null default 'reviewed'
@@ -225,7 +234,7 @@ create table if not exists output_overrides (
   program_day_id uuid not null references program_days(id) on delete cascade,
   enabled boolean not null default true,
   source_type text not null check (
-    source_type in ('scheduled_block', 'vimeo', 'reuters', 'slide', 'hls', 'remote_image')
+    source_type in ('scheduled_block', 'public_url', 'reuters', 'slide', 'hls', 'remote_image')
   ),
   block_id uuid references program_blocks(id) on delete set null,
   asset_id uuid references media_assets(id) on delete set null,

@@ -65,7 +65,7 @@ function readyAsset() {
 
 function mockMediaRequest(range: string) {
     return {
-        url: `https://rtvtime.diegodella.ar/api/media/assets/${ASSET_ID}`,
+        url: `https://broadcast-planner.diegodella.ar/api/media/assets/${ASSET_ID}`,
         headers: {
             get: vi.fn((name: string) => (name.toLowerCase() === 'range' ? range : null)),
         },
@@ -84,7 +84,7 @@ describe('GET /api/media/assets/[assetId]', () => {
         vi.mocked(getDb).mockResolvedValue(makeDbMock(null) as never);
 
         const response = await GET(
-            new Request(`https://rtvtime.diegodella.ar/api/media/assets/${ASSET_ID}`),
+            new Request(`https://broadcast-planner.diegodella.ar/api/media/assets/${ASSET_ID}`),
             { params: Promise.resolve({ assetId: ASSET_ID }) },
         );
 
@@ -93,7 +93,7 @@ describe('GET /api/media/assets/[assetId]', () => {
 
     it('returns 404 for an invalid asset id', async () => {
         const response = await GET(
-            new Request('https://rtvtime.diegodella.ar/api/media/assets/not-a-uuid'),
+            new Request('https://broadcast-planner.diegodella.ar/api/media/assets/not-a-uuid'),
             { params: Promise.resolve({ assetId: 'not-a-uuid' }) },
         );
 
@@ -112,7 +112,7 @@ describe('GET /api/media/assets/[assetId]', () => {
         );
 
         const response = await GET(
-            new Request(`https://rtvtime.diegodella.ar/api/media/assets/${ASSET_ID}`),
+            new Request(`https://broadcast-planner.diegodella.ar/api/media/assets/${ASSET_ID}`),
             { params: Promise.resolve({ assetId: ASSET_ID }) },
         );
 
@@ -125,7 +125,7 @@ describe('GET /api/media/assets/[assetId]', () => {
         );
 
         const response = await GET(
-            new Request(`https://rtvtime.diegodella.ar/api/media/assets/${ASSET_ID}`),
+            new Request(`https://broadcast-planner.diegodella.ar/api/media/assets/${ASSET_ID}`),
             { params: Promise.resolve({ assetId: ASSET_ID }) },
         );
 
@@ -138,7 +138,7 @@ describe('GET /api/media/assets/[assetId]', () => {
         mockBucketGet.mockResolvedValue(null);
 
         const response = await GET(
-            new Request(`https://rtvtime.diegodella.ar/api/media/assets/${ASSET_ID}`),
+            new Request(`https://broadcast-planner.diegodella.ar/api/media/assets/${ASSET_ID}`),
             { params: Promise.resolve({ assetId: ASSET_ID }) },
         );
 
@@ -161,7 +161,7 @@ describe('GET /api/media/assets/[assetId]', () => {
         });
 
         const response = await GET(
-            new Request(`https://rtvtime.diegodella.ar/api/media/assets/${ASSET_ID}`),
+            new Request(`https://broadcast-planner.diegodella.ar/api/media/assets/${ASSET_ID}`),
             { params: Promise.resolve({ assetId: ASSET_ID }) },
         );
 

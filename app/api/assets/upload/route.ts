@@ -7,6 +7,8 @@ import { uploadedMediaFieldsFromForm, uploadMediaFile } from '@/lib/helpers/medi
 import { assertRateLimit, rateLimitErrorResponse } from '@/lib/auth/rate-limit';
 import { uploadAssetFormSchema } from '@/lib/schemas';
 
+export const runtime = 'nodejs';
+
 export async function POST(request: Request) {
     try {
         await requireAdmin();
@@ -65,7 +67,7 @@ export async function POST(request: Request) {
             return NextResponse.json(
                 {
                     ok: false,
-                    error: 'Upload request could not be read. Keep browser uploads under 95 MB, or use Vimeo/remote URL for larger videos.',
+                    error: 'Upload request could not be read. Keep uploads under 95 MB.',
                 },
                 { status: 413 },
             );

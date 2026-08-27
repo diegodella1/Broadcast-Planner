@@ -8,6 +8,18 @@ const baseFile = {
     type: 'video/mp4',
     size: 1024,
 };
+const videoProbe = {
+    durationSeconds: 10,
+    fileSizeBytes: 1024,
+    width: 1920,
+    height: 1080,
+    videoCodec: 'h264',
+    audioCodec: 'aac',
+    bitRate: 1_000_000,
+    frameRate: 30,
+    qualityLabel: 'FHD',
+    formatName: 'mov,mp4',
+};
 
 describe('resolveUploadedMedia', () => {
     it('defaults image uploads to 25 seconds', () => {
@@ -21,33 +33,39 @@ describe('resolveUploadedMedia', () => {
         expect(resolved.metadata.duration_source).toBe('image_default');
     });
 
-    it('uses detected video duration when manual seconds is blank or zero', () => {
-        const resolved = resolveUploadedMedia(baseFile, {
-            title: 'Clip',
-            assetType: 'video',
-            orientation: 'auto',
-            durationSeconds: '0',
-            detectedDurationSeconds: '9.2',
-            detectedWidth: '1920',
-            detectedHeight: '1080',
-        });
+    it('uses server-probed duration and dimensions', () => {
+        const resolved = resolveUploadedMedia(
+            baseFile,
+            {
+                title: 'Clip',
+                assetType: 'video',
+                orientation: 'auto',
+                durationSeconds: '0',
+                detectedDurationSeconds: '9.2',
+            },
+            videoProbe,
+        );
 
         expect(resolved.durationSeconds).toBe(10);
-        expect(resolved.metadata.duration_source).toBe('detected');
+        expect(resolved.metadata.duration_source).toBe('server_probe');
         expect(resolved.metadata.aspect_ratio).toBe(1.7778);
     });
 
-    it('lets manual duration override detected duration', () => {
-        const resolved = resolveUploadedMedia(baseFile, {
-            title: 'Clip',
-            assetType: 'promo',
-            orientation: 'vertical',
-            durationSeconds: '15',
-            detectedDurationSeconds: '9',
-        });
+    it('keeps browser duration advisory and server duration authoritative', () => {
+        const resolved = resolveUploadedMedia(
+            baseFile,
+            {
+                title: 'Clip',
+                assetType: 'promo',
+                orientation: 'vertical',
+                durationSeconds: '15',
+                detectedDurationSeconds: '9',
+            },
+            videoProbe,
+        );
 
-        expect(resolved.durationSeconds).toBe(15);
-        expect(resolved.metadata.duration_source).toBe('manual');
+        expect(resolved.durationSeconds).toBe(10);
+        expect(resolved.metadata.duration_source).toBe('server_probe');
         expect(resolved.metadata.presentation).toBe('vertical_blur');
     });
 
@@ -57,7 +75,7 @@ describe('resolveUploadedMedia', () => {
                 { ...baseFile, name: 'track.mp3', type: 'audio/mpeg' },
                 { title: 'Track', assetType: 'music', orientation: 'auto' },
             ),
-        ).toThrow('Browser could not read media duration');
+        ).toThrow('Server could not verify media duration');
     });
 
     it('stores sanitized music metadata when uploading tracks', () => {
@@ -75,6 +93,14 @@ describe('resolveUploadedMedia', () => {
                     ignored: 'not stored',
                 }),
             },
+            {
+                ...videoProbe,
+                durationSeconds: 184,
+                videoCodec: null,
+                audioCodec: 'mp3',
+                width: null,
+                height: null,
+            },
         );
 
         expect(resolved.durationSeconds).toBe(184);
@@ -85,15 +111,19 @@ describe('resolveUploadedMedia', () => {
         });
     });
 
-    it('limits uploaded short videos to 5 minutes', () => {
-        expect(() =>
-            resolveUploadedMedia(baseFile, {
+    it('accepts uploaded videos longer than five minutes', () => {
+        const resolved = resolveUploadedMedia(
+            baseFile,
+            {
                 title: 'Long local clip',
                 assetType: 'video',
                 orientation: 'auto',
                 detectedDurationSeconds: '301',
-            }),
-        ).toThrow('Uploaded videos cannot be longer than 5 minutes');
+            },
+            { ...videoProbe, durationSeconds: 3601 },
+        );
+
+        expect(resolved.durationSeconds).toBe(3601);
     });
 });
 
@@ -118,17 +148,17 @@ describe('assertFileSignature', () => {
 describe('publicMediaAssetUrl', () => {
     it('builds public app proxy URLs without using localhost', () => {
         const url = publicMediaAssetUrl('asset-1', {
-            NEXT_PUBLIC_APP_BASE_URL: 'https://rtvtime.diegodella.ar',
+            NEXT_PUBLIC_APP_BASE_URL: 'https://broadcast-planner.diegodella.ar',
             NODE_ENV: 'production',
         });
 
-        expect(url).toBe('https://rtvtime.diegodella.ar/api/media/assets/asset-1');
+        expect(url).toBe('https://broadcast-planner.diegodella.ar/api/media/assets/asset-1');
     });
 
     it('prefers an explicit app base URL', () => {
         const url = publicMediaAssetUrl('asset-1', {
             APP_BASE_URL: 'https://broadcast.example.com',
-            NEXT_PUBLIC_APP_BASE_URL: 'https://rtvtime.diegodella.ar',
+            NEXT_PUBLIC_APP_BASE_URL: 'https://broadcast-planner.diegodella.ar',
             NODE_ENV: 'production',
         });
 

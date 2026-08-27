@@ -129,6 +129,16 @@ describe('ScheduleWorkspace', () => {
         expect(screen.getByRole('heading', { name: 'Add content to the day' })).toBeInTheDocument();
     });
 
+    it('exposes the block editor as a labelled modal drawer and closes it with Escape', () => {
+        renderWorkspace({ blocks: [] });
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Add Block' })[0]!);
+        expect(screen.getByRole('dialog', { name: 'Block editor' })).toBeInTheDocument();
+
+        fireEvent.keyDown(document, { key: 'Escape' });
+        expect(screen.queryByRole('dialog', { name: 'Block editor' })).toBeNull();
+    });
+
     it('shows bulk card loop controls for ready slides', () => {
         renderWorkspace({ blocks: [] });
 
@@ -174,7 +184,8 @@ const asset: MediaAsset = {
     id: 'asset-1',
     title: 'Ready Video',
     description: null,
-    sourceType: 'remote_mp4',
+    sourceType: 'uploaded',
+    playbackKind: 'video_file',
     mediaKind: 'video',
     assetType: 'video',
     url: 'https://example.com/video.mp4',
@@ -182,8 +193,6 @@ const asset: MediaAsset = {
     durationSeconds: 60,
     status: 'ready',
     thumbnailUrl: null,
-    vimeoId: null,
-    vimeoUri: null,
     playbackReadinessStatus: 'ready',
     playbackError: null,
     lifecycleState: 'reviewed',

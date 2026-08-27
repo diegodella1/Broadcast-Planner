@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { __resetWeatherCacheForTests, getWeatherSlideData } from './weather';
 import type { SlideAsset } from '@/lib/types';
 
-const rtvWeatherPayload = {
+const providerWeatherPayload = {
     available: true,
     locationName: 'Buenos Aires',
     temperatureC: 18,
@@ -24,7 +24,7 @@ const rtvWeatherPayload = {
     updatedAt: '2026-05-27T11:01:00.000Z',
 };
 
-const rtvUnavailablePayload = {
+const providerUnavailablePayload = {
     available: false,
     reason: 'weather_upstream_failed',
 };
@@ -36,6 +36,7 @@ describe('getWeatherSlideData', () => {
         vi.restoreAllMocks();
         __resetWeatherCacheForTests();
         process.env = { ...originalEnv };
+        process.env.DATA_PROVIDER_API_URL = 'https://data-provider.example';
     });
 
     afterEach(() => {
@@ -45,11 +46,11 @@ describe('getWeatherSlideData', () => {
         __resetWeatherCacheForTests();
     });
 
-    it('consumes rtv-api /api/weather when available', async () => {
+    it('consumes data-provider-api /api/weather when available', async () => {
         process.env.WEATHER_LOCATION_NAME = 'Buenos Aires';
         const fetchMock = vi
             .fn<typeof fetch>()
-            .mockResolvedValueOnce(jsonResponse(rtvWeatherPayload));
+            .mockResolvedValueOnce(jsonResponse(providerWeatherPayload));
         vi.stubGlobal('fetch', fetchMock);
 
         const data = await getWeatherSlideData();
@@ -75,13 +76,13 @@ describe('getWeatherSlideData', () => {
         expect(firstCallUrl).toContain('lon=-58.3816');
     });
 
-    it('falls back to Open-Meteo when rtv-api returns available:false', async () => {
+    it('falls back to Open-Meteo when data-provider-api returns available:false', async () => {
         delete process.env.OPENWEATHER_API_KEY;
         delete process.env.OPENWEATHERMAP_API_KEY;
         process.env.WEATHER_LOCATION_NAME = 'Buenos Aires';
         const fetchMock = vi
             .fn<typeof fetch>()
-            .mockResolvedValueOnce(jsonResponse(rtvUnavailablePayload))
+            .mockResolvedValueOnce(jsonResponse(providerUnavailablePayload))
             .mockResolvedValueOnce(
                 jsonResponse({
                     current: {
@@ -123,7 +124,7 @@ describe('getWeatherSlideData', () => {
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
-    it('uses Open-Meteo when OpenWeather is not configured and rtv-api fails', async () => {
+    it('uses Open-Meteo when OpenWeather is not configured and data-provider-api fails', async () => {
         delete process.env.OPENWEATHER_API_KEY;
         delete process.env.OPENWEATHERMAP_API_KEY;
         process.env.WEATHER_LOCATION_NAME = 'Buenos Aires';
@@ -170,7 +171,7 @@ describe('getWeatherSlideData', () => {
         });
     });
 
-    it('maps OpenWeather current and forecast payloads when rtv-api is unavailable', async () => {
+    it('maps OpenWeather current and forecast payloads when data-provider-api is unavailable', async () => {
         process.env.OPENWEATHER_API_KEY = 'test-key';
         process.env.WEATHER_LOCATION_NAME = 'Buenos Aires';
         const fetchMock = vi
@@ -220,14 +221,14 @@ describe('getWeatherSlideData', () => {
             .fn<typeof fetch>()
             .mockResolvedValueOnce(
                 jsonResponse({
-                    ...rtvWeatherPayload,
+                    ...providerWeatherPayload,
                     locationName: 'Buenos Aires',
                     temperatureC: 20,
                 }),
             )
             .mockResolvedValueOnce(
                 jsonResponse({
-                    ...rtvWeatherPayload,
+                    ...providerWeatherPayload,
                     locationName: 'Miami',
                     temperatureC: 31,
                 }),

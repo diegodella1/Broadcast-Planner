@@ -7,9 +7,7 @@ import { recordedBugFromBlock } from '@/lib/recorded-bug';
 import { getLiveObjectConfig, youtubeLiveEmbedUrl } from '@/lib/live-object';
 import { findPlayableFallback } from '@/lib/scheduling/fallback';
 import { findActiveLayers, findActiveSchedule } from '@/lib/scheduling/scheduler';
-import { getVimeoToken } from '@/lib/settings';
 import { PLAYOUT_TIMEZONE, secondsSinceMidnightInTimezone } from '@/lib/helpers/time';
-import { getVimeoPlayback } from '@/lib/services/vimeo';
 import { isYouTubeSlide } from '@/lib/slides/youtube';
 
 import type { MediaAsset, OutputOverride, ScheduleBundle, SlideAsset } from '@/lib/types';
@@ -267,69 +265,33 @@ function slideBlockState(args: ActiveBlockStateArgs) {
 }
 
 async function assetBlockState(args: ActiveBlockStateArgs & { bundle: ScheduleBundle }) {
-    const { active, base, music, mediaAccessToken, startOffsetSeconds, bundle } = args;
+    const { active, base, music, mediaAccessToken, startOffsetSeconds } = args;
 
-    if (!active.block || !active.asset) {
+    if (!active.block || !active.asset || active.asset.status !== 'ready') {
         return null;
     }
 
-    if (active.asset.sourceType === 'vimeo' && active.asset.vimeoId) {
-        return vimeoAssetState({
-            active,
-            base,
-            music,
-            mediaAccessToken,
-            startOffsetSeconds,
-            bundle,
-        });
-    }
-
-    if (active.asset.sourceType === 'hls' && active.asset.url) {
+    if (active.asset.playbackKind === 'hls' && active.asset.url) {
         return hlsAssetState({ active, base, music, mediaAccessToken, startOffsetSeconds });
     }
 
-    if (active.asset.sourceType === 'remote_mp4' && active.asset.url) {
+    if (active.asset.playbackKind === 'video_file' && active.asset.url) {
         return mp4AssetState({ active, base, music, mediaAccessToken, startOffsetSeconds });
     }
 
-    if (
-        (active.asset.sourceType === 'remote_image' ||
-            active.asset.sourceType === 'supabase_image') &&
-        active.asset.url
-    ) {
+    if (active.asset.playbackKind === 'image' && active.asset.url) {
         return imageAssetState({ active, base, music, mediaAccessToken, startOffsetSeconds });
     }
 
+    if (active.asset.playbackKind === 'embed' && active.asset.url) {
+        return embedAssetState({ active, base, music, mediaAccessToken, startOffsetSeconds });
+    }
+
+    if (active.asset.playbackKind === 'audio' && active.asset.url) {
+        return audioAssetState({ active, base, music, mediaAccessToken, startOffsetSeconds });
+    }
+
     return null;
-}
-
-async function vimeoAssetState(args: ActiveBlockStateArgs & { bundle: ScheduleBundle }) {
-    const { active, base, music, mediaAccessToken, startOffsetSeconds, bundle } = args;
-
-    if (!active.block || !active.asset || !active.asset.vimeoId) {
-        return null;
-    }
-    const vimeoToken = await getVimeoToken();
-
-    if (!vimeoToken) {
-        return fallbackStateForBundle(bundle, 'missing-vimeo-token', base, mediaAccessToken);
-    }
-    const playback = await getVimeoPlayback(vimeoToken, active.asset.vimeoId);
-
-    return {
-        ...base,
-        kind: 'vimeo' as const,
-        signature: `vimeo:${active.block.id}:${active.asset.id}`,
-        blockId: active.block.id,
-        assetId: active.asset.id,
-        title: playback.title || active.asset.title,
-        hlsUrl: playback.hlsUrl,
-        startOffsetSeconds,
-        durationSeconds: playback.durationSeconds || active.asset.durationSeconds,
-        ...videoPresentation(active.asset),
-        ...recordedBugPresentation(active.block),
-        backgroundMusic: suppressBackgroundMusic(music),
-    };
 }
 
 function hlsAssetState(args: ActiveBlockStateArgs) {
@@ -396,6 +358,48 @@ function imageAssetState(args: ActiveBlockStateArgs) {
         startOffsetSeconds,
         durationSeconds: active.block.durationSeconds,
         backgroundMusic: music,
+    };
+}
+
+function embedAssetState(args: ActiveBlockStateArgs) {
+    const { active, base, music, startOffsetSeconds } = args;
+
+    if (!active.block || !active.asset?.url) {
+        return null;
+    }
+
+    return {
+        ...base,
+        kind: 'embed' as const,
+        signature: `embed:${active.block.id}:${active.asset.id}:${active.asset.updatedAt}`,
+        blockId: active.block.id,
+        assetId: active.asset.id,
+        title: active.asset.title,
+        embedUrl: active.asset.url,
+        startOffsetSeconds,
+        durationSeconds: active.asset.durationSeconds ?? active.block.durationSeconds,
+        backgroundMusic: suppressBackgroundMusic(music),
+    };
+}
+
+function audioAssetState(args: ActiveBlockStateArgs) {
+    const { active, base, music, mediaAccessToken, startOffsetSeconds } = args;
+
+    if (!active.block || !active.asset?.url) {
+        return null;
+    }
+
+    return {
+        ...base,
+        kind: 'audio' as const,
+        signature: `audio:${active.block.id}:${active.asset.id}`,
+        blockId: active.block.id,
+        assetId: active.asset.id,
+        title: active.asset.title,
+        url: withMediaAccessToken(active.asset.url, mediaAccessToken),
+        startOffsetSeconds,
+        durationSeconds: active.asset.durationSeconds ?? active.block.durationSeconds,
+        backgroundMusic: suppressBackgroundMusic(music),
     };
 }
 
@@ -520,7 +524,7 @@ async function fallbackCarouselAssetState(
         backgroundMusic: null,
     };
 
-    if (asset.sourceType === 'remote_mp4' && asset.url) {
+    if (asset.playbackKind === 'video_file' && asset.url) {
         return {
             ...common,
             kind: 'mp4' as const,
@@ -528,27 +532,11 @@ async function fallbackCarouselAssetState(
         };
     }
 
-    if (asset.sourceType === 'hls' && asset.url) {
+    if (asset.playbackKind === 'hls' && asset.url) {
         return {
             ...common,
             kind: 'hls' as const,
             hlsUrl: withMediaAccessToken(asset.url, mediaAccessToken),
-        };
-    }
-
-    if (asset.sourceType === 'vimeo' && asset.vimeoId) {
-        const vimeoToken = await getVimeoToken();
-
-        if (!vimeoToken) {
-            return null;
-        }
-        const playback = await getVimeoPlayback(vimeoToken, asset.vimeoId);
-
-        return {
-            ...common,
-            kind: 'vimeo' as const,
-            title: playback.title || asset.title,
-            hlsUrl: playback.hlsUrl,
         };
     }
 
@@ -575,11 +563,11 @@ async function fallbackVideoState(
         backgroundMusic: null,
     };
 
-    if (asset.sourceType === 'remote_mp4' && asset.url) {
+    if (asset.playbackKind === 'video_file' && asset.url) {
         return { ...common, kind: 'mp4', url: withMediaAccessToken(asset.url, mediaAccessToken) };
     }
 
-    if (asset.sourceType === 'hls' && asset.url) {
+    if (asset.playbackKind === 'hls' && asset.url) {
         return {
             ...common,
             kind: 'hls',
@@ -587,39 +575,7 @@ async function fallbackVideoState(
         };
     }
 
-    if (asset.sourceType === 'vimeo' && asset.vimeoId) {
-        return fallbackVimeoLoopState(asset, base, common);
-    }
-
     return null;
-}
-
-async function fallbackVimeoLoopState(
-    asset: MediaAsset,
-    base: ChannelStateBase,
-    common: Record<string, unknown>,
-) {
-    if (!asset.vimeoId) {
-        return null;
-    }
-    const vimeoToken = await getVimeoToken();
-
-    if (!vimeoToken) {
-        return null;
-    }
-    const playback = await getVimeoPlayback(vimeoToken, asset.vimeoId);
-
-    return {
-        ...common,
-        kind: 'vimeo',
-        title: playback.title || asset.title,
-        hlsUrl: playback.hlsUrl,
-        durationSeconds: playback.durationSeconds || asset.durationSeconds || null,
-        startOffsetSeconds: loopOffset(
-            base.serverSeconds,
-            playback.durationSeconds || asset.durationSeconds,
-        ),
-    };
 }
 
 function findFallbackLoopAsset(bundle: ScheduleBundle) {
@@ -643,7 +599,7 @@ export function fallbackState(
         kind: 'fallback' as const,
         signature: `fallback:${reason}`,
         reason,
-        title: 'RTV fallback',
+        title: 'Broadcast Planner fallback',
         serverSeconds: base?.serverSeconds ?? secondsSinceMidnightInTimezone(),
         generatedAt: base?.generatedAt ?? new Date().toISOString(),
         backgroundMusic,
@@ -736,7 +692,7 @@ function withMediaAccessToken(value: string, token: string) {
         if (!value.startsWith('/api/media/assets/')) {
             return value;
         }
-        const url = new URL(value, 'https://local.rtv');
+        const url = new URL(value, 'https://local.invalid');
         url.searchParams.set('token', token);
 
         return `${url.pathname}${url.search}`;

@@ -95,9 +95,21 @@ export async function createMediaAsset(input: {
     url?: string | undefined;
     storageBucket?: string | undefined;
     storagePath?: string | undefined;
-    durationSeconds?: number | undefined;
+    durationSeconds?: number | null | undefined;
     metadata?: Record<string, unknown> | undefined;
     lifecycleState?: string | undefined;
+    canonicalUrl?: string | undefined;
+    playbackKind?: string | undefined;
+    contentType?: string | undefined;
+    fileSizeBytes?: number | undefined;
+    width?: number | undefined;
+    height?: number | undefined;
+    videoCodec?: string | undefined;
+    audioCodec?: string | undefined;
+    bitRate?: number | undefined;
+    frameRate?: number | undefined;
+    qualityLabel?: string | undefined;
+    metadataStatus?: string | undefined;
 }): Promise<Result<string>> {
     try {
         if (input.assetType === 'ad' && input.durationSeconds && input.durationSeconds > 300) {
@@ -124,8 +136,22 @@ export async function createMediaAsset(input: {
                     storageBucket: input.storageBucket || null,
                     storagePath: input.storagePath || null,
                     durationSeconds: input.durationSeconds || null,
+                    canonicalUrl: input.canonicalUrl || null,
+                    playbackKind: input.playbackKind || null,
+                    contentType: input.contentType || null,
+                    fileSizeBytes: input.fileSizeBytes ?? null,
+                    width: input.width ?? null,
+                    height: input.height ?? null,
+                    videoCodec: input.videoCodec || null,
+                    audioCodec: input.audioCodec || null,
+                    bitRate: input.bitRate ?? null,
+                    frameRate: input.frameRate ?? null,
+                    qualityLabel: input.qualityLabel || null,
+                    metadataStatus: input.metadataStatus || 'ready',
+                    metadataCheckedAt: new Date().toISOString(),
                     metadata: input.metadata ?? {},
                     status: 'ready',
+                    playbackReadinessStatus: 'ready',
                     lifecycleState: input.lifecycleState ?? 'reviewed',
                 });
 

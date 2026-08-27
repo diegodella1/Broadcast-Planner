@@ -15,6 +15,7 @@ describe('STRC/SATA slide data', () => {
         vi.resetAllMocks();
         __resetStrcCachesForTests();
         process.env = { ...originalEnv };
+        process.env.DATA_PROVIDER_API_URL = 'https://data-provider.example';
         vi.mocked(getBtcPriceData).mockResolvedValue({
             price: 100_000,
             source: 'test',
@@ -54,10 +55,10 @@ describe('STRC/SATA slide data', () => {
         });
     });
 
-    it('consumes rtv-api /api/strc when available', async () => {
+    it('consumes data-provider-api /api/strc when available', async () => {
         const fetchMock = vi
             .fn<typeof fetch>()
-            .mockResolvedValueOnce(jsonResponse({ success: true, data: rtvStrcPayload }));
+            .mockResolvedValueOnce(jsonResponse({ success: true, data: providerStrcPayload }));
         vi.stubGlobal('fetch', fetchMock);
 
         const data = await getStrcSlideData();
@@ -73,7 +74,7 @@ describe('STRC/SATA slide data', () => {
         expect(url).not.toContain('/api/strc/sata');
     });
 
-    it('falls back to Strategy direct upstream when rtv-api STRC fails', async () => {
+    it('falls back to Strategy direct upstream when data-provider-api STRC fails', async () => {
         vi.spyOn(console, 'warn').mockImplementation(() => undefined);
         vi.stubGlobal(
             'fetch',
@@ -95,7 +96,7 @@ describe('STRC/SATA slide data', () => {
             'fetch',
             vi
                 .fn<typeof fetch>()
-                .mockRejectedValueOnce(new Error('rtv-api down'))
+                .mockRejectedValueOnce(new Error('data-provider-api down'))
                 .mockResolvedValueOnce(jsonResponse([strategyStrcRow]))
                 .mockRejectedValueOnce(new Error('offline')),
         );
@@ -140,10 +141,10 @@ describe('STRC/SATA slide data', () => {
         expect(data.source).toBe('StrategyTracker');
     });
 
-    it('consumes rtv-api /api/strc/sata when available', async () => {
+    it('consumes data-provider-api /api/strc/sata when available', async () => {
         const fetchMock = vi
             .fn<typeof fetch>()
-            .mockResolvedValueOnce(jsonResponse({ success: true, data: rtvSataPayload }));
+            .mockResolvedValueOnce(jsonResponse({ success: true, data: providerSataPayload }));
         vi.stubGlobal('fetch', fetchMock);
 
         const data = await getSataSlideData();
@@ -157,7 +158,7 @@ describe('STRC/SATA slide data', () => {
         expect(url).toContain('/api/strc/sata');
     });
 
-    it('falls back to StrategyTracker direct upstream when rtv-api SATA fails', async () => {
+    it('falls back to StrategyTracker direct upstream when data-provider-api SATA fails', async () => {
         vi.spyOn(console, 'warn').mockImplementation(() => undefined);
         vi.stubGlobal(
             'fetch',
@@ -181,7 +182,7 @@ describe('STRC/SATA slide data', () => {
             'fetch',
             vi
                 .fn<typeof fetch>()
-                .mockRejectedValueOnce(new Error('rtv-api down'))
+                .mockRejectedValueOnce(new Error('data-provider-api down'))
                 .mockResolvedValueOnce(jsonResponse({ version: '20260525T121934Z' }))
                 .mockResolvedValueOnce(jsonResponse(strategyTrackerAsstPayload)),
         );
@@ -246,7 +247,7 @@ const strategyStrcRow = {
     ],
 };
 
-const rtvStrcPayload = {
+const providerStrcPayload = {
     strc: {
         price: 99.3,
         priceChange: -0.02,
@@ -287,7 +288,7 @@ const rtvStrcPayload = {
     lastUpdate: '2026-05-27T11:30:00.000Z',
 };
 
-const rtvSataPayload = {
+const providerSataPayload = {
     preferred: {
         ticker: 'ASST',
         name: 'Strive, Inc.',

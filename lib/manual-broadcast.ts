@@ -1,8 +1,1 @@
-export {
-    ensureVimeoAssetCached,
-    goLiveWithReuters,
-    goLiveWithVimeo,
-    scheduleReutersBlock,
-    scheduleVimeoBlock,
-    searchVimeoCatalog,
-} from './mutations/output';
+export { goLiveWithReuters, scheduleReutersBlock } from './mutations/output';

@@ -12,7 +12,7 @@
 1. Create or select a non-production Supabase project.
 2. Restore latest database backup into the test project.
 3. Copy storage bucket objects from the matching backup window.
-4. Point a local RTVTime instance at the restored project.
+4. Point a local Broadcast Planner instance at the restored project.
 5. Verify `/admin/prepare`, `/admin/program`, `/admin/operate`, `/admin/output`, and `/output/live`.
 6. Confirm one active day can render a block with fallback coverage.
 7. Run `npm run smoke:staging-write` against the restored project if it is isolated from production.

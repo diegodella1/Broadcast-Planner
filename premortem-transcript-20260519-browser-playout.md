@@ -2,7 +2,7 @@
 
 ## Context
 
-RTV TL Manager was changed from ffmpeg/VLC-first output to browser playout captured by OBS/vMix.
+Broadcast Planner was changed from ffmpeg/VLC-first output to browser playout captured by OBS/vMix.
 Current tested behavior:
 
 - `/output/live` renders a browser output surface with `Start Output` audio unlock.
@@ -12,7 +12,7 @@ Current tested behavior:
 - Preview reload resumes at scheduled offset.
 - Live route currently has no active day, so live output shows fallback.
 
-Success means an operator can run scheduled Roxom TV output with Vimeo episodes, uploaded/public ads, slides, and fallback media without ffmpeg.
+Success means an operator can run scheduled former channel output with Vimeo episodes, uploaded/public ads, slides, and fallback media without ffmpeg.
 
 ## Synthesis
 

@@ -16,6 +16,8 @@ interface SlideDataEnv {
 
 export type CachedFetcher<T> = () => Promise<T>;
 
+const MINIMUM_KV_TTL_SECONDS = 60;
+
 /**
  * Wrap a fetcher with Cloudflare Workers KV caching.
  *
@@ -57,7 +59,9 @@ export async function withKvCache<T>(
     const fresh = await fetcher();
 
     try {
-        await kv.put(key, JSON.stringify(fresh), { expirationTtl: ttlSeconds });
+        await kv.put(key, JSON.stringify(fresh), {
+            expirationTtl: Math.max(ttlSeconds, MINIMUM_KV_TTL_SECONDS),
+        });
     } catch (error) {
         console.warn(`[kv-cache] write failed for "${key}"`, error);
     }

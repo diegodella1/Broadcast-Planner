@@ -1,5 +1,5 @@
 export type ProgramStatus = 'draft' | 'ready' | 'active' | 'archived';
-export type AssetStatus = 'draft' | 'syncing' | 'ready' | 'failed' | 'archived';
+export type AssetStatus = 'draft' | 'syncing' | 'ready' | 'needs_review' | 'failed' | 'archived';
 export type GuestStatus = 'draft' | 'ready' | 'archived';
 export type AssetLifecycleState =
     | 'synced'
@@ -8,16 +8,10 @@ export type AssetLifecycleState =
     | 'stale'
     | 'expired'
     | 'scheduled_in_use';
-export type PlaybackReadinessStatus = 'unchecked' | 'ready' | 'failed';
-export type SourceType =
-    | 'vimeo'
-    | 'supabase_image'
-    | 'supabase_audio'
-    | 'remote_image'
-    | 'remote_mp4'
-    | 'hls'
-    | 'rtmp'
-    | 'reuters';
+export type PlaybackReadinessStatus = 'unchecked' | 'ready' | 'review' | 'failed';
+export type AssetMetadataStatus = 'pending' | 'ready' | 'partial' | 'stale' | 'failed';
+export type SourceType = 'uploaded' | 'public_url' | 'legacy_external';
+export type PlaybackKind = 'video_file' | 'hls' | 'embed' | 'image' | 'audio';
 export type MediaKind = 'video' | 'image' | 'audio' | 'graphic';
 export type BlockType = 'video' | 'image' | 'slide' | 'ad' | 'promo' | 'fallback';
 export type LayerType = 'overlay' | 'image' | 'slide' | 'logo_bug' | 'lower_third' | 'promo';
@@ -64,10 +58,23 @@ export type MediaAsset = {
     durationSeconds?: number | null;
     status: AssetStatus;
     lifecycleState?: AssetLifecycleState;
-    vimeoId?: string | null;
-    vimeoUri?: string | null;
-    vimeoPrivacy?: string | null;
-    vimeoEmbedStatus?: string | null;
+    canonicalUrl?: string | null;
+    playbackKind?: PlaybackKind | null;
+    contentType?: string | null;
+    fileSizeBytes?: number | null;
+    width?: number | null;
+    height?: number | null;
+    videoCodec?: string | null;
+    audioCodec?: string | null;
+    bitRate?: number | null;
+    frameRate?: number | null;
+    qualityLabel?: string | null;
+    etag?: string | null;
+    lastModified?: string | null;
+    metadataStatus?: AssetMetadataStatus;
+    metadataCheckedAt?: string | null;
+    metadataFailures?: number;
+    metadataError?: string | null;
     playbackReadinessStatus?: PlaybackReadinessStatus;
     playbackCheckedAt?: string | null;
     playbackError?: string | null;
@@ -149,7 +156,7 @@ export type OutputOverride = {
     id: string;
     programDayId: string;
     enabled: boolean;
-    sourceType: 'scheduled_block' | 'vimeo' | 'reuters' | 'slide' | 'hls' | 'remote_image';
+    sourceType: 'scheduled_block' | 'public_url' | 'reuters' | 'slide' | 'hls' | 'remote_image';
     blockId?: string | null;
     assetId?: string | null;
     slideId?: string | null;

@@ -1,7 +1,7 @@
 import { getLiveSchedule } from '../data';
 import { getActiveOutputOverride } from '../output-overrides';
 import { getReutersSettings } from '../services/reuters-credentials';
-import { getVimeoSettings, getVimeoToken } from '../settings';
+import { getMetadataRefreshHealth } from '../media/asset-metadata';
 import {
     isSmokeStatusOk,
     isSmokeStatusStale,
@@ -10,6 +10,7 @@ import {
 } from './smoke-status';
 import { getDb } from '../db/client';
 import { getMediaBucket } from '../storage/r2';
+import { PRODUCT_SLUG } from '../brand';
 import {
     adminOperators,
     guests,
@@ -20,8 +21,7 @@ import {
     slideAssets,
 } from '../db/schema';
 
-type VimeoSettings = Awaited<ReturnType<typeof getVimeoSettings>>;
-type VimeoToken = Awaited<ReturnType<typeof getVimeoToken>>;
+type MetadataHealth = Awaited<ReturnType<typeof getMetadataRefreshHealth>>;
 type ReutersSettings = Awaited<ReturnType<typeof getReutersSettings>>;
 type LiveSchedule = Awaited<ReturnType<typeof getLiveSchedule>>;
 
@@ -47,7 +47,7 @@ export type OperatorHealthCheck = {
         | 'supabase'
         | 'schema'
         | 'storage'
-        | 'vimeo'
+        | 'metadata'
         | 'reuters'
         | 'output'
         | 'migrations'
@@ -62,7 +62,7 @@ export type OperatorHealthCheck = {
 export type OperatorHealthReport = {
     ok: boolean;
     status: OperatorHealthStatus;
-    service: 'roxom-playout-manager';
+    service: typeof PRODUCT_SLUG;
     generatedAt: string;
     uptime: number;
     checks: Record<OperatorHealthCheck['id'], OperatorHealthCheck>;
@@ -88,17 +88,16 @@ export function sanitizeOperatorHealthReport(report: OperatorHealthReport): Oper
 export async function collectOperatorHealth(
     options: CollectOperatorHealthOptions = {},
 ): Promise<OperatorHealthReport> {
-    const [vimeoSettings, vimeoToken, reutersSettings] = await Promise.all([
-        safeSettings(getVimeoSettings),
-        safeSettings(getVimeoToken),
+    const [metadataHealth, reutersSettings] = await Promise.all([
+        safeSettings(getMetadataRefreshHealth),
         safeSettings(getReutersSettings),
     ]);
-    const [supabase, schema, storage, vimeo, reuters, output, migrations, smoke] =
+    const [supabase, schema, storage, metadata, reuters, output, migrations, smoke] =
         await Promise.all([
             checkSupabase(),
             checkSchema(),
             checkStorage(),
-            checkVimeo(vimeoSettings, vimeoToken),
+            checkMetadataRefresh(metadataHealth),
             checkReuters(reutersSettings),
             checkOutput(options.preloadedLiveSchedule),
             checkMigrations(),
@@ -109,7 +108,7 @@ export async function collectOperatorHealth(
         supabase,
         schema,
         storage,
-        vimeo,
+        metadata,
         reuters,
         output,
         migrations,
@@ -121,7 +120,7 @@ export async function collectOperatorHealth(
     return {
         ok,
         status: ok ? (degraded ? 'degraded' : 'ok') : 'fail',
-        service: 'roxom-playout-manager',
+        service: PRODUCT_SLUG,
         generatedAt: new Date().toISOString(),
         uptime: Math.round(process.uptime()),
         checks,
@@ -169,6 +168,11 @@ async function checkSchema(): Promise<OperatorHealthCheck> {
             db
                 .select({
                     id: mediaAssets.id,
+                    canonicalUrl: mediaAssets.canonicalUrl,
+                    playbackKind: mediaAssets.playbackKind,
+                    metadataStatus: mediaAssets.metadataStatus,
+                    metadataCheckedAt: mediaAssets.metadataCheckedAt,
+                    metadataFailures: mediaAssets.metadataFailures,
                     playbackReadinessStatus: mediaAssets.playbackReadinessStatus,
                     playbackCheckedAt: mediaAssets.playbackCheckedAt,
                     playbackError: mediaAssets.playbackError,
@@ -211,33 +215,35 @@ async function checkStorage(): Promise<OperatorHealthCheck> {
     }
 }
 
-async function checkVimeo(
-    settingsResult: SettingsResult<VimeoSettings>,
-    tokenResult: SettingsResult<VimeoToken>,
+async function checkMetadataRefresh(
+    healthResult: SettingsResult<MetadataHealth>,
 ): Promise<OperatorHealthCheck> {
-    if (!settingsResult.ok) {
+    if (!healthResult.ok) {
         return degraded(
-            'vimeo',
-            'Vimeo',
-            `Vimeo check failed: ${errorMessage(settingsResult.error)}`,
+            'metadata',
+            'Media metadata',
+            `Metadata check failed: ${errorMessage(healthResult.error)}`,
+        );
+    }
+    const { settings, needsReview } = healthResult.value;
+
+    if (settings?.status === 'failed' || needsReview > 0) {
+        return degraded(
+            'metadata',
+            'Media metadata',
+            settings?.lastError ?? `${needsReview} public assets need review`,
+            '/admin/assets?status=needs_review',
         );
     }
 
-    if (!tokenResult.ok) {
-        return degraded('vimeo', 'Vimeo', `Vimeo check failed: ${errorMessage(tokenResult.error)}`);
-    }
-    const settings = settingsResult.value;
-    const token = tokenResult.value;
-
-    if (!token) {
-        return degraded('vimeo', 'Vimeo', 'Vimeo token not configured', '/admin/settings');
-    }
-
-    if (settings?.status === 'failed' || settings?.status === 'invalid') {
-        return degraded('vimeo', 'Vimeo', settings.lastError ?? `Status: ${settings.status}`);
-    }
-
-    return pass('vimeo', 'Vimeo', settings?.lastError ?? 'Vimeo token configured');
+    return pass(
+        'metadata',
+        'Media metadata',
+        settings?.lastCheckedAt
+            ? `Last refresh ${settings.lastCheckedAt}`
+            : 'No public URL assets refreshed yet',
+        '/admin/assets',
+    );
 }
 
 async function checkReuters(

@@ -7,7 +7,7 @@
  * compiles arbitrary values at build time and cannot resolve dynamic strings.
  *
  * Values are byte-identical to the originals (including case sensitivity).
- * Migration to @roxomtv/design-system tokens is deferred per product decision.
+ * Migration to shared Broadcast Planner design-system tokens is deferred per product decision.
  */
 
 export const eventSlide = {

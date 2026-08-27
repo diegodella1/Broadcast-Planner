@@ -54,6 +54,13 @@ describe('POST /api/live/lower-third', () => {
         expect(payload.error).toBe('No active live on air');
     });
 
+    it('rejects invalid lower-third input', async () => {
+        const response = await POST(jsonRequest({ visible: 'yes', text: 'Markets live' }));
+
+        expect(response.status).toBe(400);
+        expect(updateLiveObjectLowerThird).not.toHaveBeenCalled();
+    });
+
     it('requires admin auth', async () => {
         vi.mocked(requireAdmin).mockRejectedValue(new Error('Unauthorized'));
 

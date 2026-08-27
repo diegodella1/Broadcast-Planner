@@ -31,6 +31,21 @@ interface D1Env {
 
 export type DrizzleD1Client = ReturnType<typeof drizzle<typeof schema>>;
 
+let contextPromise: Promise<{ env: unknown }> | null = null;
+
+async function getD1Context() {
+    contextPromise ??= getCloudflareContext({ async: true }).then((context) => ({
+        env: context.env,
+    }));
+
+    try {
+        return await contextPromise;
+    } catch (error) {
+        contextPromise = null;
+        throw error;
+    }
+}
+
 /**
  * Return a Drizzle client bound to the D1 `DB` binding.
  *
@@ -42,7 +57,7 @@ export type DrizzleD1Client = ReturnType<typeof drizzle<typeof schema>>;
  * only invoke from route handlers / server actions that run on Workers.
  */
 export async function getDb(): Promise<DrizzleD1Client> {
-    const ctx = await getCloudflareContext({ async: true });
+    const ctx = await getD1Context();
     const env = ctx.env as unknown as D1Env;
 
     if (!env.DB) {

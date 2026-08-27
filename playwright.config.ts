@@ -3,9 +3,9 @@ import { loadEnvConfig } from '@next/env';
 
 loadEnvConfig(process.cwd());
 
-const e2ePort = process.env.RTV_E2E_PORT ?? '3451';
-const e2eBaseURL = process.env.RTV_BASE_URL ?? `http://127.0.0.1:${e2ePort}`;
-const webServer = process.env.RTV_BASE_URL
+const e2ePort = process.env.BROADCAST_PLANNER_E2E_PORT ?? '3451';
+const e2eBaseURL = process.env.BROADCAST_PLANNER_BASE_URL ?? `http://127.0.0.1:${e2ePort}`;
+const webServer = process.env.BROADCAST_PLANNER_BASE_URL
     ? {}
     : {
           webServer: {

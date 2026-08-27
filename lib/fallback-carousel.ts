@@ -124,7 +124,7 @@ export function isPlayableFallbackCarouselAsset(asset: MediaAsset) {
         (asset.assetType === 'promo' ||
             asset.assetType === 'ad' ||
             asset.assetType === 'fallback') &&
-        Boolean(asset.url || asset.storagePath || asset.vimeoId)
+        Boolean(asset.url || asset.storagePath)
     );
 }
 

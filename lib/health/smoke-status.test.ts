@@ -52,11 +52,13 @@ describe('smoke status (file fallback)', () => {
             recordedAt: new Date().toISOString(),
         });
 
-        const smoke = await readSmokeStatus({ RTV_SMOKE_STATUS_FILE: file });
+        const smoke = await readSmokeStatus({ BROADCAST_PLANNER_SMOKE_STATUS_FILE: file });
 
         expect(smoke?.status).toBe('ok');
         expect(smoke?.label).toBe('local-deploy');
-        expect(smoke && isSmokeStatusOk(smoke, { RTV_SMOKE_STATUS_FILE: file })).toBe(true);
+        expect(smoke && isSmokeStatusOk(smoke, { BROADCAST_PLANNER_SMOKE_STATUS_FILE: file })).toBe(
+            true,
+        );
     });
 
     it('marks stale smoke status as not ok', async () => {
@@ -66,43 +68,43 @@ describe('smoke status (file fallback)', () => {
             recordedAt: '2026-01-01T00:00:00.000Z',
         });
         const smoke = await readSmokeStatus({
-            RTV_SMOKE_STATUS_FILE: file,
-            RTV_SMOKE_MAX_AGE_SECONDS: '1',
+            BROADCAST_PLANNER_SMOKE_STATUS_FILE: file,
+            BROADCAST_PLANNER_SMOKE_MAX_AGE_SECONDS: '1',
         });
 
         expect(
             smoke &&
                 isSmokeStatusOk(smoke, {
-                    RTV_SMOKE_STATUS_FILE: file,
-                    RTV_SMOKE_MAX_AGE_SECONDS: '1',
+                    BROADCAST_PLANNER_SMOKE_STATUS_FILE: file,
+                    BROADCAST_PLANNER_SMOKE_MAX_AGE_SECONDS: '1',
                 }),
         ).toBe(false);
         expect(
             smoke &&
                 smokeStatusMessage(smoke, {
-                    RTV_SMOKE_STATUS_FILE: file,
-                    RTV_SMOKE_MAX_AGE_SECONDS: '1',
+                    BROADCAST_PLANNER_SMOKE_STATUS_FILE: file,
+                    BROADCAST_PLANNER_SMOKE_MAX_AGE_SECONDS: '1',
                 }),
         ).toContain('stale');
     });
 
     it('returns null when no file exists and no KV/env override is set', async () => {
-        const dir = mkdtempSync(join(tmpdir(), 'rtv-smoke-'));
+        const dir = mkdtempSync(join(tmpdir(), 'broadcast-smoke-'));
         tempDirs.push(dir);
         const file = join(dir, 'absent.json');
 
-        const smoke = await readSmokeStatus({ RTV_SMOKE_STATUS_FILE: file });
+        const smoke = await readSmokeStatus({ BROADCAST_PLANNER_SMOKE_STATUS_FILE: file });
 
         expect(smoke).toBeNull();
     });
 
     it('writes to disk when KV is unavailable', async () => {
-        const dir = mkdtempSync(join(tmpdir(), 'rtv-smoke-'));
+        const dir = mkdtempSync(join(tmpdir(), 'broadcast-smoke-'));
         tempDirs.push(dir);
         const file = join(dir, 'written.json');
         const status = { status: 'ok', label: 'cli', recordedAt: '2026-05-26T00:00:00.000Z' };
 
-        await writeSmokeStatus(status, { RTV_SMOKE_STATUS_FILE: file });
+        await writeSmokeStatus(status, { BROADCAST_PLANNER_SMOKE_STATUS_FILE: file });
 
         expect(existsSync(file)).toBe(true);
         expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(status);
@@ -117,7 +119,6 @@ describe('smoke status (KV-backed)', () => {
         };
         mockGetCloudflareContext.mockReset();
         mockGetCloudflareContext.mockResolvedValue(buildKvContext(kv));
-
         const smoke = await readSmokeStatus({});
 
         expect(smoke?.status).toBe('ok');
@@ -134,7 +135,7 @@ describe('smoke status (KV-backed)', () => {
         mockGetCloudflareContext.mockResolvedValue(buildKvContext(kv));
         const file = tempStatusFile({ status: 'ok', label: 'fallback', recordedAt: nowIso() });
 
-        const smoke = await readSmokeStatus({ RTV_SMOKE_STATUS_FILE: file });
+        const smoke = await readSmokeStatus({ BROADCAST_PLANNER_SMOKE_STATUS_FILE: file });
 
         expect(smoke?.label).toBe('fallback');
     });
@@ -160,8 +161,12 @@ describe('smoke status (KV-backed)', () => {
         };
         mockGetCloudflareContext.mockReset();
         mockGetCloudflareContext.mockResolvedValue(buildKvContext(kv));
+        const dir = mkdtempSync(join(tmpdir(), 'broadcast-smoke-'));
+        tempDirs.push(dir);
 
-        const smoke = await readSmokeStatus({});
+        const smoke = await readSmokeStatus({
+            BROADCAST_PLANNER_SMOKE_STATUS_FILE: join(dir, 'absent.json'),
+        });
 
         expect(smoke).toBeNull();
     });
@@ -175,14 +180,14 @@ describe('smoke status (KV-backed)', () => {
         mockGetCloudflareContext.mockResolvedValue(buildKvContext(kv));
         const file = tempStatusFile({ status: 'ok', label: 'after-err', recordedAt: nowIso() });
 
-        const smoke = await readSmokeStatus({ RTV_SMOKE_STATUS_FILE: file });
+        const smoke = await readSmokeStatus({ BROADCAST_PLANNER_SMOKE_STATUS_FILE: file });
 
         expect(smoke?.label).toBe('after-err');
     });
 });
 
 function tempStatusFile(payload: unknown) {
-    const dir = mkdtempSync(join(tmpdir(), 'rtv-smoke-'));
+    const dir = mkdtempSync(join(tmpdir(), 'broadcast-smoke-'));
     tempDirs.push(dir);
     const file = join(dir, 'smoke-status.json');
     writeFileSync(file, JSON.stringify(payload));

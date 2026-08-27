@@ -1,4 +1,4 @@
-# Roxom TV — Guest Lineup
+# Broadcast Planner — Guest Lineup
 
 Panel de gestión y display para la grilla de invitados del canal. Permite cargar fotos o videos de cada guest, asignarles fecha, host y categoría, y mostrar todo en una pantalla de TV en formato 1920×1080.
 

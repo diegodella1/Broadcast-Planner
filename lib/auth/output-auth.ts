@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 
 import { isProductionLikeRuntime } from './auth';
 
-export const OUTPUT_COOKIE = 'rpm_output_token';
+export const OUTPUT_COOKIE = 'broadcast-planner_output_token';
 
 export async function isOutputRequestAllowed(searchParams: { token?: string | undefined }) {
     const expected = process.env.OUTPUT_CAPTURE_TOKEN;

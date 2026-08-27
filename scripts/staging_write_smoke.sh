@@ -6,15 +6,15 @@ if [[ "${ALLOW_STAGING_WRITE_SMOKE:-}" != "true" ]]; then
   exit 1
 fi
 
-base_url="${RTV_STAGING_BASE_URL:-${RTV_BASE_URL:-}}"
+base_url="${BROADCAST_PLANNER_STAGING_BASE_URL:-${BROADCAST_PLANNER_BASE_URL:-}}"
 if [[ -z "$base_url" ]]; then
-  echo "RTV_STAGING_BASE_URL is required" >&2
+  echo "BROADCAST_PLANNER_STAGING_BASE_URL is required" >&2
   exit 1
 fi
 base_url="${base_url%/}"
 
-if [[ -n "${RTV_PROD_BASE_URL:-}" && "${base_url}" == "${RTV_PROD_BASE_URL%/}" ]]; then
-  echo "Refusing to run write smoke against RTV_PROD_BASE_URL." >&2
+if [[ -n "${BROADCAST_PLANNER_PROD_BASE_URL:-}" && "${base_url}" == "${BROADCAST_PLANNER_PROD_BASE_URL%/}" ]]; then
+  echo "Refusing to run write smoke against BROADCAST_PLANNER_PROD_BASE_URL." >&2
   exit 1
 fi
 if [[ "$base_url" != *"staging"* && "${ALLOW_NON_STAGING_WRITE_SMOKE:-}" != "true" ]]; then
@@ -74,13 +74,13 @@ cleanup() {
 trap cleanup EXIT
 
 echo "csrf"
-csrf="$(curl -fsS -c "$cookie_jar" -b "rpm_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" "$base_url/api/csrf" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>process.stdout.write(JSON.parse(s).csrfToken))')"
+csrf="$(curl -fsS -c "$cookie_jar" -b "broadcast-planner_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" "$base_url/api/csrf" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>process.stdout.write(JSON.parse(s).csrfToken))')"
 
 echo "upload schedule"
 air_date="$(date -u -d '+30 days' +%F)"
 curl -fsS -L \
   -b "$cookie_jar" \
-  -b "rpm_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" \
+  -b "broadcast-planner_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" \
   -F "_csrf=${csrf}" \
   -F "media_file=@${asset_file};type=image/png" \
   -F "title=${run_id}" \
@@ -99,7 +99,7 @@ if (!payload.schedule || !Array.isArray(payload.schedule.blocks)) process.exit(1
 ' "$tmp_dir/schedule.json"
 
 echo "verify audit"
-curl -fsS --cookie "rpm_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" "$base_url/admin/audit" >"$tmp_dir/audit.html"
+curl -fsS --cookie "broadcast-planner_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" "$base_url/admin/audit" >"$tmp_dir/audit.html"
 grep -q "$run_id" "$tmp_dir/audit.html"
 
 archive_sandbox_rows

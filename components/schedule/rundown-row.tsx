@@ -64,7 +64,8 @@ export function RundownRow({
 
     const duration = getDurationDisplay({
         durationSeconds: block.durationSeconds ?? null,
-        sourceType: asset?.sourceType ?? 'remote_mp4',
+        sourceType: asset?.sourceType ?? 'uploaded',
+        playbackKind: asset?.playbackKind ?? null,
     });
 
     const isBroadcast = block.category === 'broadcast';

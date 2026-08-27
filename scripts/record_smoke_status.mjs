@@ -16,13 +16,13 @@ const payload = { status, label, recordedAt };
 
 const path = resolve(
     process.cwd(),
-    process.env.RTV_SMOKE_STATUS_FILE || '/tmp/rtvplanner-smoke-status.json',
+    process.env.BROADCAST_PLANNER_SMOKE_STATUS_FILE || '/tmp/broadcast-planner-smoke-status.json',
 );
 mkdirSync(dirname(path), { recursive: true });
 writeFileSync(path, `${JSON.stringify(payload, null, 2)}\n`);
 console.log(`recorded smoke status to disk: ${status} (${label})`);
 
-const baseUrl = process.env.RTV_BASE_URL;
+const baseUrl = process.env.BROADCAST_PLANNER_BASE_URL;
 const token = process.env.SMOKE_WRITE_TOKEN;
 
 if (baseUrl && token) {
@@ -50,5 +50,7 @@ if (baseUrl && token) {
         process.exit(1);
     }
 } else if (baseUrl && !token) {
-    console.warn('RTV_BASE_URL is set but SMOKE_WRITE_TOKEN is missing; skipping remote POST');
+    console.warn(
+        'BROADCAST_PLANNER_BASE_URL is set but SMOKE_WRITE_TOKEN is missing; skipping remote POST',
+    );
 }

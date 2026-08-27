@@ -17,8 +17,6 @@ type MediaMetadata = {
     previewKind: 'image' | 'video' | 'audio' | 'none';
 };
 
-const MAX_SHORT_VIDEO_SECONDS = 5 * 60;
-
 export function MediaFilePicker({
     includeAudio = true,
     compact = false,
@@ -38,7 +36,6 @@ export function MediaFilePicker({
         previewUrl: '',
         previewKind: 'none',
     });
-    const [manualDuration, setManualDuration] = useState('');
     const objectUrlRef = useRef<string | null>(null);
 
     useEffect(() => {
@@ -77,7 +74,6 @@ export function MediaFilePicker({
             previewUrl: '',
             previewKind: 'none',
         });
-        setManualDuration('');
     }
 
     function onFileChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -92,7 +88,7 @@ export function MediaFilePicker({
         if (file.size > MAX_SMALL_MEDIA_BYTES) {
             event.target.value = '';
             reset(
-                `File is ${formatBytes(file.size)}. Browser uploads must be ${formatUploadLimit()} or less; use Vimeo or a remote URL for larger videos.`,
+                `File is ${formatBytes(file.size)}. Uploads must be ${formatUploadLimit()} or less.`,
             );
 
             return;
@@ -134,7 +130,6 @@ export function MediaFilePicker({
                     ...baseDetails,
                     previewKind: 'image',
                 });
-                setManualDuration('25');
             };
             image.onerror = () => reset('Image details unreadable');
             image.src = objectUrl;
@@ -169,17 +164,14 @@ export function MediaFilePicker({
         video.preload = 'metadata';
         video.onloadedmetadata = () => {
             const duration = Math.ceil(video.duration || 0);
-            const isTooLong = duration > MAX_SHORT_VIDEO_SECONDS;
             setMetadata({
                 durationSeconds: duration ? String(duration) : '',
                 width: video.videoWidth ? String(video.videoWidth) : '',
                 height: video.videoHeight ? String(video.videoHeight) : '',
-                message: isTooLong
-                    ? `Detected ${duration}s video. Short video uploads must be 5 minutes or less.`
-                    : duration
-                      ? `Detected ${duration}s video (${video.videoWidth}x${video.videoHeight}).`
-                      : 'Video duration unreadable',
-                status: duration && !isTooLong ? 'ready' : 'error',
+                message: duration
+                    ? `Preview detected ${duration}s video (${video.videoWidth}x${video.videoHeight}). Server verification runs after upload.`
+                    : 'Video duration unreadable',
+                status: duration ? 'ready' : 'error',
                 ...baseDetails,
                 previewKind: 'video',
             });
@@ -197,22 +189,10 @@ export function MediaFilePicker({
             />
             <input type="hidden" name="detected_width" value={metadata.width} />
             <input type="hidden" name="detected_height" value={metadata.height} />
-            <label className="grid gap-1 text-xs font-semibold text-muted">
-                On-air seconds
-                <input
-                    name="duration_seconds"
-                    type="number"
-                    min="0"
-                    placeholder="Auto"
-                    value={manualDuration}
-                    onChange={(event) => setManualDuration(event.target.value)}
-                    className="border border-line px-3 py-2 text-sm font-normal text-ink"
-                />
-                <span className="text-[0.7rem] font-normal">
-                    Blank or 0 uses detected duration. Short video uploads max out at 5 minutes and{' '}
-                    {formatUploadLimit()}.
-                </span>
-            </label>
+            <p className="text-xs text-muted">
+                Browser metadata is preview only. Server validates signature, duration and codecs
+                with ffprobe. Maximum size: {formatUploadLimit()}.
+            </p>
             <label
                 className={[
                     'grid gap-1 text-xs font-semibold text-muted',

@@ -13,6 +13,7 @@ import { AdminShell } from '@/components/admin/admin-shell';
 import { StatusPill } from '@/components/ui/status-pill';
 import { Timecode } from '@/components/ui/timecode';
 import { PlayoutTime } from '@/components/output/playout-time';
+import { OutputMonitorPanel } from '@/components/output/output-monitor-panel';
 import { ButtonLink, EmptyState, MetricTile, Notice, PrimaryActionPanel } from '@/components/ui';
 import { getAssetSummaries, getDays, getScheduleForDate } from '@/lib/data';
 import { collectOperatorHealth } from '@/lib/health/health-checks';
@@ -52,6 +53,39 @@ export default async function AdminDashboardPage() {
             asset.status !== 'ready' || (asset.mediaKind === 'video' && !asset.durationSeconds),
     ).length;
     const scheduledHours = blocks.reduce((total, block) => total + block.durationSeconds, 0) / 3600;
+    const initialMonitor = {
+        generatedAt: new Date().toISOString(),
+        timezone: schedule.day?.timezone ?? PLAYOUT_TIMEZONE,
+        serverSeconds: nowSeconds,
+        day: schedule.day ? { airDate: schedule.day.airDate, status: schedule.day.status } : null,
+        block: active.block
+            ? {
+                  title: active.block.title,
+                  status: active.block.status,
+                  elapsedInBlock: active.elapsedInBlock,
+                  durationSeconds: active.block.durationSeconds,
+              }
+            : null,
+        asset: active.asset
+            ? {
+                  id: active.asset.id,
+                  title: active.asset.title,
+                  sourceType: active.asset.sourceType,
+                  status: active.asset.status,
+                  lifecycleState: active.asset.lifecycleState ?? 'reviewed',
+                  playbackReadinessStatus: active.asset.playbackReadinessStatus ?? 'unchecked',
+                  playbackError: active.asset.playbackError ?? null,
+              }
+            : null,
+        fallback: active.fallbackAsset ? { title: active.fallbackAsset.title } : null,
+        fallbackReason: active.reason ?? null,
+        override: null,
+        mediaError:
+            active.asset?.playbackReadinessStatus === 'failed' ||
+            active.asset?.playbackReadinessStatus === 'review'
+                ? (active.asset.playbackError ?? 'Media playback needs review')
+                : null,
+    };
 
     return (
         <AdminShell
@@ -123,12 +157,12 @@ export default async function AdminDashboardPage() {
                     ) : null
                 }
             />
-            <section className="mb-5 grid gap-3 xl:grid-cols-[1.25fr_1fr]">
-                <div className="surface-panel p-5">
+            <section className="mb-5 grid gap-3 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+                <div className="surface-panel p-4">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
-                            <p className="eyebrow">Today</p>
-                            <h2 className="mt-2 text-2xl font-semibold">
+                            <p className="technical-label text-accent-positive">Control room</p>
+                            <h2 className="mt-2 font-display text-2xl font-semibold">
                                 {schedule.day?.title ?? `Programming ${today}`}
                             </h2>
                             <p className="mt-1 text-sm text-muted">
@@ -142,7 +176,11 @@ export default async function AdminDashboardPage() {
                         )}
                     </div>
 
-                    <div className="mt-5 grid gap-3 md:grid-cols-3">
+                    <div className="mt-4">
+                        <OutputMonitorPanel initial={initialMonitor} />
+                    </div>
+
+                    <div className="mt-3 grid gap-3 md:grid-cols-3">
                         <SignalTile
                             icon={<RadioTower size={18} />}
                             label="Now"
@@ -189,8 +227,8 @@ export default async function AdminDashboardPage() {
                     </div>
                 </div>
 
-                <section className="surface-panel p-5">
-                    <p className="eyebrow">Operator path</p>
+                <section className="surface-panel p-4">
+                    <p className="technical-label text-muted">Next actions</p>
                     <div className="mt-4 grid gap-2">
                         <ActionLink
                             href="/admin/prepare"
@@ -335,13 +373,13 @@ function SignalTile({
     tone: 'ok' | 'warn' | 'danger' | 'neutral';
 }) {
     return (
-        <section className={`rounded-md border p-4 ${signalTone(tone)}`}>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase">
+        <section className={`border p-3 ${signalTone(tone)}`}>
+            <div className="technical-label flex items-center gap-2">
                 {icon}
                 {label}
             </div>
-            <p className="mt-3 truncate text-lg font-semibold">{title}</p>
-            <p className="mt-1 text-sm opacity-80">{detail}</p>
+            <p className="mt-3 truncate font-display text-base font-semibold">{title}</p>
+            <p className="mt-1 font-technical text-xs opacity-80">{detail}</p>
         </section>
     );
 }

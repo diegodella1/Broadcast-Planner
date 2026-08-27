@@ -12,7 +12,7 @@ export type GuestLineupSlideProps = {
 };
 
 const POLL_MS = 30_000;
-const ROXOM_GREEN = '#1ae784';
+const BRAND_GREEN = '#1ae784';
 const DEFAULT_ACCENT: string = guestLineupSlide.bitcoinOrangeFallback;
 
 export function GuestLineupSlide({ data }: GuestLineupSlideProps) {
@@ -107,13 +107,15 @@ export function GuestLineupSlide({ data }: GuestLineupSlideProps) {
                         </h1>
                         <p className="guest-reveal-host mt-5 text-[clamp(22px,1.65vw,31px)] font-black uppercase italic tracking-[0.12em]">
                             <span className="mr-2 text-white/28">with</span>
-                            <span style={{ color: ROXOM_GREEN }}>{activeGuest.host ?? 'RTV'}</span>
+                            <span style={{ color: BRAND_GREEN }}>
+                                {activeGuest.host ?? 'Broadcast Planner'}
+                            </span>
                         </p>
                         <p className="guest-reveal-role mt-6 text-[clamp(20px,1.5vw,29px)] font-semibold text-white/62">
                             {activeGuest.role || 'Guest'}
                         </p>
                         <p className="guest-reveal-company mt-2 text-[clamp(18px,1.35vw,26px)] font-medium text-white/32">
-                            {activeGuest.company || activeGuest.program || 'RTV Time'}
+                            {activeGuest.company || activeGuest.program || 'Broadcast Planner'}
                         </p>
                     </div>
 
@@ -245,7 +247,7 @@ function GuestStripCard({ guest, index }: { guest: GuestLineupGuest; index: numb
                         {joinDetails(guest.role, guest.company)}
                     </p>
                     <p className="mt-2 text-[clamp(13px,0.88vw,17px)] font-black uppercase tracking-[0.15em] text-white/32">
-                        with {guest.host ?? 'RTV'}
+                        with {guest.host ?? 'Broadcast Planner'}
                     </p>
                 </div>
                 <div className="flex items-center justify-between gap-4">
@@ -392,7 +394,7 @@ function categoryColor(guest: GuestLineupGuest) {
         case 'POLICY':
             return '#a78bfa';
         case 'MARKETS':
-            return ROXOM_GREEN;
+            return BRAND_GREEN;
         default:
             return safeColor(guest.color, '#ffffff');
     }
@@ -436,7 +438,7 @@ function countdownPill(value: string | null) {
     const date = parseDate(value);
 
     if (!date) {
-        return { text: 'TBD', color: ROXOM_GREEN, bg: 'rgba(26,231,132,0.08)' };
+        return { text: 'TBD', color: BRAND_GREEN, bg: 'rgba(26,231,132,0.08)' };
     }
 
     const now = new Date();
@@ -450,14 +452,14 @@ function countdownPill(value: string | null) {
     }
 
     if (days === 0) {
-        return { text: 'TODAY', color: ROXOM_GREEN, bg: 'rgba(26,231,132,0.08)' };
+        return { text: 'TODAY', color: BRAND_GREEN, bg: 'rgba(26,231,132,0.08)' };
     }
 
     if (days === 1) {
-        return { text: 'TOMORROW', color: ROXOM_GREEN, bg: 'rgba(26,231,132,0.08)' };
+        return { text: 'TOMORROW', color: BRAND_GREEN, bg: 'rgba(26,231,132,0.08)' };
     }
 
-    return { text: `IN ${days} DAYS`, color: ROXOM_GREEN, bg: 'rgba(26,231,132,0.08)' };
+    return { text: `IN ${days} DAYS`, color: BRAND_GREEN, bg: 'rgba(26,231,132,0.08)' };
 }
 
 function parseDate(value: string | null) {

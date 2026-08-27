@@ -1,6 +1,6 @@
 # Premortem Findings Fix Plan
 
-Goal: close the P0/P1 failure modes from `premortem-report-20260510-203403.html` before calling the RTV Planner MVP production-ready.
+Goal: close the P0/P1 failure modes from `premortem-report-20260510-203403.html` before calling the Broadcast Planner MVP production-ready.
 
 ## Gate 1: Prove Real Playout, Not Just HTTP
 
@@ -26,7 +26,7 @@ Acceptance:
 
 Status: implemented. Admin links mint an output cookie; query tokens remain for scripts/bootstrap.
 
-- Add admin-only action to mint `rpm_output_token` cookie for capture routes.
+- Add admin-only action to mint `broadcast-planner_output_token` cookie for capture routes.
 - Cookie settings: `HttpOnly`, `Secure` in HTTPS, `SameSite=Lax`, short TTL, path `/output`.
 - Keep `?token=` support temporarily for initial capture setup and scripts.
 - Update `/admin/output` to open output through session-cookie flow.
@@ -112,7 +112,7 @@ Status: implemented as a guarded staging-only smoke script with sandbox cleanup.
 
 - Create `npm run smoke:staging-write`.
 - Required env:
-    - `RTV_STAGING_BASE_URL`
+    - `BROADCAST_PLANNER_STAGING_BASE_URL`
     - `ADMIN_BOOTSTRAP_TOKEN`
     - `OUTPUT_CAPTURE_TOKEN`
     - `NEXT_PUBLIC_SUPABASE_URL`

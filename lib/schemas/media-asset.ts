@@ -1,15 +1,6 @@
 import { z } from 'zod';
 
-const sourceTypeEnum = z.enum([
-    'vimeo',
-    'supabase_image',
-    'remote_image',
-    'remote_mp4',
-    'hls',
-    'rtmp',
-    'supabase_audio',
-    'reuters',
-]);
+const sourceTypeEnum = z.enum(['uploaded', 'public_url', 'legacy_external']);
 const mediaKindEnum = z.enum(['video', 'image', 'audio', 'graphic']);
 const assetTypeEnum = z.enum([
     'video',
@@ -21,7 +12,7 @@ const assetTypeEnum = z.enum([
     'overlay',
     'music',
 ]);
-const assetStatusEnum = z.enum(['draft', 'syncing', 'ready', 'failed', 'archived']);
+const assetStatusEnum = z.enum(['draft', 'syncing', 'ready', 'needs_review', 'failed', 'archived']);
 const lifecycleStateEnum = z.enum([
     'synced',
     'reviewed',

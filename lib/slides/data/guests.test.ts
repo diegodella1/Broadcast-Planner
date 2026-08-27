@@ -15,7 +15,7 @@ function guest(id: string, name: string): Guest {
         id,
         name,
         role: 'Analyst',
-        company: 'RTV',
+        company: 'Broadcast',
         host: 'Desk',
         program: 'Opening Bell',
         category: 'markets',

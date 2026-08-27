@@ -10,7 +10,7 @@ type Item = {
 const liveNow: Item[] = [
     {
         title: 'Production playout path',
-        detail: 'Browser output supports Vimeo, HLS, MP4, images, slides, audio-backed blocks, fallback, audio unlock and reload resume.',
+        detail: 'Browser output supports Public media, HLS, MP4, images, slides, audio-backed blocks, fallback, audio unlock and reload resume.',
         status: 'Done',
     },
     {
@@ -70,7 +70,7 @@ const liveNow: Item[] = [
     },
     {
         title: 'Real-data plate inputs',
-        detail: 'Metals use Roxom API data with fallback, weather uses Open-Meteo without a key, calendar/event plates use Supabase events, and debt no longer depends on a missing background.',
+        detail: 'Metals use an optional external data provider with fallback, weather uses Open-Meteo without a key, calendar/event plates use Supabase events, and debt no longer depends on a missing background.',
         status: 'Done',
     },
     {
@@ -145,7 +145,7 @@ export default function PendingPage() {
                         What Is Done, What Is Next
                     </h1>
                     <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
-                        Current shipping status for RTV Planner. The core product is live; the
+                        Current shipping status for Broadcast Planner. The core product is live; the
                         remaining work is output design polish, stronger alerts, smoke visibility
                         and broadcast automation.
                     </p>

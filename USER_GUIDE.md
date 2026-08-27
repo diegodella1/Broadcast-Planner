@@ -1,4 +1,4 @@
-# RTV TL Manager Operator Guide
+# Broadcast Planner Operator Guide
 
 Short guide for running the current production workflow.
 
@@ -7,7 +7,7 @@ Short guide for running the current production workflow.
 Open:
 
 ```txt
-https://rtvtime.diegodella.ar/admin/login
+https://broadcast-planner.diegodella.ar/admin/login
 ```
 
 Use the configured admin token or named operator handle/token.
@@ -89,7 +89,7 @@ Run this before trusting a machine for broadcast:
   guests and order.
 - Weather plates can be created per city; use lat/lon only as advanced correction data.
 - Reuters URLs are dynamic. Refresh the block or live override if the endpoint expires.
-- Metals plates use Roxom metals data when available and fallback market data when unavailable.
+- Metals plates use an optional external provider and fallback market data when unavailable.
 - Weather plates use OpenWeather when configured and Open-Meteo when no key is present.
 - Calendar/event plates use the Supabase `events` table.
 - Secrets belong in `.env` or encrypted settings, not docs or chat.

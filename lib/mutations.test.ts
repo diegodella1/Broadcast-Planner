@@ -467,7 +467,8 @@ describe('fillProgramBlockContent', () => {
                 {
                     id: 'asset-video',
                     title: 'Long Video',
-                    sourceType: 'vimeo',
+                    sourceType: 'public_url',
+                    playbackKind: 'embed',
                     mediaKind: 'video',
                     assetType: 'video',
                     durationSeconds: 900,
@@ -503,7 +504,8 @@ describe('fillProgramBlockContent', () => {
                 {
                     id: 'asset-video',
                     title: 'Video',
-                    sourceType: 'vimeo',
+                    sourceType: 'public_url',
+                    playbackKind: 'embed',
                     mediaKind: 'video',
                     assetType: 'video',
                     durationSeconds: 300,
@@ -1896,11 +1898,12 @@ describe('createMediaAsset', () => {
 
     it('happy path: inserts media_assets and revalidates /admin/assets', async () => {
         const result = await createMediaAsset({
-            title: 'Roxom Intro',
-            sourceType: 'vimeo',
+            title: 'Broadcast Planner Intro',
+            sourceType: 'public_url',
+            playbackKind: 'embed',
             mediaKind: 'video',
             assetType: 'video',
-            url: 'https://vimeo.com/1234',
+            url: 'https://video.example/1234',
             durationSeconds: 120,
         });
 
@@ -1909,8 +1912,9 @@ describe('createMediaAsset', () => {
         expect(typeof (result as { success: true; data: string }).data).toBe('string');
         expect(drizzleMock.values).toHaveBeenCalledWith(
             expect.objectContaining({
-                title: 'Roxom Intro',
-                sourceType: 'vimeo',
+                title: 'Broadcast Planner Intro',
+                sourceType: 'public_url',
+                playbackKind: 'embed',
                 mediaKind: 'video',
                 assetType: 'video',
                 durationSeconds: 120,
@@ -1923,7 +1927,8 @@ describe('createMediaAsset', () => {
     it('validation: returns err for ad assets longer than 300s', async () => {
         const result = await createMediaAsset({
             title: 'Long Ad',
-            sourceType: 'remote_mp4',
+            sourceType: 'uploaded',
+            playbackKind: 'video_file',
             mediaKind: 'video',
             assetType: 'ad',
             durationSeconds: 400,
@@ -1937,7 +1942,8 @@ describe('createMediaAsset', () => {
 
         const result = await createMediaAsset({
             title: 'Asset',
-            sourceType: 'vimeo',
+            sourceType: 'public_url',
+            playbackKind: 'embed',
             mediaKind: 'video',
             assetType: 'video',
         });
@@ -1953,7 +1959,8 @@ describe('updateMediaAsset', () => {
     const baseInput = {
         id: 'asset-1',
         title: 'Updated Asset',
-        sourceType: 'vimeo',
+        sourceType: 'public_url',
+        playbackKind: 'embed',
         mediaKind: 'video' as const,
         assetType: 'video' as const,
         status: 'ready',

@@ -24,6 +24,8 @@ describe('OutputMonitorPanel', () => {
                 'Open `/output/live`, click Start Output once, and capture the browser in OBS/vMix.',
             ),
         ).toBeInTheDocument();
+        expect(screen.getByText('PGM OUT')).toBeInTheDocument();
+        expect(screen.getAllByText('Broadcast Planner Report').length).toBeGreaterThan(0);
 
         await waitFor(() =>
             expect(global.fetch).toHaveBeenCalledWith('/api/output/monitor', { cache: 'no-store' }),
@@ -44,15 +46,16 @@ const initialPayload = {
     serverSeconds: 27000,
     day: { airDate: '2026-05-15', status: 'active' },
     block: {
-        title: 'Roxom Report',
+        title: 'Broadcast Planner Report',
         status: 'ready',
         elapsedInBlock: 1800,
         durationSeconds: 3600,
     },
     asset: {
-        id: 'asset-vimeo',
-        title: 'Roxom Report',
-        sourceType: 'vimeo',
+        id: 'asset-public',
+        title: 'Broadcast Planner Report',
+        sourceType: 'public_url',
+        playbackKind: 'embed',
         status: 'ready',
         lifecycleState: 'reviewed',
         playbackReadinessStatus: 'ready',

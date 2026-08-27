@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/auth';
 import { isOutputRequestAllowed, outputAccessDeniedReason } from '@/lib/auth/output-auth';
 import { markLiveObjectEnded } from '@/lib/mutations';
+import { endLiveSchema, formatZodError } from '@/lib/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,14 +16,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: outputAccessDeniedReason() }, { status: 401 });
     }
 
-    const body = (await request.json().catch(() => ({}))) as {
-        blockId?: string;
-        reason?: string;
-    };
+    const parsed = endLiveSchema.safeParse(await request.json().catch(() => ({})));
 
-    if (!body.blockId) {
-        return NextResponse.json({ error: 'blockId is required' }, { status: 400 });
+    if (!parsed.success) {
+        return NextResponse.json({ error: formatZodError(parsed.error) }, { status: 400 });
     }
+    const body = parsed.data;
     const result = await markLiveObjectEnded({
         blockId: body.blockId,
         reason: body.reason || 'manual',

@@ -165,7 +165,7 @@ function MusicEditForm({
                 defaultValue={track.sourceType}
                 className="border border-line px-3 py-2 text-sm"
             >
-                <option value="supabase_audio">Supabase audio</option>
+                <option value="uploaded">Uploaded audio</option>
             </select>
             <select
                 name="status"

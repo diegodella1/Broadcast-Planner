@@ -103,7 +103,8 @@ describe('RundownRow', () => {
                 {
                     id: 'asset-reuters',
                     title: 'Reuters Feed',
-                    sourceType: 'reuters',
+                    sourceType: 'public_url',
+                    playbackKind: 'hls',
                     mediaKind: 'video',
                     assetType: 'video',
                     status: 'ready',
@@ -164,7 +165,8 @@ describe('RundownRow', () => {
                 {
                     id: 'asset-1',
                     title: 'Big Buck Bunny',
-                    sourceType: 'remote_mp4',
+                    sourceType: 'uploaded',
+                    playbackKind: 'video_file',
                     mediaKind: 'video',
                     assetType: 'video',
                     status: 'ready',

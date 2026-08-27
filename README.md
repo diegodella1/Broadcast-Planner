@@ -1,12 +1,12 @@
-# RTV Planner
+# Broadcast Planner
 
-RTV Planner is the broadcast control room for Roxom TV. It lets an operator plan the day, prepare media, validate schedule risk, run a live checklist, and send a protected browser playout signal into OBS or vMix.
+Broadcast Planner is a broadcast control room for planning the day, preparing media, validating schedule risk, running a live checklist, and sending a protected browser playout signal into OBS or vMix.
 
 It is not a public video site. It is an internal operator console for keeping a daily TV-style stream organized, auditable and ready to recover.
 
 ## Current Status
 
-Production is live at `rtvtime.diegodella.ar` using local standalone Next.js behind a Cloudflare tunnel. The core workflow is ready for controlled operation with an operator present.
+Production is live at `broadcast-planner.diegodella.ar` using local standalone Next.js behind a Cloudflare tunnel. The core workflow is ready for controlled operation with an operator present.
 
 What is already working:
 
@@ -41,7 +41,7 @@ Deployment note: the active production path is still local standalone Next.js be
 
 ## Product Promise
 
-RTV Planner replaces scattered broadcast prep with one operational flow:
+Broadcast Planner replaces scattered broadcast prep with one operational flow:
 
 1. Load or sync content.
 2. Build the broadcast day.
@@ -147,13 +147,13 @@ Optional external data inputs:
 
 ```bash
 OPENWEATHER_API_KEY= # optional; weather falls back to Open-Meteo when unset
-ROXOM_METALS_API_URL=https://api.roxom.tv/api/metals # optional override
+DATA_PROVIDER_API_URL= # optional external data provider
 ```
 
-Production currently uses local Supabase for database/storage. Keep `NEXT_PUBLIC_SUPABASE_URL`
-pointed at the local Supabase service, and set `NEXT_PUBLIC_APP_BASE_URL` or `APP_BASE_URL` to the
-public app origin, for example `https://rtvtime.diegodella.ar`. Uploaded ads/promos are stored in
-Supabase but played through the public app proxy at `/api/media/assets/[assetId]`.
+Production runs the standalone Node service behind Cloudflare Tunnel. D1, R2 and KV bindings use
+persisted local Wrangler state under `~/.local/share/broadcast-planner/wrangler-state`. Set
+`NEXT_PUBLIC_APP_BASE_URL` or `APP_BASE_URL` to the public app origin, for example
+`https://broadcast-planner.diegodella.ar`.
 
 Generate an encryption key:
 
@@ -172,27 +172,36 @@ npm test -- --run
 npm run build
 npm run smoke:http
 npm run smoke:prod
-bash scripts/deploy_local_tunnel.sh
+bash scripts/deploy_local_tunnel.sh deploy
 npm run cf:build
 npm run cf:deploy
 ```
 
-Active production deploy for `rtvtime.diegodella.ar`:
+Active production deploy for `broadcast-planner.diegodella.ar`:
 
 ```bash
-bash scripts/deploy_local_tunnel.sh
+bash scripts/install_release_units.sh # first install or unit-template change
+bash scripts/deploy_local_tunnel.sh deploy
 ```
 
-The active production path is local systemd service plus Cloudflare tunnel.
+Deploys build immutable releases under `~/.local/share/broadcast-planner/releases`, atomically switch
+`current`, run local and public read-only smoke checks, and restore the prior release on failure.
+Manual rollback: `bash scripts/deploy_local_tunnel.sh rollback`.
 
-Alternate Cloudflare Workers/OpenNext path:
+The active production path is local systemd service plus Cloudflare Tunnel. Production never executes
+build output directly from the Git worktree.
+
+Cloudflare Workers/OpenNext build path (not currently provisioned as production):
 
 ```bash
 npm run cf:build
 npm run cf:deploy
 ```
 
-Cloudflare deploys must keep dashboard vars/secrets configured for Supabase, `APP_ENCRYPTION_KEY`, `ADMIN_BOOTSTRAP_TOKEN`, `OUTPUT_CAPTURE_TOKEN`, app base URLs and any provider tokens such as Vimeo or Reuters. The scripts use `--keep-vars` so dashboard variables are preserved.
+Do not use this path for production until Worker, D1 and R2 resources exist in the target account and a
+preview passes the full read-only smoke suite.
+
+Local/systemd and container deployments require `ffprobe` from the `ffmpeg` package. Upload and public-media routes run in the Node.js runtime; they are not supported by the alternate Cloudflare Workers path.
 
 ## Database
 
@@ -262,7 +271,7 @@ Before live use:
 - `/admin/health` Go Live Drill passes.
 - current day exists and is `active`.
 - active block has ready media or a ready fallback.
-- uploaded media URLs use `https://rtvtime.diegodella.ar/api/media/assets/...`, not `127.0.0.1`.
+- uploaded media URLs use `https://broadcast-planner.diegodella.ar/api/media/assets/...`, not `127.0.0.1`.
 - `/output/live?debug=true` plays on the capture browser after `Start Output`.
 - OBS/vMix browser capture has been validated for video/audio; recheck after deploy or capture-machine changes.
 - operator confirms fallbacks, runbook and shutdown process.

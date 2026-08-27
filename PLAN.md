@@ -1,18 +1,18 @@
-# RTV-TL-MANAGER — Phased Adjustment Plan
+# Broadcast Planner — Phased Adjustment Plan
 
-Repo: `roxom-playout-manager` (Next.js 15 / React 19 / TS 5.8 / Tailwind 3.4 / Supabase / npm). Branch `main` clean.
+Repo: `broadcast-planner` (Next.js 15 / React 19 / TS 5.8 / Tailwind 3.4 / D1 / npm).
 
 ---
 
 ## 1. Executive Summary
 
-The codebase is structurally sound (clean server/client split, 0 `any`, accurate README, working bootstrap auth) but visually and operationally drifts from the locked design at `rtv-air-manager_2.html`. The shift is three-pronged: (a) port a **dark broadcast theme** with chyron-derived tokens, a 56px icon sidebar, 48px topbar with ON AIR pill, vertical rundown rows and a 240px right-rail operations panel; (b) **internationalize** the UI — extract every hardcoded Spanish string to message catalogs and default the app to English with Spanish as secondary; (c) close standards debt — silent `catch {}` blocks in `lib/data.ts` mask Supabase outages with mock data (a broadcast risk), test coverage is ~8%, `vitest` lacks jsdom/RTL, and `tsconfig` runs only `strict:true`. We recommend seven phases: foundation tokens first, then i18n bootstrap (so every later UI task uses `t()` from day one), then domain types, then visible shell, then the rundown + right-rail (the largest user-facing block), then remaining views (Assets/Slides/Output), then a standards-lift polish phase.
+The codebase is structurally sound (clean server/client split, 0 `any`, accurate README, working bootstrap auth) but visually and operationally drifts from the locked design at `broadcast-air-manager_2.html`. The shift is three-pronged: (a) port a **dark broadcast theme** with chyron-derived tokens, a 56px icon sidebar, 48px topbar with ON AIR pill, vertical rundown rows and a 240px right-rail operations panel; (b) **internationalize** the UI — extract every hardcoded Spanish string to message catalogs and default the app to English with Spanish as secondary; (c) close standards debt — silent `catch {}` blocks in `lib/data.ts` mask Supabase outages with mock data (a broadcast risk), test coverage is ~8%, `vitest` lacks jsdom/RTL, and `tsconfig` runs only `strict:true`. We recommend seven phases: foundation tokens first, then i18n bootstrap (so every later UI task uses `t()` from day one), then domain types, then visible shell, then the rundown + right-rail (the largest user-facing block), then remaining views (Assets/Slides/Output), then a standards-lift polish phase.
 
 ---
 
 ## 2. Open Product Decisions
 
-- **PRD reconciliation**: `product.md` and `roxom_playout_manager_prd.md` predate the design HTML — confirm which sections supersede.
+- **PRD reconciliation**: `product.md` and `broadcast-planner_prd.md` predate the design HTML — confirm which sections supersede.
 - **Drag-and-drop block reorder**: include in Phase 5 or defer to a follow-up? (Affects rundown task scope.)
 - **`BlockCategory` taxonomy lock**: confirm the 8 values (`mercados | earthcam | clima | calendario | trending | deuda | reuters | broadcast`) before migration is written.
 - **Operator panel route**: confirm `/admin/output` is correct and `/output/live` stays untouched as the vMix capture surface.
@@ -31,7 +31,7 @@ The codebase is structurally sound (clean server/client split, 0 `any`, accurate
 **Exit criteria**: All token names from the design HTML resolve in Tailwind; `app/globals.css` declares `color-scheme: dark`; `DESIGN.md` matches; existing pages render against new tokens without raw hex.
 
 1. **Add dark broadcast tokens to Tailwind**
-    - **What changes**: `tailwind.config.ts` — extend `theme.colors` with `surface-elevated-1` `#191919`, `surface-elevated-2` `#1e1e1e`, `surface-selected-positive` `#19241f`, `accent-positive` `#1ae784`, `accent-positive-hover` `#16cc74`, `accent-positive-glow` `rgba(26,231,132,0.25)`, `accent-positive-glow-strong` `rgba(26,231,132,0.60)`, `accent-live` `#e7000b`, `accent-live-text` `#ff4d4d`, `info-blue` `#60a5fa`, `warn-amber` `#fbbf24`, `info-violet` `#c084fc`, `negative-red` `#ef4444`. Source of truth: `rtv-air-manager_2.html:11-18`.
+    - **What changes**: `tailwind.config.ts` — extend `theme.colors` with `surface-elevated-1` `#191919`, `surface-elevated-2` `#1e1e1e`, `surface-selected-positive` `#19241f`, `accent-positive` `#1ae784`, `accent-positive-hover` `#16cc74`, `accent-positive-glow` `rgba(26,231,132,0.25)`, `accent-positive-glow-strong` `rgba(26,231,132,0.60)`, `accent-live` `#e7000b`, `accent-live-text` `#ff4d4d`, `info-blue` `#60a5fa`, `warn-amber` `#fbbf24`, `info-violet` `#c084fc`, `negative-red` `#ef4444`. Source of truth: `broadcast-air-manager_2.html:11-18`.
     - **Acceptance**: Does `tailwind.config.ts` export every token above? Are all values exact-match to the design HTML? Does `npx tailwindcss -i ... --content ...` build without warnings?
     - **Dependencies**: none.
     - **Suggested specialist**: `nextjs-component-agent`.
@@ -49,7 +49,7 @@ The codebase is structurally sound (clean server/client split, 0 `any`, accurate
     - **Suggested specialist**: `nextjs-component-agent`.
 
 4. **Update `DESIGN.md` to dark broadcast spec**
-    - **What changes**: `DESIGN.md` — replace the OKLCH section with the new token table, add screenshots/notes referencing `rtv-air-manager_2.html`, document the chyron-canonical green `#1ae784`.
+    - **What changes**: `DESIGN.md` — replace the OKLCH section with the new token table, add screenshots/notes referencing `broadcast-air-manager_2.html`, document the chyron-canonical green `#1ae784`.
     - **Acceptance**: Does `DESIGN.md` list every token from task 1? Does it mark the OKLCH light theme as deprecated? Does it cite the design HTML as source of truth?
     - **Dependencies**: 1.
     - **Suggested specialist**: `head-designer`.
@@ -75,13 +75,13 @@ The codebase is structurally sound (clean server/client split, 0 `any`, accurate
     - **Suggested specialist**: `senior-ts-microservices-architect`.
 
 2. **Wire locale-aware routing + chain with admin auth middleware**
-    - **What changes**: Update `middleware.ts` — chain `next-intl/middleware` w/ locale prefix mode `'as-needed'` (English at `/...`, Spanish at `/es/...`) AND the existing `rpm_admin_token` admin gate. Order: i18n first (rewrites locale), then admin auth (checks cookie). Update `matcher` so both run for `/admin/*` regardless of locale.
+    - **What changes**: Update `middleware.ts` — chain `next-intl/middleware` w/ locale prefix mode `'as-needed'` (English at `/...`, Spanish at `/es/...`) AND the existing `broadcast-planner_admin_token` admin gate. Order: i18n first (rewrites locale), then admin auth (checks cookie). Update `matcher` so both run for `/admin/*` regardless of locale.
     - **Acceptance**: Does `/admin/calendar` render English? Does `/es/admin/calendar` render Spanish? Does admin auth still gate `/admin/*` regardless of locale prefix? Does login redirect preserve locale?
     - **Dependencies**: 1.
     - **Suggested specialist**: `senior-ts-microservices-architect`.
 
 3. **Extract hardcoded Spanish strings to message catalogs**
-    - **What changes**: Sweep every UI string and move to `messages/en.json` + `messages/es.json`. Targets: `app/page.tsx` (eyebrow "Roxom TV", title "Playout Manager", 3 link labels + details), `components/admin-shell.tsx` (nav labels), `app/admin/**/page.tsx` (titles, descriptions, button + form labels), `lib/schedule-health.ts:67-165` (8+ Spanish issue strings: "Gap de programacion", "Bloques solapados", "Layer fuera de rango", etc.), `lib/mock-data.ts` labels, `app/output/**/page.tsx`, `components/output-renderer.tsx`. Use namespaced keys: `home.title`, `nav.calendar`, `health.issues.gap`, `block.status.broadcast`, etc. English copy is canonical; Spanish translates from existing strings.
+    - **What changes**: Sweep every UI string and move to `messages/en.json` + `messages/es.json`. Targets: `app/page.tsx`, `components/admin-shell.tsx`, `app/admin/**/page.tsx`, `lib/schedule-health.ts`, `lib/mock-data.ts`, `app/output/**/page.tsx`, `components/output-renderer.tsx`. Use namespaced keys: `home.title`, `nav.calendar`, `health.issues.gap`, `block.status.broadcast`, etc. English copy is canonical; Spanish translates from existing strings.
     - **Acceptance**: Does `grep -rn "Calendario\|Al aire ahora\|AHORA\|Música\|Broadcast manual\|Gap de programacion\|Bloques solapados" app components lib` return 0 hits in `.tsx`/`.ts` files (excluding `messages/`)? Are all keys present and non-empty in BOTH `en.json` and `es.json`? Does a JSON-key-symmetry script (added to `package.json`) pass?
     - **Dependencies**: 1.
     - **Suggested specialist**: `senior-ts-microservices-architect`.
@@ -358,7 +358,7 @@ These touch most phases — listed once with the phase that owns the landing.
 - **`aria-label`** on every icon-only button: sidebar (Phase 4 task 1), topbar (Phase 4 task 2), Stop/Back/Heart icons in operator panel (Phase 6 task 4). All sourced from `t()`.
 - **`prefers-reduced-motion`** guard for `blink`, `pd`, `bar-grow` keyframes (Phase 5 task 11) and slide preview animations (Phase 6 task 3).
 - **5s polling realtime**: `useActiveBlock` lives in Phase 5 task 1; consumed by Phase 4 task 3, Phase 5 tasks 4/6/9, Phase 6 task 4.
-- **i18n discipline**: every UI string introduced in Phases 4-6 must come from `t()` / `getTranslations()`. New keys land in BOTH `messages/en.json` and `messages/es.json` (symmetry enforced by Phase 7 task 5 script). Brand names ("Vimeo", "Reuters", "Roxom TV") stay untranslated.
+- **i18n discipline**: every UI string introduced in Phases 4-6 must come from `t()` / `getTranslations()`. New keys land in BOTH `messages/en.json` and `messages/es.json` (symmetry enforced by Phase 7 task 5 script). Brand names ("Broadcast Planner", "Vimeo", "Reuters") stay untranslated.
 
 ---
 
@@ -366,7 +366,7 @@ These touch most phases — listed once with the phase that owns the landing.
 
 To turn this plan into Linear tickets:
 
-1. Open a fresh Claude Code session at `/Users/macarenazalazar/Documents/ROXOMTV/RTV-TL-MANAGER` (Linear MCP needs the new session at the repo root).
+1. Open a fresh Claude Code session at `/Users/macarenazalazar/Documents/path/to/broadcast-planner` (Linear MCP needs the new session at the repo root).
 2. In that session, run: `/nico fetch Linear issues for playout manager` to inspect existing tickets.
 3. Then run `linear-issue-sync WRITE` with this `PLAN.md` as the source. Ask it to create one Linear issue per task above.
 4. Use the title prefix `[playout] Phase N: <task subject>` — for example, `[playout] Phase 2: Install + bootstrap next-intl`.
@@ -384,7 +384,7 @@ To turn this plan into Linear tickets:
 - **i18n drift between locales**. _Mitigation_: Phase 7 task 5 (`i18n:check` script) blocks merges with asymmetric catalogs; Phase 7 task 7 lint rule rejects hardcoded UI strings.
 - **English copy quality**. _Mitigation_: Phase 2 task 3 uses Spanish source as the seed; route through a native English review pass before Phase 4 ships (or accept iterative copy fixes per phase).
 - **Locale routing collision with `/admin` middleware**. _Mitigation_: Phase 2 task 2 explicitly chains `next-intl/middleware` then admin auth; verify with manual test of `/es/admin/calendar` with and without cookie.
-- **Spark-ui / Yarn / Inter creep from Roxom-markets habits**. _Mitigation_: Phase 1 task 4 (`DESIGN.md` update) explicitly documents that this repo is npm + Tailwind + DM Sans; reviewers reject any spark-ui imports.
+- **Spark-ui / Yarn / Inter creep from legacy market-product habits**. _Mitigation_: Phase 1 task 4 (`DESIGN.md` update) explicitly documents that this repo is npm + Tailwind + DM Sans; reviewers reject any spark-ui imports.
 - **Long functions persist past Phase 7**. _Mitigation_: Phase 7 task 10 has acceptance criteria tied to a 30-line ceiling and `createProgramBlock` reusing `hasBaseBlockConflict`; CI lint can later add `max-lines-per-function`.
 - **Test coverage regression after raising tsconfig strictness**. _Mitigation_: Phase 7 ordering — tests (tasks 2–4) before tsconfig (task 6) so refactors land on a green test suite.
 - **PRD drift (`product.md` vs design HTML)**. _Mitigation_: open product decision in Section 2 — block planning the disputed views until product reconciles.

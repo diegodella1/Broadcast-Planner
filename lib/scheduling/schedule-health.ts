@@ -63,9 +63,9 @@ export type ScheduleHealth = {
     warnCount: number;
 };
 
-const SUPPORTED_VIDEO_SOURCES = new Set(['vimeo', 'remote_mp4', 'hls', 'rtmp', 'reuters']);
-const SUPPORTED_IMAGE_SOURCES = new Set(['remote_image', 'supabase_image']);
-const SUPPORTED_AUDIO_SOURCES = new Set(['supabase_audio']);
+const SUPPORTED_VIDEO_SOURCES = new Set(['uploaded', 'public_url']);
+const SUPPORTED_IMAGE_SOURCES = new Set(['uploaded', 'public_url']);
+const SUPPORTED_AUDIO_SOURCES = new Set(['uploaded', 'public_url']);
 
 type BlockIssues = {
     missingAssets: ScheduleIssue[];
@@ -460,7 +460,7 @@ export function getAssetReadiness(asset: MediaAsset): AssetReadiness {
     const checks: ReadinessCheck[] = [
         ...checkAssetStatus(asset),
         ...checkMediaKindSourceSupport(asset),
-        ...checkVimeoReadiness(asset),
+        ...checkMetadataReadiness(asset),
         ...checkRemoteUrlPresence(asset),
         ...checkGraphicSupport(asset),
     ];
@@ -510,38 +510,36 @@ function checkMediaKindSourceSupport(asset: MediaAsset): ReadinessCheck[] {
     return [];
 }
 
-function checkVimeoReadiness(asset: MediaAsset): ReadinessCheck[] {
-    if (asset.sourceType !== 'vimeo') {
-        return [];
-    }
+function checkMetadataReadiness(asset: MediaAsset): ReadinessCheck[] {
     const checks: ReadinessCheck[] = [];
 
-    if (!asset.vimeoId) {
-        checks.push({ critical: true, message: 'missing Vimeo ID' });
+    if (!asset.playbackKind) {
+        checks.push({ critical: true, message: 'missing playback kind' });
     }
 
-    if (asset.playbackReadinessStatus === 'failed') {
+    if (asset.playbackReadinessStatus === 'failed' || asset.playbackReadinessStatus === 'review') {
         checks.push({
             critical: true,
-            message: asset.playbackError || 'Vimeo playback readiness failed',
+            message: asset.playbackError || 'playback needs review',
         });
     }
 
-    if (asset.playbackReadinessStatus === 'unchecked') {
-        checks.push({ critical: false, message: 'Vimeo playback readiness unchecked' });
+    if (asset.metadataStatus === 'failed' || asset.metadataStatus === 'stale') {
+        checks.push({
+            critical: true,
+            message: asset.metadataError || `metadata ${asset.metadataStatus}`,
+        });
     }
 
     return checks;
 }
 
 function checkRemoteUrlPresence(asset: MediaAsset): ReadinessCheck[] {
-    const remoteUrlSources = ['remote_mp4', 'hls', 'rtmp', 'remote_image'];
-
-    if (remoteUrlSources.includes(asset.sourceType) && !asset.url) {
+    if (asset.sourceType === 'public_url' && !asset.url) {
         return [{ critical: true, message: 'missing URL' }];
     }
 
-    if (asset.sourceType === 'supabase_audio' && !asset.url) {
+    if (asset.sourceType === 'uploaded' && !asset.url && !asset.storagePath) {
         return [{ critical: true, message: 'missing URL' }];
     }
 

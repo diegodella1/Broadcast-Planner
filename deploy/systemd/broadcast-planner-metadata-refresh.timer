@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh Broadcast Planner public media metadata daily
+
+[Timer]
+OnCalendar=*-*-* 04:15:00
+Persistent=true
+Unit=broadcast-planner-metadata-refresh.service
+
+[Install]
+WantedBy=timers.target

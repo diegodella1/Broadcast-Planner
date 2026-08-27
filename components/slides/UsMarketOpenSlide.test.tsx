@@ -22,7 +22,7 @@ const baseData: UsMarketOpenSlideProps['data'] = {
     marketTimezone: 'America/New_York',
     updatedAt: '2026-05-22T13:00:00Z',
     cacheSeconds: 30,
-    source: 'RTV API',
+    source: 'Data Provider API',
     instruments: [
         {
             id: 'sp500',
@@ -32,7 +32,7 @@ const baseData: UsMarketOpenSlideProps['data'] = {
             price: 6300.25,
             change: 12.5,
             changePercent: 0.2,
-            source: 'RTV API futures/index',
+            source: 'Data Provider API futures/index',
             points: [
                 { timestamp: '2026-05-22T12:59:00Z', price: 6290 },
                 { timestamp: '2026-05-22T13:00:00Z', price: 6300.25 },
@@ -46,7 +46,7 @@ const baseData: UsMarketOpenSlideProps['data'] = {
             price: 22900.5,
             change: -25.1,
             changePercent: -0.11,
-            source: 'RTV API futures/index',
+            source: 'Data Provider API futures/index',
             points: [],
         },
         {
@@ -57,7 +57,7 @@ const baseData: UsMarketOpenSlideProps['data'] = {
             price: 46250,
             change: 90,
             changePercent: 0.19,
-            source: 'RTV API futures/index',
+            source: 'Data Provider API futures/index',
             points: [],
         },
         {
@@ -68,7 +68,7 @@ const baseData: UsMarketOpenSlideProps['data'] = {
             price: null,
             change: null,
             changePercent: null,
-            source: 'RTV API',
+            source: 'Data Provider API',
             points: [],
             unavailable: true,
         },

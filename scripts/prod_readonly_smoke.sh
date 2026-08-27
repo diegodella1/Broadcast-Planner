@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-base_url="${RTV_PROD_BASE_URL:-${RTV_BASE_URL:-}}"
+base_url="${BROADCAST_PLANNER_PROD_BASE_URL:-${BROADCAST_PLANNER_BASE_URL:-}}"
 if [[ -z "$base_url" ]]; then
-  echo "RTV_PROD_BASE_URL is required" >&2
+  echo "BROADCAST_PLANNER_PROD_BASE_URL is required" >&2
   exit 1
 fi
 base_url="${base_url%/}"
@@ -43,19 +43,19 @@ case "$admin_status" in
 esac
 
 echo "admin authenticated"
-curl -fsS --cookie "rpm_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" "$base_url/admin/calendar" >"$tmp_dir/admin.html"
+curl -fsS --cookie "broadcast-planner_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" "$base_url/admin/calendar" >"$tmp_dir/admin.html"
 grep -qi "admin\\|calendar\\|program" "$tmp_dir/admin.html"
 
 echo "output session"
 session_headers="$tmp_dir/output-session.headers"
 session_status="$(curl -sS -D "$session_headers" -o /dev/null -w "%{http_code}" \
-  --cookie "rpm_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" \
+  --cookie "broadcast-planner_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" \
   "$base_url/api/output/session?debug=true&return_to=/output/live")"
 case "$session_status" in
   301|302|303|307|308) ;;
   *) echo "Expected output session redirect, got $session_status" >&2; exit 1 ;;
 esac
-grep -qi '^set-cookie: rpm_output_token=' "$session_headers"
+grep -qi '^set-cookie: broadcast-planner_output_token=' "$session_headers"
 location="$(awk 'tolower($1)=="location:" {print $2}' "$session_headers" | tr -d '\r' | tail -n 1)"
 if [[ "$location" == *"0.0.0.0"* || "$location" == *"localhost"* || "$location" == *":3450"* ]]; then
   echo "Output session redirected to private origin: $location" >&2
@@ -92,7 +92,7 @@ if [[ -s "$tmp_dir/block_id" ]]; then
 fi
 
 echo "audit page"
-curl -fsS --cookie "rpm_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" "$base_url/admin/audit" >"$tmp_dir/audit.html"
+curl -fsS --cookie "broadcast-planner_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" "$base_url/admin/audit" >"$tmp_dir/audit.html"
 grep -qi "audit" "$tmp_dir/audit.html"
 
 node scripts/record_smoke_status.mjs ok production-readonly >/dev/null

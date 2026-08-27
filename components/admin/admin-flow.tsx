@@ -21,11 +21,11 @@ export function FlowHero({
     children?: ReactNode;
 }) {
     return (
-        <section className="mb-5 border border-line bg-surface-elevated-2 p-5">
+        <section className="mb-4 border border-line bg-surface-elevated-2 p-4">
             <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="max-w-4xl">
                     <p className="eyebrow text-accent-positive">{eyebrow}</p>
-                    <h2 className="mt-2 text-2xl font-semibold tracking-normal md:text-3xl">
+                    <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight md:text-3xl">
                         {title}
                     </h2>
                     <div className="mt-2 text-sm leading-6 text-muted">{detail}</div>
@@ -39,7 +39,11 @@ export function FlowHero({
 }
 
 export function FlowGrid({ children }: { children: ReactNode }) {
-    return <section className="grid gap-3 xl:grid-cols-3">{children}</section>;
+    return (
+        <section className="grid gap-px overflow-hidden border border-line bg-line xl:grid-cols-3">
+            {children}
+        </section>
+    );
 }
 
 export function FlowCard({
@@ -63,13 +67,13 @@ export function FlowCard({
         <Link
             href={href}
             className={clsx(
-                'group flex min-h-[12rem] flex-col justify-between border p-4 transition hover:-translate-y-0.5 hover:bg-panel-soft',
+                'group flex min-h-[11rem] flex-col justify-between border-0 bg-surface p-4 transition-colors hover:bg-surface-elevated-2',
                 toneClass(tone),
             )}
         >
             <span>
                 <span className="flex items-center justify-between gap-3">
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line bg-surface text-muted">
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded border border-line bg-panel text-muted group-hover:border-accent-positive group-hover:text-accent-positive">
                         <Icon size={19} aria-hidden="true" />
                     </span>
                     {badge ? (
@@ -78,10 +82,10 @@ export function FlowCard({
                         </ClearStateBadge>
                     ) : null}
                 </span>
-                <span className="mt-4 block text-[0.68rem] font-bold uppercase text-muted">
-                    {label}
+                <span className="technical-label mt-4 block text-muted">{label}</span>
+                <span className="mt-2 block font-display text-xl font-semibold text-ink">
+                    {title}
                 </span>
-                <span className="mt-2 block text-xl font-semibold text-ink">{title}</span>
                 <span className="mt-2 block text-sm leading-6 text-muted">{detail}</span>
             </span>
             <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-accent-positive">
@@ -110,7 +114,7 @@ export function FlowRail({
                 {items.map((item) => (
                     <div
                         key={item.label}
-                        className="flex min-h-12 items-center justify-between gap-3 border border-line bg-surface px-3 py-2 text-sm"
+                        className="flex min-h-12 items-center justify-between gap-3 border-b border-line bg-surface px-3 py-2 text-sm last:border-b-0"
                     >
                         <span className="font-semibold text-muted">{item.label}</span>
                         <span
@@ -133,9 +137,9 @@ function toneClass(tone: FlowTone) {
         case 'prepare':
             return 'border-info-line bg-info-soft';
         case 'program':
-            return 'border-accent-positive bg-surface-selected-positive';
+            return 'border-info-line bg-info-soft';
         case 'operate':
-            return 'border-danger-line bg-danger-soft';
+            return 'border-line bg-surface';
         case 'warn':
             return 'border-warn-line bg-warn-soft';
         default:

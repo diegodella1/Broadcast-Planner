@@ -8,10 +8,9 @@ import { shouldFailClosedForMissingOutputToken } from './output-auth';
 const serviceRoleApiRoutes = [
     'app/api/assets/upload/route.ts',
     'app/api/assets/upload-schedule/route.ts',
+    'app/api/assets/from-url/route.ts',
+    'app/api/media/refresh/route.ts',
     'app/api/guests/upload/route.ts',
-    'app/api/settings/route.ts',
-    'app/api/vimeo/import/route.ts',
-    'app/api/vimeo/sync/route.ts',
 ];
 
 describe('service-role API guards', () => {
@@ -49,7 +48,7 @@ describe('admin return_to safety', () => {
 describe('production auth fail-closed policy', () => {
     it('fails closed for missing admin/output tokens on production-like origins', () => {
         const env = {
-            APP_BASE_URL: 'https://rtvtime.diegodella.ar',
+            APP_BASE_URL: 'https://broadcast-planner.diegodella.ar',
             NEXT_PUBLIC_APP_BASE_URL: '',
             NODE_ENV: 'test',
         } as NodeJS.ProcessEnv;

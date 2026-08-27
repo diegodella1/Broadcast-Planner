@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 const shipped = [
-    'Single-tenant operator console for Roxom TV',
+    'Single-tenant broadcast operator console',
     'Named operators, admin sessions and role guards',
     'Rate limiting, CSRF protection and output token flow',
     'Admin health checks and Go Live Drill',
@@ -14,7 +14,7 @@ const shipped = [
     'Output overrides for urgent live cuts',
     'Music preferences for slides, images and visual fallbacks',
     'Dynamic Reuters HLS/RTMP stream snapshots',
-    'Roxom metals API integration with Pyth fallback for gold and silver plates',
+    'External metals data integration with Pyth fallback for gold and silver plates',
     'Open-Meteo weather fallback when OpenWeather is not configured',
     'Supabase events table for calendar/event plates',
     'Browser output for OBS/vMix capture',
@@ -57,7 +57,7 @@ const operationSteps = [
         route: '/admin/prepare',
         actions: [
             'Upload videos, images, audio and graphics from the Prepare hub.',
-            'Sync Vimeo or open the direct Vimeo route from Prepare.',
+            'Sync Public media or open the direct Public media route from Prepare.',
             'Register remote URLs when needed.',
             'Create weather city plates and data plates before scheduling.',
             'Mark assets as ready only after reviewing playback, duration and fallback.',
@@ -144,7 +144,7 @@ const preAirChecks = [
     'Supabase check OK.',
     'Schema/migrations OK.',
     'Storage buckets OK.',
-    'Vimeo token/playback ready.',
+    'Public media token/playback ready.',
     'Reuters readiness OK if Reuters is used.',
     'OUTPUT_CAPTURE_TOKEN configured.',
     'Browser output opens on the capture machine.',
@@ -196,9 +196,9 @@ export default function NotionStatusPage() {
                 <article className="space-y-12 rounded-sm bg-[#fbfbfa] text-[16px] leading-7">
                     <section className="space-y-5">
                         <div className="text-6xl leading-none">📡</div>
-                        <p className="text-sm font-medium text-[#787774]">RTV Planner</p>
+                        <p className="text-sm font-medium text-[#787774]">Broadcast Planner</p>
                         <h1 className="text-4xl font-bold leading-tight tracking-[-0.01em] text-[#2f2f2b] md:text-5xl">
-                            RTV Planner status
+                            Broadcast Planner status
                         </h1>
 
                         <Callout>
@@ -212,9 +212,9 @@ export default function NotionStatusPage() {
 
                         <h2 className={h2Class}>Current status</h2>
                         <p>
-                            RTV Planner is the broadcast control room for Roxom TV. It gives
-                            operators one place to prepare content, program the daily rundown, check
-                            schedule risk, run preflight and send browser playout into OBS or vMix.
+                            Broadcast Planner is the broadcast control room. It gives operators one
+                            place to prepare content, program the daily rundown, check schedule
+                            risk, run preflight and send browser playout into OBS or vMix.
                         </p>
                         <p>
                             The admin workflow is now grouped by intent: Prepare for content and
@@ -295,8 +295,8 @@ export default function NotionStatusPage() {
                                 persisted smoke status is stale/failing.
                             </li>
                             <li>
-                                Schema, Supabase, storage, Vimeo, Reuters and output checks are
-                                healthy.
+                                Schema, Supabase, storage, Public media, Reuters and output checks
+                                are healthy.
                             </li>
                             <li>
                                 Uploaded local-storage assets play through{' '}
@@ -331,9 +331,9 @@ export default function NotionStatusPage() {
                                 HLS/RTMP endpoints must be refreshed.
                             </li>
                             <li>
-                                Metals plates read Roxom metals data for gold and silver and fall
-                                back to Pyth when needed. Weather uses OpenWeather when configured
-                                and Open-Meteo otherwise.
+                                Metals plates read an optional external provider for gold and silver
+                                and fall back to Pyth when needed. Weather uses OpenWeather when
+                                configured and Open-Meteo otherwise.
                             </li>
                             <li>
                                 Calendar/event plates read the Supabase events table from{' '}
@@ -397,9 +397,9 @@ export default function NotionStatusPage() {
 
                         <h2 className={h2Class}>Objective</h2>
                         <p>
-                            RTV Planner turns a daily broadcast plan into an operator-run signal:
-                            media library, schedule, runbook, fallbacks, live monitor and fullscreen
-                            browser output.
+                            Broadcast Planner turns a daily broadcast plan into an operator-run
+                            signal: media library, schedule, runbook, fallbacks, live monitor and
+                            fullscreen browser output.
                         </p>
 
                         <h2 className={h2Class}>Standard workflow</h2>

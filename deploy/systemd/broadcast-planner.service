@@ -1,0 +1,27 @@
+[Unit]
+Description=Broadcast Planner Next.js app
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=diego
+WorkingDirectory=/home/diego/.local/share/broadcast-planner/current
+EnvironmentFile=/home/diego/.local/share/broadcast-planner/shared/.env
+Environment=PORT=3450
+Environment=NODE_ENV=production
+Environment=NEXT_TELEMETRY_DISABLED=1
+Environment=BROADCAST_PLANNER_SMOKE_STATUS_FILE=/home/diego/.local/share/broadcast-planner/shared/smoke-status.json
+UMask=0027
+ExecStartPre=/usr/bin/ffprobe -version
+ExecStartPre=/usr/bin/test -s /home/diego/.local/share/broadcast-planner/current/server.js
+ExecStartPre=/usr/bin/test -d /home/diego/.local/share/broadcast-planner/current/.next/static
+ExecStart=/usr/bin/node /home/diego/.local/share/broadcast-planner/current/server.js
+Restart=on-failure
+RestartSec=5
+SyslogIdentifier=broadcast-planner
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,5 @@
 services:
-    roxom-playout-manager:
+    broadcast-planner:
         build:
             context: .
         ports:
@@ -15,7 +15,6 @@ services:
             ADMIN_BOOTSTRAP_TOKEN: ${ADMIN_BOOTSTRAP_TOKEN:?required}
             OUTPUT_CAPTURE_TOKEN: ${OUTPUT_CAPTURE_TOKEN:?required}
             NEXT_PUBLIC_APP_BASE_URL: ${NEXT_PUBLIC_APP_BASE_URL:?required}
-            VIMEO_ACCESS_TOKEN: ${VIMEO_ACCESS_TOKEN:-}
             SUPABASE_FETCH_TIMEOUT_MS: ${SUPABASE_FETCH_TIMEOUT_MS:-2000}
         healthcheck:
             test:

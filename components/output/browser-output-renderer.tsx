@@ -35,7 +35,7 @@ type LiveLowerThird = {
 
 type OutputState =
     | {
-          kind: 'vimeo' | 'hls' | 'mp4';
+          kind: 'hls' | 'mp4';
           signature: string;
           blockId?: string | null;
           assetId?: string;
@@ -56,6 +56,32 @@ type OutputState =
           liveSourceType?: 'hls';
           liveStatus?: string;
           lowerThird?: LiveLowerThird;
+          backgroundMusic: BackgroundMusic;
+      }
+    | {
+          kind: 'embed';
+          signature: string;
+          blockId: string;
+          assetId: string;
+          title: string;
+          embedUrl: string;
+          startOffsetSeconds: number;
+          durationSeconds: number | null;
+          serverSeconds: number;
+          generatedAt: string;
+          backgroundMusic: BackgroundMusic;
+      }
+    | {
+          kind: 'audio';
+          signature: string;
+          blockId: string;
+          assetId: string;
+          title: string;
+          url: string;
+          startOffsetSeconds: number;
+          durationSeconds: number | null;
+          serverSeconds: number;
+          generatedAt: string;
           backgroundMusic: BackgroundMusic;
       }
     | {
@@ -124,6 +150,7 @@ type Props = {
 
 export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, token }: Props) {
     const videoRef = useRef<HTMLVideoElement>(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
     const musicRef = useRef<HTMLAudioElement>(null);
     const hlsRef = useRef<Hls | null>(null);
     const inFlightRef = useRef<AbortController | null>(null);
@@ -346,6 +373,49 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
     }, [armed, state?.signature]);
 
     useEffect(() => {
+        const audio = audioRef.current;
+
+        if (!audio || state?.kind !== 'audio') {
+            audio?.pause();
+
+            return;
+        }
+        setMediaState('syncing');
+        audio.src = state.url;
+        audio.preload = 'auto';
+        const onLoadedMetadata = () => {
+            seekMedia(audio, expectedOffset(state), state.durationSeconds);
+            setCurrentTime(audio.currentTime);
+            setMediaState('ready');
+
+            if (armed) {
+                void playMedia(audio);
+            }
+        };
+        const onPlaying = () => setMediaState('playing');
+        const onWaiting = () => setMediaState('waiting');
+        const onError = () => {
+            setError(audio.error?.message || 'Audio playback failed');
+            setMediaState('errored');
+        };
+        const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+        audio.addEventListener('loadedmetadata', onLoadedMetadata);
+        audio.addEventListener('playing', onPlaying);
+        audio.addEventListener('waiting', onWaiting);
+        audio.addEventListener('error', onError);
+        audio.addEventListener('timeupdate', onTimeUpdate);
+        audio.load();
+
+        return () => {
+            audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+            audio.removeEventListener('playing', onPlaying);
+            audio.removeEventListener('waiting', onWaiting);
+            audio.removeEventListener('error', onError);
+            audio.removeEventListener('timeupdate', onTimeUpdate);
+        };
+    }, [armed, state?.signature]);
+
+    useEffect(() => {
         const video = videoRef.current;
 
         if (!video || !state || isVideoState(state)) {
@@ -402,6 +472,11 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
 
         if (musicRef.current && state?.backgroundMusic?.enabled) {
             await musicRef.current.play().catch(() => undefined);
+        }
+
+        if (audioRef.current && state?.kind === 'audio') {
+            seekMedia(audioRef.current, expectedOffset(state), state.durationSeconds);
+            await playMedia(audioRef.current);
         }
     }
 
@@ -495,6 +570,7 @@ export function BrowserOutputRenderer({ debug = false, startAt, previewBlockId, 
                 </div>
             </div>
             <audio ref={musicRef} />
+            <audio ref={audioRef} />
             <VisualState state={state} mediaState={mediaState} />
             <RecordedBugOverlay state={state} />
             <LiveLowerThirdOverlay state={state} />
@@ -642,6 +718,23 @@ function VisualState({ state, mediaState }: { state: OutputState | null; mediaSt
         return <YouTubeLivePlayer key={state.signature} state={state} />;
     }
 
+    if (state.kind === 'embed') {
+        return (
+            <iframe
+                key={state.signature}
+                src={state.embedUrl}
+                title={state.title}
+                allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                referrerPolicy="strict-origin-when-cross-origin"
+                className="absolute inset-0 h-full w-full border-0 bg-black"
+            />
+        );
+    }
+
+    if (state.kind === 'audio' && mediaState !== 'errored') {
+        return <EmergencySlate title={state.title} detail="Audio asset playing" />;
+    }
+
     if (mediaState === 'syncing') {
         return null;
     }
@@ -706,7 +799,7 @@ function EmergencySlate({ title, detail }: { title: string; detail: string }) {
         <section className="absolute inset-0 grid place-items-center bg-black px-12 text-center">
             <div>
                 <p className="text-xs font-bold uppercase tracking-[0.28em] text-accent-positive">
-                    RTV
+                    Broadcast
                 </p>
                 <h1 className="mt-4 text-5xl font-semibold">{title}</h1>
                 <p className="mt-4 text-lg text-white/60">{detail}</p>
@@ -730,10 +823,8 @@ function TextSlide({ title, content }: { title: string; content: string }) {
     );
 }
 
-function isVideoState(
-    state: OutputState,
-): state is Extract<OutputState, { kind: 'vimeo' | 'hls' | 'mp4' }> {
-    return state.kind === 'vimeo' || state.kind === 'hls' || state.kind === 'mp4';
+function isVideoState(state: OutputState): state is Extract<OutputState, { kind: 'hls' | 'mp4' }> {
+    return state.kind === 'hls' || state.kind === 'mp4';
 }
 
 function isLiveState(
@@ -742,11 +833,11 @@ function isLiveState(
     return state.kind === 'youtube_live' || (state.kind === 'hls' && state.live === true);
 }
 
-function isHlsSource(state: Extract<OutputState, { kind: 'vimeo' | 'hls' | 'mp4' }>) {
-    return state.kind === 'vimeo' || state.kind === 'hls' || videoSource(state).includes('.m3u8');
+function isHlsSource(state: Extract<OutputState, { kind: 'hls' | 'mp4' }>) {
+    return state.kind === 'hls' || videoSource(state).includes('.m3u8');
 }
 
-function videoSource(state: Extract<OutputState, { kind: 'vimeo' | 'hls' | 'mp4' }>) {
+function videoSource(state: Extract<OutputState, { kind: 'hls' | 'mp4' }>) {
     return state.hlsUrl ?? state.url ?? '';
 }
 
@@ -789,6 +880,19 @@ async function playVideo(video: HTMLVideoElement) {
     }
 }
 
+function seekMedia(media: HTMLMediaElement, offset: number, durationSeconds: number | null) {
+    const safeOffset =
+        durationSeconds && durationSeconds > 1 ? Math.min(offset, durationSeconds - 1) : offset;
+
+    if (Number.isFinite(safeOffset)) {
+        media.currentTime = Math.max(0, safeOffset);
+    }
+}
+
+async function playMedia(media: HTMLMediaElement) {
+    await media.play().catch(() => undefined);
+}
+
 function videoClassName(state: OutputState | null) {
     const visible = state && isVideoState(state);
 
@@ -800,7 +904,7 @@ function videoClassName(state: OutputState | null) {
 
 function shouldRenderBlurBackground(
     state: OutputState | null,
-): state is Extract<OutputState, { kind: 'vimeo' | 'hls' | 'mp4' }> {
+): state is Extract<OutputState, { kind: 'hls' | 'mp4' }> {
     return Boolean(
         state && isVideoState(state) && state.background === 'blur' && videoSource(state),
     );

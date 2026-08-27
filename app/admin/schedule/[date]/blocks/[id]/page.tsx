@@ -586,12 +586,10 @@ function AssignedAssetEditForm({
                         defaultValue={asset.sourceType}
                         className="border border-line px-3 py-2 text-sm"
                     >
-                        <option value="remote_image">Remote image</option>
-                        <option value="remote_mp4">Remote MP4</option>
-                        <option value="hls">HLS</option>
-                        <option value="vimeo">Vimeo</option>
-                        <option value="supabase_image">Supabase image</option>
-                        <option value="supabase_audio">Supabase audio</option>
+                        <option value="uploaded">Uploaded</option>
+                        <option value="public_url">Public URL</option>
+                        <option value="legacy_external">Legacy external</option>
+                        <option value="reuters">Reuters</option>
                     </select>
                     <select
                         name="media_kind"
@@ -728,12 +726,12 @@ function Info({ label, value }: { label: string; value: ReactNode }) {
 }
 
 function assetOptionLabel(asset: MediaAsset) {
-    const showName =
-        typeof asset.metadata?.vimeo_show_name === 'string'
-            ? `${asset.metadata.vimeo_show_name} · `
+    const providerName =
+        typeof asset.metadata?.provider_name === 'string'
+            ? `${asset.metadata.provider_name} · `
             : '';
 
-    return `${showName}${asset.title} · ${asset.sourceType} · ${asset.status}${
+    return `${providerName}${asset.title} · ${asset.sourceType} · ${asset.status}${
         asset.durationSeconds ? ` · ${formatTimecode(asset.durationSeconds)}` : ''
     }`;
 }

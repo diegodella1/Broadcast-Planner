@@ -342,7 +342,7 @@ const fallbackState = {
     kind: 'fallback',
     signature: 'fallback:no-active-block',
     reason: 'no-active-block',
-    title: 'RTV fallback',
+    title: 'Broadcast Planner fallback',
     serverSeconds: 0,
     generatedAt: new Date().toISOString(),
     backgroundMusic: null,

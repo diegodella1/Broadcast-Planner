@@ -5,10 +5,18 @@ import { auditedMutation } from '../audit/audit';
 import { getDb } from '../db/client';
 import { integrationSettings } from '../db/schema';
 
-import type { IntegrationSetting } from '../settings';
+export type IntegrationSetting = {
+    provider: string;
+    publicConfig: Record<string, unknown>;
+    secret?: string | null;
+    status: 'unknown' | 'connected' | 'invalid' | 'failed';
+    lastError?: string | null;
+    lastCheckedAt?: string | null;
+    hasSecret?: boolean;
+};
 
 /**
- * Reuters credential storage. Mirrors the Vimeo pattern in `lib/settings.ts`.
+ * Reuters credential storage. Mirrors the Public media pattern in `lib/settings.ts`.
  *
  * The OAuth2 triple (client_id, client_secret, refresh_token) is packed into a
  * single JSON-encoded string before encryption with `encryptSecret` so that

@@ -1,8 +1,7 @@
 {
     // ─── Required secrets (set out-of-band, NEVER commit) ───────────────────────
-    // wrangler secret put APP_ENCRYPTION_KEY           (decrypts stored Vimeo/Reuters creds)
+    // wrangler secret put APP_ENCRYPTION_KEY           (decrypts stored Reuters credentials)
     // wrangler secret put ADMIN_BOOTSTRAP_TOKEN        (admin bootstrap login)
-    // wrangler secret put VIMEO_ACCESS_TOKEN          (optional; falls back to encrypted DB value)
     // wrangler secret put REUTERS_CLIENT_ID            (only when REUTERS_PROVIDER=real)
     // wrangler secret put REUTERS_CLIENT_SECRET        (only when REUTERS_PROVIDER=real)
     // wrangler secret put REUTERS_REFRESH_TOKEN        (only when REUTERS_PROVIDER=real)
@@ -11,10 +10,11 @@
     // Migrated off Supabase 2026-06-04; no SUPABASE_* / NEXT_PUBLIC_SUPABASE_* needed.
     //
     // Per-environment dashboard env vars (NOT secrets, but per-env config):
-    //   Set in Cloudflare dashboard > Workers & Pages > roxom-playout-manager > Settings > Variables
-    //   NEXT_PUBLIC_APP_BASE_URL      (e.g. https://roxomtv.com) — build-time inlined
+    //   Set in Cloudflare dashboard > Workers & Pages > broadcast-planner > Settings > Variables
+    //   NEXT_PUBLIC_APP_BASE_URL      (e.g. https://broadcast-planner.diegodella.ar) — build-time inlined
     // ────────────────────────────────────────────────────────────────────────────
-    "name": "roxom-playout-manager",
+    "name": "broadcast-planner",
+    "account_id": "87f4ea363017518621493af30c4851bf",
     "main": ".open-next/worker.js",
     "compatibility_date": "2026-04-15",
     "compatibility_flags": ["nodejs_compat"],
@@ -41,32 +41,31 @@
         },
     ],
     // ─── D1 database (Phase D1 migration) ───────────────────────────────────────
-    // Run `wrangler d1 create rtv-tl-manager-db` to provision and replace the
+    // Run `wrangler d1 create broadcast-planner-db` to provision and replace the
     // PLACEHOLDER below with the real database_id printed by that command.
     "d1_databases": [
         {
             "binding": "DB",
-            "database_name": "rtv-tl-manager-db",
+            "database_name": "broadcast-planner-db",
             "database_id": "f698737f-1c28-434d-8218-9304b9461423",
             "migrations_dir": "./drizzle",
         },
     ],
     // ─── R2 media storage (Phase R2 migration) ───────────────────────────────────
-    // Run `wrangler r2 bucket create rtv-tl-manager-media` to provision.
+    // Run `wrangler r2 bucket create broadcast-planner-media` to provision.
     "r2_buckets": [
         {
             "binding": "MEDIA_BUCKET",
-            "bucket_name": "rtv-tl-manager-media",
+            "bucket_name": "broadcast-planner-media",
         },
     ],
     // ─── Named env: dev ──────────────────────────────────────────────────────────
     // Used by: npm run deploy:dev  →  wrangler deploy --keep-vars --env dev
-    // Run `wrangler d1 create rtv-tl-manager-db-dev` and replace PLACEHOLDER_DEV_D1_ID.
-    // Run `wrangler r2 bucket create rtv-tl-manager-media-dev` for the dev R2 bucket.
+    // Run `wrangler d1 create broadcast-planner-db-dev` and replace PLACEHOLDER_DEV_D1_ID.
+    // Run `wrangler r2 bucket create broadcast-planner-media-dev` for the dev R2 bucket.
     "env": {
         "dev": {
-            "name": "roxom-playout-manager-dev",
-            "keep_vars": true,
+            "name": "broadcast-planner-dev",
             "assets": {
                 "directory": ".open-next/assets",
                 "binding": "ASSETS",
@@ -81,7 +80,7 @@
             "d1_databases": [
                 {
                     "binding": "DB",
-                    "database_name": "rtv-tl-manager-db-dev",
+                    "database_name": "broadcast-planner-db-dev",
                     "database_id": "2e6532c4-e8a9-49d5-99c6-76c70a71fca1",
                     "migrations_dir": "./drizzle",
                 },
@@ -89,17 +88,16 @@
             "r2_buckets": [
                 {
                     "binding": "MEDIA_BUCKET",
-                    "bucket_name": "rtv-tl-manager-media-dev",
+                    "bucket_name": "broadcast-planner-media-dev",
                 },
             ],
         },
         // ─── Named env: prod ─────────────────────────────────────────────────────
         // Used by: npm run deploy:prod  →  wrangler deploy --keep-vars --env prod
         // Shares the same D1 + R2 ids as the top-level (production) bindings.
-        // Replace PLACEHOLDER_PROD_D1_ID once `wrangler d1 create rtv-tl-manager-db` runs.
+        // Replace PLACEHOLDER_PROD_D1_ID once `wrangler d1 create broadcast-planner-db` runs.
         "prod": {
-            "name": "roxom-playout-manager",
-            "keep_vars": true,
+            "name": "broadcast-planner",
             "assets": {
                 "directory": ".open-next/assets",
                 "binding": "ASSETS",
@@ -114,7 +112,7 @@
             "d1_databases": [
                 {
                     "binding": "DB",
-                    "database_name": "rtv-tl-manager-db",
+                    "database_name": "broadcast-planner-db",
                     "database_id": "f698737f-1c28-434d-8218-9304b9461423",
                     "migrations_dir": "./drizzle",
                 },
@@ -122,7 +120,7 @@
             "r2_buckets": [
                 {
                     "binding": "MEDIA_BUCKET",
-                    "bucket_name": "rtv-tl-manager-media",
+                    "bucket_name": "broadcast-planner-media",
                 },
             ],
         },

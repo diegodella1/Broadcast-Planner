@@ -1,16 +1,16 @@
-# Premortem Transcript - RTV Planner MVP Production Readiness
+# Premortem Transcript - Broadcast Planner MVP Production Readiness
 
 Timestamp: 2026-05-10 20:34:03 America/Argentina/Buenos_Aires
 
 ## Context Gathered
 
-What: RTV TL Manager production-readiness plan after MVP hardening work: audit trail, output capture token, Vimeo playback readiness, CSRF, security headers, service-role guard, local/prod read-only smoke scripts, Node read-only E2E smoke, build/Cloudflare build gates.
+What: Broadcast Planner production-readiness plan after MVP hardening work: audit trail, output capture token, Vimeo playback readiness, CSRF, security headers, service-role guard, local/prod read-only smoke scripts, Node read-only E2E smoke, build/Cloudflare build gates.
 
-Who: Roxom TV broadcast operators, admins, producers, and anyone relying on `/output/live`, `/output/preview/[blockId]`, Vimeo/Reuters sync, and schedule publishing during live operations.
+Who: former channel broadcast operators, admins, producers, and anyone relying on `/output/live`, `/output/preview/[blockId]`, Vimeo/Reuters sync, and schedule publishing during live operations.
 
 Success: Production MVP can go on air without silent mock output, unauthenticated mutations, blank output, unready Vimeo assets, missing auditability, or a deploy that passes CI but fails the broadcast path.
 
-Premortem frame: It is 6 months from now. This production-readiness plan failed. RTV Planner was declared MVP-ready, then broke during real operation.
+Premortem frame: It is 6 months from now. This production-readiness plan failed. Broadcast Planner was declared MVP-ready, then broke during real operation.
 
 ## Raw Failure Reasons
 

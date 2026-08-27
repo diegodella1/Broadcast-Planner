@@ -162,7 +162,7 @@ export function buildContentOptions(schedule: ScheduleBundle): ContentOption[] {
 }
 
 function assetOption(asset: MediaAsset): ContentOption {
-    const showName = metadataText(asset, 'vimeo_show_name');
+    const showName = metadataText(asset, 'provider_name');
 
     return {
         value: `asset:${asset.id}`,

@@ -471,27 +471,6 @@ export const getMediaAssetById = cache(async (id: string): Promise<MediaAsset | 
     }
 });
 
-export const getMediaAssetByVimeoUri = cache(
-    async (vimeoUri: string): Promise<MediaAsset | null> => {
-        try {
-            const db = await getDb();
-            const rows = await db
-                .select()
-                .from(mediaAssets)
-                .where(eq(mediaAssets.vimeoUri, vimeoUri))
-                .limit(1);
-            const row = rows[0] ?? null;
-
-            return row ? mapMediaAsset(row) : null;
-        } catch (error) {
-            const fallback =
-                mockSchedule.mediaAssets.find((asset) => asset.vimeoUri === vimeoUri) ?? null;
-
-            return handleDataFailure(error, fallback);
-        }
-    },
-);
-
 export const getSlides = cache(async (): Promise<SlideAsset[]> => {
     try {
         const db = await getDb();
@@ -738,10 +717,25 @@ function mapMediaAsset(row: MediaAssetRow, scheduledAssetIds = new Set<string>()
         lifecycleState: (scheduledAssetIds.has(row.id)
             ? 'scheduled_in_use'
             : (row.lifecycleState ?? 'reviewed')) as NonNullable<MediaAsset['lifecycleState']>,
-        vimeoId: row.vimeoId ?? null,
-        vimeoUri: row.vimeoUri ?? null,
-        vimeoPrivacy: row.vimeoPrivacy ?? null,
-        vimeoEmbedStatus: row.vimeoEmbedStatus ?? null,
+        canonicalUrl: row.canonicalUrl ?? null,
+        playbackKind: (row.playbackKind ?? null) as NonNullable<MediaAsset['playbackKind']> | null,
+        contentType: row.contentType ?? null,
+        fileSizeBytes: row.fileSizeBytes ?? null,
+        width: row.width ?? null,
+        height: row.height ?? null,
+        videoCodec: row.videoCodec ?? null,
+        audioCodec: row.audioCodec ?? null,
+        bitRate: row.bitRate ?? null,
+        frameRate: row.frameRate ?? null,
+        qualityLabel: row.qualityLabel ?? null,
+        etag: row.etag ?? null,
+        lastModified: row.lastModified ?? null,
+        metadataStatus: (row.metadataStatus ?? 'pending') as NonNullable<
+            MediaAsset['metadataStatus']
+        >,
+        metadataCheckedAt: row.metadataCheckedAt ?? null,
+        metadataFailures: row.metadataFailures ?? 0,
+        metadataError: row.metadataError ?? null,
         playbackReadinessStatus: (row.playbackReadinessStatus ?? 'unchecked') as NonNullable<
             MediaAsset['playbackReadinessStatus']
         >,

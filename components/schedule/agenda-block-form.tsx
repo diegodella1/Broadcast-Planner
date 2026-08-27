@@ -176,11 +176,11 @@ export function AgendaBlockForm({
                     {kind === 'video' ? (
                         <details className="rounded-md border border-line bg-surface p-3">
                             <summary className="cursor-pointer text-sm font-semibold text-muted">
-                                Vimeo filters
+                                Provider metadata filters
                             </summary>
                             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_120px_120px]">
                                 <label className="grid gap-1 text-xs font-semibold text-muted">
-                                    Vimeo Show
+                                    Provider
                                     <select
                                         value={showName}
                                         onChange={(event) => setShowName(event.target.value)}
@@ -374,8 +374,8 @@ function buildContentOptions(schedule: ScheduleBundle): ContentOption[] {
 }
 
 function assetOption(asset: MediaAsset): ContentOption {
-    const showName = metadataText(asset, 'vimeo_show_name');
-    const createdDate = parseIsoDate(metadataText(asset, 'vimeo_created_time'));
+    const showName = metadataText(asset, 'provider_name');
+    const createdDate = parseIsoDate(metadataText(asset, 'provider_published_at'));
 
     return {
         value: `asset:${asset.id}`,

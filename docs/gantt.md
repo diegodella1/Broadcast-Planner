@@ -1,4 +1,4 @@
-# RTV Planner Roadmap
+# Broadcast Planner Roadmap
 
 Current roadmap only. The product is in controlled production: useful now, still improving toward safer unattended broadcast operations.
 
@@ -50,4 +50,4 @@ Current roadmap only. The product is in controlled production: useful now, still
 
 ## Selling Point
 
-RTV Planner is valuable because it reduces live broadcast risk. It gives operators one source of truth for Prepare, Program and Operate: content, schedule, fallbacks, health, output and audit. That means fewer manual handoffs, fewer last-minute surprises and a clearer path from "today's plan" to "signal is on air."
+Broadcast Planner is valuable because it reduces live broadcast risk. It gives operators one source of truth for Prepare, Program and Operate: content, schedule, fallbacks, health, output and audit. That means fewer manual handoffs, fewer last-minute surprises and a clearer path from "today's plan" to "signal is on air."

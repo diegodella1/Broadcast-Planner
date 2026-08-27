@@ -1,5 +1,6 @@
 import type { WeatherForecastPoint, WeatherSlideData } from '@/lib/slides/types';
 import type { SlideAsset } from '@/lib/types';
+import { getDataProviderConfig } from './provider-config';
 
 const DEFAULT_LOCATION_NAME = 'Buenos Aires';
 const DEFAULT_LAT = -34.6037;
@@ -47,14 +48,14 @@ type OpenMeteoPayload = {
     };
 };
 
-type RtvWeatherForecastPoint = {
+type DataProviderWeatherForecastPoint = {
     label?: string;
     temperatureC?: number | null;
     condition?: string;
     precipitationProbability?: number | null;
 };
 
-type RtvWeatherEnvelope = {
+type DataProviderWeatherEnvelope = {
     available?: boolean;
     locationName?: string;
     temperatureC?: number | null;
@@ -64,7 +65,7 @@ type RtvWeatherEnvelope = {
     condition?: string;
     description?: string;
     iconCode?: string | null;
-    forecast?: RtvWeatherForecastPoint[];
+    forecast?: DataProviderWeatherForecastPoint[];
     updatedAt?: string;
     reason?: string;
 };
@@ -82,16 +83,16 @@ export async function getWeatherSlideData(input?: {
     if (cached && now - cached.timestamp < WEATHER_CACHE_DURATION_MS) {
         return cached.data;
     }
-    const rtvApiData = await fetchWeatherFromRtvApi(config).catch((error) => {
-        console.warn('[lib/slides/data/weather.ts:fetchWeatherFromRtvApi]', error);
+    const dataProviderApiData = await fetchWeatherFromDataProviderApi(config).catch((error) => {
+        console.warn('[lib/slides/data/weather.ts:fetchWeatherFromDataProviderApi]', error);
 
         return null;
     });
 
-    if (rtvApiData) {
-        weatherCache.set(cacheKey, { data: rtvApiData, timestamp: now });
+    if (dataProviderApiData) {
+        weatherCache.set(cacheKey, { data: dataProviderApiData, timestamp: now });
 
-        return rtvApiData;
+        return dataProviderApiData;
     }
 
     const apiKey = process.env.OPENWEATHER_API_KEY ?? process.env.OPENWEATHERMAP_API_KEY ?? '';
@@ -165,40 +166,43 @@ export async function getWeatherSlideData(input?: {
     }
 }
 
-async function fetchWeatherFromRtvApi(
+async function fetchWeatherFromDataProviderApi(
     config: WeatherLocationConfig,
 ): Promise<WeatherSlideData | null> {
-    const rtvApiUrl = (process.env.RTV_API_URL ?? 'https://api.roxom.tv').replace(/\/$/, '');
-    const rtvApiKey = process.env.RTV_API_KEY ?? process.env.NEXT_PUBLIC_RTV_API_KEY ?? '';
+    const provider = getDataProviderConfig();
+
+    if (!provider) {
+        return null;
+    }
     const headers: Record<string, string> = { Accept: 'application/json' };
 
-    if (rtvApiKey) {
-        headers['x-api-key'] = rtvApiKey;
+    if (provider.apiKey) {
+        headers['x-api-key'] = provider.apiKey;
     }
     const params = new URLSearchParams({
         lat: String(config.lat),
         lon: String(config.lon),
     });
-    const response = await fetch(`${rtvApiUrl}/api/weather?${params.toString()}`, {
+    const response = await fetch(`${provider.baseUrl}/api/weather?${params.toString()}`, {
         headers,
         cache: 'no-store',
         signal: AbortSignal.timeout(5_000),
     });
 
     if (!response.ok) {
-        throw new Error(`rtv-api weather error: ${response.status}`);
+        throw new Error(`data-provider-api weather error: ${response.status}`);
     }
-    const envelope = (await response.json()) as RtvWeatherEnvelope;
+    const envelope = (await response.json()) as DataProviderWeatherEnvelope;
 
     if (envelope.available !== true) {
         return null;
     }
 
-    return mapRtvWeatherEnvelope(envelope, config);
+    return mapDataProviderWeatherEnvelope(envelope, config);
 }
 
-function mapRtvWeatherEnvelope(
-    envelope: RtvWeatherEnvelope,
+function mapDataProviderWeatherEnvelope(
+    envelope: DataProviderWeatherEnvelope,
     config: WeatherLocationConfig,
 ): WeatherSlideData {
     const forecast = Array.isArray(envelope.forecast) ? envelope.forecast : [];

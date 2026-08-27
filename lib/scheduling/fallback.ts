@@ -13,7 +13,7 @@ export function isPlayableFallback(asset: MediaAsset): boolean {
         return false;
     }
 
-    return Boolean(asset.url || asset.storagePath || asset.vimeoId);
+    return Boolean(asset.url || asset.storagePath);
 }
 
 export function findFallbackCandidate(assets: MediaAsset[]): MediaAsset | null {

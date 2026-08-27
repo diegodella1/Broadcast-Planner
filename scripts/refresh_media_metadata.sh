@@ -1,17 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-base_url="${RTV_BASE_URL:-http://127.0.0.1:3450}"
+base_url="${BROADCAST_PLANNER_BASE_URL:-http://127.0.0.1:3450}"
 cookie_jar="$(mktemp)"
 trap 'rm -f "$cookie_jar"' EXIT
 
-if [[ -z "${ADMIN_BOOTSTRAP_TOKEN:-}" ]]; then
-  if [[ -f ".env" ]]; then
-    set -a
-    # shellcheck disable=SC1091
-    . ./.env
-    set +a
-  fi
+if [[ -z "${ADMIN_BOOTSTRAP_TOKEN:-}" && -f ".env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
 fi
 
 if [[ -z "${ADMIN_BOOTSTRAP_TOKEN:-}" ]]; then
@@ -31,9 +29,9 @@ fi
 
 curl -fsS \
   -b "$cookie_jar" \
-  --cookie "rpm_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" \
+  --cookie "broadcast-planner_admin_token=${ADMIN_BOOTSTRAP_TOKEN}" \
   -H "x-csrf-token: ${csrf_token}" \
   -X POST \
-  "${base_url%/}/api/vimeo/sync"
+  "${base_url%/}/api/media/refresh"
 
 echo

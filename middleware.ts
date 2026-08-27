@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { ADMIN_SESSION_COOKIE } from '@/lib/auth/auth-constants';
+import { ADMIN_BOOTSTRAP_COOKIE, ADMIN_SESSION_COOKIE } from '@/lib/auth/auth-constants';
 import { CSRF_COOKIE, INTERNAL_CSRF_HEADER } from '@/lib/auth/csrf-constants';
 
 export function middleware(request: NextRequest) {
@@ -16,11 +16,11 @@ export function middleware(request: NextRequest) {
     }
 
     if (
-        request.nextUrl.pathname === '/rtvtime' ||
-        request.nextUrl.pathname.startsWith('/rtvtime/')
+        request.nextUrl.pathname === '/broadcast-planner' ||
+        request.nextUrl.pathname.startsWith('/broadcast-planner/')
     ) {
         const url = request.nextUrl.clone();
-        url.pathname = request.nextUrl.pathname.replace(/^\/rtvtime/, '') || '/';
+        url.pathname = request.nextUrl.pathname.replace(/^\/broadcast-planner/, '') || '/';
 
         return withCsrfCookie(request, withSecurityHeaders(NextResponse.redirect(url, 308)));
     }
@@ -49,7 +49,7 @@ export function middleware(request: NextRequest) {
     if (request.cookies.get(ADMIN_SESSION_COOKIE)?.value) {
         return withSecurityHeaders(nextWithCsrfHeader(request));
     }
-    const actual = request.cookies.get('rpm_admin_token')?.value;
+    const actual = request.cookies.get(ADMIN_BOOTSTRAP_COOKIE)?.value;
 
     if (actual === expected) {
         return withSecurityHeaders(nextWithCsrfHeader(request));
@@ -179,7 +179,7 @@ function nextWithCsrfHeader(request: NextRequest) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set(INTERNAL_CSRF_HEADER, token);
     requestHeaders.set(
-        'x-rtv-current-path',
+        'x-broadcast-planner-current-path',
         `${request.nextUrl.pathname}${request.nextUrl.search}`,
     );
 

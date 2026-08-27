@@ -1,6 +1,8 @@
+import { getDataProviderConfig } from './provider-config';
+
 /**
  * Shared BTC price cache used by debt and markets data fetchers.
- * rtv-api is preferred when configured; Coinbase spot price is the public fallback.
+ * data-provider-api is preferred when configured; Coinbase spot price is the public fallback.
  */
 
 const BTC_CACHE_DURATION_MS = 2 * 60 * 1000;
@@ -29,7 +31,7 @@ function parsePrice(priceString: string): number {
     return parsed;
 }
 
-type RtvBtcEnvelope = {
+type DataProviderBtcEnvelope = {
     success?: boolean;
     data?: { price?: { live_price?: string } };
     price?: { live_price?: string };
@@ -41,7 +43,7 @@ type CoinbaseSpotEnvelope = {
 
 /**
  * Resolve current BTC/USD price.
- * Returns the cached value if fresh, otherwise calls rtv-api `/api/btc/info`,
+ * Returns the cached value if fresh, otherwise calls data-provider-api `/api/btc/info`,
  * then Coinbase spot BTC-USD, then cached/fixed fallback.
  */
 export async function getBtcPriceUsd(): Promise<number> {
@@ -55,23 +57,27 @@ export async function getBtcPriceData(): Promise<BtcPriceData> {
         return btcCache.data;
     }
 
-    const rtvApiUrl = (process.env.RTV_API_URL ?? 'https://api.roxom.tv').replace(/\/$/, '');
-    const rtvApiKey = process.env.RTV_API_KEY ?? process.env.NEXT_PUBLIC_RTV_API_KEY ?? '';
-
+    const provider = getDataProviderConfig();
     const headers: Record<string, string> = { Accept: 'application/json' };
 
-    if (rtvApiKey) {
-        headers['x-api-key'] = rtvApiKey;
+    if (provider?.apiKey) {
+        headers['x-api-key'] = provider.apiKey;
     }
 
-    const rtvPrice = await fetchRtvBtcPrice(rtvApiUrl, headers).catch((error) => {
-        console.error('[lib/slides/data/btc-cache.ts:fetchRtvBtcPrice]', error);
+    const dataProviderPrice = provider
+        ? await fetchDataProviderBtcPrice(provider.baseUrl, headers).catch((error) => {
+              console.error('[lib/slides/data/btc-cache.ts:fetchDataProviderBtcPrice]', error);
 
-        return null;
-    });
+              return null;
+          })
+        : null;
 
-    if (rtvPrice) {
-        const data = { price: rtvPrice, source: 'rtv-api', updatedAt: new Date().toISOString() };
+    if (dataProviderPrice) {
+        const data = {
+            price: dataProviderPrice,
+            source: 'data-provider-api',
+            updatedAt: new Date().toISOString(),
+        };
         btcCache = { data, timestamp: now };
 
         return data;
@@ -106,25 +112,25 @@ export async function getBtcPriceData(): Promise<BtcPriceData> {
     };
 }
 
-async function fetchRtvBtcPrice(
-    rtvApiUrl: string,
+async function fetchDataProviderBtcPrice(
+    dataProviderApiUrl: string,
     headers: Record<string, string>,
 ): Promise<number | null> {
-    const response = await fetch(`${rtvApiUrl}/api/btc/info`, {
+    const response = await fetch(`${dataProviderApiUrl}/api/btc/info`, {
         headers,
         cache: 'no-store',
         signal: AbortSignal.timeout(5_000),
     });
 
     if (!response.ok) {
-        throw new Error(`rtv-api error: ${response.status}`);
+        throw new Error(`data-provider-api error: ${response.status}`);
     }
-    const envelope = (await response.json()) as RtvBtcEnvelope;
+    const envelope = (await response.json()) as DataProviderBtcEnvelope;
     const inner = envelope.success && envelope.data ? envelope.data : envelope;
     const livePriceString = inner.price?.live_price;
 
     if (!livePriceString || typeof livePriceString !== 'string') {
-        throw new Error('Invalid BTC price data from rtv-api');
+        throw new Error('Invalid BTC price data from data-provider-api');
     }
 
     return parsePrice(livePriceString);

@@ -2,7 +2,7 @@
 set -euo pipefail
 trap 'node scripts/record_smoke_status.mjs fail local-readonly >/dev/null || true' ERR
 
-base_url="${RTV_BASE_URL:-http://127.0.0.1:3450}"
+base_url="${BROADCAST_PLANNER_BASE_URL:-http://127.0.0.1:3450}"
 base_url="${base_url%/}"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
