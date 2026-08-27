@@ -17,6 +17,7 @@ Environment=BROADCAST_PLANNER_SMOKE_STATUS_FILE=/home/diego/.local/share/broadca
 UMask=0027
 ExecStartPre=/usr/bin/ffprobe -version
 ExecStartPre=/usr/bin/test -s /home/diego/.local/share/broadcast-planner/current/server.js
+ExecStartPre=/usr/bin/test -s /home/diego/.local/share/broadcast-planner/current/node_modules/next/package.json
 ExecStartPre=/usr/bin/test -d /home/diego/.local/share/broadcast-planner/current/.next/static
 ExecStart=/usr/bin/node /home/diego/.local/share/broadcast-planner/current/server.js
 Restart=on-failure

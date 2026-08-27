@@ -133,6 +133,10 @@ activate_release() {
         echo "Release has no server.js: $release_dir" >&2
         return 1
     fi
+    if [[ ! -s "$release_dir/node_modules/next/package.json" ]]; then
+        echo "Release has no packaged Next.js runtime: $release_dir" >&2
+        return 1
+    fi
     atomic_link "$release_dir" "$current_link"
     atomic_link "current" "$compat_link"
     sudo systemctl reset-failed "$service_name" >/dev/null 2>&1 || true
@@ -162,6 +166,10 @@ build_release() {
         echo "Build completed without .next/standalone/server.js" >&2
         return 1
     fi
+    if [[ ! -s "$repo_dir/.next/standalone/node_modules/next/package.json" ]]; then
+        echo "Build completed without a packaged Next.js runtime" >&2
+        return 1
+    fi
 
     mkdir -p "$staging_dir"
     cp -a "$repo_dir/.next/standalone/." "$staging_dir/"
@@ -176,6 +184,7 @@ build_release() {
     ln -s "$shared_env" "$staging_dir/.env"
 
     test -s "$staging_dir/server.js"
+    test -s "$staging_dir/node_modules/next/package.json"
     test -d "$staging_dir/.next/static"
     test -d "$staging_dir/public"
     test -s "$staging_dir/wrangler.jsonc"
